@@ -1,4 +1,4 @@
-package dbgen
+package treegen
 
 import (
 	"bytes"
