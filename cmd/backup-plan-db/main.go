@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/klauspost/pgzip"
-	"github.com/wtsi-hgi/backup-plans/dbgen"
+	"github.com/wtsi-hgi/backup-plans/treegen"
 	"github.com/wtsi-hgi/wrstat-ui/stats"
 	"github.com/wtsi-hgi/wrstat-ui/summary"
 )
@@ -53,7 +53,7 @@ func run() error {
 
 	b := bufio.NewWriter(f)
 
-	s.AddDirectoryOperation(dbgen.NewTree(b))
+	s.AddDirectoryOperation(treegen.NewTree(b))
 
 	if err := s.Summarise(); err != nil {
 		return fmt.Errorf("error creating tree db: %w", err)
