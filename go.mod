@@ -28,4 +28,7 @@ require (
 	modernc.org/libc v1.66.3 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
+	vimagination.zapto.org/javascript v1.5.0 // indirect
+	vimagination.zapto.org/parser v1.2.2 // indirect
+	vimagination.zapto.org/tsserver v1.0.14 // indirect
 )

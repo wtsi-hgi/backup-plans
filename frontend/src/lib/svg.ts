@@ -1,0 +1,3 @@
+import { tags } from './dom.js';
+
+export const { a, animate, animateMotion, animateTransform, circle, clipPath, defs, desc, ellipse, feBlend, feColorMatrix, feComponentTransfer, feComposite, feConvolveMatrix, feDiffuseLighting, feDisplacementMap, feDistantLight, feDropShadow, feFlood, feFuncA, feFuncB, feFuncG, feFuncR, feGaussianBlur, feImage, feMerge, feMergeNode, feMorphology, feOffset, fePointLight, feSpecularLighting, feSpotLight, feTile, feTurbulence, filter, foreignObject, g, image, line, linearGradient, marker, mask, metadata, mpath, path, pattern, polygon, polyline, radialGradient, rect, script, set, stop, style, svg, switch: switche, symbol, text, textPath, title, tspan, use, view } = tags("http://www.w3.org/2000/svg");

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/wtsi-hgi/backup-plans/frontend"
 	"github.com/wtsi-hgi/backup-plans/server"
 )
 
@@ -29,5 +30,8 @@ func run() error {
 
 	fmt.Println("Serving...")
 
-	return http.ListenAndServe(":12345", http.HandlerFunc(s.Tree))
+	http.Handle("/api/tree", http.HandlerFunc(s.Tree))
+	http.Handle("/", http.HandlerFunc(frontend.Serve))
+
+	return http.ListenAndServe(":12345", nil)
 }
