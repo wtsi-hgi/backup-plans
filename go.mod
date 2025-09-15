@@ -10,7 +10,7 @@ require (
 	golang.org/x/sys v0.34.0
 	modernc.org/sqlite v1.38.2
 	vimagination.zapto.org/byteio v1.2.1
-	vimagination.zapto.org/tree v1.2.0
+	vimagination.zapto.org/tree v1.3.1
 )
 
 require (

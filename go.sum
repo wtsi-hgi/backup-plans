@@ -69,3 +69,7 @@ vimagination.zapto.org/byteio v1.2.1 h1:sFPhy2jX5QhnsdZbhnVjsM6ADnsj+vWmR8HMtNzl
 vimagination.zapto.org/byteio v1.2.1/go.mod h1:PvkDI/R/f6NXQWabWbOzaRxxeK7hdOTKGcgS8hBIiWw=
 vimagination.zapto.org/tree v1.2.0 h1:77/WirxCWnqBvu3joGZamgD180/HpXe0pBlUGBahpzk=
 vimagination.zapto.org/tree v1.2.0/go.mod h1:rmHo6vRBIyhwRIAOeJPV8DQPsGYpveXk3O7hJkNDLRc=
+vimagination.zapto.org/tree v1.3.0 h1:WaPLjebuKZOesv3MN/SwVg8MBvIvmqQgTbyYtTah6WY=
+vimagination.zapto.org/tree v1.3.0/go.mod h1:rmHo6vRBIyhwRIAOeJPV8DQPsGYpveXk3O7hJkNDLRc=
+vimagination.zapto.org/tree v1.3.1 h1:QHpxHxJkmnCVVtSK26dzlmcIfmcmJmGz/0CLoF7XxQc=
+vimagination.zapto.org/tree v1.3.1/go.mod h1:rmHo6vRBIyhwRIAOeJPV8DQPsGYpveXk3O7hJkNDLRc=
