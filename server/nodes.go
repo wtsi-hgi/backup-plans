@@ -16,6 +16,7 @@ type Node interface {
 }
 
 type Summary struct {
+	UID, GID      uint32
 	Users, Groups map[string]Stats
 }
 
@@ -103,6 +104,9 @@ func (w *WrappedNode) Summary() Summary {
 
 	br := byteio.StickyLittleEndianReader{Reader: bytes.NewReader(w.Data())}
 
+	uid := br.ReadUintX()
+	gid := br.ReadUintX()
+
 	for user := range readStats(&br) {
 		userStats[users.Username(user.ID)] = user
 	}
@@ -111,5 +115,10 @@ func (w *WrappedNode) Summary() Summary {
 		groupStats[users.Group(group.ID)] = group
 	}
 
-	return Summary{userStats, groupStats}
+	return Summary{
+		UID:    uint32(uid),
+		GID:    uint32(gid),
+		Users:  userStats,
+		Groups: groupStats,
+	}
 }

@@ -13,14 +13,6 @@ import (
 	"vimagination.zapto.org/tree"
 )
 
-var (
-	buf [4096]byte
-
-	newline = []byte{'\n'}
-	dirB    = []byte("dir:  ")
-	fileB   = []byte("file: ")
-)
-
 func NewTree(w io.Writer) summary.OperationGenerator {
 	ctx, cancel := context.WithCancelCause(context.Background())
 	next := newNode(ctx)
@@ -145,6 +137,8 @@ func (n *Node) Output() error {
 	case <-n.ctx.Done():
 		return context.Cause(n.ctx)
 	case w := <-n.writer:
+		w.WriteUintX(uint64(n.uid))
+		w.WriteUintX(uint64(n.gid))
 		writeIDTimes(w, getSortedIDTimes(n.users))
 		writeIDTimes(w, getSortedIDTimes(n.groups))
 

@@ -22,7 +22,7 @@ func TestTimeTree(t *testing.T) {
 	Convey("With a summarised time tree", t, func() {
 		f := NewRoot("/", 12345)
 
-		f.AddDirectory("opt").AddDirectory("userDir").SetMeta(1, 1, 98765)
+		f.AddDirectory("opt").SetMeta(99, 98, 1).AddDirectory("userDir").SetMeta(1, 1, 98765)
 		AddFile(f, "opt/userDir/file1.txt", 1, 1, 9, 0, 98766)
 		AddFile(f, "opt/userDir/file2.txt", 1, 2, 8, 0, 98767)
 		AddFile(f, "opt/subDir/subsubDir/file3.txt", 1, 2, 7, 0, 98000)
@@ -43,10 +43,15 @@ func TestTimeTree(t *testing.T) {
 		tr, err := tree.OpenMem(treeDB.Bytes())
 		So(err, ShouldBeNil)
 
+		tr, err = tr.Child("/")
+		So(err, ShouldBeNil)
+
 		Convey("You can read a root summary", func() {
 			r := bytes.NewReader(tr.Data())
 
-			userSummary, groupSummary := readSummary(r)
+			uid, gid, userSummary, groupSummary := readSummary(r)
+			So(uid, ShouldEqual, 0)
+			So(gid, ShouldEqual, 0)
 			So(userSummary, ShouldResemble, []IDData{
 				{1, &Meta{MTime: 98767, Files: 3, Bytes: 24}},
 				{2, &Meta{MTime: 12346, Files: 1, Bytes: 5}},
@@ -67,7 +72,9 @@ func TestTimeTree(t *testing.T) {
 
 			r := bytes.NewReader(tr.Data())
 
-			userSummary, groupSummary := readSummary(r)
+			uid, gid, userSummary, groupSummary := readSummary(r)
+			So(uid, ShouldEqual, 99)
+			So(gid, ShouldEqual, 98)
 			So(userSummary, ShouldResemble, []IDData{
 				{1, &Meta{MTime: 98767, Files: 3, Bytes: 24}},
 				{2, &Meta{MTime: 12346, Files: 1, Bytes: 5}},
@@ -109,10 +116,13 @@ func readMeta(r io.Reader) (uint32, uint32, int64, uint64) {
 	return uint32(lr.ReadUintX()), uint32(lr.ReadUintX()), int64(lr.ReadUintX()), lr.ReadUintX()
 }
 
-func readSummary(r io.Reader) ([]IDData, []IDData) {
+func readSummary(r io.Reader) (uint32, uint32, []IDData, []IDData) {
 	lr := byteio.StickyLittleEndianReader{Reader: r}
 
-	return readArray(&lr), readArray(&lr)
+	uid := lr.ReadUintX()
+	gid := lr.ReadUintX()
+
+	return uint32(uid), uint32(gid), readArray(&lr), readArray(&lr)
 }
 
 func readArray(lr *byteio.StickyLittleEndianReader) []IDData {
