@@ -13,11 +13,13 @@ type Node interface {
 	Child(string) (Node, error)
 	Children() iter.Seq2[string, Node]
 	Summary() Summary
+	SetChild(name string, child Node) error
+	Update() error
 }
 
 type Summary struct {
 	UID, GID      uint32
-	Users, Groups map[string]Stats
+	Users, Groups map[string]*Stats
 }
 
 type SizeCount struct {
@@ -26,8 +28,59 @@ type SizeCount struct {
 }
 
 type TopLevelDir struct {
+	parent   Node
 	children map[string]Node
 	summary  Summary
+}
+
+func newTopLevelDir(parent Node) *TopLevelDir {
+	return &TopLevelDir{
+		parent:   parent,
+		children: make(map[string]Node),
+		summary: Summary{
+			Users:  make(map[string]*Stats),
+			Groups: make(map[string]*Stats),
+		},
+	}
+}
+
+func (t *TopLevelDir) SetChild(name string, child Node) error {
+	t.children[name] = child
+
+	return t.Update()
+}
+
+func (t *TopLevelDir) Update() error {
+	t.summary.Users = make(map[string]*Stats)
+	t.summary.Groups = make(map[string]*Stats)
+
+	for _, child := range t.children {
+		s := child.Summary()
+
+		mergeMaps(s.Users, t.summary.Users)
+		mergeMaps(s.Groups, t.summary.Groups)
+	}
+
+	if t.parent != nil {
+		return t.parent.Update()
+	}
+
+	return nil
+}
+
+func mergeMaps(from, to map[string]*Stats) {
+	for entry, data := range from {
+		u, ok := to[entry]
+		if !ok {
+			u = new(Stats)
+			to[entry] = u
+		}
+
+		u.Files += data.Files
+		u.Size += data.Size
+		u.ID = data.ID
+		u.MTime = max(u.MTime, data.MTime)
+	}
 }
 
 func (t *TopLevelDir) Child(name string) (Node, error) {
@@ -99,8 +152,8 @@ func (w *WrappedNode) Children() iter.Seq2[string, Node] {
 }
 
 func (w *WrappedNode) Summary() Summary {
-	userStats := make(map[string]Stats)
-	groupStats := make(map[string]Stats)
+	userStats := make(map[string]*Stats)
+	groupStats := make(map[string]*Stats)
 
 	br := byteio.StickyLittleEndianReader{Reader: bytes.NewReader(w.Data())}
 
@@ -108,11 +161,11 @@ func (w *WrappedNode) Summary() Summary {
 	gid := br.ReadUintX()
 
 	for user := range readStats(&br) {
-		userStats[users.Username(user.ID)] = user
+		userStats[users.Username(user.ID)] = &user
 	}
 
 	for group := range readStats(&br) {
-		groupStats[users.Group(group.ID)] = group
+		groupStats[users.Group(group.ID)] = &group
 	}
 
 	return Summary{
@@ -121,4 +174,12 @@ func (w *WrappedNode) Summary() Summary {
 		Users:  userStats,
 		Groups: groupStats,
 	}
+}
+
+func (w *WrappedNode) SetChild(name string, child Node) error {
+	return nil
+}
+
+func (w *WrappedNode) Update() error {
+	return nil
 }

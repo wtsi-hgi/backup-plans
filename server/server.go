@@ -54,11 +54,11 @@ func (s *Server) Tree(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	var paths []string
+	children := make(map[string]Summary)
 
-	for childDir := range chosen.Children() {
+	for childDir, child := range chosen.Children() {
 		if strings.HasSuffix(childDir, "/") {
-			paths = append(paths, childDir)
+			children[childDir] = child.Summary()
 		}
 	}
 
@@ -66,13 +66,7 @@ func (s *Server) Tree(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	json.NewEncoder(w).Encode(struct {
-		Summary  Summary
-		Children []string
-	}{
-		Summary:  chosen.Summary(),
-		Children: paths,
-	})
+	json.NewEncoder(w).Encode(children)
 }
 
 func (s *Server) AddTree(file string) error {
@@ -124,9 +118,9 @@ func (s *Server) AddTree(file string) error {
 	for part := range pathParts(rootPath[1 : len(rootPath)-1]) {
 		np, ok := p.children[part]
 		if !ok {
-			np = &TopLevelDir{children: map[string]Node{}}
+			np = newTopLevelDir(p)
 
-			p.children[part] = np
+			p.SetChild(part, np)
 		}
 
 		dir, ok := np.(*TopLevelDir)
@@ -145,7 +139,7 @@ func (s *Server) AddTree(file string) error {
 		}
 	}
 
-	p.children[name] = &WrappedNode{MemTree: treeRoot.(*tree.MemTree)}
+	p.SetChild(name, &WrappedNode{MemTree: treeRoot.(*tree.MemTree)})
 
 	if existing, ok := s.maps[rootPath]; ok {
 		existing()
