@@ -19,12 +19,8 @@ type Node interface {
 
 type Summary struct {
 	UID, GID      uint32
+	Group, User   string
 	Users, Groups map[string]*Stats
-}
-
-type SizeCount struct {
-	Size  int64
-	Count int64
 }
 
 type TopLevelDir struct {

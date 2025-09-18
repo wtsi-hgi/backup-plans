@@ -10,6 +10,10 @@ type Directory struct {
 	Created, Modified time.Time
 }
 
+func (d Directory) ID() int64 {
+	return d.id
+}
+
 func (d *DB) CreateDirectory(dir *Directory) error {
 	tx, err := d.db.Begin()
 	if err != nil {

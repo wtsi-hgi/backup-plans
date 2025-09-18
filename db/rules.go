@@ -27,6 +27,14 @@ type Rule struct {
 	Created, Modified time.Time
 }
 
+func (r Rule) ID() int64 {
+	return r.id
+}
+
+func (r Rule) DirID() int64 {
+	return r.directoryID
+}
+
 func (d *DB) CreateDirectoryRule(dir *Directory, rule *Rule) error {
 	tx, err := d.db.Begin()
 	if err != nil {

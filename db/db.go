@@ -25,11 +25,7 @@
 
 package db
 
-import (
-	"database/sql"
-
-	_ "github.com/go-sql-driver/mysql"
-)
+import "database/sql"
 
 type DBRO struct { //nolint:revive
 	db *sql.DB

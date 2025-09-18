@@ -3,175 +3,71 @@ package server
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
-	"iter"
 	"net/http"
-	"os"
-	"strings"
 	"sync"
 
-	"golang.org/x/sys/unix"
-	"vimagination.zapto.org/tree"
+	"github.com/wtsi-hgi/backup-plans/db"
+	"vimagination.zapto.org/httpbuffer"
+
+	_ "vimagination.zapto.org/httpbuffer/gzip"
 )
 
 type Server struct {
-	mu        sync.RWMutex
+	getUser func(r *http.Request) string
+
+	rulesMu sync.RWMutex
+	rulesDB *db.DB
+	rules   map[string]*DirRules
+
+	treeMu    sync.RWMutex
 	maps      map[string]func()
 	structure TopLevelDir
 }
 
-func New() *Server {
-	return &Server{
-		maps: make(map[string]func()),
+func New(d *db.DB, getUser func(r *http.Request) string) (*Server, error) {
+	s := &Server{
+		getUser: getUser,
+		rulesDB: d,
+		maps:    make(map[string]func()),
 		structure: TopLevelDir{
 			children: map[string]Node{},
 		},
 	}
+
+	if err := s.loadRules(); err != nil {
+		return nil, err
+	}
+
+	return s, nil
 }
 
-func (s *Server) Tree(w http.ResponseWriter, r *http.Request) {
-	dir := r.FormValue("dir")
-
-	if !strings.HasSuffix(dir, "/") || !strings.HasPrefix(dir, "/") {
-		w.WriteHeader(http.StatusBadRequest)
-
-		return
-	}
-
-	s.mu.RLock()
-
-	var chosen Node = &s.structure
-
-	for part := range pathParts(dir[1:]) {
-		var err error
-
-		chosen, err = chosen.Child(part)
-		if err != nil {
-			s.mu.RUnlock()
-			http.NotFound(w, r)
-
-			return
-		}
-	}
-
-	children := make(map[string]Summary)
-
-	for childDir, child := range chosen.Children() {
-		if strings.HasSuffix(childDir, "/") {
-			children[childDir] = child.Summary()
-		}
-	}
-
-	s.mu.RUnlock()
-
-	w.Header().Set("Content-Type", "application/json")
-
-	json.NewEncoder(w).Encode(children)
+func (s *Server) WhoAmI(w http.ResponseWriter, r *http.Request) {
+	json.NewEncoder(w).Encode(s.getUser(r))
 }
 
-func (s *Server) AddTree(file string) error {
-	f, err := os.Open(file)
-	if err != nil {
-		return err
-	}
+func handle(w http.ResponseWriter, r *http.Request, fn func(http.ResponseWriter, *http.Request) error) {
+	httpbuffer.Handler{
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if err := fn(w, r); err != nil {
+				var errc Error
 
-	stat, err := f.Stat()
-	if err != nil {
-		return err
-	}
+				if errors.As(err, &errc) {
+					http.Error(w, errc.Err.Error(), errc.Code)
 
-	data, err := unix.Mmap(int(f.Fd()), 0, int(stat.Size()), unix.PROT_READ, unix.MAP_POPULATE|unix.MAP_SHARED)
-	if err != nil {
-		return err
-	}
+					return
+				}
 
-	db, err := tree.OpenMem(data)
-	if err != nil {
-		return fmt.Errorf("error opening tree: %w", err)
-	}
-
-	if db.NumChildren() != 1 {
-		return ErrInvalidDatabase
-	}
-
-	var (
-		rootPath string
-		treeRoot tree.Node
-	)
-
-	db.Children()(func(path string, node tree.Node) bool {
-		rootPath = path
-		treeRoot = node
-
-		return false
-	})
-
-	if !strings.HasPrefix(rootPath, "/") || !strings.HasSuffix(rootPath, "/") {
-		return ErrInvalidRoot
-	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	p := &s.structure
-
-	for part := range pathParts(rootPath[1 : len(rootPath)-1]) {
-		np, ok := p.children[part]
-		if !ok {
-			np = newTopLevelDir(p)
-
-			p.SetChild(part, np)
-		}
-
-		dir, ok := np.(*TopLevelDir)
-		if !ok {
-			return ErrDeepTree
-		}
-
-		p = dir
-	}
-
-	name := rootPath[strings.LastIndexByte(rootPath[:len(rootPath)-1], '/')+1:]
-
-	if existing, ok := p.children[name]; ok {
-		if _, ok = existing.(*WrappedNode); !ok {
-			return ErrDeepTree
-		}
-	}
-
-	p.SetChild(name, &WrappedNode{MemTree: treeRoot.(*tree.MemTree)})
-
-	if existing, ok := s.maps[rootPath]; ok {
-		existing()
-	}
-
-	s.maps[rootPath] = func() {
-		unix.Munmap(data)
-		f.Close()
-	}
-
-	return nil
-}
-
-func pathParts(path string) iter.Seq[string] {
-	return func(yield func(string) bool) {
-		for {
-			pos := strings.IndexByte(path, '/')
-			if pos == -1 {
-				return
+				http.Error(w, err.Error(), http.StatusInternalServerError)
 			}
-
-			if !yield(path[:pos+1]) {
-				break
-			}
-
-			path = path[pos+1:]
-		}
-	}
+		}),
+	}.ServeHTTP(w, r)
 }
 
-var (
-	ErrInvalidDatabase = errors.New("tree database should have a single root child")
-	ErrInvalidRoot     = errors.New("invalid root child")
-	ErrDeepTree        = errors.New("tree cannot be child of another tree")
-)
+type Error struct {
+	Code int
+	Err  error
+}
+
+func (e Error) Error() string {
+	return e.Err.Error()
+}
