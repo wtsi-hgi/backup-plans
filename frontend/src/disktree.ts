@@ -214,6 +214,11 @@ const phi = (1 + Math.sqrt(5)) / 2,
 	},
 	base = div();
 
+let width = 500,
+	render = () => { };
+
+new ResizeObserver(() => render()).observe(base);
+
 export default Object.assign(base, {
 	"update": (path: string, data: ReadSummary, load: (path: string) => void) => {
 		const entries: Table = [];
@@ -231,6 +236,8 @@ export default Object.assign(base, {
 
 		entries.sort((a, b) => b.value - a.value);
 
-		clearNode(base, buildTreeMap(entries, 500, 400, false, () => { }));
+		render = () => clearNode(base, buildTreeMap(entries, base.clientWidth, 500, false, () => { }));
+
+		render();
 	}
 });
