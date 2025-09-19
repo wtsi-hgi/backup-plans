@@ -7,11 +7,11 @@ import { createRule, removeRule, updateRule, user } from "./rpc.js";
 const actions = ["No Backup", "Temp Backup", "IBackup", "Manual Backup"],
 	action = (backupType: number) => actions[backupType] ?? "Unknown",
 	addEditOverlay = (path: string, rule: Rule, load: (path: string) => void) => {
-		const backupType = select({ "id": "backupType", "value": rule.BackupType + "" }, [
-			option({ "value": "backup" }, "Backup"),
-			option({ "value": "tempbackup" }, "Temp Backup"),
-			option({ "value": "manualbackup" }, "Manual Backup"),
-			option({ "value": "nobackup" }, "No Backup")
+		const backupType = select({ "id": "backupType" }, [
+			option({ "value": "backup", [rule.BackupType === 2 ? "selected" : "unselected"]: "" }, "Backup"),
+			option({ "value": "tempbackup", [rule.BackupType === 1 ? "selected" : "unselected"]: "" }, "Temp Backup"),
+			option({ "value": "manualbackup", [rule.BackupType === 3 ? "selected" : "unselected"]: "" }, "Manual Backup"),
+			option({ "value": "nobackup", [rule.BackupType === 0 ? "selected" : "unselected"]: "" }, "No Backup")
 		]),
 			match = input({ "id": "match", "type": "text", "value": rule.Match, [rule.Match ? "disabled" : "enabled"]: "" }),
 			overlay = document.body.appendChild(dialog({ "closedby": "any", "close": () => overlay.remove() }, [
@@ -37,7 +37,7 @@ export default Object.assign(base, {
 		clearNode(base, [
 			data.rules.ClaimedBy && data.rules.ClaimedBy == user ? button({
 				"click": () => addEditOverlay(path, {
-					"BackupType": 0,
+					"BackupType": 2,
 					"Metadata": "",
 					"ReviewDate": 0,
 					"RemoveDate": 0,
