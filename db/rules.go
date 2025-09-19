@@ -27,11 +27,19 @@ type Rule struct {
 	Created, Modified time.Time
 }
 
-func (r Rule) ID() int64 {
+func (r *Rule) ID() int64 {
+	if r == nil {
+		return 0
+	}
+
 	return r.id
 }
 
-func (r Rule) DirID() int64 {
+func (r *Rule) DirID() int64 {
+	if r == nil {
+		return 0
+	}
+
 	return r.directoryID
 }
 

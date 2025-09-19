@@ -10,7 +10,11 @@ type Directory struct {
 	Created, Modified time.Time
 }
 
-func (d Directory) ID() int64 {
+func (d *Directory) ID() int64 {
+	if d == nil {
+		return 0
+	}
+
 	return d.id
 }
 
