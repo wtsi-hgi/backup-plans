@@ -1,135 +1,236 @@
-import type { Table } from './treemap.js';
-import type { DirectoryRules, ReadSummary, Stats, Summary, Tree } from './types.js';
+import type { ReadSummary } from './types.js';
+import type { Children } from './lib/dom.js';
 import { clearNode } from './lib/dom.js';
-import { button, div, li, ul } from './lib/html.js';
-import { generateInfo as Info } from './info.js';
-import { BuildTreeMap } from './treemap.js';
-import { getRules, getTree } from './rpc.js';
-import { Rules } from './rules.js';
+import { div } from './lib/html.js';
+import { rect, svg, text, use } from './lib/svg.js';
 
 
-let treeLock = false;
+export type Entry = {
+	name: string;
+	value: number;
+	colour?: string;
+	backgroundColour?: string;
+	onclick?: () => void;
+	onmouseover?: () => void;
+	noauth: boolean;
+}
 
-const directories = new Map<string, ReadSummary>(),
-	setAndReturn = <K, V>(m: { set: (k: K, v: V) => void }, k: K, v: V) => {
-		m.set(k, v);
+export type Table = Entry[];
 
-		return v;
-	},
-	countStats = (s: Record<string, Stats>) => Object.values(s).reduce((c, n) => (c[0] += n.Files, c[1] += BigInt(n.Size), c), [0, 0n] as [number, bigint]),
-	getCachedDirectory = (dir: string) => directories.get(dir) ?? setAndReturn(directories, dir, {
-		"loadedData": false,
-		"loadedChildren": false,
-		"children": {},
-		"files": 0,
-		"size": 0n,
-		"User": "",
-		"Group": "",
-		"Users": {},
-		"Groups": {},
-		"rules": {
-			"ClaimedBy": "",
-			"Rules": {}
+type Box = {
+	left: number;
+	top: number;
+	right: number;
+	bottom: number;
+}
+
+type BoxParams = {
+	entry: Entry;
+	top: number;
+	left: number;
+	colWidth: number;
+	rowHeight: number;
+	minScale: number;
+	bbox: { width: number; height: number; depth: number };
+}
+
+const phi = (1 + Math.sqrt(5)) / 2,
+	underhangs = ['g', 'j', 'p', 'q', 'y'],
+	smallLetters = /^[acemnorsuvwxz]+$/,
+	DirBox = ({ entry, top, left, colWidth, rowHeight, minScale, bbox }: BoxParams): Children => [
+		rect({
+			"x": left + "",
+			"y": top + "",
+			"width": colWidth + "",
+			"height": rowHeight + "",
+			"tabIndex": "0",
+			"aria-label": entry.name + (entry.onclick ? "" : entry.noauth ? "; No authorisation to view" : "; No children with current filter"),
+			"stroke": "#000",
+			"fill": entry.backgroundColour ?? "#fff",
+			"class": entry.onclick ? "hasClick box" : "box",
+			"click": (e: MouseEvent) => {
+				if (e.button !== 0) {
+					return;
+				}
+
+				entry.onclick?.();
+			},
+			"keypress": entry.onclick ? (e: KeyboardEvent) => {
+				if (e.key === "Enter") {
+					entry.onclick?.();
+				}
+			} : () => { },
+			"mouseover": entry.onmouseover ?? (() => { }),
+		}),
+		entry.onclick ? [] :
+			entry.noauth ?
+				use({
+					"x": left + (colWidth - bbox.width * minScale) / 2 + "",
+					"y": top + (rowHeight - minScale * 0.5) / 2 + "",
+					"href": "#lock",
+					"width": "0.5em",
+					"height": "0.5em",
+					"style": `color: #000; font-size: ${minScale}px;`
+				}) :
+				use({
+					"x": left + (colWidth - bbox.width * minScale) / 2 + "",
+					"y": top + (rowHeight - minScale * 0.25) / 2 + "",
+					"href": "#emptyDirectory",
+					"width": "0.5em",
+					"height": "0.3846em",
+					"style": `color: "#000", fontSize: ${minScale * 0.9}px`
+				}),
+		text({
+			"font-size": minScale + "",
+			"font-family": "",
+			"x": (entry.noauth ? minScale * 0.225 : 0) + left + colWidth / 2 + "",
+			"y": top + rowHeight / 2 + "",
+			"text-anchor": "middle",
+			"fill": entry.colour ?? "#000",
+			"dominant-baseline": underhangs.some(u => entry.name.includes(u)) || smallLetters.test(entry.name) ? "middle" : "central"
+		}, entry.name)
+	],
+	buildTree = (table: Table, box: Box) => {
+		let lastFontSize = Infinity,
+			remainingTotal = 0,
+			pos = 0;
+
+		for (const e of table) {
+			remainingTotal += e.value;
 		}
-	}),
-	storeData = (dir: string) => (data: Tree) => {
-		const entry = getCachedDirectory(dir);
 
-		for (const [path, child] of Object.entries(data)) {
-			const [files, size] = countStats(child.Users);
+		const toRet: Children = [];
 
-			data[path] = Object.assign(getCachedDirectory(dir + path), {
-				"loadedData": true,
-				"User": child.User,
-				"Group": child.Group,
-				"Users": child.Users,
-				"Groups": child.Groups,
-				"files": files,
-				"size": size,
-			});
-		}
+		while (box.right - box.left >= 1 && box.bottom - box.top >= 1) {
+			const isRow = (box.right - box.left) / (box.bottom - box.top) < phi || pos === 0,
+				boxWidth = box.right - box.left,
+				boxHeight = box.bottom - box.top;
 
-		entry.loadedChildren = true;
-		entry.children = data;
-	},
-	storeRules = (dir: string) => (rules: DirectoryRules) => {
-		const entry = getCachedDirectory(dir);
+			let total = table[pos].value,
+				split = pos + 1;
+			const totalRatio = total / remainingTotal;
+			let lastDR = phi - boxWidth * (isRow ? 1 : totalRatio) / (boxHeight * (isRow ? totalRatio : 1)),
+				d = isRow ? box.left : box.top;
 
-		entry.rules = Object.assign(entry.rules, rules);
-	},
-	parent = (dir: string) => dir.slice(0, dir.slice(0, -1).lastIndexOf("/") + 1),
-	loadDirectoryChildren = (dir: string) => {
-		treeLock = true;
+			for (let i = split; i < table.length; i++) {
+				const { value } = table[i],
+					nextTotal = total + value,
+					rowHeight = boxHeight * (isRow ? nextTotal / remainingTotal : value / nextTotal),
+					colWidth = boxWidth * (isRow ? value / nextTotal : nextTotal / remainingTotal),
+					dRatio = phi - colWidth / rowHeight;
 
-		const entry = getCachedDirectory(dir),
-			parentDir = parent(dir);
+				if ((isRow || lastDR < 0) && Math.abs(dRatio) > Math.abs(lastDR)) {
+					break;
+				}
 
-		return Promise.all([
-			getRules(dir).then(storeRules(dir)),
-			!entry.loadedChildren ? getTree(dir).then(storeData(dir)) : Promise.resolve(),
-			!entry.loadedData ? getTree(parentDir).then(storeData(parentDir)) : Promise.resolve()
-		])
-			.finally(() => treeLock = false)
-			.then(() => entry)
-	},
-	mergeRecords = (from: Record<string, Stats>, to: Record<string, Stats>) => {
-		for (const [entry, data] of Object.entries(from)) {
-			const existing = to[entry] ?? (to[entry] = { ID: 0, MTime: 0, Files: 0, Size: 0 });
-
-			existing.ID = data.ID;
-			existing.MTime = Math.max(existing.MTime, data.MTime);
-			existing.Files += data.Files;
-			existing.Size += data.Size;
-		}
-	},
-	loadTree = (path: string) => {
-		loadDirectoryChildren(path).then(data => {
-			const entries: Table = [],
-				breadcrumbs = path.slice(1, -1).split("/");
-
-			for (const [dir, child] of Object.entries(data.children)) {
-				entries.push({
-					"name": dir.replace("/", ""),
-					"value": Number(child.size),
-					"backgroundColour": "#ff8888",
-					"onclick": () => {
-						if (!treeLock) {
-							loadTree(path + dir);
-						}
-					},
-					"onmouseover": () => { },
-					"noauth": false
-				})
+				lastDR = dRatio;
+				split++;
+				total = nextTotal;
 			}
 
-			entries.sort((a, b) => b.value - a.value);
+			for (let i = pos; i < split; i++) {
+				const entry = table[i],
+					top = isRow ? box.top : d,
+					left = isRow ? d : box.left,
+					colWidth = isRow ? boxWidth * entry.value / total : boxWidth * total / remainingTotal,
+					rowHeight = isRow ? boxHeight * total / remainingTotal :
+						boxHeight * entry.value / total,
+					bbox = getTextBB((entry.onclick ? "" : "W") + entry.name),
+					xScale = colWidth / bbox.width,
+					yScale = 0.9 * rowHeight / (bbox.height + bbox.depth),
+					minScale = lastFontSize = Math.min(xScale, yScale, lastFontSize);
 
-			clearNode(base, [
-				ul({ "id": "breadcrumbs" }, [
-					li(button({ "click": () => loadTree("/"), "title": "Jump To: /" }, "/")),
-					breadcrumbs.slice(0, -1).map((part, n) => li(button({ "click": () => loadTree("/" + breadcrumbs.slice(0, n + 1).join("/") + "/"), "title": `Jump To: ${part}` }, part))),
-					breadcrumbs[0] ? li(breadcrumbs.at(-1)) : []
-				]),
-				BuildTreeMap(entries, 500, 400, false, () => { }),
-				Info(path, data, loadTree),
-				Rules(path, data, loadTree)
-			]);
-		});
-	};
+				d += isRow ? colWidth : rowHeight;
 
-export const base = div();
+				toRet.push(DirBox({ entry, top, left, colWidth, rowHeight, minScale: minScale * 0.75, bbox }));
+			}
 
-getCachedDirectory("/").loadedData = true;
+			if (isRow) {
+				box.top += boxHeight * total / remainingTotal;
+			} else {
+				box.left += boxWidth * total / remainingTotal;
+			}
 
-loadDirectoryChildren("/").then(() => {
-	const root = getCachedDirectory("/")!;
+			pos = split;
+			remainingTotal -= total;
+		}
 
-	for (const child of Object.values(root.children)) {
-		mergeRecords(child.Users, root.Users);
-		mergeRecords(child.Groups, root.Groups);
+		return toRet;
+	},
+	font = "\"Helvetica Neue\", Helvetica, Arial, sans-serif",
+	getTextBB = (() => {
+		const ctx = document.createElement("canvas").getContext("2d"),
+			fontSize = 1000; // Fix for WebKit/Blink bug around font rendering at small sizes.
+
+		if (!ctx) {
+			return () => ({ "width": 1, "height": 1, "depth": 1 });
+		}
+
+		ctx.font = `${fontSize}px ${font}`;
+
+		return (text: string) => {
+			const { width = fontSize, actualBoundingBoxAscent: height = fontSize, actualBoundingBoxDescent: depth = 0 } = ctx.measureText(text) ?? { "width": fontSize, "actualBoundingBoxAscent": fontSize, "actualBoundingBoxDescent": 0 };
+
+			return { width: width / fontSize, height: height / fontSize, depth: depth / fontSize };
+		};
+	})(),
+	maxTableEntries = 1000,
+	buildTreeMap = (table: Table | null, width: number, height: number, noAuth?: boolean, onmouseout?: (e: MouseEvent) => void) => {
+		if (table === null) {
+			return [] as Children;
+		}
+
+		const filteredTable: Table = [],
+			box: Box = {
+				"left": 0,
+				"top": 0,
+				"right": width,
+				"bottom": height
+			};
+
+		for (const entry of table) {
+			if (entry.value > 0) {
+				if (filteredTable.length === maxTableEntries) {
+					break;
+				}
+
+				filteredTable.push(entry);
+			}
+		}
+
+		if (filteredTable.length === 0) {
+			return svg({ "class": "treeMap", "width": width + "", "height": height + "", "viewBox": `0 0 ${width} ${height}` }, [
+				rect({ "width": "100%", "height": "100%", "stroke": "currentColor", "style": `fill: var(--background)` }),
+				noAuth ?
+					use({ "tab-index": "0", "aria-label": "Not authorised to access this directory", "href": "#lock", "height": "150", "transform": `translate(0 ${(height - 200) / 2})` })
+					:
+					use({ "tab-index": "0", "aria-label": "Directory has no children with current filter", "href": "#emptyDirectory", "height": "150", "transform": `translate(0 ${(height - 200) / 2})` }),
+			])
+		}
+
+		return svg({ "class": "treeMap", "width": width + "", "height": height + "", "viewBox": `0 0 ${width} ${height}`, "mouseout": onmouseout ?? (() => { }) },
+			buildTree(table, box)
+		)
+	},
+	base = div();
+
+export default Object.assign(base, {
+	"update": (path: string, data: ReadSummary, load: (path: string) => void) => {
+		const entries: Table = [];
+
+		for (const [dir, child] of Object.entries(data.children)) {
+			entries.push({
+				"name": dir.replace("/", ""),
+				"value": Number(child.size),
+				"backgroundColour": "#ff8888",
+				"onclick": () => load(path + dir),
+				"onmouseover": () => { },
+				"noauth": false
+			})
+		}
+
+		entries.sort((a, b) => b.value - a.value);
+
+		clearNode(base, buildTreeMap(entries, 500, 400, false, () => { }));
 	}
-
-	[root.files, root.size] = countStats(root.Users);
-
-	loadTree("/");
 });

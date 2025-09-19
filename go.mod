@@ -13,7 +13,7 @@ require (
 	vimagination.zapto.org/httpbuffer v1.1.0
 	vimagination.zapto.org/memio v1.1.0
 	vimagination.zapto.org/tree v1.3.1
-	vimagination.zapto.org/tsserver v1.0.14
+	vimagination.zapto.org/tsserver v1.0.15
 )
 
 require (
@@ -33,6 +33,6 @@ require (
 	modernc.org/memory v1.11.0 // indirect
 	vimagination.zapto.org/httpencoding v1.1.1 // indirect
 	vimagination.zapto.org/httpwrap v1.0.1 // indirect
-	vimagination.zapto.org/javascript v1.5.0 // indirect
+	vimagination.zapto.org/javascript v1.5.1 // indirect
 	vimagination.zapto.org/parser v1.2.2 // indirect
 )

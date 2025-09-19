@@ -75,6 +75,8 @@ vimagination.zapto.org/httpwrap v1.0.1 h1:Gmvl/z456oRxLZzrWPIo3QRvhsZ5weeSg0TKaa
 vimagination.zapto.org/httpwrap v1.0.1/go.mod h1:5igD7pWwU/z1PKM9a96lgxdPe31GsncUVz4KdjTdF+U=
 vimagination.zapto.org/javascript v1.5.0 h1:MNQynA27nKt5LFewhtyCPBXBsSgZPl7oKAMlghmkv2w=
 vimagination.zapto.org/javascript v1.5.0/go.mod h1:VHox5R23pekFQihRLxhfKh3lvY9TbGhG5KhPtMnM2kw=
+vimagination.zapto.org/javascript v1.5.1 h1:ykiuPlQL6NCjryMiT9a1iLjoJX9ATS0pgUtjXqCbkVI=
+vimagination.zapto.org/javascript v1.5.1/go.mod h1:VHox5R23pekFQihRLxhfKh3lvY9TbGhG5KhPtMnM2kw=
 vimagination.zapto.org/memio v1.1.0 h1:jZ3c0MgU7BD7MvVYQvX8Ncq8Ee3XX8nstcqcAb9Rk5g=
 vimagination.zapto.org/memio v1.1.0/go.mod h1:RdXC+0ctULK7DykQQu6QeRJhQZVbAfYu+vOys0FNk4c=
 vimagination.zapto.org/parser v1.2.2 h1:LdihVnnzb7m2e0caKm2Zsj+8IJiUKW2ZCK7b/+XmpSo=
@@ -83,3 +85,5 @@ vimagination.zapto.org/tree v1.3.1 h1:QHpxHxJkmnCVVtSK26dzlmcIfmcmJmGz/0CLoF7XxQ
 vimagination.zapto.org/tree v1.3.1/go.mod h1:rmHo6vRBIyhwRIAOeJPV8DQPsGYpveXk3O7hJkNDLRc=
 vimagination.zapto.org/tsserver v1.0.14 h1:IHwbKeEqtPrHgWtTkZGYBYKGzNH9qoFfd8lS987qIeI=
 vimagination.zapto.org/tsserver v1.0.14/go.mod h1:Cu0Ozxy8GNBoOLoKrmwCIYTLXRTUrvylI80EmIqrf0Q=
+vimagination.zapto.org/tsserver v1.0.15 h1:ELPcwvintUhPjhTEkqzhUQWbTbAcXGDz8V+pu2dFwLg=
+vimagination.zapto.org/tsserver v1.0.15/go.mod h1:P+KZXzGKarX1SyQmGh7TmWO7q+in3vmOeafm2AWjrh0=
