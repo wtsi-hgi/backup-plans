@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"iter"
+	"maps"
 
 	"github.com/wtsi-hgi/backup-plans/users"
 	"vimagination.zapto.org/byteio"
@@ -89,13 +90,7 @@ func (t *TopLevelDir) Child(name string) (Node, error) {
 }
 
 func (t *TopLevelDir) Children() iter.Seq2[string, Node] {
-	return func(yield func(string, Node) bool) {
-		for name, child := range t.children {
-			if !yield(name, child) {
-				return
-			}
-		}
-	}
+	return maps.All(t.children)
 }
 
 func (t *TopLevelDir) Summary() Summary {
