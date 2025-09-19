@@ -31,11 +31,11 @@ import { symbols } from './symbols.js';
 			Breadcrumbs,
 			div({ "class": "tabs" }, [
 				details({ "name": "tabs", "open": "open" }, [
-					summary("Directrory Tree"),
+					summary("Directory Tree"),
 					DiskTree
 				]),
 				details({ "name": "tabs" }, [
-					summary("Directrory List"),
+					summary("Directory List"),
 					List
 				])
 			]),
