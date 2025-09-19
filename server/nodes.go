@@ -104,6 +104,13 @@ type Stats struct {
 	Size  uint64
 }
 
+func (s *Stats) writeTo(sw *byteio.StickyLittleEndianWriter) {
+	sw.WriteUint64(uint64(s.ID))
+	sw.WriteUint64(uint64(s.MTime))
+	sw.WriteUint64(uint64(s.Files))
+	sw.WriteUint64(s.Size)
+}
+
 func readStats(br byteio.StickyEndianReader) iter.Seq[Stats] {
 	return func(yield func(Stats) bool) {
 		for range br.ReadUintX() {

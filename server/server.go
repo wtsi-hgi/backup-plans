@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/wtsi-hgi/backup-plans/db"
+	"github.com/wtsi-hgi/wrstat-ui/summary/group"
 	"vimagination.zapto.org/httpbuffer"
 
 	_ "vimagination.zapto.org/httpbuffer/gzip"
@@ -15,9 +16,10 @@ import (
 type Server struct {
 	getUser func(r *http.Request) string
 
-	rulesMu sync.RWMutex
-	rulesDB *db.DB
-	rules   map[string]*DirRules
+	rulesMu      sync.RWMutex
+	rulesDB      *db.DB
+	rules        map[string]*DirRules
+	stateMachine group.StateMachine[db.Rule]
 
 	treeMu    sync.RWMutex
 	maps      map[string]func()

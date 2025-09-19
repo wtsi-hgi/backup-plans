@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/wtsi-hgi/backup-plans/db"
+	"github.com/wtsi-hgi/wrstat-ui/summary/group"
 )
 
 type DirRules struct {
@@ -34,6 +35,8 @@ func (s *Server) loadRules() error {
 		return err
 	}
 
+	var ruleList []group.PathGroup[db.Rule]
+
 	if err := s.rulesDB.ReadRules().ForEach(func(r *db.Rule) error {
 		dir, ok := dirs[r.DirID()]
 		if !ok {
@@ -41,11 +44,22 @@ func (s *Server) loadRules() error {
 		}
 
 		dir.Rules[r.Match] = r
+		ruleList = append(ruleList, group.PathGroup[db.Rule]{
+			Path:  []byte(dir.Path),
+			Group: r,
+		})
 
 		return nil
 	}); err != nil {
 		return err
 	}
+
+	sm, err := group.NewStatemachine(ruleList)
+	if err != nil {
+		return err
+	}
+
+	s.stateMachine = sm
 
 	return nil
 }

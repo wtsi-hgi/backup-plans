@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"iter"
+	"maps"
 	"net/http"
 	"os"
 	"strings"
@@ -49,52 +50,152 @@ func (s *Server) tree(w http.ResponseWriter, r *http.Request) error {
 	return json.NewEncoder(w).Encode(children)
 }
 
-func (s *Server) AddTree(file string) error {
-	f, err := os.Open(file)
+func (s *Server) AddTree(file string) (err error) {
+	db, closer, err := openDB(file)
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if err != nil {
+			closer()
+		}
+	}()
 
-	stat, err := f.Stat()
+	treeRoot, rootPath, err := getRoot(db)
 	if err != nil {
 		return err
-	}
-
-	data, err := unix.Mmap(int(f.Fd()), 0, int(stat.Size()), unix.PROT_READ, unix.MAP_POPULATE|unix.MAP_SHARED)
-	if err != nil {
-		return err
-	}
-
-	db, err := tree.OpenMem(data)
-	if err != nil {
-		return fmt.Errorf("error opening tree: %w", err)
-	}
-
-	if db.NumChildren() != 1 {
-		return ErrInvalidDatabase
-	}
-
-	var (
-		rootPath string
-		treeRoot tree.Node
-	)
-
-	db.Children()(func(path string, node tree.Node) bool {
-		rootPath = path
-		treeRoot = node
-
-		return false
-	})
-
-	if !strings.HasPrefix(rootPath, "/") || !strings.HasSuffix(rootPath, "/") {
-		return ErrInvalidRoot
 	}
 
 	s.treeMu.Lock()
 	defer s.treeMu.Unlock()
 
-	p := &s.structure
+	if err = s.processRules(treeRoot, rootPath); err != nil {
+		return err
+	}
 
+	if err = createTopLevelDirs(treeRoot, rootPath, &s.structure); err != nil {
+		return err
+	}
+
+	if existing, ok := s.maps[rootPath]; ok {
+		existing()
+	}
+
+	s.maps[rootPath] = closer
+
+	return nil
+}
+
+func openDB(file string) (*tree.MemTree, func(), error) {
+	f, err := os.Open(file)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	stat, err := f.Stat()
+	if err != nil {
+		f.Close()
+
+		return nil, nil, err
+	}
+
+	data, err := unix.Mmap(int(f.Fd()), 0, int(stat.Size()), unix.PROT_READ, unix.MAP_POPULATE|unix.MAP_SHARED)
+	if err != nil {
+		f.Close()
+
+		return nil, nil, err
+	}
+
+	fn := func() {
+		unix.Munmap(data)
+		f.Close()
+	}
+
+	db, err := tree.OpenMem(data)
+	if err != nil {
+		fn()
+
+		return nil, nil, fmt.Errorf("error opening tree: %w", err)
+	}
+
+	return db, fn, nil
+}
+
+func getRoot(db *tree.MemTree) (*tree.MemTree, string, error) {
+	if db.NumChildren() != 1 {
+		return nil, "", ErrInvalidDatabase
+	}
+
+	var (
+		rootPath string
+		treeRoot *tree.MemTree
+	)
+
+	db.Children()(func(path string, node tree.Node) bool {
+		rootPath = path
+		treeRoot = node.(*tree.MemTree)
+
+		return false
+	})
+
+	if !strings.HasPrefix(rootPath, "/") || !strings.HasSuffix(rootPath, "/") {
+		return nil, "", ErrInvalidRoot
+	}
+
+	return treeRoot, rootPath, nil
+}
+
+func (s *Server) processRules(treeRoot *tree.MemTree, rootPath string) error {
+	// 	rulePrefixes := s.createRulePrefixMap(rootPath)
+
+	// 	var childErr tree.ChildNotFoundError
+
+	// 	rd := RulesDir{
+	// 		sm: s.stateMachine,
+	// 		dir: summary.DirectoryPath{Name: rootPath},
+	// 	}
+
+	// Loop:
+	// 	for {
+	// 		rd.node = treeRoot
+
+	// 		for part := range pathParts(ruleDir) {
+	// 			rd.node, err = rd.node.Child(part)
+	// 			if errors.As(err, &childErr) {
+	// 				break Loop
+	// 			} else if err != nil {
+	// 				return err
+	// 			}
+	// 		}
+
+	// 		lastRule = ruleDir
+
+	// 		rd.dir.Name = ruleDir
+	// 	}
+
+	return nil
+}
+
+func (s *Server) createRulePrefixMap(rootPath string) map[string]bool {
+	rulePrefixes := make(map[string]bool)
+
+	for ruleDir := range maps.Keys(s.rules) {
+		if !strings.HasPrefix(ruleDir, rootPath) {
+			continue
+		}
+
+		rulePrefixes[ruleDir] = true
+
+		for ruleDir != "/" {
+			ruleDir = ruleDir[:strings.LastIndexByte(ruleDir, '/')+1]
+			rulePrefixes[ruleDir] = rulePrefixes[ruleDir] || false
+		}
+	}
+
+	return rulePrefixes
+}
+
+func createTopLevelDirs(treeRoot *tree.MemTree, rootPath string, p *TopLevelDir) error {
 	for part := range pathParts(rootPath[1 : len(rootPath)-1]) {
 		np, ok := p.children[part]
 		if !ok {
@@ -119,16 +220,7 @@ func (s *Server) AddTree(file string) error {
 		}
 	}
 
-	p.SetChild(name, &WrappedNode{MemTree: treeRoot.(*tree.MemTree)})
-
-	if existing, ok := s.maps[rootPath]; ok {
-		existing()
-	}
-
-	s.maps[rootPath] = func() {
-		unix.Munmap(data)
-		f.Close()
-	}
+	p.SetChild(name, &WrappedNode{MemTree: treeRoot})
 
 	return nil
 }
