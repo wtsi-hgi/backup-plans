@@ -1,0 +1,18 @@
+#breadcrumbs {
+	list-style: none;
+	padding: 0;
+}
+
+#breadcrumbs li {
+	display: inline-block;
+}
+
+#breadcrumbs li:first-child {
+	padding: 0 0.5em;
+}
+
+#breadcrumbs li:not(:first-child):after {
+	content: "/";
+	display: inline-block;
+	padding: 0 0.5em;
+}

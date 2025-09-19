@@ -1,21 +1,10 @@
-import { clearNode, type Children } from './lib/dom.js';
 import type { ReadSummary } from './types.js';
+import { clearNode, type Children } from './lib/dom.js';
 import { button, table, tbody, td, th, tr } from './lib/html.js';
+import { formatBytes } from './lib/utils.js';
 import { claimDir, user } from './rpc.js';
 
-const byteSizes = ["B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB", "RiB", "QiB"],
-	formatBytes = (size: bigint) => {
-		for (const suffix of byteSizes) {
-			if (size < 1024n) {
-				return size.toLocaleString() + suffix;
-			}
-
-			size >>= BigInt(10);
-		}
-
-		return "∞";
-	},
-	[claimedByCell, filesCell, sizeCell] = [td(), td(), td()],
+const [claimedByCell, filesCell, sizeCell] = [td(), td(), td()],
 	base = table(tbody([
 		tr([th("Claimed By"), claimedByCell]),
 		tr([th("Files"), filesCell]),

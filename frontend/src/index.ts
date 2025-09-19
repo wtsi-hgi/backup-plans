@@ -1,7 +1,9 @@
+import { details, div, summary } from './lib/html.js';
 import Breadcrumbs from './breadcrumbs.js';
 import Load from './data.js';
 import DiskTree from './disktree.js';
 import DirInfo from './info.js';
+import List from './list.js';
 import Rules from './rules.js';
 import { symbols } from './symbols.js';
 
@@ -12,6 +14,7 @@ import { symbols } from './symbols.js';
 		if (path !== lastPath) {
 			Breadcrumbs.update(path, load);
 			DiskTree.update(path, data, load);
+			List.update(path, data, load);
 			DirInfo.update(path, data, load);
 		}
 
@@ -26,7 +29,16 @@ import { symbols } from './symbols.js';
 		document.body.replaceChildren(
 			symbols,
 			Breadcrumbs,
-			DiskTree,
+			div({ "class": "tabs" }, [
+				details({ "name": "tabs", "open": "open" }, [
+					summary("Directrory Tree"),
+					DiskTree
+				]),
+				details({ "name": "tabs" }, [
+					summary("Directrory List"),
+					List
+				])
+			]),
 			DirInfo,
 			Rules
 		);
