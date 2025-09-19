@@ -13,12 +13,12 @@ const actions = ["No Backup", "Temp Backup", "IBackup", "Manual Backup"],
 			option({ "value": "manualbackup" }, "Manual Backup"),
 			option({ "value": "nobackup" }, "No Backup")
 		]),
-			match = input({ "id": "match", "type": "text", "value": rule.Match }),
+			match = input({ "id": "match", "type": "text", "value": rule.Match, [rule.Match ? "disabled" : "enabled"]: "" }),
 			overlay = document.body.appendChild(dialog({ "closedby": "any", "close": () => overlay.remove() }, [
-				label({ "for": "backupType" }, "Backup Type"), backupType, br(),
 				label({ "for": "match" }, "Match"), match, br(),
+				label({ "for": "backupType" }, "Backup Type"), backupType, br(),
 				button({
-					"click": () => (rule.Match ? updateRule : createRule)(path, backupType.value, match.value)
+					"click": () => (rule.Match ? updateRule : createRule)(path, backupType.value, rule.Match || match.value || "*")
 						.then(() => {
 							load(path);
 							overlay.remove();
@@ -46,10 +46,10 @@ export default Object.assign(base, {
 				}, load),
 			}, "Add Rule") : [],
 			data.rules.ClaimedBy ? table({ "id": "rules" }, [
-				thead(tr([th("Action"), th("Match"), th()])),
+				thead(tr([th("Match"), th("Action"), th()])),
 				tbody(Object.values(data.rules.Rules).map(rule => tr([
-					td(action(rule.BackupType)),
 					td(rule.Match),
+					td(action(rule.BackupType)),
 					td([
 						button({ "click": () => addEditOverlay(path, rule, load) }, svg([
 							title("Edit Rule"),
