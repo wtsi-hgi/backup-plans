@@ -1,4 +1,5 @@
 @import url("disktree.css");
+@import url("rules.css");
 
 body {
 	--background: #fff;
