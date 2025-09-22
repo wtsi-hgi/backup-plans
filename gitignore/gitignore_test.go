@@ -7,7 +7,7 @@ import (
 )
 
 func TestNew(t *testing.T) {
-	Convey("Given a gitIgnore filepath, a gitignore object with a valid matcher can be retrieved", t, func() {
+	Convey("Given a gitIgnore filepath, a gitignore object can be retrieved", t, func() {
 		gi, err := New("gitignoreExample.txt")
 		So(gi, ShouldNotBeNil)
 		So(err, ShouldBeNil)
@@ -15,8 +15,8 @@ func TestNew(t *testing.T) {
 		Convey("Files can be split into ignore/keep", func() {
 			paths := []string{"testfile.txt", "testfile2.log"}
 			ignore, keep := gi.Match(paths)
-			So(ignore, ShouldEqual, []string{"testfile2.log"})
-			So(keep, ShouldEqual, []string{"testfile.txt"}) //TODO: check with CASM what behaviour they have in mind for files not matched by any rule
+			So(ignore, ShouldResemble, []string{"testfile2.log"})
+			So(keep, ShouldResemble, []string{"testfile.txt"}) //TODO: check with CASM what behaviour they have in mind for files not matched by any rule
 		})
 
 		Convey("Rules can be retrieved", func() {
@@ -26,20 +26,29 @@ func TestNew(t *testing.T) {
 		})
 
 		Convey("Rules can be added", func() {
-			err = gi.AddRules([]string{"*.txt", "/test/"})
-			So(err, ShouldBeNil)
-			newrules, err := gi.GetRules()
+			newrules, err := gi.AddRules([]string{"*.txt", "/test/"})
 			So(err, ShouldBeNil)
 			So(newrules, ShouldEqual, []string{"*.log", "/build/", "/!important.log", "*.txt", "/test/"})
+
+			Convey("And the matcher is successfully updated to correspond with the updated rules", func() {
+				paths := []string{"testfile.txt", "testfile2.log", "testfile3.mpg"}
+				ignore, keep := gi.Match(paths)
+				So(ignore, ShouldResemble, []string{"testfile.txt", "testfile2.log"})
+				So(keep, ShouldResemble, []string{"testfile3.mpg"})
+			})
 		})
 
 		Convey("Rules can be removed", func() {
-			err = gi.RemoveRules([]string{"*.log"})
-			So(err, ShouldBeNil)
-
-			newrules, err := gi.GetRules()
+			newrules, err := gi.RemoveRules([]string{"*.log"})
 			So(err, ShouldBeNil)
 			So(newrules, ShouldEqual, []string{"/build/", "/!important.log"})
+
+			Convey("And the matcher is successfully updated to correspond with the updated rules", func() {
+				paths := []string{"/build/", "test.log"}
+				ignore, keep := gi.Match(paths)
+				So(ignore, ShouldResemble, []string{"/build/"})
+				So(keep, ShouldResemble, []string{"test.log"})
+			})
 		})
 	})
 }
