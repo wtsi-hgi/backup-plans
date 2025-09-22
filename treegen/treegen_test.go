@@ -122,6 +122,9 @@ func readSummary(r io.Reader) (uint32, uint32, []IDData, []IDData) {
 	uid := lr.ReadUintX()
 	gid := lr.ReadUintX()
 
+	lr.ReadUint8()
+	lr.ReadUint8()
+
 	return uint32(uid), uint32(gid), readArray(&lr), readArray(&lr)
 }
 
@@ -131,8 +134,8 @@ func readArray(lr *byteio.StickyLittleEndianReader) []IDData {
 	for n := range idts {
 		idts[n].ID = uint32(lr.ReadUintX())
 		idts[n].Meta = new(Meta)
-		idts[n].MTime = uint32(lr.ReadUintX())
-		idts[n].Files = uint32(lr.ReadUintX())
+		idts[n].MTime = lr.ReadUintX()
+		idts[n].Files = lr.ReadUintX()
 		idts[n].Bytes = lr.ReadUintX()
 	}
 

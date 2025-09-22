@@ -71,8 +71,8 @@ func newNode(ctx context.Context) *Node {
 }
 
 type Meta struct {
-	MTime uint32
-	Files uint32
+	MTime uint64
+	Files uint64
 	Bytes uint64
 }
 
@@ -86,7 +86,7 @@ func (i IDMeta) Add(id uint32, t int64, size int64) {
 		i[id] = existing
 	}
 
-	existing.MTime = max(existing.MTime, uint32(t))
+	existing.MTime = max(existing.MTime, uint64(t))
 	existing.Files++
 	existing.Bytes += uint64(size)
 }
@@ -139,6 +139,8 @@ func (n *Node) Output() error {
 	case w := <-n.writer:
 		w.WriteUintX(uint64(n.uid))
 		w.WriteUintX(uint64(n.gid))
+		w.WriteUint8(1) // 1 rule
+		w.WriteUint8(0) // rule ID 0 (warn)
 		writeIDTimes(w, getSortedIDTimes(n.users))
 		writeIDTimes(w, getSortedIDTimes(n.groups))
 
@@ -215,7 +217,7 @@ func writeIDTimes(w *byteio.StickyLittleEndianWriter, idts []IDData) {
 	for _, idt := range idts {
 		w.WriteUintX(uint64(idt.ID))
 		w.WriteUintX(uint64(idt.MTime))
-		w.WriteUintX(uint64(idt.Files))
+		w.WriteUintX(idt.Files)
 		w.WriteUintX(idt.Bytes)
 	}
 }
