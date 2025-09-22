@@ -1,61 +1,44 @@
 package server
 
-import (
-	"bytes"
-	"iter"
-	"maps"
+import "strings"
 
-	"github.com/wtsi-hgi/backup-plans/users"
-	"vimagination.zapto.org/byteio"
-	"vimagination.zapto.org/tree"
-)
-
-type Node interface {
-	Child(string) (Node, error)
-	Children() iter.Seq2[string, Node]
-	Summary() Summary
-	SetChild(name string, child Node) error
-	Update() error
-}
-
-type Summary struct {
-	UID, GID      uint32
-	Group, User   string
-	Users, Groups map[string]*Stats
+type Summariser interface {
+	Summary(string) (*DirSummary, error)
 }
 
 type TopLevelDir struct {
-	parent   Node
-	children map[string]Node
-	summary  Summary
+	parent   *TopLevelDir
+	children map[string]Summariser
+	summary  DirSummary
 }
 
-func newTopLevelDir(parent Node) *TopLevelDir {
+func newTopLevelDir(parent *TopLevelDir) *TopLevelDir {
 	return &TopLevelDir{
 		parent:   parent,
-		children: make(map[string]Node),
-		summary: Summary{
-			Users:  make(map[string]*Stats),
-			Groups: make(map[string]*Stats),
-		},
+		children: make(map[string]Summariser),
 	}
 }
 
-func (t *TopLevelDir) SetChild(name string, child Node) error {
+func (t *TopLevelDir) SetChild(name string, child Summariser) error {
 	t.children[name] = child
 
 	return t.Update()
 }
 
 func (t *TopLevelDir) Update() error {
-	t.summary.Users = make(map[string]*Stats)
-	t.summary.Groups = make(map[string]*Stats)
+	t.summary.Children = t.summary.Children[:0]
+	t.summary.RuleSummaries = t.summary.RuleSummaries[:0]
 
 	for _, child := range t.children {
-		s := child.Summary()
+		s, err := child.Summary("")
+		if err != nil {
+			return err
+		}
 
-		mergeMaps(s.Users, t.summary.Users)
-		mergeMaps(s.Groups, t.summary.Groups)
+		t.summary.MergeRules(s.RuleSummaries)
+		t.summary.Children = append(t.summary.Children, &DirSummary{
+			RuleSummaries: s.RuleSummaries,
+		})
 	}
 
 	if t.parent != nil {
@@ -65,119 +48,17 @@ func (t *TopLevelDir) Update() error {
 	return nil
 }
 
-func mergeMaps(from, to map[string]*Stats) {
-	for entry, data := range from {
-		u, ok := to[entry]
-		if !ok {
-			u = new(Stats)
-			to[entry] = u
-		}
-
-		u.Files += data.Files
-		u.Size += data.Size
-		u.ID = data.ID
-		u.MTime = max(u.MTime, data.MTime)
-	}
-}
-
-func (t *TopLevelDir) Child(name string) (Node, error) {
-	child, ok := t.children[name]
-	if !ok {
-		return nil, tree.ChildNotFoundError(name)
+func (t *TopLevelDir) Summary(path string) (*DirSummary, error) {
+	if path == "" {
+		return &t.summary, nil
 	}
 
-	return child, nil
-}
+	pos := strings.IndexByte(path, '/')
 
-func (t *TopLevelDir) Children() iter.Seq2[string, Node] {
-	return maps.All(t.children)
-}
-
-func (t *TopLevelDir) Summary() Summary {
-	return t.summary
-}
-
-type Stats struct {
-	ID    uint32
-	MTime uint32
-	Files uint32
-	Size  uint64
-}
-
-func (s *Stats) writeTo(sw *byteio.StickyLittleEndianWriter) {
-	sw.WriteUint64(uint64(s.ID))
-	sw.WriteUint64(uint64(s.MTime))
-	sw.WriteUint64(uint64(s.Files))
-	sw.WriteUint64(s.Size)
-}
-
-func readStats(br byteio.StickyEndianReader) iter.Seq[Stats] {
-	return func(yield func(Stats) bool) {
-		for range br.ReadUintX() {
-			if !yield(Stats{
-				ID:    uint32(br.ReadUintX()),
-				MTime: uint32(br.ReadUintX()),
-				Files: uint32(br.ReadUintX()),
-				Size:  br.ReadUintX(),
-			}) {
-				return
-			}
-		}
-	}
-}
-
-type WrappedNode struct {
-	*tree.MemTree
-}
-
-func (w *WrappedNode) Child(name string) (Node, error) {
-	child, err := w.MemTree.Child(name)
-	if err != nil {
-		return nil, err
+	child := t.children[path[:pos+1]]
+	if child == nil {
+		return nil, ErrNotFound
 	}
 
-	return &WrappedNode{MemTree: child}, nil
-}
-
-func (w *WrappedNode) Children() iter.Seq2[string, Node] {
-	return func(yield func(string, Node) bool) {
-		for name, child := range w.MemTree.Children() {
-			if !yield(name, &WrappedNode{MemTree: child.(*tree.MemTree)}) {
-				return
-			}
-		}
-	}
-}
-
-func (w *WrappedNode) Summary() Summary {
-	userStats := make(map[string]*Stats)
-	groupStats := make(map[string]*Stats)
-
-	br := byteio.StickyLittleEndianReader{Reader: bytes.NewReader(w.Data())}
-
-	uid := br.ReadUintX()
-	gid := br.ReadUintX()
-
-	for user := range readStats(&br) {
-		userStats[users.Username(user.ID)] = &user
-	}
-
-	for group := range readStats(&br) {
-		groupStats[users.Group(group.ID)] = &group
-	}
-
-	return Summary{
-		UID:    uint32(uid),
-		GID:    uint32(gid),
-		Users:  userStats,
-		Groups: groupStats,
-	}
-}
-
-func (w *WrappedNode) SetChild(name string, child Node) error {
-	return nil
-}
-
-func (w *WrappedNode) Update() error {
-	return nil
+	return child.Summary(path[pos+1:])
 }

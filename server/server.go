@@ -22,7 +22,7 @@ type Server struct {
 	stateMachine group.StateMachine[db.Rule]
 
 	treeMu    sync.RWMutex
-	maps      map[string]func()
+	closers   map[string]func()
 	structure TopLevelDir
 }
 
@@ -30,9 +30,9 @@ func New(d *db.DB, getUser func(r *http.Request) string) (*Server, error) {
 	s := &Server{
 		getUser: getUser,
 		rulesDB: d,
-		maps:    make(map[string]func()),
+		closers: make(map[string]func()),
 		structure: TopLevelDir{
-			children: map[string]Node{},
+			children: map[string]Summariser{},
 		},
 	}
 

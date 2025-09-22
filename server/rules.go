@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -45,7 +46,7 @@ func (s *Server) loadRules() error {
 
 		dir.Rules[r.Match] = r
 		ruleList = append(ruleList, group.PathGroup[db.Rule]{
-			Path:  []byte(dir.Path),
+			Path:  []byte(path.Join(dir.Path, r.Match)),
 			Group: r,
 		})
 

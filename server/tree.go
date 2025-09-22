@@ -1,15 +1,16 @@
 package server
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"iter"
-	"maps"
 	"net/http"
 	"os"
 	"strings"
 
+	"github.com/wtsi-hgi/wrstat-ui/summary"
 	"golang.org/x/sys/unix"
 	"vimagination.zapto.org/tree"
 )
@@ -27,27 +28,14 @@ func (s *Server) tree(w http.ResponseWriter, r *http.Request) error {
 	s.treeMu.RLock()
 	defer s.treeMu.RUnlock()
 
-	var chosen Node = &s.structure
-
-	for part := range pathParts(dir[1:]) {
-		var err error
-
-		if chosen, err = chosen.Child(part); err != nil {
-			return ErrNotFound
-		}
-	}
-
-	children := make(map[string]Summary)
-
-	for childDir, child := range chosen.Children() {
-		if strings.HasSuffix(childDir, "/") {
-			children[childDir] = child.Summary()
-		}
+	summary, err := s.structure.Summary(dir[1:])
+	if err != nil {
+		return err
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 
-	return json.NewEncoder(w).Encode(children)
+	return json.NewEncoder(w).Encode(summary)
 }
 
 func (s *Server) AddTree(file string) (err error) {
@@ -69,19 +57,20 @@ func (s *Server) AddTree(file string) (err error) {
 	s.treeMu.Lock()
 	defer s.treeMu.Unlock()
 
-	if err = s.processRules(treeRoot, rootPath); err != nil {
+	processed, err := s.processRules(treeRoot, rootPath)
+	if err != nil {
 		return err
 	}
 
-	if err = createTopLevelDirs(treeRoot, rootPath, &s.structure); err != nil {
+	if err = createTopLevelDirs(processed, rootPath, &s.structure); err != nil {
 		return err
 	}
 
-	if existing, ok := s.maps[rootPath]; ok {
+	if existing, ok := s.closers[rootPath]; ok {
 		existing()
 	}
 
-	s.maps[rootPath] = closer
+	s.closers[rootPath] = closer
 
 	return nil
 }
@@ -145,41 +134,40 @@ func getRoot(db *tree.MemTree) (*tree.MemTree, string, error) {
 	return treeRoot, rootPath, nil
 }
 
-func (s *Server) processRules(treeRoot *tree.MemTree, rootPath string) error {
-	// 	rulePrefixes := s.createRulePrefixMap(rootPath)
+func (s *Server) processRules(treeRoot *tree.MemTree, rootPath string) (*RuleOverlay, error) {
+	rd := RuleLessDir{
+		rulesDir: rulesDir{
+			node: treeRoot,
+			sm:   s.stateMachine,
+			dir:  summary.DirectoryPath{Name: rootPath},
+		},
+		ruleDirPrefixes: s.createRulePrefixMap(rootPath),
+		rules: &RulesDir{
+			rulesDir: rulesDir{
+				sm: s.stateMachine,
+			},
+		},
+		nameBuf: new([4096]byte),
+	}
 
-	// 	var childErr tree.ChildNotFoundError
+	var buf bytes.Buffer
 
-	// 	rd := RulesDir{
-	// 		sm: s.stateMachine,
-	// 		dir: summary.DirectoryPath{Name: rootPath},
-	// 	}
+	if err := tree.Serialise(&buf, &rd); err != nil {
+		return nil, err
+	}
 
-	// Loop:
-	// 	for {
-	// 		rd.node = treeRoot
+	processed, err := tree.OpenMem(buf.Bytes())
+	if err != nil {
+		return nil, err
+	}
 
-	// 		for part := range pathParts(ruleDir) {
-	// 			rd.node, err = rd.node.Child(part)
-	// 			if errors.As(err, &childErr) {
-	// 				break Loop
-	// 			} else if err != nil {
-	// 				return err
-	// 			}
-	// 		}
-
-	// 		lastRule = ruleDir
-
-	// 		rd.dir.Name = ruleDir
-	// 	}
-
-	return nil
+	return &RuleOverlay{lower: treeRoot, upper: processed}, nil
 }
 
 func (s *Server) createRulePrefixMap(rootPath string) map[string]bool {
 	rulePrefixes := make(map[string]bool)
 
-	for ruleDir := range maps.Keys(s.rules) {
+	for ruleDir := range s.rules {
 		if !strings.HasPrefix(ruleDir, rootPath) {
 			continue
 		}
@@ -187,7 +175,7 @@ func (s *Server) createRulePrefixMap(rootPath string) map[string]bool {
 		rulePrefixes[ruleDir] = true
 
 		for ruleDir != "/" {
-			ruleDir = ruleDir[:strings.LastIndexByte(ruleDir, '/')+1]
+			ruleDir = ruleDir[:strings.LastIndexByte(ruleDir[:len(ruleDir)-1], '/')+1]
 			rulePrefixes[ruleDir] = rulePrefixes[ruleDir] || false
 		}
 	}
@@ -195,7 +183,7 @@ func (s *Server) createRulePrefixMap(rootPath string) map[string]bool {
 	return rulePrefixes
 }
 
-func createTopLevelDirs(treeRoot *tree.MemTree, rootPath string, p *TopLevelDir) error {
+func createTopLevelDirs(treeRoot *RuleOverlay, rootPath string, p *TopLevelDir) error {
 	for part := range pathParts(rootPath[1 : len(rootPath)-1]) {
 		np, ok := p.children[part]
 		if !ok {
@@ -215,12 +203,12 @@ func createTopLevelDirs(treeRoot *tree.MemTree, rootPath string, p *TopLevelDir)
 	name := rootPath[strings.LastIndexByte(rootPath[:len(rootPath)-1], '/')+1:]
 
 	if existing, ok := p.children[name]; ok {
-		if _, ok = existing.(*WrappedNode); !ok {
+		if _, ok = existing.(*RuleOverlay); !ok {
 			return ErrDeepTree
 		}
 	}
 
-	p.SetChild(name, &WrappedNode{MemTree: treeRoot})
+	p.SetChild(name, treeRoot)
 
 	return nil
 }
