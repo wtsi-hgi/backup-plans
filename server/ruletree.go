@@ -39,11 +39,11 @@ type ruleStats []Stats
 
 func (r *ruleStats) add(id uint32, mtime, count, size uint64) {
 	newStats := Stats{
-		ID: id,
+		id: id,
 	}
 
 	pos, ok := slices.BinarySearchFunc(*r, newStats, func(a, b Stats) int {
-		return int(a.ID) - int(b.ID)
+		return int(a.id) - int(b.id)
 	})
 	if !ok {
 		*r = slices.Insert(*r, pos, newStats)

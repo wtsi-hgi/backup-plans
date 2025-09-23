@@ -27,22 +27,22 @@ func (d *DirSummary) MergeRules(rules []Rule) {
 		}
 
 		for _, user := range rule.Users {
-			d.RuleSummaries[pos].Users.add(user.ID, user.MTime, user.Files, user.Size)
+			d.RuleSummaries[pos].Users.add(user.id, user.MTime, user.Files, user.Size)
 		}
 
-		setNames(rule.Users, users.Username)
+		setNames(d.RuleSummaries[pos].Users, users.Username)
 
 		for _, group := range rule.Groups {
-			d.RuleSummaries[pos].Groups.add(group.ID, group.MTime, group.Files, group.Size)
+			d.RuleSummaries[pos].Groups.add(group.id, group.MTime, group.Files, group.Size)
 		}
 
-		setNames(rule.Groups, users.Group)
+		setNames(d.RuleSummaries[pos].Groups, users.Group)
 	}
 }
 
 func setNames(rules ruleStats, name func(uint32) string) {
 	for n := range rules {
-		rules[n].Name = name(rules[n].ID)
+		rules[n].Name = name(rules[n].id)
 	}
 }
 
@@ -116,7 +116,7 @@ func (r *RuleOverlay) getSummary() *DirSummary {
 }
 
 type Stats struct {
-	ID    uint32
+	id    uint32
 	Name  string
 	MTime uint64
 	Files uint64
@@ -124,7 +124,7 @@ type Stats struct {
 }
 
 func (s *Stats) writeTo(sw *byteio.StickyLittleEndianWriter) {
-	sw.WriteUintX(uint64(s.ID))
+	sw.WriteUintX(uint64(s.id))
 	sw.WriteUintX(uint64(s.MTime))
 	sw.WriteUintX(uint64(s.Files))
 	sw.WriteUintX(s.Size)
@@ -135,13 +135,13 @@ func readStats(br *byteio.StickyLittleEndianReader, name func(uint32) string) []
 
 	for n := range stats {
 		stats[n] = Stats{
-			ID:    uint32(br.ReadUintX()),
+			id:    uint32(br.ReadUintX()),
 			MTime: br.ReadUintX(),
 			Files: br.ReadUintX(),
 			Size:  br.ReadUintX(),
 		}
 
-		stats[n].Name = name(stats[n].ID)
+		stats[n].Name = name(stats[n].id)
 	}
 
 	return stats
