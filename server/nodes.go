@@ -26,19 +26,19 @@ func (t *TopLevelDir) SetChild(name string, child Summariser) error {
 }
 
 func (t *TopLevelDir) Update() error {
-	t.summary.Children = t.summary.Children[:0]
+	clear(t.summary.Children)
 	t.summary.RuleSummaries = t.summary.RuleSummaries[:0]
 
-	for _, child := range t.children {
+	for name, child := range t.children {
 		s, err := child.Summary("")
 		if err != nil {
 			return err
 		}
 
 		t.summary.MergeRules(s.RuleSummaries)
-		t.summary.Children = append(t.summary.Children, &DirSummary{
+		t.summary.Children[name] = &DirSummary{
 			RuleSummaries: s.RuleSummaries,
-		})
+		}
 	}
 
 	if t.parent != nil {

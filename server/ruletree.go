@@ -21,7 +21,7 @@ type Rule struct {
 }
 
 func (r *Rule) writeTo(sw *byteio.StickyLittleEndianWriter) {
-	sw.WriteUintX(uint64(r.ID))
+	sw.WriteUintX(r.ID)
 	sw.WriteUintX(uint64(len(r.Users)))
 
 	for n := range r.Users {

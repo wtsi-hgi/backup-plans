@@ -16,10 +16,12 @@ import (
 type Server struct {
 	getUser func(r *http.Request) string
 
-	rulesMu      sync.RWMutex
-	rulesDB      *db.DB
-	rules        map[string]*DirRules
-	stateMachine group.StateMachine[db.Rule]
+	rulesMu        sync.RWMutex
+	rulesDB        *db.DB
+	directoryRules map[string]*DirRules
+	dirs           map[uint64]*db.Directory
+	rules          map[uint64]*db.Rule
+	stateMachine   group.StateMachine[db.Rule]
 
 	treeMu    sync.RWMutex
 	closers   map[string]func()

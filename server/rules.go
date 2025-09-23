@@ -20,7 +20,9 @@ type DirRules struct {
 }
 
 func (s *Server) loadRules() error {
-	s.rules = make(map[string]*DirRules)
+	s.directoryRules = make(map[string]*DirRules)
+	s.dirs = make(map[uint64]*db.Directory)
+	s.rules = make(map[uint64]*db.Rule)
 	dirs := make(map[int64]*DirRules)
 
 	if err := s.rulesDB.ReadDirectories().ForEach(func(dir *db.Directory) error {
@@ -28,8 +30,9 @@ func (s *Server) loadRules() error {
 			Directory: dir,
 			Rules:     make(map[string]*db.Rule),
 		}
-		s.rules[dir.Path] = dr
+		s.directoryRules[dir.Path] = dr
 		dirs[dir.ID()] = dr
+		s.dirs[uint64(dir.ID())] = dir
 
 		return nil
 	}); err != nil {
@@ -43,6 +46,8 @@ func (s *Server) loadRules() error {
 		if !ok {
 			return ErrOrphanedRule
 		}
+
+		s.rules[uint64(r.ID())] = r
 
 		dir.Rules[r.Match] = r
 		ruleList = append(ruleList, group.PathGroup[db.Rule]{
@@ -83,7 +88,7 @@ func (s *Server) claimDir(w http.ResponseWriter, r *http.Request) error {
 	s.rulesMu.Lock()
 	defer s.rulesMu.Unlock()
 
-	if _, ok := s.rules[dir]; ok {
+	if _, ok := s.directoryRules[dir]; ok {
 		return ErrDirectoryClaimed
 	}
 
@@ -96,7 +101,7 @@ func (s *Server) claimDir(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	s.rules[dir] = &DirRules{
+	s.directoryRules[dir] = &DirRules{
 		Directory: directory,
 		Rules:     make(map[string]*db.Rule),
 	}
@@ -130,7 +135,7 @@ func (s *Server) createRule(w http.ResponseWriter, r *http.Request) error {
 	s.rulesMu.Lock()
 	defer s.rulesMu.Unlock()
 
-	directory, ok := s.rules[dir]
+	directory, ok := s.directoryRules[dir]
 	if !ok {
 		return ErrInvalidDir
 	}
@@ -223,7 +228,7 @@ func (s *Server) getRules(w http.ResponseWriter, r *http.Request) error {
 	s.rulesMu.RLock()
 	defer s.rulesMu.RUnlock()
 
-	directory, ok := s.rules[dir]
+	directory, ok := s.directoryRules[dir]
 	if ok {
 		return json.NewEncoder(w).Encode(directory)
 
@@ -252,7 +257,7 @@ func (s *Server) updateRule(w http.ResponseWriter, r *http.Request) error {
 	s.rulesMu.Lock()
 	defer s.rulesMu.Unlock()
 
-	directory, ok := s.rules[dir]
+	directory, ok := s.directoryRules[dir]
 	if !ok {
 		return ErrInvalidDir
 	}
@@ -285,7 +290,7 @@ func (s *Server) removeRule(w http.ResponseWriter, r *http.Request) error {
 	s.rulesMu.Lock()
 	defer s.rulesMu.Unlock()
 
-	directory, ok := s.rules[dir]
+	directory, ok := s.directoryRules[dir]
 	if !ok {
 		return ErrDirectoryNotClaimed
 	}

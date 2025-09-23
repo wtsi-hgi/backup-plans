@@ -14,7 +14,7 @@ import (
 type DirSummary struct {
 	uid, gid      uint32
 	RuleSummaries []Rule
-	Children      []*DirSummary
+	Children      map[string]*DirSummary
 }
 
 func (d *DirSummary) MergeRules(rules []Rule) {
@@ -90,7 +90,7 @@ func (r *RuleOverlay) getSummaryWithChildren() *DirSummary {
 
 		cr := RuleOverlay{lower.(*tree.MemTree), upper}
 
-		ds.Children = append(ds.Children, cr.getSummary())
+		ds.Children[name] = cr.getSummary()
 	}
 
 	return ds

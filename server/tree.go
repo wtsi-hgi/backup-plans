@@ -10,10 +10,16 @@ import (
 	"os"
 	"strings"
 
+	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/wrstat-ui/summary"
 	"golang.org/x/sys/unix"
 	"vimagination.zapto.org/tree"
 )
+
+type Tree struct {
+	*DirSummary
+	Rules map[string]map[uint64]*db.Rule
+}
 
 func (s *Server) Tree(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.tree)
@@ -33,9 +39,41 @@ func (s *Server) tree(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
+	t := Tree{
+		DirSummary: summary,
+		Rules:      make(map[string]map[uint64]*db.Rule),
+	}
+
+	dirRules, ok := s.directoryRules[dir]
+	if ok {
+		thisDir := make(map[uint64]*db.Rule)
+		t.Rules[dir] = thisDir
+
+		for _, rule := range dirRules.Rules {
+			thisDir[uint64(rule.ID())] = rule
+		}
+	}
+
+	for _, rs := range t.RuleSummaries {
+		if rs.ID == 0 {
+			continue
+		}
+
+		rule := s.rules[rs.ID]
+		dir := s.dirs[uint64(rule.DirID())]
+
+		r, ok := t.Rules[dir.Path]
+		if !ok {
+			r = make(map[uint64]*db.Rule)
+			t.Rules[dir.Path] = r
+		}
+
+		r[rs.ID] = rule
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 
-	return json.NewEncoder(w).Encode(summary)
+	return json.NewEncoder(w).Encode(t)
 }
 
 func (s *Server) AddTree(file string) (err error) {
@@ -167,7 +205,7 @@ func (s *Server) processRules(treeRoot *tree.MemTree, rootPath string) (*RuleOve
 func (s *Server) createRulePrefixMap(rootPath string) map[string]bool {
 	rulePrefixes := make(map[string]bool)
 
-	for ruleDir := range s.rules {
+	for ruleDir := range s.directoryRules {
 		if !strings.HasPrefix(ruleDir, rootPath) {
 			continue
 		}

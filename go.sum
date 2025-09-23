@@ -75,8 +75,6 @@ vimagination.zapto.org/httpwrap v1.0.1 h1:Gmvl/z456oRxLZzrWPIo3QRvhsZ5weeSg0TKaa
 vimagination.zapto.org/httpwrap v1.0.1/go.mod h1:5igD7pWwU/z1PKM9a96lgxdPe31GsncUVz4KdjTdF+U=
 vimagination.zapto.org/javascript v1.5.1 h1:ykiuPlQL6NCjryMiT9a1iLjoJX9ATS0pgUtjXqCbkVI=
 vimagination.zapto.org/javascript v1.5.1/go.mod h1:VHox5R23pekFQihRLxhfKh3lvY9TbGhG5KhPtMnM2kw=
-vimagination.zapto.org/memio v1.1.0 h1:jZ3c0MgU7BD7MvVYQvX8Ncq8Ee3XX8nstcqcAb9Rk5g=
-vimagination.zapto.org/memio v1.1.0/go.mod h1:RdXC+0ctULK7DykQQu6QeRJhQZVbAfYu+vOys0FNk4c=
 vimagination.zapto.org/parser v1.2.2 h1:LdihVnnzb7m2e0caKm2Zsj+8IJiUKW2ZCK7b/+XmpSo=
 vimagination.zapto.org/parser v1.2.2/go.mod h1:MxM1MZY6A9AeEx6nahIQ6MJaGZqX80n6Vm3zGVqV9FU=
 vimagination.zapto.org/tree v1.3.1 h1:QHpxHxJkmnCVVtSK26dzlmcIfmcmJmGz/0CLoF7XxQc=
