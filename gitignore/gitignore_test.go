@@ -30,6 +30,12 @@ func TestNew(t *testing.T) {
 			So(err, ShouldBeNil)
 			So(newrules, ShouldEqual, []string{"*.log", "/build/", "/!important.log", "*.txt", "/test/"})
 
+			Convey("With the insertion indices specified", func() {
+				newrules, err = gi.AddRulesAt([]string{"*.png", "/test2/"}, []int{1, 3})
+				So(err, ShouldBeNil)
+				So(newrules, ShouldEqual, []string{"*.log", "*.png", "/build/", "/test2/", "/!important.log", "*.txt", "/test/"})
+			})
+
 			Convey("And the matcher is successfully updated to correspond with the updated rules", func() {
 				paths := []string{"testfile.txt", "testfile2.log", "testfile3.mpg"}
 				ignore, keep := gi.Match(paths)

@@ -90,3 +90,42 @@ func (g *GitIgnore) AddRules(rules []string) ([]string, error) {
 	g.Matcher = parser.CompileIgnoreLines(g.IgnoreLines...)
 	return g.IgnoreLines, nil
 }
+
+// Given a gitignore object, rules can be added at specified indices
+// indices will be sorted in ascending order, and the next string inserted at
+// that index.
+// Eg: inserting {a, b} to indices {1,2} in {c,d,e,f,g} will result in
+// {c,a,b,e,f,g}
+func (g *GitIgnore) AddRulesAt(rules []string, indices []int) ([]string, error) {
+	for i, r := range rules {
+		exists := false
+		for _, item := range g.IgnoreLines {
+			if item == r {
+				exists = true
+				break
+			}
+		}
+		if !exists {
+			if i < len(indices) {
+				newLines, err := insert(g.IgnoreLines, indices[i], r)
+				if err != nil {
+					return nil, err
+				}
+				g.IgnoreLines = newLines
+			} else {
+				g.IgnoreLines = append(g.IgnoreLines, r)
+			}
+		}
+	}
+	g.Matcher = parser.CompileIgnoreLines(g.IgnoreLines...)
+	return g.IgnoreLines, nil
+}
+
+func insert(s []string, i int, val string) ([]string, error) {
+	if i < 0 || i > len(s) {
+		return nil, fmt.Errorf("invalid index %+v", i)
+	}
+	s = append(s[:i+1], s[i:]...)
+	s[i] = val
+	return s, nil
+}
