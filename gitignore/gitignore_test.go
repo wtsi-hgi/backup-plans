@@ -16,7 +16,7 @@ func TestNew(t *testing.T) {
 			paths := []string{"testfile.txt", "testfile2.log"}
 			ignore, keep := gi.Match(paths)
 			So(ignore, ShouldResemble, []string{"testfile2.log"})
-			So(keep, ShouldResemble, []string{"testfile.txt"}) //TODO: check with CASM what behaviour they have in mind for files not matched by any rule
+			So(keep, ShouldResemble, []string{"testfile.txt"})
 		})
 
 		Convey("Rules can be retrieved", func() {
