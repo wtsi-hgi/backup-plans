@@ -34,6 +34,15 @@ func TestNew(t *testing.T) {
 				newrules, err = gi.AddRulesAt([]string{"*.png", "/test2/"}, []int{1, 3})
 				So(err, ShouldBeNil)
 				So(newrules, ShouldEqual, []string{"*.log", "*.png", "/build/", "/test2/", "/!important.log", "*.txt", "/test/"})
+				newrules, err = gi.AddRulesAt([]string{"/ignoreme/"}, []int{0})
+				So(err, ShouldBeNil)
+				So(newrules, ShouldEqual, []string{"/ignoreme/", "*.log", "*.png", "/build/", "/test2/", "/!important.log", "*.txt", "/test/"})
+				newrules, err = gi.AddRulesAt([]string{"/ignoremepls/"}, []int{8})
+				So(err, ShouldBeNil)
+				So(newrules, ShouldEqual, []string{"/ignoreme/", "*.log", "*.png", "/build/", "/test2/", "/!important.log", "*.txt", "/test/", "/ignoremepls/"})
+				newrules, err = gi.AddRulesAt([]string{"/testbad/", "bad/indices/"}, []int{1})
+				So(err, ShouldBeNil)
+				So(newrules, ShouldEqual, []string{"/ignoreme/", "/testbad/", "*.log", "*.png", "/build/", "/test2/", "/!important.log", "*.txt", "/test/", "/ignoremepls/", "bad/indices/"})
 			})
 
 			Convey("And the matcher is successfully updated to correspond with the updated rules", func() {

@@ -3,6 +3,7 @@ package gitignore
 import (
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 
 	parser "github.com/sabhiram/go-gitignore"
@@ -93,10 +94,15 @@ func (g *GitIgnore) AddRules(rules []string) ([]string, error) {
 
 // Given a gitignore object, rules can be added at specified indices
 // indices will be sorted in ascending order, and the next string inserted at
-// that index.
+// that index. If the number of strings exceeds the number of indices supplied,
+// all following strings will be appended.
 // Eg: inserting {a, b} to indices {1,2} in {c,d,e,f,g} will result in
 // {c,a,b,e,f,g}
 func (g *GitIgnore) AddRulesAt(rules []string, indices []int) ([]string, error) {
+	if indices != nil {
+		sort.Ints(indices)
+	}
+
 	for i, r := range rules {
 		exists := false
 		for _, item := range g.IgnoreLines {
