@@ -1,6 +1,7 @@
 package gitignore
 
 import (
+	"os"
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
@@ -8,7 +9,10 @@ import (
 
 func TestNew(t *testing.T) {
 	Convey("Given a gitIgnore filepath, a gitignore object can be retrieved", t, func() {
-		gi, err := New("gitignoreExample.txt")
+		f, err := os.Open("gitignoreExample.txt")
+		So(err, ShouldBeNil)
+
+		gi, err := New(f)
 		So(gi, ShouldNotBeNil)
 		So(err, ShouldBeNil)
 

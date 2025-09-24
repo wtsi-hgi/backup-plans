@@ -2,7 +2,7 @@ package gitignore
 
 import (
 	"fmt"
-	"os"
+	"io"
 	"sort"
 	"strings"
 
@@ -15,12 +15,14 @@ type GitIgnore struct {
 }
 
 // Given a gitIgnore filepath, returns a gitignore object.
-func New(path string) (gi *GitIgnore, err error) {
-	file, err := os.ReadFile(path)
+func New(r io.Reader) (gi *GitIgnore, err error) {
+	// user r to read all the contents as a string
+	gitIngoreData, err := io.ReadAll(r)
 	if err != nil {
 		return nil, err
 	}
-	contents := strings.Split(string(file), "\n")
+
+	contents := strings.Split(string(gitIngoreData), "\n")
 	g := &GitIgnore{
 		IgnoreLines: contents,
 		Matcher:     parser.CompileIgnoreLines(contents...),
