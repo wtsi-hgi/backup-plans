@@ -1,4 +1,4 @@
-import type { Directory, DirectoryWithChildren, DirSummary, Rule, Rules, RuleStats, RuleSummary, SizeCountTime } from "./types.js";
+import { BackupWarn, type Directory, type DirectoryWithChildren, type DirSummary, type Rule, type Rules, type RuleStats, type RuleSummary, type SizeCountTime } from "./types.js";
 import { getTree, passDirClaim } from "./rpc.js";
 import { feColorMatrix } from "./lib/svg.js";
 
@@ -93,7 +93,7 @@ export default (path: string) => getTree(path).then(data => {
 			.reduce((c, r) => (c[r.id as unknown as number] = r, c), {} as RulesWithDirs);
 
 	rules[0] = {
-		"BackupType": 0,
+		"BackupType": BackupWarn,
 		"Metadata": "",
 		"ReviewDate": 0,
 		"RemoveDate": 0,

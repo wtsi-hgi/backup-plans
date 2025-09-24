@@ -200,6 +200,10 @@ input[type="checkbox"] {
 	padding: 0.5em 0.25em;
 }
 
+.prettyTable thead td {
+	border-bottom: 1px solid var(--tableBorder);
+}
+
 @media (prefers-color-scheme: light) {
 	html {
 		--colour: #000;

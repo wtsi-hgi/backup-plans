@@ -47,7 +47,7 @@ export default Object.assign(base, {
 					"Frequency": 7
 				}, load),
 			}, "Add Rule") : [],
-			data.claimedBy ? table({ "id": "rules" }, [
+			data.claimedBy ? table({ "id": "rules", "class": "prettyTable" }, [
 				thead(tr([th("Match"), th("Action"), th("Files"), th("Count"), th()])),
 				tbody(Object.values(data.rules[path]).map(rule => tr([
 					td(rule.Match),
@@ -74,7 +74,7 @@ export default Object.assign(base, {
 				])))
 			]) : [],
 			h2("Rules affecting this directory"),
-			Object.entries(data.rules).map(([dir, rules]) => dir && dir !== path ? table([
+			Object.entries(data.rules).map(([dir, rules]) => dir && dir !== path ? table({ "class": "prettyTable" }, [
 				caption({ "align": "top" }, button({ "click": () => load(dir) }, dir)),
 				thead([th("Match"), th("Action"), th("Files"), th("Count")]),
 				tbody(rules.map(rule => tr([
