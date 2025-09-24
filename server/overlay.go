@@ -13,6 +13,7 @@ import (
 
 type DirSummary struct {
 	uid, gid      uint32
+	ClaimedBy     string
 	RuleSummaries []Rule
 	Children      map[string]*DirSummary
 }
@@ -99,7 +100,9 @@ func (r *RuleOverlay) getSummaryWithChildren() *DirSummary {
 func (r *RuleOverlay) getSummary() *DirSummary {
 	layer := cmp.Or(r.upper, r.lower)
 	sr := byteio.StickyLittleEndianReader{Reader: bytes.NewReader(layer.Data())}
-	ds := new(DirSummary)
+	ds := &DirSummary{
+		Children: make(map[string]*DirSummary),
+	}
 
 	ds.uid = uint32(sr.ReadUintX())
 	ds.gid = uint32(sr.ReadUintX())

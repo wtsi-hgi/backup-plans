@@ -18,7 +18,8 @@ import (
 
 type Tree struct {
 	*DirSummary
-	Rules map[string]map[uint64]*db.Rule
+	ClaimedBy string
+	Rules     map[string]map[uint64]*db.Rule
 }
 
 func (s *Server) Tree(w http.ResponseWriter, r *http.Request) {
@@ -46,6 +47,7 @@ func (s *Server) tree(w http.ResponseWriter, r *http.Request) error {
 
 	dirRules, ok := s.directoryRules[dir]
 	if ok {
+		t.ClaimedBy = dirRules.ClaimedBy
 		thisDir := make(map[uint64]*db.Rule)
 		t.Rules[dir] = thisDir
 

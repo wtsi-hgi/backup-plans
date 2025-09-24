@@ -16,6 +16,9 @@ func newTopLevelDir(parent *TopLevelDir) *TopLevelDir {
 	return &TopLevelDir{
 		parent:   parent,
 		children: make(map[string]Summariser),
+		summary: DirSummary{
+			Children: make(map[string]*DirSummary),
+		},
 	}
 }
 

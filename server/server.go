@@ -30,12 +30,10 @@ type Server struct {
 
 func New(d *db.DB, getUser func(r *http.Request) string) (*Server, error) {
 	s := &Server{
-		getUser: getUser,
-		rulesDB: d,
-		closers: make(map[string]func()),
-		structure: TopLevelDir{
-			children: map[string]Summariser{},
-		},
+		getUser:   getUser,
+		rulesDB:   d,
+		closers:   make(map[string]func()),
+		structure: *newTopLevelDir(nil),
 	}
 
 	if err := s.loadRules(); err != nil {
