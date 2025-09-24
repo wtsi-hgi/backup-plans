@@ -1,8 +1,10 @@
 import type { DirectoryWithChildren, Rule } from "./types.js"
 import { clearNode } from "./lib/dom.js";
-import { br, button, dialog, div, input, label, option, select, table, tbody, td, th, thead, tr } from './lib/html.js';
+import { br, button, caption, dialog, div, h2, input, label, option, select, table, tbody, td, th, thead, tr } from './lib/html.js';
 import { svg, title, use } from './lib/svg.js';
+import { formatBytes } from "./lib/utils.js";
 import { createRule, removeRule, updateRule, user } from "./rpc.js";
+import disktree from "./disktree.js";
 
 const actions = ["No Backup", "Temp Backup", "IBackup", "Manual Backup"],
 	action = (backupType: number) => actions[backupType] ?? "Unknown",
@@ -46,10 +48,12 @@ export default Object.assign(base, {
 				}, load),
 			}, "Add Rule") : [],
 			data.claimedBy ? table({ "id": "rules" }, [
-				thead(tr([th("Match"), th("Action"), th()])),
+				thead(tr([th("Match"), th("Action"), th("Files"), th("Count"), th()])),
 				tbody(Object.values(data.rules[path]).map(rule => tr([
 					td(rule.Match),
 					td(action(rule.BackupType)),
+					td(rule.count.toLocaleString()),
+					td({ "title": rule.size.toLocaleString() }, formatBytes(rule.size)),
 					td([
 						button({ "click": () => addEditOverlay(path, rule, load) }, svg([
 							title("Edit Rule"),
@@ -68,7 +72,18 @@ export default Object.assign(base, {
 						]))
 					])
 				])))
-			]) : []
+			]) : [],
+			h2("Rules affecting this directory"),
+			Object.entries(data.rules).map(([dir, rules]) => dir && dir !== path ? table([
+				caption({ "align": "top" }, button({ "click": () => load(dir) }, dir)),
+				thead([th("Match"), th("Action"), th("Files"), th("Count")]),
+				tbody(rules.map(rule => tr([
+					td(rule.Match),
+					td(action(rule.BackupType)),
+					td(rule.count.toLocaleString()),
+					td({ "title": rule.size.toLocaleString() }, formatBytes(rule.size))
+				])))
+			]) : [])
 		]);
 	}
 });
