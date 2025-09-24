@@ -1,4 +1,4 @@
-import type { ReadSummary, Rule } from "./types.js"
+import type { DirectoryWithChildren, Rule } from "./types.js"
 import { clearNode } from "./lib/dom.js";
 import { br, button, dialog, div, input, label, option, select, table, tbody, td, th, thead, tr } from './lib/html.js';
 import { svg, title, use } from './lib/svg.js';
@@ -33,9 +33,9 @@ const actions = ["No Backup", "Temp Backup", "IBackup", "Manual Backup"],
 	base = div();
 
 export default Object.assign(base, {
-	"update": (path: string, data: ReadSummary, load: (path: string) => void) => {
+	"update": (path: string, data: DirectoryWithChildren, load: (path: string) => void) => {
 		clearNode(base, [
-			data.rules.ClaimedBy && data.rules.ClaimedBy == user ? button({
+			data.claimedBy && data.claimedBy == user ? button({
 				"click": () => addEditOverlay(path, {
 					"BackupType": 2,
 					"Metadata": "",
@@ -45,9 +45,9 @@ export default Object.assign(base, {
 					"Frequency": 7
 				}, load),
 			}, "Add Rule") : [],
-			data.rules.ClaimedBy ? table({ "id": "rules" }, [
+			data.claimedBy ? table({ "id": "rules" }, [
 				thead(tr([th("Match"), th("Action"), th()])),
-				tbody(Object.values(data.rules.Rules).map(rule => tr([
+				tbody(Object.values(data.rules[path]).map(rule => tr([
 					td(rule.Match),
 					td(action(rule.BackupType)),
 					td([

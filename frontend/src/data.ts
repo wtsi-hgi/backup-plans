@@ -1,91 +1,124 @@
-import type { DirectoryRules, ReadSummary, Stats, Tree } from "./types.js";
-import { getRules, getTree } from "./rpc.js";
+import type { Directory, DirectoryWithChildren, DirSummary, Rule, Rules, RuleStats, RuleSummary, SizeCountTime } from "./types.js";
+import { getTree, passDirClaim } from "./rpc.js";
+import { feColorMatrix } from "./lib/svg.js";
 
-const directories = new Map<string, ReadSummary>(),
-	setAndReturn = <K, V>(m: { set: (k: K, v: V) => void }, k: K, v: V) => {
-		m.set(k, v);
+// type SizeCount = {
+// 	size: number;
+// 	count: number;
+// }
 
-		return v;
+// type RuleStats = Rule & Stats;
+
+// type Directory = {
+// 	files: number;
+// 	size: number;
+// 	actions: SizeCount[];
+// 	users: string[];
+// 	groups: string[];
+// 	rules: Record<string, RuleStats[]>;
+// }
+
+// type DirectoryWithChildren = Directory & {
+// 	children: Record<string, Directory>;
+// }
+
+// User/Group list
+// Warn/Backup/Temp Backup/Manual Backup counts/size
+// Summarise rules
+
+type RulesWithDirs = Record<number, Rule & { dir: string }>;
+
+const all = function* (rs: RuleSummary) {
+	for (const r of rs.Users) {
+		yield r;
+	}
+},
+	user = (uid: number) => function* (rs: RuleSummary) {
+		for (const r of rs.Users) {
+			if (r.ID === uid) {
+				return r;
+			}
+		}
 	},
-	countStats = (s: Record<string, Stats>) => Object.values(s).reduce((c, n) => (c[0] += n.Files, c[1] += BigInt(n.Size), c), [0, 0n] as [number, bigint]),
-	getCachedDirectory = (dir: string) => directories.get(dir) ?? setAndReturn(directories, dir, {
-		"loadedData": false,
-		"loadedChildren": false,
-		"children": {},
-		"files": 0,
+	group = (gid: number) => function* (rs: RuleSummary) {
+		for (const r of rs.Groups) {
+			if (r.ID === gid) {
+				return r;
+			}
+		}
+	},
+	addCountSizeTime = (s: SizeCountTime, size: bigint, count: bigint, time: number) => {
+		s.size += size;
+		s.count += count;
+		s.mtime = Math.max(s.mtime, time);
+	},
+	summarise = (tree: DirSummary, d: Directory, rules: RulesWithDirs, filter = all) => {
+		for (const rs of tree.RuleSummaries) {
+			const rule = Object.assign(rules[rs.ID], {
+				"count": 0n,
+				"size": 0n,
+				"mtime": 0
+			}),
+				action = (d.actions[rule.BackupType] ??= {
+					"count": 0n,
+					"size": 0n,
+					"mtime": 0
+				});
+
+			for (const stats of filter(rs)) {
+				addCountSizeTime(d, BigInt(stats.Size), BigInt(stats.Files), stats.MTime);
+				addCountSizeTime(rule, BigInt(stats.Size), BigInt(stats.Files), stats.MTime);
+				addCountSizeTime(action, BigInt(stats.Size), BigInt(stats.Files), stats.MTime);
+			}
+
+			(d.rules[rule.dir] ??= []).push(rule);
+		}
+	}
+
+export default (path: string) => getTree(path).then(data => {
+	const d: DirectoryWithChildren = {
+		"claimedBy": data.ClaimedBy,
+		"count": 0n,
 		"size": 0n,
-		"User": "",
-		"Group": "",
-		"Users": {},
-		"Groups": {},
-		"rules": {
-			"ClaimedBy": "",
-			"Rules": {}
-		}
-	}),
-	storeData = (dir: string) => (data: Tree) => {
-		const entry = getCachedDirectory(dir);
-
-		for (const [path, child] of Object.entries(data)) {
-			const [files, size] = countStats(child.Users);
-
-			data[path] = Object.assign(getCachedDirectory(dir + path), {
-				"loadedData": true,
-				"User": child.User,
-				"Group": child.Group,
-				"Users": child.Users,
-				"Groups": child.Groups,
-				"files": files,
-				"size": size,
-			});
-		}
-
-		entry.loadedChildren = true;
-		entry.children = data;
+		"mtime": 0,
+		"actions": [],
+		"users": [],
+		"groups": [],
+		"rules": {},
+		"children": {}
 	},
-	storeRules = (dir: string) => (rules: DirectoryRules) => {
-		const entry = getCachedDirectory(dir);
+		rules = Object.entries(data.Rules)
+			.map(([dir, rules]) => Object.entries(rules).map(([id, rule]) => Object.assign(rule, { id, dir })))
+			.flat()
+			.reduce((c, r) => (c[r.id as unknown as number] = r, c), {} as RulesWithDirs);
 
-		entry.rules = Object.assign(entry.rules, rules);
-	},
-	parent = (dir: string) => dir.slice(0, dir.slice(0, -1).lastIndexOf("/") + 1),
-	queue = (() => {
-		let p = Promise.resolve();
+	rules[0] = {
+		"BackupType": 0,
+		"Metadata": "",
+		"ReviewDate": 0,
+		"RemoveDate": 0,
+		"Match": "*",
+		"Frequency": 0,
+		"dir": ""
+	};
 
-		return (fn: () => Promise<any>) => p = p.finally(fn);
-	})(),
-	mergeRecords = (from: Record<string, Stats>, to: Record<string, Stats>) => {
-		for (const [entry, data] of Object.entries(from)) {
-			const existing = to[entry] ?? (to[entry] = { ID: 0, MTime: 0, Files: 0, Size: 0 });
+	summarise(data, d, rules);
 
-			existing.ID = data.ID;
-			existing.MTime = Math.max(existing.MTime, data.MTime);
-			existing.Files += data.Files;
-			existing.Size += data.Size;
+	for (const [name, child] of Object.entries(data.Children)) {
+		const e: Directory = {
+			"count": 0n,
+			"size": 0n,
+			"mtime": 0,
+			"actions": [],
+			"users": [],
+			"groups": [],
+			"rules": {}
 		}
-	},
-	loadDirectoryChildren = (dir: string) => {
-		const entry = getCachedDirectory(dir),
-			parentDir = parent(dir);
 
-		return queue(() => Promise.all([
-			getRules(dir).then(storeRules(dir)),
-			!entry.loadedChildren ? getTree(dir).then(storeData(dir)) : Promise.resolve(),
-			!entry.loadedData ? getTree(parentDir).then(storeData(parentDir)) : Promise.resolve()
-		])).then(() => entry)
-	}
+		summarise(child, e, rules);
 
-export default loadDirectoryChildren;
+		d.children[name] = e;
+	};
 
-getCachedDirectory("/").loadedData = true;
-
-loadDirectoryChildren("/").then(() => {
-	const root = getCachedDirectory("/")!;
-
-	for (const child of Object.values(root.children)) {
-		mergeRecords(child.Users, root.Users);
-		mergeRecords(child.Groups, root.Groups);
-	}
-
-	[root.files, root.size] = countStats(root.Users);
+	return d;
 });

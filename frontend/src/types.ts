@@ -1,18 +1,28 @@
 export type Stats = {
 	ID: number;
+	Name: string;
 	MTime: number;
 	Files: number;
 	Size: number;
 }
 
-export type Summary = {
-	User: string;
-	Group: string;
-	Users: Record<string, Stats>;
-	Groups: Record<string, Stats>;
+export type RuleSummary = {
+	ID: number;
+	Users: Stats[];
+	Groups: Stats[];
 }
 
-export type Tree = Record<string, Summary>;
+export type DirSummary = {
+	RuleSummaries: RuleSummary[];
+	Children: Record<string, DirSummary>;
+}
+
+export type Rules = Record<string, Record<number, Rule>>;
+
+export type Tree = DirSummary & {
+	ClaimedBy: string;
+	Rules: Rules;
+};
 
 export type DirectoryRules = {
 	ClaimedBy: string;
@@ -32,11 +42,22 @@ export type Rule = {
 	Frequency: number;
 };
 
-export type ReadSummary = Summary & {
-	loadedData: boolean;
-	loadedChildren: boolean;
-	children: Record<string, ReadSummary>;
-	files: number;
+export type SizeCountTime = {
 	size: bigint;
-	rules: DirectoryRules;
+	count: bigint;
+	mtime: number;
+}
+
+export type RuleStats = Rule & SizeCountTime;
+
+export type Directory = SizeCountTime & {
+	actions: SizeCountTime[];
+	users: string[];
+	groups: string[];
+	rules: Record<string, RuleStats[]>;
+}
+
+export type DirectoryWithChildren = Directory & {
+	children: Record<string, Directory>;
+	claimedBy: string;
 }

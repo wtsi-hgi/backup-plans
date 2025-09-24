@@ -1,4 +1,4 @@
-import type { ReadSummary } from './types.js';
+import type { DirectoryWithChildren } from './types.js';
 import type { Children } from './lib/dom.js';
 import { clearNode } from './lib/dom.js';
 import { div } from './lib/html.js';
@@ -220,7 +220,7 @@ let width = 500,
 new ResizeObserver(() => render()).observe(base);
 
 export default Object.assign(base, {
-	"update": (path: string, data: ReadSummary, load: (path: string) => void) => {
+	"update": (path: string, data: DirectoryWithChildren, load: (path: string) => void) => {
 		const entries: Table = [];
 
 		for (const [dir, child] of Object.entries(data.children)) {

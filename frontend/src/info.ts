@@ -1,4 +1,4 @@
-import type { ReadSummary } from './types.js';
+import type { DirectoryWithChildren } from './types.js';
 import { clearNode, type Children } from './lib/dom.js';
 import { button, table, tbody, td, th, tr } from './lib/html.js';
 import { formatBytes } from './lib/utils.js';
@@ -12,9 +12,9 @@ const [claimedByCell, filesCell, sizeCell] = [td(), td(), td()],
 	]));
 
 export default Object.assign(base, {
-	"update": (path: string, data: ReadSummary, load: (path: string) => void) => {
-		clearNode(claimedByCell, data.rules.ClaimedBy || button({ "click": () => claimDir(path).then(() => load(path)) }, "Claim"));
-		clearNode(filesCell, data.files.toLocaleString());
+	"update": (path: string, data: DirectoryWithChildren, load: (path: string) => void) => {
+		clearNode(claimedByCell, data.claimedBy || button({ "click": () => claimDir(path).then(() => load(path)) }, "Claim"));
+		clearNode(filesCell, data.count.toLocaleString());
 		clearNode(sizeCell, { "title": data.size.toLocaleString() + " Bytes" }, formatBytes(data.size));
 	}
 });
