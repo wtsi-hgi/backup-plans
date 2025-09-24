@@ -3,7 +3,7 @@ package gitignore
 import (
 	"fmt"
 	"io"
-	"sort"
+	"slices"
 	"strings"
 
 	parser "github.com/sabhiram/go-gitignore"
@@ -14,25 +14,32 @@ type GitIgnore struct {
 	IgnoreLines []string
 }
 
-// Given a gitIgnore filepath, returns a gitignore object.
+// New returns a gitignore object given git ignore data.
 func New(r io.Reader) (gi *GitIgnore, err error) {
-	// user r to read all the contents as a string
 	gitIngoreData, err := io.ReadAll(r)
 	if err != nil {
 		return nil, err
 	}
 
 	contents := strings.Split(string(gitIngoreData), "\n")
+	contentsFiltered := make([]string, 0, len(contents))
+	for _, line := range contents {
+		if line == "" {
+			continue
+		}
+		contentsFiltered = append(contentsFiltered, line)
+	}
+
 	g := &GitIgnore{
-		IgnoreLines: contents,
-		Matcher:     parser.CompileIgnoreLines(contents...),
+		IgnoreLines: contentsFiltered,
+		Matcher:     parser.CompileIgnoreLines(contentsFiltered...),
 	}
 
 	return g, nil
 }
 
-// Returns subset slices ignore and keep of the input, dividing up each input
-// path into files to ignore and files to backup
+// Match returns subset slices ignore and keep of the input, dividing up each
+// input path into files to ignore and files to backup.
 func (g *GitIgnore) Match(paths []string) (ignore []string, keep []string) {
 	for _, rule := range paths {
 		if g.Matcher.MatchesPath(rule) {
@@ -41,21 +48,23 @@ func (g *GitIgnore) Match(paths []string) (ignore []string, keep []string) {
 			keep = append(keep, rule)
 		}
 	}
+
 	return
 }
 
-// Given a gitignore object, returns gitignore rules
+// GetRules returns our gitignore rules.
 func (g *GitIgnore) GetRules() ([]string, error) {
 	if g.IgnoreLines == nil {
 		return nil, fmt.Errorf("rules empty")
 	}
+
 	return g.IgnoreLines, nil
 }
 
-// Given a gitignore object, rules can be removed
+// RemoveRules removes the given rules from our set of rules.
 func (g *GitIgnore) RemoveRules(rules []string) ([]string, error) {
-	if g.IgnoreLines == nil {
-		return nil, fmt.Errorf("rules empty")
+	if g.IgnoreLines == nil || len(rules) == 0 {
+		return g.IgnoreLines, nil
 	}
 
 	removeRules := make(map[string]struct{})
@@ -63,69 +72,51 @@ func (g *GitIgnore) RemoveRules(rules []string) ([]string, error) {
 		removeRules[r] = struct{}{}
 	}
 
-	var newRules []string
+	newRules := make([]string, 0, len(g.IgnoreLines))
+
 	for _, rule := range g.IgnoreLines {
-		_, exists := removeRules[rule]
-		if !exists {
+		if _, exists := removeRules[rule]; !exists {
 			newRules = append(newRules, rule)
 		}
 	}
 
 	g.IgnoreLines = newRules
 	g.Matcher = parser.CompileIgnoreLines(g.IgnoreLines...)
+
 	return g.IgnoreLines, nil
 }
 
-// Given a gitignore object, rules can be added
+// AddRules adds the given rules.
 func (g *GitIgnore) AddRules(rules []string) ([]string, error) {
 	for _, r := range rules {
-		exists := false
-		for _, item := range g.IgnoreLines {
-			if item == r {
-				exists = true
-				break
-			}
+		if exists := slices.Contains(g.IgnoreLines, r); exists {
+			continue
 		}
-		if !exists {
-			g.IgnoreLines = append(g.IgnoreLines, r)
-		}
+
+		g.IgnoreLines = append(g.IgnoreLines, r)
 	}
+
 	g.Matcher = parser.CompileIgnoreLines(g.IgnoreLines...)
+
 	return g.IgnoreLines, nil
 }
 
-// Given a gitignore object, rules can be added at specified indices
-// indices will be sorted in ascending order, and the next string inserted at
-// that index. If the number of strings exceeds the number of indices supplied,
-// all following strings will be appended.
-// Eg: inserting {a, b} to indices {1,2} in {c,d,e,f,g} will result in
-// {c,a,b,e,f,g}
-func (g *GitIgnore) AddRulesAt(rules []string, indices []int) ([]string, error) {
-	if indices != nil {
-		sort.Ints(indices)
+// AddRulesAt adds the given rule at the specified index. Returns an error if
+// the index is too high.
+func (g *GitIgnore) AddRuleAt(rule string, index int) ([]string, error) {
+	if exists := slices.Contains(g.IgnoreLines, rule); exists {
+		return g.IgnoreLines, nil
 	}
 
-	for i, r := range rules {
-		exists := false
-		for _, item := range g.IgnoreLines {
-			if item == r {
-				exists = true
-				break
-			}
-		}
-		if !exists {
-			if i < len(indices) {
-				newLines, err := insert(g.IgnoreLines, indices[i], r)
-				if err != nil {
-					return nil, err
-				}
-				g.IgnoreLines = newLines
-			} else {
-				g.IgnoreLines = append(g.IgnoreLines, r)
-			}
-		}
+	var err error
+
+	g.IgnoreLines, err = insert(g.IgnoreLines, index, rule)
+	if err != nil {
+		return nil, err
 	}
+
 	g.Matcher = parser.CompileIgnoreLines(g.IgnoreLines...)
+
 	return g.IgnoreLines, nil
 }
 
@@ -133,7 +124,9 @@ func insert(s []string, i int, val string) ([]string, error) {
 	if i < 0 || i > len(s) {
 		return nil, fmt.Errorf("invalid index %+v", i)
 	}
+
 	s = append(s[:i+1], s[i:]...)
 	s[i] = val
+
 	return s, nil
 }

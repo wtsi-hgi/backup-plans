@@ -1,7 +1,7 @@
 package gitignore
 
 import (
-	"os"
+	"strings"
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
@@ -9,10 +9,13 @@ import (
 
 func TestNew(t *testing.T) {
 	Convey("Given a gitIgnore filepath, a gitignore object can be retrieved", t, func() {
-		f, err := os.Open("gitignoreExample.txt")
-		So(err, ShouldBeNil)
+		exampleData := `
+*.log
+/build/
+/!important.log
+`
 
-		gi, err := New(f)
+		gi, err := New(strings.NewReader(exampleData))
 		So(gi, ShouldNotBeNil)
 		So(err, ShouldBeNil)
 
@@ -34,19 +37,23 @@ func TestNew(t *testing.T) {
 			So(err, ShouldBeNil)
 			So(newrules, ShouldEqual, []string{"*.log", "/build/", "/!important.log", "*.txt", "/test/"})
 
-			Convey("With the insertion indices specified", func() {
-				newrules, err = gi.AddRulesAt([]string{"*.png", "/test2/"}, []int{1, 3})
+			Convey("With the insertion index specified", func() {
+				newrules, err = gi.AddRuleAt("/test2/", 3)
 				So(err, ShouldBeNil)
-				So(newrules, ShouldEqual, []string{"*.log", "*.png", "/build/", "/test2/", "/!important.log", "*.txt", "/test/"})
-				newrules, err = gi.AddRulesAt([]string{"/ignoreme/"}, []int{0})
+				expectedRules := []string{"*.log", "/build/", "/!important.log", "/test2/", "*.txt", "/test/"}
+				So(newrules, ShouldEqual, expectedRules)
+
+				newrules, err = gi.AddRuleAt("/ignoreme/", 0)
 				So(err, ShouldBeNil)
-				So(newrules, ShouldEqual, []string{"/ignoreme/", "*.log", "*.png", "/build/", "/test2/", "/!important.log", "*.txt", "/test/"})
-				newrules, err = gi.AddRulesAt([]string{"/ignoremepls/"}, []int{8})
+				expectedRules = append([]string{"/ignoreme/"}, expectedRules...)
+				So(newrules, ShouldEqual, expectedRules)
+
+				newrules, err = gi.AddRuleAt("/ignoremepls/", len(newrules))
 				So(err, ShouldBeNil)
-				So(newrules, ShouldEqual, []string{"/ignoreme/", "*.log", "*.png", "/build/", "/test2/", "/!important.log", "*.txt", "/test/", "/ignoremepls/"})
-				newrules, err = gi.AddRulesAt([]string{"/testbad/", "bad/indices/"}, []int{1})
-				So(err, ShouldBeNil)
-				So(newrules, ShouldEqual, []string{"/ignoreme/", "/testbad/", "*.log", "*.png", "/build/", "/test2/", "/!important.log", "*.txt", "/test/", "/ignoremepls/", "bad/indices/"})
+				So(newrules, ShouldEqual, append(expectedRules, "/ignoremepls/"))
+
+				_, err = gi.AddRuleAt("foo", 999)
+				So(err, ShouldNotBeNil)
 			})
 
 			Convey("And the matcher is successfully updated to correspond with the updated rules", func() {
