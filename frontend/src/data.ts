@@ -102,7 +102,6 @@ export default (path: string) => getTree(path).then(data => {
 		"dir": ""
 	};
 
-	summarise(data, d, rules);
 
 	for (const [name, child] of Object.entries(data.Children)) {
 		const e: Directory = {
@@ -119,6 +118,8 @@ export default (path: string) => getTree(path).then(data => {
 
 		d.children[name] = e;
 	};
+
+	summarise(data, d, rules);
 
 	return d;
 });
