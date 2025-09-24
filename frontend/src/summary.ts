@@ -21,7 +21,7 @@ const warnCount = td(),
 	]),
 	setSummary = (action: SizeCountTime, count: Element, size: Element) => {
 		clearNode(count, action?.count?.toLocaleString() ?? "0");
-		clearNode(size, formatBytes(action?.size ?? 0));
+		clearNode(size, { "title": (action?.size ?? 0).toLocaleString() }, formatBytes(action?.size ?? 0));
 	};
 
 export default Object.assign(base, {
