@@ -1,30 +1,6 @@
 import { BackupWarn, type Directory, type DirectoryWithChildren, type DirSummary, type Rule, type Rules, type RuleStats, type RuleSummary, type SizeCountTime } from "./types.js";
-import { getTree, passDirClaim } from "./rpc.js";
-import { feColorMatrix } from "./lib/svg.js";
+import { getTree } from "./rpc.js";
 
-// type SizeCount = {
-// 	size: number;
-// 	count: number;
-// }
-
-// type RuleStats = Rule & Stats;
-
-// type Directory = {
-// 	files: number;
-// 	size: number;
-// 	actions: SizeCount[];
-// 	users: string[];
-// 	groups: string[];
-// 	rules: Record<string, RuleStats[]>;
-// }
-
-// type DirectoryWithChildren = Directory & {
-// 	children: Record<string, Directory>;
-// }
-
-// User/Group list
-// Warn/Backup/Temp Backup/Manual Backup counts/size
-// Summarise rules
 
 type RulesWithDirs = Record<number, Rule & { dir: string }>;
 
@@ -33,16 +9,16 @@ const all = function* (rs: RuleSummary) {
 		yield r;
 	}
 },
-	user = (uid: number) => function* (rs: RuleSummary) {
+	user = (users: string[]) => function* (rs: RuleSummary) {
 		for (const r of rs.Users) {
-			if (r.ID === uid) {
+			if (users.includes(r.Name)) {
 				return r;
 			}
 		}
 	},
-	group = (gid: number) => function* (rs: RuleSummary) {
+	group = (groups: string[]) => function* (rs: RuleSummary) {
 		for (const r of rs.Groups) {
-			if (r.ID === gid) {
+			if (groups.includes(r.Name)) {
 				return r;
 			}
 		}
