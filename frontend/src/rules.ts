@@ -15,19 +15,32 @@ const actions = ["No Backup", "Temp Backup", "IBackup", "Manual Backup"],
 			option({ "value": "manualbackup", [rule.BackupType === 3 ? "selected" : "unselected"]: "" }, "Manual Backup"),
 			option({ "value": "nobackup", [rule.BackupType === 0 ? "selected" : "unselected"]: "" }, "No Backup")
 		]),
-			match = input({ "id": "match", "type": "text", "value": rule.Match, [rule.Match ? "disabled" : "enabled"]: "" }),
-			overlay = document.body.appendChild(dialog({ "closedby": "any", "close": () => overlay.remove() }, [
-				label({ "for": "match" }, "Match"), match, br(),
-				label({ "for": "backupType" }, "Backup Type"), backupType, br(),
-				button({
-					"click": () => (rule.Match ? updateRule : createRule)(path, backupType.value, rule.Match || match.value || "*")
+			set = button({
+				"click": () => {
+					overlay.setAttribute("closedby", "none");
+					set.setAttribute("disabled", "disabled");
+					cancel.setAttribute("disabled", "disabled");
+
+					(rule.Match ? updateRule : createRule)(path, backupType.value, rule.Match || match.value || "*")
 						.then(() => {
 							load(path);
 							overlay.remove();
 						})
-						.catch((e: Error) => alert("Error: " + e.message))
-				}, rule.Match ? "Update" : "Add"),
-				button({ "click": () => overlay.close() }, "Cancel"),
+						.catch((e: Error) => {
+							overlay.setAttribute("closedby", "any");
+							set.removeAttribute("disabled");
+							cancel.removeAttribute("disabled");
+							alert("Error: " + e.message);
+						});
+				}
+			}, rule.Match ? "Update" : "Add"),
+			cancel = button({ "click": () => overlay.close() }, "Cancel"),
+			match = input({ "id": "match", "type": "text", "value": rule.Match, [rule.Match ? "disabled" : "enabled"]: "" }),
+			overlay = document.body.appendChild(dialog({ "closedby": "any", "close": () => overlay.remove() }, [
+				label({ "for": "match" }, "Match"), match, br(),
+				label({ "for": "backupType" }, "Backup Type"), backupType, br(),
+				set,
+				cancel
 			]));
 
 		overlay.showModal();
