@@ -8,22 +8,17 @@ import Rules from './rules.js';
 import Summary from './summary.js';
 import { symbols } from './symbols.js';
 
-(document.readyState === "complete" ? Promise.resolve() : new Promise(successFn => window.addEventListener("load", successFn, { "once": true }))).then(() => {
-	let lastPath = "";
+const load = (path: string) => Load(path).then(data => {
+	Breadcrumbs.update(path, load);
+	DiskTree.update(path, data, load);
+	List.update(path, data, load);
+	DirInfo.update(path, data, load);
+	Summary.update(path, data);
+	Rules.update(path, data, load);
+});
 
-	const load = (path: string) => Load(path).then(data => {
-		Breadcrumbs.update(path, load);
-		DiskTree.update(path, data, load);
-		List.update(path, data, load);
-		DirInfo.update(path, data, load);
-		Summary.update(path, data);
-		Rules.update(path, data, load);
-
-		lastPath = path;
-	});
-
-	return load("/");
-})
+(document.readyState === "complete" ? Promise.resolve() : new Promise(successFn => window.addEventListener("load", successFn, { "once": true })))
+	.then(() => load("/"))
 	.then(() => {
 		document.body.replaceChildren(
 			symbols,
