@@ -62,7 +62,7 @@ export default Object.assign(base, {
 			}, "Add Rule") : [],
 			data.claimedBy ? table({ "id": "rules", "class": "prettyTable" }, [
 				thead(tr([th("Match"), th("Action"), th("Files"), th("Size"), th()])),
-				tbody(Object.values(data.rules[path]).map(rule => tr([
+				tbody(Object.values(data.rules[path] ?? []).map(rule => tr([
 					td(rule.Match),
 					td(action(rule.BackupType)),
 					td(rule.count.toLocaleString()),
