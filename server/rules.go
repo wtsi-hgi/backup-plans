@@ -109,6 +109,8 @@ func (s *Server) claimDir(w http.ResponseWriter, r *http.Request) error {
 		Rules:     make(map[string]*db.Rule),
 	}
 
+	s.dirs[uint64(directory.ID())] = directory
+
 	w.Header().Set("Content-Type", "application/json")
 
 	return json.NewEncoder(w).Encode(user)
