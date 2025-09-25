@@ -338,9 +338,13 @@ func (r *RuleLessDirPatch) children(yield func(string, tree.Node) bool) {
 			r.addExisting(cmp.Or(pchild, mchild).Data())
 
 			if pchild != nil {
-				if !yield(name, tree.Leaf(pchild.Data())) {
+				r.addExisting(pchild.Data())
+
+				if !yield(name, pchild) {
 					return
 				}
+			} else {
+				r.addExisting(mchild.Data())
 			}
 
 			continue
