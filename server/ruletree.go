@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"cmp"
 	"io"
 	"iter"
 	"slices"
@@ -65,9 +66,16 @@ type rulesDir struct {
 
 	parent interface {
 		setRule(rule *db.Rule, f *file)
-		addUserWarn(uid uint32, mtime, files, bytes uint64)
-		addGroupWarn(gid uint32, mtime, files, bytes uint64)
+		addUserData(uid uint32, ruleID int64, mtime, files, bytes uint64)
+		addGroupData(gid uint32, ruleID int64, mtime, files, bytes uint64)
 	}
+}
+
+func (r *rulesDir) initIDs() {
+	sr := byteio.StickyLittleEndianReader{Reader: bytes.NewReader(r.node.Data())}
+
+	r.uid = uint32(sr.ReadUintX())
+	r.gid = uint32(sr.ReadUintX())
 }
 
 type RulesDir struct {
@@ -77,6 +85,13 @@ type RulesDir struct {
 }
 
 func (r *RulesDir) Children() iter.Seq2[string, tree.Node] {
+	r.initIDs()
+	r.initChildren()
+
+	return r.children
+}
+
+func (r *RulesDir) initChildren() {
 	if r.child == nil {
 		r.child = &RulesDir{
 			rulesDir: rulesDir{
@@ -88,8 +103,6 @@ func (r *RulesDir) Children() iter.Seq2[string, tree.Node] {
 
 	r.child.dir.Parent = &r.dir
 	r.rules = r.rules[:0]
-
-	return r.children
 }
 
 func (r *RulesDir) children(yield func(string, tree.Node) bool) {
@@ -142,14 +155,14 @@ func (r *rulesDir) setRule(rule *db.Rule, f *file) {
 		r.parent.setRule(rule, f)
 	}
 
-	pos := r.getRulePos(rule)
+	pos := r.getRulePos(rule.ID())
 
 	r.rules[pos].Users.add(f.uid, f.mtime, 1, f.size)
 	r.rules[pos].Groups.add(f.gid, f.mtime, 1, f.size)
 }
 
-func (r *rulesDir) getRulePos(rule *db.Rule) int {
-	newRule := Rule{ID: uint64(rule.ID())}
+func (r *rulesDir) getRulePos(ruleID int64) int {
+	newRule := Rule{ID: uint64(ruleID)}
 
 	pos, ok := slices.BinarySearchFunc(r.rules, newRule, func(a, b Rule) int {
 		return int(a.ID - b.ID)
@@ -161,24 +174,49 @@ func (r *rulesDir) getRulePos(rule *db.Rule) int {
 	return pos
 }
 
-func (r *rulesDir) addUserWarn(uid uint32, mtime, files, bytes uint64) {
+func (r *rulesDir) addUserData(uid uint32, ruleID int64, mtime, files, bytes uint64) {
 	if r.parent != nil {
-		r.parent.addUserWarn(uid, mtime, files, bytes)
+		r.parent.addUserData(uid, ruleID, mtime, files, bytes)
 	}
 
-	pos := r.getRulePos(nil)
+	pos := r.getRulePos(ruleID)
 
 	r.rules[pos].Users.add(uid, mtime, files, bytes)
 }
 
-func (r *rulesDir) addGroupWarn(gid uint32, mtime, files, bytes uint64) {
+func (r *rulesDir) addGroupData(gid uint32, ruleID int64, mtime, files, bytes uint64) {
 	if r.parent != nil {
-		r.parent.addGroupWarn(gid, mtime, files, bytes)
+		r.parent.addGroupData(gid, ruleID, mtime, files, bytes)
 	}
 
-	pos := r.getRulePos(nil)
+	pos := r.getRulePos(ruleID)
 
 	r.rules[pos].Groups.add(gid, mtime, files, bytes)
+}
+
+func (r *rulesDir) addExisting(data []byte) {
+	sr := byteio.StickyLittleEndianReader{Reader: bytes.NewReader(data)}
+
+	sr.ReadUintX()
+	sr.ReadUintX()
+
+	for range sr.ReadUintX() {
+		ruleID := sr.ReadUintX()
+
+		readArray(&sr, int64(ruleID), r.addUserData)
+		readArray(&sr, int64(ruleID), r.addGroupData)
+	}
+}
+
+func readArray(sr *byteio.StickyLittleEndianReader, ruleID int64, fn func(uint32, int64, uint64, uint64, uint64)) {
+	for range sr.ReadUintX() {
+		uid := uint32(sr.ReadUintX())
+		mtime := sr.ReadUintX()
+		files := sr.ReadUintX()
+		bytes := sr.ReadUintX()
+
+		fn(uid, ruleID, mtime, files, bytes)
+	}
 }
 
 type file struct {
@@ -201,13 +239,20 @@ func (f *file) ReadFrom(r io.Reader) (int64, error) {
 type RuleLessDir struct {
 	rulesDir
 	ruleDirPrefixes map[string]bool
+	nameBuf         *[4096]byte
 
-	child   *RuleLessDir
-	rules   *RulesDir
-	nameBuf *[4096]byte
+	child *RuleLessDir
+	rules *RulesDir
 }
 
 func (r *RuleLessDir) Children() iter.Seq2[string, tree.Node] {
+	r.initIDs()
+	r.initChildren()
+
+	return r.children
+}
+
+func (r *RuleLessDir) initChildren() {
 	if r.child == nil {
 		r.child = &RuleLessDir{
 			rulesDir: rulesDir{
@@ -222,8 +267,6 @@ func (r *RuleLessDir) Children() iter.Seq2[string, tree.Node] {
 
 	r.child.dir.Parent = &r.dir
 	r.rulesDir.rules = r.rulesDir.rules[:0]
-
-	return r.children
 }
 
 func (r *RuleLessDir) children(yield func(string, tree.Node) bool) {
@@ -237,7 +280,7 @@ func (r *RuleLessDir) children(yield func(string, tree.Node) bool) {
 
 		hasRules, isPrefix := r.ruleDirPrefixes[string(r.child.dir.AppendTo(r.nameBuf[:0]))]
 		if !isPrefix {
-			r.addWarn(mchild.Data())
+			r.addExisting(mchild.Data())
 
 			continue
 		}
@@ -263,25 +306,86 @@ func (r *RuleLessDir) children(yield func(string, tree.Node) bool) {
 	}
 }
 
-func (r *RuleLessDir) addWarn(data []byte) {
-	sr := byteio.StickyLittleEndianReader{Reader: bytes.NewReader(data)}
-
-	sr.ReadUintX()
-	sr.ReadUintX()
-	sr.ReadUint8()
-	sr.ReadUint8()
-
-	readArray(&sr, r.addUserWarn)
-	readArray(&sr, r.addGroupWarn)
+type RuleLessDirPatch struct {
+	rulesDir
+	ruleDirPrefixes map[string]bool
+	previousRules   *tree.MemTree
+	nameBuf         *[4096]byte
 }
 
-func readArray(sr *byteio.StickyLittleEndianReader, fn func(uint32, uint64, uint64, uint64)) {
-	for range sr.ReadUintX() {
-		uid := uint32(sr.ReadUintX())
-		mtime := sr.ReadUintX()
-		files := sr.ReadUintX()
-		bytes := sr.ReadUintX()
+func (r *RuleLessDirPatch) Children() iter.Seq2[string, tree.Node] {
+	r.initIDs()
 
-		fn(uid, mtime, files, bytes)
+	return r.children
+}
+
+func (r *RuleLessDirPatch) children(yield func(string, tree.Node) bool) {
+	for name, child := range r.node.Children() {
+		if !strings.HasSuffix(name, "/") {
+			continue
+		}
+
+		dir := summary.DirectoryPath{
+			Parent: &r.dir,
+			Name:   name,
+		}
+
+		mchild := child.(*tree.MemTree)
+		pchild, _ := r.previousRules.Child(name)
+
+		hasRules, isPrefix := r.ruleDirPrefixes[string(dir.AppendTo(r.nameBuf[:0]))]
+		if !isPrefix {
+			r.addExisting(cmp.Or(pchild, mchild).Data())
+
+			if pchild != nil {
+				if !yield(name, tree.Leaf(pchild.Data())) {
+					return
+				}
+			}
+
+			continue
+		}
+
+		rd := rulesDir{
+			node:   mchild,
+			sm:     r.sm,
+			dir:    dir,
+			rules:  r.rules,
+			parent: r,
+		}
+
+		if !hasRules {
+			var rchild tree.Node
+
+			if pchild == nil {
+				rchild = &RuleLessDir{
+					rulesDir:        rd,
+					ruleDirPrefixes: r.ruleDirPrefixes,
+					nameBuf:         r.nameBuf,
+					rules:           new(RulesDir),
+				}
+			} else {
+				rchild = &RuleLessDirPatch{
+					rulesDir:        rd,
+					ruleDirPrefixes: r.ruleDirPrefixes,
+					previousRules:   pchild,
+					nameBuf:         r.nameBuf,
+				}
+			}
+
+			if !yield(name, rchild) {
+				return
+			}
+
+			continue
+		}
+
+		rules := &RulesDir{
+			rulesDir: rd,
+		}
+
+		if !yield(name, rules) {
+			return
+		}
 	}
 }

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -10,7 +11,9 @@ import (
 	"time"
 
 	"github.com/wtsi-hgi/backup-plans/db"
+	"github.com/wtsi-hgi/wrstat-ui/summary"
 	"github.com/wtsi-hgi/wrstat-ui/summary/group"
+	"vimagination.zapto.org/tree"
 )
 
 type DirRules struct {
@@ -149,6 +152,11 @@ func (s *Server) createRule(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	directory.Rules[rule.Match] = rule
+	s.rules[uint64(rule.ID())] = rule
+
+	if err := s.regenRules(dir); err != nil {
+		return err
+	}
 
 	w.WriteHeader(http.StatusNoContent)
 
@@ -213,6 +221,109 @@ func parseTime(str string) time.Time {
 	return time.Unix(int64(unix), 0)
 }
 
+func (s *Server) regenRules(dir string) error {
+	t := &s.structure
+	path := &summary.DirectoryPath{
+		Name: "/",
+	}
+
+	for part := range pathParts(dir[1:]) {
+		child := t.children[part]
+		if child == nil {
+			return ErrInvalidDir
+		}
+
+		path = &summary.DirectoryPath{
+			Name:   part,
+			Parent: path,
+		}
+
+		switch child := child.(type) {
+		case *TopLevelDir:
+			t = child
+		case *RuleOverlay:
+			return s.regenRulesFor(t, child, dir, path)
+		default:
+			return ErrInvalidDir
+		}
+	}
+
+	return ErrInvalidDir
+}
+
+func (s *Server) regenRulesFor(t *TopLevelDir, child *RuleOverlay, dir string, path *summary.DirectoryPath) error {
+	if err := s.rebuildStateMachine(); err != nil {
+		return err
+	}
+
+	rd := RuleLessDirPatch{
+		rulesDir: rulesDir{
+			node: child.lower,
+			sm:   s.stateMachine,
+			dir:  *path,
+		},
+		ruleDirPrefixes: s.createRulePatchMap(dir),
+		previousRules:   child.upper,
+		nameBuf:         new([4096]byte),
+	}
+
+	var buf bytes.Buffer
+
+	if err := tree.Serialise(&buf, &rd); err != nil {
+		return err
+	}
+
+	processed, err := tree.OpenMem(buf.Bytes())
+	if err != nil {
+		return err
+	}
+
+	child.upper = processed
+
+	return t.SetChild(path.Name, child)
+}
+
+func (s *Server) rebuildStateMachine() error {
+	var ruleList []group.PathGroup[db.Rule]
+
+	for dir, rules := range s.directoryRules {
+		for _, rule := range rules.Rules {
+			ruleList = append(ruleList, group.PathGroup[db.Rule]{
+				Path:  []byte(path.Join(dir, rule.Match)),
+				Group: rule,
+			})
+		}
+	}
+
+	sm, err := group.NewStatemachine(ruleList)
+	if err != nil {
+		return err
+	}
+
+	s.stateMachine = sm
+
+	return nil
+}
+
+func (s *Server) createRulePatchMap(dir string) map[string]bool {
+	rulePrefixes := make(map[string]bool)
+
+	for ruleDir := range s.directoryRules {
+		if !strings.HasPrefix(dir, ruleDir) {
+			continue
+		}
+
+		rulePrefixes[ruleDir] = true
+
+		for ruleDir != "/" {
+			ruleDir = ruleDir[:strings.LastIndexByte(ruleDir[:len(ruleDir)-1], '/')+1]
+			rulePrefixes[ruleDir] = rulePrefixes[ruleDir] || false
+		}
+	}
+
+	return rulePrefixes
+}
+
 func (s *Server) GetRules(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.getRules)
 }
@@ -262,15 +373,20 @@ func (s *Server) updateRule(w http.ResponseWriter, r *http.Request) error {
 		return ErrInvalidDir
 	}
 
-	if _, ok := directory.Rules[rule.Match]; !ok {
+	existingRule, ok := directory.Rules[rule.Match]
+	if !ok {
 		return ErrNoRule
 	}
 
-	if err := s.rulesDB.UpdateRule(rule); err != nil {
+	existingRule.BackupType = rule.BackupType
+	existingRule.Frequency = rule.Frequency
+	existingRule.Metadata = rule.Metadata
+	existingRule.RemoveDate = rule.RemoveDate
+	existingRule.ReviewDate = rule.ReviewDate
+
+	if err := s.rulesDB.UpdateRule(existingRule); err != nil {
 		return err
 	}
-
-	directory.Rules[rule.Match] = rule
 
 	w.WriteHeader(http.StatusNoContent)
 
@@ -306,6 +422,10 @@ func (s *Server) removeRule(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	delete(directory.Rules, match)
+
+	if err := s.regenRules(dir); err != nil {
+		return err
+	}
 
 	w.WriteHeader(http.StatusNoContent)
 
