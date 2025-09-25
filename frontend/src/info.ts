@@ -4,7 +4,9 @@ import { button, table, tbody, td, th, tr } from './lib/html.js';
 import { formatBytes } from './lib/utils.js';
 import { claimDir, user } from './rpc.js';
 
-const [claimedByCell, filesCell, sizeCell] = [td(), td(), td()],
+const claimedByCell = td(),
+	filesCell = td(),
+	sizeCell = td(),
 	base = table(tbody([
 		tr([th("Claimed By"), claimedByCell]),
 		tr([th("Files"), filesCell]),
