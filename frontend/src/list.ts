@@ -14,7 +14,7 @@ export default Object.assign(table({ "class": "prettyTable" }, [
 			td(name),
 			td({ "title": child.size.toLocaleString() }, formatBytes(child.size)),
 			td(child.count.toLocaleString()),
-			td("")
+			td(new Date(child.mtime * 1000).toISOString())
 		])
 	}))
 });
