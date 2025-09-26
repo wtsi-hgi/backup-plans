@@ -1,80 +1,71 @@
 package gitignore
 
 import (
+	_ "embed"
 	"strings"
 	"testing"
+	"time"
 
 	. "github.com/smartystreets/goconvey/convey"
+	"github.com/wtsi-hgi/backup-plans/db"
 )
 
-func TestNew(t *testing.T) {
-	Convey("Given a gitIgnore filepath, a gitignore object can be retrieved", t, func() {
-		exampleData := `
-*.log
-/build/
-/!important.log
-`
+//go:embed gitignoreExample.txt
+var exampleData string
 
-		gi, err := New(strings.NewReader(exampleData))
-		So(gi, ShouldNotBeNil)
+func TestNew(t *testing.T) {
+	Convey("Given gitIgnore data, you can make rules from it", t, func() {
+		layout := "02-01-2006"
+		review, err := time.Parse(layout, "01-10-2025")
 		So(err, ShouldBeNil)
 
-		Convey("Files can be split into ignore/keep", func() {
-			paths := []string{"testfile.txt", "testfile2.log"}
-			ignore, keep := gi.Match(paths)
-			So(ignore, ShouldResemble, []string{"testfile2.log"})
-			So(keep, ShouldResemble, []string{"testfile.txt"})
+		remove, err := time.Parse(layout, "01-01-2026")
+		So(err, ShouldBeNil)
+
+		config := Config{
+			BackupType: db.BackupIBackup,
+			Frequency:  7,
+			Metadata:   "example-metadata",
+			ReviewDate: review,
+			RemoveDate: remove,
+		}
+
+		rules, err := ToRules(strings.NewReader(exampleData), config)
+
+		So(err, ShouldBeNil)
+		So(rules, ShouldNotBeNil)
+
+		expected := db.Rule{
+			BackupType: db.BackupNone,
+			Metadata:   config.Metadata,
+			ReviewDate: review,
+			RemoveDate: remove,
+			Frequency:  7,
+			Match:      "*.log"}
+		So(rules[0], ShouldResemble, expected)
+
+		expected.Match = "/build/"
+		So(rules[1], ShouldResemble, expected)
+
+		expected.BackupType = db.BackupIBackup
+		expected.Match = "!/important.log"
+		So(rules[2], ShouldResemble, expected)
+
+		// TODO: Confirm the rules work by creating statemachine with them and testing with example paths (ask Michael for help)
+		// Convey() {}
+
+		Convey("A statemachine can be created", func() {
+			// examplePaths := `
+			// test/rules.log
+			// test/build/works.txt
+			// test/important.log`
+
 		})
 
-		Convey("Rules can be retrieved", func() {
-			rules, err := gi.GetRules()
+		Convey("A gitignore file can be exported", func() {
+			exportedData, err := FromRules(rules)
 			So(err, ShouldBeNil)
-			So(rules, ShouldEqual, []string{"*.log", "/build/", "/!important.log"})
-		})
-
-		Convey("Rules can be added", func() {
-			newrules, err := gi.AddRules([]string{"*.txt", "/test/"})
-			So(err, ShouldBeNil)
-			So(newrules, ShouldEqual, []string{"*.log", "/build/", "/!important.log", "*.txt", "/test/"})
-
-			Convey("With the insertion index specified", func() {
-				newrules, err = gi.AddRuleAt("/test2/", 3)
-				So(err, ShouldBeNil)
-				expectedRules := []string{"*.log", "/build/", "/!important.log", "/test2/", "*.txt", "/test/"}
-				So(newrules, ShouldEqual, expectedRules)
-
-				newrules, err = gi.AddRuleAt("/ignoreme/", 0)
-				So(err, ShouldBeNil)
-				expectedRules = append([]string{"/ignoreme/"}, expectedRules...)
-				So(newrules, ShouldEqual, expectedRules)
-
-				newrules, err = gi.AddRuleAt("/ignoremepls/", len(newrules))
-				So(err, ShouldBeNil)
-				So(newrules, ShouldEqual, append(expectedRules, "/ignoremepls/"))
-
-				_, err = gi.AddRuleAt("foo", 999)
-				So(err, ShouldNotBeNil)
-			})
-
-			Convey("And the matcher is successfully updated to correspond with the updated rules", func() {
-				paths := []string{"testfile.txt", "testfile2.log", "testfile3.mpg"}
-				ignore, keep := gi.Match(paths)
-				So(ignore, ShouldResemble, []string{"testfile.txt", "testfile2.log"})
-				So(keep, ShouldResemble, []string{"testfile3.mpg"})
-			})
-		})
-
-		Convey("Rules can be removed", func() {
-			newrules, err := gi.RemoveRules([]string{"*.log"})
-			So(err, ShouldBeNil)
-			So(newrules, ShouldEqual, []string{"/build/", "/!important.log"})
-
-			Convey("And the matcher is successfully updated to correspond with the updated rules", func() {
-				paths := []string{"/build/", "test.log"}
-				ignore, keep := gi.Match(paths)
-				So(ignore, ShouldResemble, []string{"/build/"})
-				So(keep, ShouldResemble, []string{"test.log"})
-			})
+			So(exportedData, ShouldEqual, exampleData)
 		})
 	})
 }
