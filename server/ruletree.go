@@ -95,12 +95,12 @@ func (r *RulesDir) initChildren() {
 	if r.child == nil {
 		r.child = &RulesDir{
 			rulesDir: rulesDir{
-				sm:     r.sm,
-				parent: r,
+				sm: r.sm,
 			},
 		}
 	}
 
+	r.child.parent = r
 	r.child.dir.Parent = &r.dir
 	r.rules = r.rules[:0]
 }
@@ -256,8 +256,7 @@ func (r *RuleLessDir) initChildren() {
 	if r.child == nil {
 		r.child = &RuleLessDir{
 			rulesDir: rulesDir{
-				sm:     r.sm,
-				parent: r,
+				sm: r.sm,
 			},
 			rules:           r.rules,
 			ruleDirPrefixes: r.ruleDirPrefixes,
@@ -265,6 +264,7 @@ func (r *RuleLessDir) initChildren() {
 		}
 	}
 
+	r.child.parent = r
 	r.child.dir.Parent = &r.dir
 	r.rulesDir.rules = r.rulesDir.rules[:0]
 }
