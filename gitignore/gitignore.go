@@ -18,13 +18,26 @@ type Config struct {
 }
 
 // ToRules accepts a gitignore file reader, and corresponding config data and
-// returns rules.
+// returns rules. A default rule to backup * is always added.
 func ToRules(r io.Reader, config Config) ([]db.Rule, error) {
 	var rules []db.Rule
+
+	rules = append(rules, db.Rule{
+		BackupType: config.BackupType,
+		Frequency:  config.Frequency,
+		Metadata:   config.Metadata,
+		ReviewDate: config.ReviewDate,
+		RemoveDate: config.RemoveDate,
+		Match:      "*",
+	})
 
 	scanner := bufio.NewScanner(r)
 
 	for scanner.Scan() {
+		if strings.HasPrefix(scanner.Text(), "#") || scanner.Text() == "" {
+			continue
+		}
+
 		rule := db.Rule{
 			Frequency:  config.Frequency,
 			Metadata:   config.Metadata,
@@ -35,6 +48,11 @@ func ToRules(r io.Reader, config Config) ([]db.Rule, error) {
 
 		if strings.HasPrefix(rule.Match, "!") {
 			rule.BackupType = config.BackupType
+			rule.Match = strings.TrimPrefix(rule.Match, "!")
+		}
+
+		if strings.HasSuffix(rule.Match, "/") {
+			rule.Match += "*"
 		}
 
 		rules = append(rules, rule)
@@ -53,7 +71,13 @@ func FromRules(rules []db.Rule) (string, error) {
 	var matches []string
 
 	for _, rule := range rules {
-		matches = append(matches, rule.Match)
+		match := rule.Match
+
+		if rule.BackupType != db.BackupNone {
+			match = "!" + match
+		}
+
+		matches = append(matches, match)
 	}
 
 	output := strings.Join(matches, "\n")

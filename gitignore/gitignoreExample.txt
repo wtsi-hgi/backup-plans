@@ -1,3 +1,6 @@
+# comment1
 *.log
 /build/
+
+# comment2
 !/important.log

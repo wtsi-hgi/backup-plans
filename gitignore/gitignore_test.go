@@ -2,12 +2,15 @@ package gitignore
 
 import (
 	_ "embed"
+	"path"
 	"strings"
 	"testing"
 	"time"
 
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/wtsi-hgi/backup-plans/db"
+	"github.com/wtsi-hgi/wrstat-ui/summary"
+	"github.com/wtsi-hgi/wrstat-ui/summary/group"
 )
 
 //go:embed gitignoreExample.txt
@@ -42,30 +45,69 @@ func TestNew(t *testing.T) {
 			RemoveDate: remove,
 			Frequency:  7,
 			Match:      "*.log"}
-		So(rules[0], ShouldResemble, expected)
-
-		expected.Match = "/build/"
 		So(rules[1], ShouldResemble, expected)
 
-		expected.BackupType = db.BackupIBackup
-		expected.Match = "!/important.log"
+		expected.Match = "/build/*"
 		So(rules[2], ShouldResemble, expected)
 
-		// TODO: Confirm the rules work by creating statemachine with them and testing with example paths (ask Michael for help)
-		// Convey() {}
+		expected.BackupType = db.BackupIBackup
+		expected.Match = "/important.log"
+		So(rules[3], ShouldResemble, expected)
+
+		expected.Match = "*"
+		So(rules[0], ShouldResemble, expected)
 
 		Convey("A statemachine can be created", func() {
-			// examplePaths := `
-			// test/rules.log
-			// test/build/works.txt
-			// test/important.log`
+			dir := "/test/dir"
+
+			var ruleList []group.PathGroup[db.Rule]
+
+			for _, r := range rules {
+				ruleList = append(ruleList, group.PathGroup[db.Rule]{
+					Path:  []byte(path.Join(dir, r.Match)),
+					Group: &r,
+				})
+			}
+
+			sm, err := group.NewStatemachine(ruleList)
+			So(err, ShouldBeNil)
+			So(sm, ShouldNotBeNil)
+
+			root := &summary.DirectoryPath{Name: "/", Depth: 0}
+			rootChild := &summary.DirectoryPath{Name: "test/", Depth: 1, Parent: root}
+			testDir := &summary.DirectoryPath{Name: "dir/", Depth: 2, Parent: rootChild}
+
+			matchingRule := sm.GetGroup(&summary.FileInfo{
+				Path: testDir,
+				Name: []byte("important.log"),
+			})
+			So(matchingRule, ShouldEqual, &rules[3])
+
+			matchingRule = sm.GetGroup(&summary.FileInfo{
+				Path: testDir,
+				Name: []byte("other.log"),
+			})
+			So(matchingRule, ShouldEqual, &rules[1])
+
+			buildDir := &summary.DirectoryPath{Name: "build/", Depth: 3, Parent: testDir}
+			matchingRule = sm.GetGroup(&summary.FileInfo{
+				Path: buildDir,
+				Name: []byte("file.txt"),
+			})
+			So(matchingRule, ShouldEqual, &rules[2])
+
+			matchingRule = sm.GetGroup(&summary.FileInfo{
+				Path: testDir,
+				Name: []byte("file.txt"),
+			})
+			So(matchingRule, ShouldEqual, &rules[0])
 
 		})
 
 		Convey("A gitignore file can be exported", func() {
 			exportedData, err := FromRules(rules)
 			So(err, ShouldBeNil)
-			So(exportedData, ShouldEqual, exampleData)
+			So(exportedData, ShouldEqual, "!*\n*.log\n/build/*\n!/important.log")
 		})
 	})
 }
