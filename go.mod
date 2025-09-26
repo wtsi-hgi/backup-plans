@@ -5,7 +5,6 @@ go 1.24.4
 require (
 	github.com/go-sql-driver/mysql v1.9.3
 	github.com/klauspost/pgzip v1.2.6
-	github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06
 	github.com/smartystreets/goconvey v1.8.1
 	github.com/wtsi-hgi/wrstat-ui v1.8.3
 	golang.org/x/sys v0.34.0
