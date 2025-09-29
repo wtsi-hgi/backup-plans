@@ -1,4 +1,4 @@
-package treegen
+package treegen_test
 
 import (
 	"bytes"
@@ -9,6 +9,7 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/wtsi-hgi/backup-plans/internal/directories"
+	"github.com/wtsi-hgi/backup-plans/treegen"
 	"github.com/wtsi-hgi/wrstat-ui/stats"
 	"github.com/wtsi-hgi/wrstat-ui/summary"
 	"vimagination.zapto.org/byteio"
@@ -20,20 +21,20 @@ func TestTimeTree(t *testing.T) {
 		f := directories.NewRoot("/", 12345)
 
 		f.AddDirectory("opt").SetMeta(99, 98, 1).AddDirectory("userDir").SetMeta(1, 1, 98765)
-		directories.AddFile(f, "opt/userDir/file1.txt", 1, 1, 9, 0, 98766)
-		directories.AddFile(f, "opt/userDir/file2.txt", 1, 2, 8, 0, 98767)
-		directories.AddFile(f, "opt/subDir/subsubDir/file3.txt", 1, 2, 7, 0, 98000)
+		directories.AddFile(f, "opt/userDir/file1.txt", 1, 1, 9, 98766)
+		directories.AddFile(f, "opt/userDir/file2.txt", 1, 2, 8, 98767)
+		directories.AddFile(f, "opt/subDir/subsubDir/file3.txt", 1, 2, 7, 98000)
 
 		f.AddDirectory("opt").AddDirectory("other").SetMeta(2, 1, 12349)
-		directories.AddFile(f, "opt/other/someDir/someFile", 2, 1, 6, 0, 12346)
-		directories.AddFile(f, "opt/other/someDir/someFile", 2, 1, 5, 0, 12346)
+		directories.AddFile(f, "opt/other/someDir/someFile", 2, 1, 6, 12346)
+		directories.AddFile(f, "opt/other/someDir/someFile", 2, 1, 5, 12346)
 
 		p := stats.NewStatsParser(f.AsReader())
 		s := summary.NewSummariser(p)
 
 		var treeDB bytes.Buffer
 
-		s.AddDirectoryOperation(NewTree(&treeDB))
+		s.AddDirectoryOperation(treegen.NewTree(&treeDB))
 
 		So(s.Summarise(), ShouldBeNil)
 
@@ -49,13 +50,13 @@ func TestTimeTree(t *testing.T) {
 			uid, gid, userSummary, groupSummary := readSummary(r)
 			So(uid, ShouldEqual, 0)
 			So(gid, ShouldEqual, 0)
-			So(userSummary, ShouldResemble, []IDData{
-				{1, &Meta{MTime: 98767, Files: 3, Bytes: 24}},
-				{2, &Meta{MTime: 12346, Files: 1, Bytes: 5}},
+			So(userSummary, ShouldResemble, []treegen.IDData{
+				{1, &treegen.Meta{MTime: 98767, Files: 3, Bytes: 24}},
+				{2, &treegen.Meta{MTime: 12346, Files: 1, Bytes: 5}},
 			})
-			So(groupSummary, ShouldResemble, []IDData{
-				{1, &Meta{MTime: 98766, Files: 2, Bytes: 14}},
-				{2, &Meta{MTime: 98767, Files: 2, Bytes: 15}},
+			So(groupSummary, ShouldResemble, []treegen.IDData{
+				{1, &treegen.Meta{MTime: 98766, Files: 2, Bytes: 14}},
+				{2, &treegen.Meta{MTime: 98767, Files: 2, Bytes: 15}},
 			})
 
 			So(slices.Sorted(maps.Keys(maps.Collect(tr.Children()))), ShouldResemble, []string{
@@ -72,13 +73,13 @@ func TestTimeTree(t *testing.T) {
 			uid, gid, userSummary, groupSummary := readSummary(r)
 			So(uid, ShouldEqual, 99)
 			So(gid, ShouldEqual, 98)
-			So(userSummary, ShouldResemble, []IDData{
-				{1, &Meta{MTime: 98767, Files: 3, Bytes: 24}},
-				{2, &Meta{MTime: 12346, Files: 1, Bytes: 5}},
+			So(userSummary, ShouldResemble, []treegen.IDData{
+				{1, &treegen.Meta{MTime: 98767, Files: 3, Bytes: 24}},
+				{2, &treegen.Meta{MTime: 12346, Files: 1, Bytes: 5}},
 			})
-			So(groupSummary, ShouldResemble, []IDData{
-				{1, &Meta{MTime: 98766, Files: 2, Bytes: 14}},
-				{2, &Meta{MTime: 98767, Files: 2, Bytes: 15}},
+			So(groupSummary, ShouldResemble, []treegen.IDData{
+				{1, &treegen.Meta{MTime: 98766, Files: 2, Bytes: 14}},
+				{2, &treegen.Meta{MTime: 98767, Files: 2, Bytes: 15}},
 			})
 
 			So(slices.Sorted(maps.Keys(maps.Collect(tr.Children()))), ShouldResemble, []string{
@@ -113,7 +114,7 @@ func readMeta(r io.Reader) (uint32, uint32, int64, uint64) {
 	return uint32(lr.ReadUintX()), uint32(lr.ReadUintX()), int64(lr.ReadUintX()), lr.ReadUintX()
 }
 
-func readSummary(r io.Reader) (uint32, uint32, []IDData, []IDData) {
+func readSummary(r io.Reader) (uint32, uint32, []treegen.IDData, []treegen.IDData) {
 	lr := byteio.StickyLittleEndianReader{Reader: r}
 
 	uid := lr.ReadUintX()
@@ -125,12 +126,12 @@ func readSummary(r io.Reader) (uint32, uint32, []IDData, []IDData) {
 	return uint32(uid), uint32(gid), readArray(&lr), readArray(&lr)
 }
 
-func readArray(lr *byteio.StickyLittleEndianReader) []IDData {
-	idts := make([]IDData, lr.ReadUintX())
+func readArray(lr *byteio.StickyLittleEndianReader) []treegen.IDData {
+	idts := make([]treegen.IDData, lr.ReadUintX())
 
 	for n := range idts {
 		idts[n].ID = uint32(lr.ReadUintX())
-		idts[n].Meta = new(Meta)
+		idts[n].Meta = new(treegen.Meta)
 		idts[n].MTime = lr.ReadUintX()
 		idts[n].Files = lr.ReadUintX()
 		idts[n].Bytes = lr.ReadUintX()

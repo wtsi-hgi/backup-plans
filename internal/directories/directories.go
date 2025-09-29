@@ -3,31 +3,41 @@ package directories
 import (
 	"fmt"
 	"io"
+	"iter"
 	"maps"
 	"path/filepath"
 	"slices"
 	"sort"
 	"strings"
+
+	"github.com/wtsi-hgi/backup-plans/treegen"
+	"github.com/wtsi-hgi/wrstat-ui/summary"
+	"vimagination.zapto.org/tree"
 )
+
+type child interface {
+	tree.Node
+	writeTo(io.Writer)
+}
 
 // Directory represents the stat information for a directory and its children.
 type Directory struct {
-	children map[string]io.WriterTo
-	File
+	children map[string]child
+	Path     summary.DirectoryPath
+	treegen.Directory
+	parent *Directory
 }
 
 // NewRoot creates a new Directory root with the specified time as the atime,
 // mtime, and ctime.
 func NewRoot(path string, refTime int64) *Directory {
 	return &Directory{
-		children: make(map[string]io.WriterTo),
-		File: File{
-			Path:  path,
-			Size:  4096,
-			ATime: refTime,
-			MTime: refTime,
-			CTime: refTime,
-			Type:  'd',
+		children: make(map[string]child),
+		Path:     summary.DirectoryPath{Name: path},
+		Directory: treegen.Directory{
+			MTime:  refTime,
+			Users:  make(treegen.IDMeta),
+			Groups: make(treegen.IDMeta),
 		},
 	}
 }
@@ -39,6 +49,10 @@ func (d *Directory) AddDirectory(name string) *Directory {
 		return d
 	}
 
+	if !strings.HasSuffix(name, "/") {
+		name += "/"
+	}
+
 	if c, ok := d.children[name]; ok {
 		if cd, ok := c.(*Directory); ok {
 			return cd
@@ -48,11 +62,18 @@ func (d *Directory) AddDirectory(name string) *Directory {
 	}
 
 	c := &Directory{
-		children: make(map[string]io.WriterTo),
-		File:     d.File,
+		children: make(map[string]child),
+		Path:     summary.DirectoryPath{Parent: &d.Path, Name: name},
+		Directory: treegen.Directory{
+			MTime:  d.MTime,
+			UID:    d.UID,
+			GID:    d.GID,
+			Users:  make(treegen.IDMeta),
+			Groups: make(treegen.IDMeta),
+		},
+		parent: d,
 	}
 
-	c.File.Path += name + "/"
 	d.children[name] = c
 
 	return c
@@ -69,37 +90,32 @@ func (d *Directory) AddFile(name string) *File {
 		return nil
 	}
 
-	f := d.File
+	f := &File{
+		Path: summary.DirectoryPath{
+			Parent: &d.Path,
+			Name:   name,
+		},
+		Type:   'f',
+		parent: d,
+	}
 
-	d.children[name] = &f
-	f.Path += name
-	f.Size = 0
-	f.Type = 'f'
+	d.children[name] = f
 
-	return &f
+	return f
 }
 
 // WriteTo writes the stats data for the directory.
-func (d *Directory) WriteTo(w io.Writer) (int64, error) {
-	n, err := d.File.WriteTo(w)
-	if err != nil {
-		return n, err
-	}
+func (d *Directory) writeTo(w io.Writer) {
+	path := string(d.Path.AppendTo(nil))
+	fmt.Fprintf(w, "%q\t%d\t%d\t%d\t%d\t%d\t%d\t%c\t%d\t1\t1\t%d\n",
+		path, 4096, d.UID, d.GID, d.MTime, d.MTime, d.MTime, 'd', 0, 4096)
 
 	keys := slices.Collect(maps.Keys(d.children))
 	sort.Strings(keys)
 
 	for _, k := range keys {
-		m, err := d.children[k].WriteTo(w)
-
-		n += m
-
-		if err != nil {
-			return n, err
-		}
+		d.children[k].writeTo(w)
 	}
-
-	return n, nil
 }
 
 // AsReader returns a ReadCloser that will output a stats file as read by the
@@ -108,7 +124,7 @@ func (d *Directory) AsReader() io.ReadCloser {
 	pr, pw := io.Pipe()
 
 	go func() {
-		d.WriteTo(pw) //nolint:errcheck
+		d.writeTo(pw) //nolint:errcheck
 		pw.Close()
 	}()
 
@@ -123,27 +139,49 @@ func (d *Directory) SetMeta(uid, gid uint32, mtime int64) *Directory {
 	return d
 }
 
-// File represents a pseudo-file entry.
-type File struct {
-	Path                string
-	Size                int64
-	ATime, MTime, CTime int64
-	UID, GID            uint32
-	Inode               uint64
-	Type                byte
+func (d *Directory) Children() iter.Seq2[string, tree.Node] {
+	return func(yield func(string, tree.Node) bool) {
+		for name, child := range d.children {
+			if !yield(name, child) {
+				return
+			}
+		}
+	}
 }
 
-// WriteTo writes the stats data for a file entry.
-func (f *File) WriteTo(w io.Writer) (int64, error) {
-	n, err := fmt.Fprintf(w, "%q\t%d\t%d\t%d\t%d\t%d\t%d\t%c\t%d\t1\t1\t%d\n",
-		f.Path, f.Size, f.UID, f.GID, f.ATime, f.MTime, f.CTime, f.Type, f.Inode, f.Size)
+func (d *Directory) addFileData(uid, gid uint32, mtime, size int64) {
+	if d.parent != nil {
+		d.parent.addFileData(uid, gid, mtime, size)
+	}
 
-	return int64(n), err
+	d.Directory.Add(uid, gid, size, mtime)
+}
+
+// File represents a pseudo-file entry.
+type File struct {
+	treegen.File
+	Path   summary.DirectoryPath
+	Inode  uint64
+	Type   byte
+	parent *Directory
+}
+
+// writeTo writes the stats data for a file entry.
+func (f *File) writeTo(w io.Writer) {
+	path := string(f.Path.AppendTo(nil))
+	fmt.Fprintf(w, "%q\t%d\t%d\t%d\t%d\t%d\t%d\t%c\t%d\t1\t1\t%d\n",
+		path, f.Size, f.UID, f.GID, f.MTime, f.MTime, f.MTime, f.Type, f.Inode, f.Size)
+}
+
+func (f *File) WriteTo(w io.Writer) (int64, error) {
+	f.parent.addFileData(f.UID, f.GID, f.MTime, f.Size)
+
+	return f.File.WriteTo(w)
 }
 
 // AddFile adds file data to a directory, creating the directory in the tree if
 // necessary.
-func AddFile(d *Directory, path string, uid, gid uint32, size, atime, mtime int64) *File {
+func AddFile(d *Directory, path string, uid, gid uint32, size, mtime int64) *File {
 	for part := range strings.SplitSeq(filepath.Dir(path), "/") {
 		d = d.AddDirectory(part)
 	}
@@ -152,7 +190,6 @@ func AddFile(d *Directory, path string, uid, gid uint32, size, atime, mtime int6
 	file.UID = uid
 	file.GID = gid
 	file.Size = size
-	file.ATime = atime
 	file.MTime = mtime
 
 	return file
