@@ -78,7 +78,6 @@ export default (path: string) => getTree(path).then(data => {
 		"dir": ""
 	};
 
-
 	for (const [name, child] of Object.entries(data.Children)) {
 		const e: Directory = {
 			"count": 0n,
@@ -96,6 +95,16 @@ export default (path: string) => getTree(path).then(data => {
 	};
 
 	summarise(data, d, rules);
+
+	for (const [ruleID, rule] of Object.entries(data.Rules[path] ?? []) as unknown[] as [number, Rule][]) {
+		if (!d.rules[path].some(e => e.Match === rule.Match)) {
+			d.rules[path].push(Object.assign(rule, {
+				"count": 0n,
+				"size": 0n,
+				"mtime": 0
+			}));
+		}
+	}
 
 	return d;
 });
