@@ -107,7 +107,7 @@ export default Object.assign(base, {
 					])
 				])))
 			]) : [],
-			h2("Rules affecting this directory"),
+			Object.entries(data.rules).some(([dir]) => dir && dir !== path) ? h2("Rules affecting this directory") : [],
 			Object.entries(data.rules).map(([dir, rules]) => dir && dir !== path ? table({ "class": "prettyTable" }, [
 				caption({ "align": "top" }, button({ "click": () => load(dir) }, dir)),
 				thead([th("Match"), th("Action"), th("Files"), th("Size")]),
