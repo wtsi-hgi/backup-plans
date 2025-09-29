@@ -7,7 +7,7 @@ type Directory struct {
 	Path      string
 	ClaimedBy string
 
-	Created, Modified time.Time
+	Created, Modified int64
 }
 
 func (d *Directory) ID() int64 {
@@ -25,7 +25,7 @@ func (d *DB) CreateDirectory(dir *Directory) error {
 	}
 	defer tx.Rollback() //nolint:errcheck
 
-	dir.Created = time.Now().Truncate(time.Second)
+	dir.Created = time.Now().Unix()
 	dir.Modified = dir.Created
 
 	res, err := tx.Exec(createDirectory, dir.Path, dir.ClaimedBy, dir.Created, dir.Modified)
@@ -61,7 +61,7 @@ func scanDirectory(scanner scanner) (*Directory, error) {
 }
 
 func (d *DB) UpdateDirectory(dir *Directory) error {
-	dir.Modified = time.Now().Truncate(time.Second)
+	dir.Modified = time.Now().Unix()
 
 	return d.exec(updateDirectory, dir.ClaimedBy, dir.Modified, dir.id)
 }
