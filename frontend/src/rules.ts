@@ -18,8 +18,9 @@ const actions = ["No Backup", "Temp Backup", "IBackup", "Manual Backup"],
 			set = button({
 				"click": () => {
 					overlay.setAttribute("closedby", "none");
-					set.setAttribute("disabled", "disabled");
-					cancel.setAttribute("disabled", "disabled");
+					set.toggleAttribute("disabled", true);
+					cancel.toggleAttribute("disabled", true);
+					backupType.toggleAttribute("disabled", true);
 
 					(rule.Match ? updateRule : createRule)(path, backupType.value, rule.Match || match.value || "*")
 						.then(() => {
@@ -30,6 +31,7 @@ const actions = ["No Backup", "Temp Backup", "IBackup", "Manual Backup"],
 							overlay.setAttribute("closedby", "any");
 							set.removeAttribute("disabled");
 							cancel.removeAttribute("disabled");
+							backupType.removeAttribute("disabled");
 							alert("Error: " + e.message);
 						});
 				}
@@ -74,10 +76,29 @@ export default Object.assign(base, {
 						])),
 						button({
 							"click": () => {
-								if (confirm("Are you sure?")) {
-									removeRule(path, rule.Match)
-										.then(() => load(path));
-								}
+								const remove = button({
+									"click": () => {
+										overlay.setAttribute("closedby", "none");
+										remove.toggleAttribute("disabled", true);
+										cancel.toggleAttribute("disabled", true);
+										removeRule(path, rule.Match)
+											.then(() => load(path))
+											.then(() => overlay.close())
+											.catch((e: Error) => {
+												overlay.setAttribute("closedby", "any");
+												remove.removeAttribute("disabled");
+												cancel.removeAttribute("disabled");
+												alert("Error: " + e.message);
+											});
+									}
+								}, "Remove"),
+									cancel = button({ "click": () => overlay.close() }, "Cancel"),
+									overlay = document.body.appendChild(dialog({ "closedby": "any", "close": () => overlay.remove() }, [
+										div("Are you sure you wish to remove this rule?"),
+										remove, cancel
+									]));
+
+								overlay.showModal();
 							}
 						}, svg([
 							title("Remove Rule"),
