@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/wtsi-hgi/backup-plans/db"
+	"github.com/wtsi-hgi/backup-plans/ruletree"
 	"github.com/wtsi-hgi/wrstat-ui/summary/group"
 	"vimagination.zapto.org/httpbuffer"
 
@@ -18,25 +19,27 @@ type Server struct {
 
 	rulesMu        sync.RWMutex
 	rulesDB        *db.DB
-	directoryRules map[string]*DirRules
+	directoryRules map[string]*ruletree.DirRules
 	dirs           map[uint64]*db.Directory
 	rules          map[uint64]*db.Rule
 	stateMachine   group.StateMachine[db.Rule]
 
-	treeMu    sync.RWMutex
-	closers   map[string]func()
-	structure TopLevelDir
+	rootDir *ruletree.RootDir
 }
 
 func New(d *db.DB, getUser func(r *http.Request) string) (*Server, error) {
 	s := &Server{
-		getUser:   getUser,
-		rulesDB:   d,
-		closers:   make(map[string]func()),
-		structure: *newTopLevelDir(nil),
+		getUser: getUser,
+		rulesDB: d,
 	}
 
-	if err := s.loadRules(); err != nil {
+	rules, err := s.loadRules()
+	if err != nil {
+		return nil, err
+	}
+
+	s.rootDir, err = ruletree.NewRoot(rules)
+	if err != nil {
 		return nil, err
 	}
 

@@ -1,35 +1,27 @@
 package server
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"net/http"
-	"path"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/wtsi-hgi/backup-plans/db"
-	"github.com/wtsi-hgi/wrstat-ui/summary"
+	"github.com/wtsi-hgi/backup-plans/ruletree"
 	"github.com/wtsi-hgi/wrstat-ui/summary/group"
-	"vimagination.zapto.org/tree"
 )
 
-type DirRules struct {
-	*db.Directory
-
-	Rules map[string]*db.Rule
-}
-
-func (s *Server) loadRules() error {
-	s.directoryRules = make(map[string]*DirRules)
+func (s *Server) loadRules() ([]ruletree.DirRule, error) {
+	s.directoryRules = make(map[string]*ruletree.DirRules)
 	s.dirs = make(map[uint64]*db.Directory)
 	s.rules = make(map[uint64]*db.Rule)
-	dirs := make(map[int64]*DirRules)
+	dirs := make(map[int64]*ruletree.DirRules)
+	dirRules := make([]ruletree.DirRule, 0)
 
 	if err := s.rulesDB.ReadDirectories().ForEach(func(dir *db.Directory) error {
-		dr := &DirRules{
+		dr := &ruletree.DirRules{
 			Directory: dir,
 			Rules:     make(map[string]*db.Rule),
 		}
@@ -39,7 +31,7 @@ func (s *Server) loadRules() error {
 
 		return nil
 	}); err != nil {
-		return err
+		return nil, err
 	}
 
 	var ruleList []group.PathGroup[db.Rule]
@@ -54,23 +46,28 @@ func (s *Server) loadRules() error {
 
 		dir.Rules[r.Match] = r
 		ruleList = append(ruleList, group.PathGroup[db.Rule]{
-			Path:  []byte(path.Join(dir.Path, r.Match)),
+			Path:  []byte(dir.Path + r.Match),
 			Group: r,
+		})
+
+		dirRules = append(dirRules, ruletree.DirRule{
+			Directory: dir.Directory,
+			Rule:      r,
 		})
 
 		return nil
 	}); err != nil {
-		return err
+		return nil, err
 	}
 
 	sm, err := group.NewStatemachine(ruleList)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	s.stateMachine = sm
 
-	return nil
+	return dirRules, nil
 }
 
 func (s *Server) ClaimDir(w http.ResponseWriter, r *http.Request) {
@@ -104,7 +101,7 @@ func (s *Server) claimDir(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	s.directoryRules[dir] = &DirRules{
+	s.directoryRules[dir] = &ruletree.DirRules{
 		Directory: directory,
 		Rules:     make(map[string]*db.Rule),
 	}
@@ -156,7 +153,7 @@ func (s *Server) createRule(w http.ResponseWriter, r *http.Request) error {
 	directory.Rules[rule.Match] = rule
 	s.rules[uint64(rule.ID())] = rule
 
-	if err := s.regenRules(dir); err != nil {
+	if err := s.rootDir.AddRule(directory.Directory, rule); err != nil {
 		return err
 	}
 
@@ -221,109 +218,6 @@ func parseTime(str string) time.Time {
 	}
 
 	return time.Unix(int64(unix), 0)
-}
-
-func (s *Server) regenRules(dir string) error {
-	t := &s.structure
-	path := &summary.DirectoryPath{
-		Name: "/",
-	}
-
-	for part := range pathParts(dir[1:]) {
-		child := t.children[part]
-		if child == nil {
-			return ErrInvalidDir
-		}
-
-		path = &summary.DirectoryPath{
-			Name:   part,
-			Parent: path,
-		}
-
-		switch child := child.(type) {
-		case *TopLevelDir:
-			t = child
-		case *RuleOverlay:
-			return s.regenRulesFor(t, child, dir, path)
-		default:
-			return ErrInvalidDir
-		}
-	}
-
-	return ErrInvalidDir
-}
-
-func (s *Server) regenRulesFor(t *TopLevelDir, child *RuleOverlay, dir string, path *summary.DirectoryPath) error {
-	if err := s.rebuildStateMachine(); err != nil {
-		return err
-	}
-
-	rd := RuleLessDirPatch{
-		rulesDir: rulesDir{
-			node: child.lower,
-			sm:   s.stateMachine,
-			dir:  *path,
-		},
-		ruleDirPrefixes: s.createRulePatchMap(dir),
-		previousRules:   child.upper,
-		nameBuf:         new([4096]byte),
-	}
-
-	var buf bytes.Buffer
-
-	if err := tree.Serialise(&buf, &rd); err != nil {
-		return err
-	}
-
-	processed, err := tree.OpenMem(buf.Bytes())
-	if err != nil {
-		return err
-	}
-
-	child.upper = processed
-
-	return t.SetChild(path.Name, child)
-}
-
-func (s *Server) rebuildStateMachine() error {
-	var ruleList []group.PathGroup[db.Rule]
-
-	for dir, rules := range s.directoryRules {
-		for _, rule := range rules.Rules {
-			ruleList = append(ruleList, group.PathGroup[db.Rule]{
-				Path:  []byte(path.Join(dir, rule.Match)),
-				Group: rule,
-			})
-		}
-	}
-
-	sm, err := group.NewStatemachine(ruleList)
-	if err != nil {
-		return err
-	}
-
-	s.stateMachine = sm
-
-	return nil
-}
-
-func (s *Server) createRulePatchMap(dir string) map[string]bool {
-	rulePrefixes := make(map[string]bool)
-
-	for ruleDir := range s.directoryRules {
-		if !strings.HasPrefix(dir, ruleDir) {
-			continue
-		}
-
-		rulePrefixes[ruleDir] = true
-
-		for ruleDir != "/" {
-			ruleDir = ruleDir[:strings.LastIndexByte(ruleDir[:len(ruleDir)-1], '/')+1]
-			rulePrefixes[ruleDir] = rulePrefixes[ruleDir] || false
-		}
-	}
-
-	return rulePrefixes
 }
 
 func (s *Server) GetRules(w http.ResponseWriter, r *http.Request) {
@@ -425,7 +319,7 @@ func (s *Server) removeRule(w http.ResponseWriter, r *http.Request) error {
 
 	delete(directory.Rules, match)
 
-	if err := s.regenRules(dir); err != nil {
+	if err := s.rootDir.RemoveRule(directory.Directory, rule); err != nil {
 		return err
 	}
 
