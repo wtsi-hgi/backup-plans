@@ -9,15 +9,15 @@ require (
 	github.com/inconshreveable/log15 v3.0.0-testing.5+incompatible
 	github.com/klauspost/pgzip v1.2.6
 	github.com/smartystreets/goconvey v1.8.1
-	github.com/spf13/cobra v1.10.1
-	github.com/ugorji/go/codec v1.3.0
+	github.com/spf13/cobra v1.9.1
+	github.com/ugorji/go/codec v1.2.14
 	github.com/wtsi-hgi/go-authserver v1.5.1
 	github.com/wtsi-hgi/ibackup v1.11.0
-	github.com/wtsi-hgi/wrstat-ui v1.8.9
-	go.etcd.io/bbolt v1.4.3
-	golang.org/x/sys v0.37.0
-	modernc.org/sqlite v1.39.1
-	vimagination.zapto.org/byteio v1.2.2
+	github.com/wtsi-hgi/wrstat-ui v1.8.6-0.20250926150046-33f172249bf7
+	go.etcd.io/bbolt v1.4.0
+	golang.org/x/sys v0.35.0
+	modernc.org/sqlite v1.38.2
+	vimagination.zapto.org/byteio v1.2.1
 	vimagination.zapto.org/httpbuffer v1.1.3
 	vimagination.zapto.org/httpembed v1.4.1
 	vimagination.zapto.org/tree v1.3.3
@@ -143,7 +143,7 @@ require (
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
 	github.com/slack-go/slack v0.17.0 // indirect
 	github.com/smarty/assertions v1.15.0 // indirect
-	github.com/spf13/pflag v1.0.9 // indirect
+	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/thanhpk/randstr v1.0.6 // indirect
 	github.com/tinylib/msgp v1.3.0 // indirect
 	github.com/tklauser/go-sysconf v0.3.15 // indirect
