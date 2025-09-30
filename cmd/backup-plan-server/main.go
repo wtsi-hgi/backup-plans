@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"net/http"
 	"os"
@@ -20,6 +21,12 @@ func main() {
 }
 
 func run() error {
+	var port uint64
+
+	flag.Uint64Var(&port, "port", 12345, "port to start server on")
+
+	flag.Parse()
+
 	d, err := db.Init("mysql", os.Getenv("BACKUP_MYSQL_URL")+"?parseTime=true")
 	if err != nil {
 		return err
@@ -51,9 +58,9 @@ func run() error {
 	http.Handle("/api/rules/remove", http.HandlerFunc(s.RemoveRule))
 	http.Handle("/", http.HandlerFunc(frontend.Serve))
 
-	return http.ListenAndServe(":12345", nil)
+	return http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
 }
 
 func getUser(r *http.Request) string {
-	return "mw31"
+	return r.FormValue("user")
 }
