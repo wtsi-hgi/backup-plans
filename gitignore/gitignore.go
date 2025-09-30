@@ -3,6 +3,7 @@ package gitignore
 import (
 	"bufio"
 	"io"
+	"slices"
 	"strings"
 	"time"
 
@@ -51,11 +52,19 @@ func ToRules(r io.Reader, config Config) ([]db.Rule, error) {
 			rule.Match = strings.TrimPrefix(rule.Match, "!")
 		}
 
-		if strings.HasSuffix(rule.Match, "/") {
-			rule.Match += "*"
+		if rule.ForAnySubDir() {
+			rule.Match = "/" + rule.Match
+			if rule.ForDir() {
+				rule.Match += "*"
+			}
+			rules = addRule(rules, rule)
+
+			rule.Match = "*" + rule.Match
+		} else if rule.ForDir() {
+			rule.Match = rule.Match + "*"
 		}
 
-		rules = append(rules, rule)
+		rules = addRule(rules, rule)
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -67,9 +76,8 @@ func ToRules(r io.Reader, config Config) ([]db.Rule, error) {
 
 // FromRules returns a gitignore file contents string, given a gitignore
 // object.
-func FromRules(rules []db.Rule) (string, error) {
+func FromRules(w io.Writer, rules []db.Rule) (io.Writer, error) {
 	var matches []string
-
 	for _, rule := range rules {
 		match := rule.Match
 
@@ -81,6 +89,17 @@ func FromRules(rules []db.Rule) (string, error) {
 	}
 
 	output := strings.Join(matches, "\n")
+	_, err := w.Write([]byte(output))
+	if err != nil {
+		return nil, err
+	}
 
-	return output, nil
+	return w, nil
+}
+
+func addRule(rules []db.Rule, rule db.Rule) (output []db.Rule) {
+	if slices.Contains(rules, rule) {
+		return rules
+	}
+	return append(rules, rule)
 }

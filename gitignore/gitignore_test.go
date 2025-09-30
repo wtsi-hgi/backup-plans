@@ -1,8 +1,10 @@
 package gitignore
 
 import (
+	"bytes"
 	_ "embed"
 	"path"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -16,7 +18,7 @@ import (
 //go:embed gitignoreExample.txt
 var exampleData string
 
-func TestNew(t *testing.T) {
+func TestGitIgnore(t *testing.T) {
 	Convey("Given gitIgnore data, you can make rules from it", t, func() {
 		layout := "02-01-2006"
 		review, err := time.Parse(layout, "01-10-2025")
@@ -45,17 +47,32 @@ func TestNew(t *testing.T) {
 			RemoveDate: remove,
 			Frequency:  7,
 			Match:      "*.log"}
+
 		So(rules[1], ShouldResemble, expected)
 
 		expected.Match = "/build/*"
 		So(rules[2], ShouldResemble, expected)
 
+		expected.Match = "/file.txt"
+		So(rules[3], ShouldResemble, expected)
+
+		expected.Match = "*/file.txt"
+		So(rules[4], ShouldResemble, expected)
+
+		expected.Match = "/child/*"
+		So(rules[5], ShouldResemble, expected)
+
+		expected.Match = "*/child/*"
+		So(rules[6], ShouldResemble, expected)
+
 		expected.BackupType = db.BackupIBackup
 		expected.Match = "/important.log"
-		So(rules[3], ShouldResemble, expected)
+		So(rules[7], ShouldResemble, expected)
 
 		expected.Match = "*"
 		So(rules[0], ShouldResemble, expected)
+
+		So(hasDuplicates(rules), ShouldBeFalse)
 
 		Convey("A statemachine can be created", func() {
 			dir := "/test/dir"
@@ -81,7 +98,7 @@ func TestNew(t *testing.T) {
 				Path: testDir,
 				Name: []byte("important.log"),
 			})
-			So(matchingRule, ShouldEqual, &rules[3])
+			So(matchingRule, ShouldEqual, &rules[7])
 
 			matchingRule = sm.GetGroup(&summary.FileInfo{
 				Path: testDir,
@@ -100,14 +117,28 @@ func TestNew(t *testing.T) {
 				Path: testDir,
 				Name: []byte("file.txt"),
 			})
-			So(matchingRule, ShouldEqual, &rules[0])
+			So(matchingRule, ShouldEqual, &rules[3])
 
 		})
 
 		Convey("A gitignore file can be exported", func() {
-			exportedData, err := FromRules(rules)
+			var buf bytes.Buffer
+			writer, err := FromRules(&buf, rules)
 			So(err, ShouldBeNil)
-			So(exportedData, ShouldEqual, "!*\n*.log\n/build/*\n!/important.log")
+			So(writer, ShouldNotBeNil)
+			So(buf.String(), ShouldEqual,
+				"!*\n*.log\n/build/*\n/file.txt\n*/file.txt\n/child/*\n*/child/*\n!/important.log")
 		})
 	})
+}
+
+func hasDuplicates(slice []db.Rule) bool {
+	var visited []db.Rule
+	for _, item := range slice {
+		if slices.Contains(visited, item) {
+			return true
+		}
+		visited = append(visited, item)
+	}
+	return false
 }
