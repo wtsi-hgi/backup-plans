@@ -1,7 +1,8 @@
 /*******************************************************************************
  * Copyright (c) 2025 Genome Research Ltd.
  *
- * Author: Michael Woolnough <mw31@sanger.ac.uk>
+ * Authors:
+ *	- Sky Haines <sh55@sanger.ac.uk>
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -23,7 +24,7 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  ******************************************************************************/
 
-package main
+package cmd
 
 import (
 	"bufio"
@@ -34,61 +35,68 @@ import (
 	"strings"
 
 	"github.com/klauspost/pgzip"
+	"github.com/spf13/cobra"
 	"github.com/wtsi-hgi/backup-plans/treegen"
 	"github.com/wtsi-hgi/wrstat-ui/stats"
 	"github.com/wtsi-hgi/wrstat-ui/summary"
 )
 
-func main() {
-	if err := run(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-
-		os.Exit(1)
-	}
-}
-
-func run() error { //nolint:gocyclo,funlen
-	if len(os.Args) != 3 { //nolint:mnd
-		return ErrArgs
-	}
-
-	sf, err := os.Open(os.Args[1])
-	if err != nil {
-		return fmt.Errorf("error opening stats file: %w", err)
-	}
-
-	defer sf.Close()
-
-	var r io.Reader
-
-	if strings.HasSuffix(os.Args[1], ".gz") { //nolint:nestif
-		if r, err = pgzip.NewReader(sf); err != nil {
-			return fmt.Errorf("error decompressing stats file: %w", err)
-		}
-	} else {
-		r = sf
-	}
-
-	s := summary.NewSummariser(stats.NewStatsParser(r))
-
-	f, err := os.Create(os.Args[2])
-	if err != nil {
-		return fmt.Errorf("error creating output tree file: %w", err)
-	}
-
-	b := bufio.NewWriter(f)
-
-	s.AddDirectoryOperation(treegen.NewTree(b))
-
-	if err := s.Summarise(); err != nil {
-		return fmt.Errorf("error creating tree db: %w", err)
-	}
-
-	if err := b.Flush(); err != nil {
-		return fmt.Errorf("error flushing tree db: %w", err)
-	}
-
-	return f.Close()
-}
-
 var ErrArgs = errors.New("requires path to stats.gz file and output tree location")
+
+// dbCmd represents the db command.
+var dbCmd = &cobra.Command{
+	Use:   "db <stats.gz> <tree.db>",
+	Short: "Create tree database using summarise",
+	Long: `Create tree database using summarise.
+
+Provide the path to a wrstat stats.gz file and the path to your desired tree
+database file.
+`,
+	RunE: func(_ *cobra.Command, args []string) error {
+		if len(args) != 2 {
+			return ErrArgs
+		}
+
+		sf, err := os.Open(args[0])
+		if err != nil {
+			return fmt.Errorf("error opening stats file: %w", err)
+		}
+
+		defer sf.Close()
+
+		var r io.Reader
+
+		if strings.HasSuffix(args[0], ".gz") {
+			if r, err = pgzip.NewReader(sf); err != nil {
+				return fmt.Errorf("error decompressing stats file: %w", err)
+			}
+		} else {
+			r = sf
+		}
+
+		s := summary.NewSummariser(stats.NewStatsParser(r))
+
+		f, err := os.Create(args[1])
+		if err != nil {
+			return fmt.Errorf("error creating output tree file: %w", err)
+		}
+
+		b := bufio.NewWriter(f)
+
+		s.AddDirectoryOperation(treegen.NewTree(b))
+
+		if err := s.Summarise(); err != nil {
+			return fmt.Errorf("error creating tree db: %w", err)
+		}
+
+		if err := b.Flush(); err != nil {
+			return fmt.Errorf("error flushing tree db: %w", err)
+		}
+
+		return f.Close()
+	},
+}
+
+func init() {
+	RootCmd.AddCommand(dbCmd)
+}
