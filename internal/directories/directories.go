@@ -7,7 +7,6 @@ import (
 	"maps"
 	"path/filepath"
 	"slices"
-	"sort"
 	"strings"
 
 	"github.com/wtsi-hgi/backup-plans/treegen"
@@ -20,6 +19,10 @@ type child interface {
 	writeTo(io.Writer)
 }
 
+type Root struct {
+	Directory
+}
+
 // Directory represents the stat information for a directory and its children.
 type Directory struct {
 	children map[string]child
@@ -30,16 +33,28 @@ type Directory struct {
 
 // NewRoot creates a new Directory root with the specified time as the atime,
 // mtime, and ctime.
-func NewRoot(path string, refTime int64) *Directory {
-	return &Directory{
-		children: make(map[string]child),
-		Path:     summary.DirectoryPath{Name: path},
-		Directory: treegen.Directory{
-			MTime:  refTime,
-			Users:  make(treegen.IDMeta),
-			Groups: make(treegen.IDMeta),
+func NewRoot(path string, refTime int64) *Root {
+	return &Root{
+		Directory: Directory{
+			children: make(map[string]child),
+			Path:     summary.DirectoryPath{Name: path},
+			Directory: treegen.Directory{
+				MTime:  refTime,
+				Users:  make(treegen.IDMeta),
+				Groups: make(treegen.IDMeta),
+			},
 		},
 	}
+}
+
+func (r *Root) Children() iter.Seq2[string, tree.Node] {
+	return func(yield func(string, tree.Node) bool) {
+		yield(r.Path.Name, &r.Directory)
+	}
+}
+
+func (r *Root) WriteTo(_ io.Writer) (int64, error) {
+	return 0, nil
 }
 
 // AddDirectory either creates and returns a new directory in the direcory or
@@ -111,7 +126,8 @@ func (d *Directory) writeTo(w io.Writer) {
 		path, 4096, d.UID, d.GID, d.MTime, d.MTime, d.MTime, 'd', 0, 4096)
 
 	keys := slices.Collect(maps.Keys(d.children))
-	sort.Strings(keys)
+
+	slices.Sort(keys)
 
 	for _, k := range keys {
 		d.children[k].writeTo(w)
@@ -141,8 +157,12 @@ func (d *Directory) SetMeta(uid, gid uint32, mtime int64) *Directory {
 
 func (d *Directory) Children() iter.Seq2[string, tree.Node] {
 	return func(yield func(string, tree.Node) bool) {
-		for name, child := range d.children {
-			if !yield(name, child) {
+		keys := slices.Collect(maps.Keys(d.children))
+
+		slices.Sort(keys)
+
+		for _, name := range keys {
+			if !yield(name, d.children[name]) {
 				return
 			}
 		}
@@ -154,7 +174,7 @@ func (d *Directory) addFileData(uid, gid uint32, mtime, size int64) {
 		d.parent.addFileData(uid, gid, mtime, size)
 	}
 
-	d.Directory.Add(uid, gid, size, mtime)
+	d.Directory.Add(uid, gid, mtime, size)
 }
 
 // File represents a pseudo-file entry.
