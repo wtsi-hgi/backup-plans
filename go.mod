@@ -3,10 +3,11 @@ module github.com/wtsi-hgi/backup-plans
 go 1.24.4
 
 require (
-	github.com/go-sql-driver/mysql v1.9.3
+	github.com/inconshreveable/log15 v2.16.0+incompatible
 	github.com/klauspost/pgzip v1.2.6
 	github.com/smartystreets/goconvey v1.8.1
-	github.com/wtsi-hgi/wrstat-ui v1.8.9
+	github.com/spf13/cobra v1.9.1
+	github.com/wtsi-hgi/wrstat-ui v1.8.6-0.20250926150046-33f172249bf7
 	golang.org/x/sys v0.34.0
 	modernc.org/sqlite v1.38.2
 	vimagination.zapto.org/byteio v1.2.1
@@ -17,7 +18,6 @@ require (
 )
 
 require (
-	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/appleboy/gin-jwt/v2 v2.10.1 // indirect
 	github.com/bytedance/sonic v1.12.9 // indirect
 	github.com/bytedance/sonic/loader v0.2.3 // indirect
@@ -32,6 +32,7 @@ require (
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/go-playground/validator/v10 v10.25.0 // indirect
 	github.com/go-resty/resty/v2 v2.16.5 // indirect
+	github.com/go-stack/stack v1.8.1 // indirect
 	github.com/goccy/go-json v0.10.5 // indirect
 	github.com/golang-jwt/jwt/v4 v4.5.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
@@ -40,6 +41,7 @@ require (
 	github.com/gorilla/sessions v1.4.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
+	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/jtolds/gls v4.20.0+incompatible // indirect
 	github.com/klauspost/compress v1.18.0 // indirect
@@ -52,6 +54,7 @@ require (
 	github.com/lestrrat-go/iter v1.0.2 // indirect
 	github.com/lestrrat-go/jwx v1.2.30 // indirect
 	github.com/lestrrat-go/option v1.0.1 // indirect
+	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-sqlite3 v1.14.24 // indirect
 	github.com/moby/sys/mountinfo v0.7.2 // indirect
@@ -64,6 +67,7 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/smarty/assertions v1.15.0 // indirect
+	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/thanhpk/randstr v1.0.6 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.12 // indirect
