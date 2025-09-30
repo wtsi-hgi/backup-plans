@@ -32,8 +32,8 @@ var tables = [...]string{
 		"`directory` TEXT NOT NULL, " +
 		"`directoryHash` " + hashColumnStart + "`directory`" + hashColumnEnd + ", " +
 		"`claimedBy` TEXT NOT NULL, " +
-		"`created` DATETIME NOT NULL, " +
-		"`modified` DATETIME NOT NULL, " +
+		"`created` BIGINT NOT NULL, " +
+		"`modified` BIGINT NOT NULL, " +
 		"UNIQUE(`directoryHash`)" +
 		");",
 
@@ -47,8 +47,8 @@ var tables = [...]string{
 		"`match` TEXT NOT NULL, " +
 		"`matchHash` " + hashColumnStart + "`match`" + hashColumnEnd + ", " +
 		"`frequency` INTEGER NOT NULL, " +
-		"`created` DATETIME NOT NULL, " +
-		"`modified` DATETIME NOT NULL, " +
+		"`created` BIGINT NOT NULL, " +
+		"`modified` BIGINT NOT NULL, " +
 		"UNIQUE(`directoryID`, `matchHash`), " +
 		"FOREIGN KEY(`directoryID`) REFERENCES `directories`(`id`) ON DELETE CASCADE" +
 		");",

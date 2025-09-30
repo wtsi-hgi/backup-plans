@@ -1,0 +1,21 @@
+rect.hasClick {
+	cursor: pointer;
+}
+
+rect+text,
+rect+use,
+rect+use+text {
+	pointer-events: none;
+}
+
+.treeMap rect.box {
+	fill-opacity: 0.75;
+}
+
+.treeMap rect.box:not(.hasClick):hover {
+	cursor: not-allowed;
+}
+
+.treeMap rect.hasClick:hover {
+	fill-opacity: 0.8;
+}

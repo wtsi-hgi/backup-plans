@@ -24,7 +24,23 @@ type Rule struct {
 	Match       string
 	Frequency   uint
 
-	Created, Modified time.Time
+	Created, Modified int64
+}
+
+func (r *Rule) ID() int64 {
+	if r == nil {
+		return 0
+	}
+
+	return r.id
+}
+
+func (r *Rule) DirID() int64 {
+	if r == nil {
+		return 0
+	}
+
+	return r.directoryID
 }
 
 func (d *DB) CreateDirectoryRule(dir *Directory, rule *Rule) error {
@@ -34,7 +50,7 @@ func (d *DB) CreateDirectoryRule(dir *Directory, rule *Rule) error {
 	}
 	defer tx.Rollback() //nolint:errcheck
 
-	rule.Created = time.Now().Truncate(time.Second)
+	rule.Created = time.Now().Unix()
 	rule.Modified = rule.Created
 
 	res, err := tx.Exec(createRule, dir.id, rule.BackupType, rule.Metadata, rule.ReviewDate, rule.RemoveDate, rule.Match, rule.Frequency, rule.Created, rule.Modified)
@@ -82,7 +98,7 @@ func scanRule(scanner scanner) (*Rule, error) {
 }
 
 func (d *DB) UpdateRule(rule *Rule) error {
-	rule.Modified = time.Now().Truncate(time.Second)
+	rule.Modified = time.Now().Unix()
 
 	return d.exec(updateRule, rule.BackupType, rule.Metadata, rule.ReviewDate, rule.RemoveDate, rule.Match, rule.Frequency, rule.Modified, rule.id)
 }

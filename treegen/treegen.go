@@ -1,7 +1,6 @@
 package treegen
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -51,11 +50,7 @@ type Node struct {
 	yield  chan NameChild
 	writer chan *byteio.StickyLittleEndianWriter
 
-	uid, gid uint32
-	mtime    int64
-
-	users  IDMeta
-	groups IDMeta
+	Directory
 
 	top bool
 }
@@ -65,20 +60,48 @@ func newNode(ctx context.Context) *Node {
 		ctx:    ctx,
 		yield:  make(chan NameChild),
 		writer: make(chan *byteio.StickyLittleEndianWriter),
-		users:  make(IDMeta),
-		groups: make(IDMeta),
+		Directory: Directory{
+			Users:  make(IDMeta),
+			Groups: make(IDMeta),
+		},
 	}
 }
 
+type Directory struct {
+	UID, GID uint32
+	MTime    int64
+
+	Users  IDMeta
+	Groups IDMeta
+}
+
+func (d *Directory) Add(uid, gid uint32, mtime, size int64) {
+	d.Users.Add(uid, mtime, size)
+	d.Groups.Add(gid, mtime, size)
+}
+
+func (d *Directory) WriteTo(w io.Writer) (int64, error) {
+	sw := byteio.StickyLittleEndianWriter{Writer: w}
+
+	sw.WriteUintX(uint64(d.UID))
+	sw.WriteUintX(uint64(d.GID))
+	sw.WriteUint8(1) // 1 rule
+	sw.WriteUint8(0) // rule ID 0 (warn)
+	writeIDTimes(&sw, getSortedIDTimes(d.Users))
+	writeIDTimes(&sw, getSortedIDTimes(d.Groups))
+
+	return sw.Count, sw.Err
+}
+
 type Meta struct {
-	MTime uint32
-	Files uint32
+	MTime uint64
+	Files uint64
 	Bytes uint64
 }
 
 type IDMeta map[uint32]*Meta
 
-func (i IDMeta) Add(id uint32, t int64, size int64) {
+func (i IDMeta) Add(id uint32, t, size int64) {
 	existing, ok := i[id]
 	if !ok {
 		existing = new(Meta)
@@ -86,7 +109,7 @@ func (i IDMeta) Add(id uint32, t int64, size int64) {
 		i[id] = existing
 	}
 
-	existing.MTime = max(existing.MTime, uint32(t))
+	existing.MTime = max(existing.MTime, uint64(t))
 	existing.Files++
 	existing.Bytes += uint64(size)
 }
@@ -94,9 +117,9 @@ func (i IDMeta) Add(id uint32, t int64, size int64) {
 func (n *Node) Add(info *summary.FileInfo) error {
 	if n.path == nil {
 		n.path = info.Path
-		n.uid = info.UID
-		n.gid = info.GID
-		n.mtime = info.MTime
+		n.UID = info.UID
+		n.GID = info.GID
+		n.MTime = info.MTime
 
 		if n.top {
 			if err := n.sendChild(n.path.AppendTo(nil), n); err != nil {
@@ -108,14 +131,13 @@ func (n *Node) Add(info *summary.FileInfo) error {
 			return err
 		}
 	} else if info.Path == n.path {
-		if err := n.sendChild(info.Name, file(info.UID, info.GID, info.MTime, info.Size)); err != nil {
+		if err := n.sendChild(info.Name, &File{info.UID, info.GID, info.MTime, info.Size}); err != nil {
 			return err
 		}
 	}
 
 	if !info.IsDir() {
-		n.users.Add(info.UID, info.MTime, info.Size)
-		n.groups.Add(info.GID, info.MTime, info.Size)
+		n.Directory.Add(info.UID, info.GID, info.MTime, info.Size)
 	}
 
 	return nil
@@ -137,10 +159,7 @@ func (n *Node) Output() error {
 	case <-n.ctx.Done():
 		return context.Cause(n.ctx)
 	case w := <-n.writer:
-		w.WriteUintX(uint64(n.uid))
-		w.WriteUintX(uint64(n.gid))
-		writeIDTimes(w, getSortedIDTimes(n.users))
-		writeIDTimes(w, getSortedIDTimes(n.groups))
+		n.Directory.WriteTo(w)
 
 		n.writer <- nil
 
@@ -166,8 +185,8 @@ func (n *Node) Output() error {
 	}
 
 	n.path = nil
-	clear(n.users)
-	clear(n.groups)
+	clear(n.Users)
+	clear(n.Groups)
 
 	return err
 }
@@ -215,24 +234,27 @@ func writeIDTimes(w *byteio.StickyLittleEndianWriter, idts []IDData) {
 	for _, idt := range idts {
 		w.WriteUintX(uint64(idt.ID))
 		w.WriteUintX(uint64(idt.MTime))
-		w.WriteUintX(uint64(idt.Files))
+		w.WriteUintX(idt.Files)
 		w.WriteUintX(idt.Bytes)
 	}
 }
 
-func file(uid, gid uint32, mtime, size int64) tree.Leaf {
-	var buf bytes.Buffer
-
-	w := byteio.StickyLittleEndianWriter{Writer: &buf}
-
-	writeFile(&w, uid, gid, mtime, size)
-
-	return tree.Leaf(buf.Bytes())
+type File struct {
+	UID, GID    uint32
+	MTime, Size int64
 }
 
-func writeFile(w *byteio.StickyLittleEndianWriter, uid, gid uint32, mtime, size int64) {
-	w.WriteUintX(uint64(uid))
-	w.WriteUintX(uint64(gid))
-	w.WriteUintX(uint64(mtime))
-	w.WriteUintX(uint64(size))
+func (f *File) WriteTo(w io.Writer) (int64, error) {
+	sw := byteio.StickyLittleEndianWriter{Writer: w}
+
+	sw.WriteUintX(uint64(f.UID))
+	sw.WriteUintX(uint64(f.GID))
+	sw.WriteUintX(uint64(f.MTime))
+	sw.WriteUintX(uint64(f.Size))
+
+	return sw.Count, sw.Err
+}
+
+func (File) Children() iter.Seq2[string, tree.Node] {
+	return func(_ func(string, tree.Node) bool) {}
 }

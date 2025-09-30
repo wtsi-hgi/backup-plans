@@ -1,0 +1,40 @@
+import { details, div, summary } from './lib/html.js';
+import Breadcrumbs from './breadcrumbs.js';
+import Load from './data.js';
+import DiskTree from './disktree.js';
+import DirInfo from './info.js';
+import List from './list.js';
+import Rules from './rules.js';
+import Summary from './summary.js';
+import { symbols } from './symbols.js';
+
+const load = (path: string) => Load(path).then(data => {
+	Breadcrumbs.update(path, load);
+	DiskTree.update(path, data, load);
+	List.update(path, data, load);
+	DirInfo.update(path, data, load);
+	Summary.update(path, data);
+	Rules.update(path, data, load);
+});
+
+(document.readyState === "complete" ? Promise.resolve() : new Promise(successFn => window.addEventListener("load", successFn, { "once": true })))
+	.then(() => load("/"))
+	.then(() => {
+		document.body.replaceChildren(
+			symbols,
+			Breadcrumbs,
+			div({ "class": "tabs" }, [
+				details({ "name": "tabs", "open": "open" }, [
+					summary("Directory Tree"),
+					DiskTree
+				]),
+				details({ "name": "tabs" }, [
+					summary("Directory List"),
+					List
+				])
+			]),
+			DirInfo,
+			Summary,
+			Rules
+		);
+	});

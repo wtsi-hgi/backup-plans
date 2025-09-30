@@ -1,0 +1,13 @@
+#rules button {
+	border: 0;
+	background: none;
+}
+
+#rules svg {
+	width: 1em;
+	height: 1em;
+}
+
+::backdrop {
+	background-color: rgba(0, 0, 0, 0.75);
+}

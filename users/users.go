@@ -35,7 +35,7 @@ func Group(gid uint32) string {
 		return ""
 	}
 
-	userCache[gid] = g.Name
+	groupCache[gid] = g.Name
 
 	return g.Name
 }

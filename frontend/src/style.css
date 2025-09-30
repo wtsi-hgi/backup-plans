@@ -1,0 +1,283 @@
+@import url("breadcrumbs.css");
+@import url("disktree.css");
+@import url("rules.css");
+
+
+body {
+	padding: 2px 0 0 0;
+	font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+	--fontSize: 14px;
+	font-size: var(--fontSize);
+}
+
+html,
+body {
+	color: var(--colour);
+	background-color: var(--background);
+	margin: 0;
+}
+
+button {
+	cursor: pointer;
+}
+
+input[type="radio"],
+input[type="checkbox"] {
+	accent-color: var(--inputAccent);
+}
+
+.tabs {
+	position: relative;
+	display: flex;
+	flex-wrap: wrap;
+	line-height: 24px;
+	width: 100%;
+}
+
+.tabs:before {
+	order: -1;
+	content: "";
+	width: 20px;
+	display: block;
+}
+
+.tabs:after {
+	content: "";
+	width: calc(100% + 20px);
+	transform: translateX(-20px);
+	z-index: 1;
+	margin-top: -1px;
+	border-top: 1px solid currentColor;
+	border-bottom: 2px solid var(--background);
+	order: -1;
+}
+
+.tabs>details {
+	display: contents;
+}
+
+.tabs>details:first-child>summary {
+	order: -1;
+	padding-left: 20px;
+}
+
+.tabs>details>summary {
+	order: -1;
+	display: block;
+	border-width: 1px;
+	border-style: solid;
+	position: relative;
+	z-index: 1;
+	margin: 0 -5px;
+	padding: 0 20px;
+	border-top-right-radius: 6px;
+	border-top-left-radius: 6px;
+	background: linear-gradient(to bottom, var(--tabBGFrom) 50%, var(--tabBGTo) 100%);
+	text-shadow: 0 1px var(--background);
+	border-color: currentColor;
+	cursor: pointer;
+	user-select: none;
+}
+
+.tabs>details>summary:hover,
+.tabs>details>summary:focus {
+	outline: none;
+	background: linear-gradient(to bottom, var(--tabHoverBGFrom) 1%, var(--tabHoverBGMid) 50%, var(--tabHoverBGTo) 100%);
+}
+
+.tabs>details> :not(summary) {
+	order: 2;
+	width: 100vw;
+}
+
+.tabs>details>summary:before {
+	left: -7px;
+	border-bottom-right-radius: 6px;
+	border-width: 0px 1px 1px 0px;
+	box-shadow: 2px 2px 0 var(--tabShadow);
+}
+
+.tabs>details>summary:after {
+	right: -7px;
+	border-bottom-left-radius: 6px;
+	border-width: 0px 0px 1px 1px;
+	box-shadow: -2px 2px 0 var(--tabShadow);
+}
+
+.tabs>details>summary:after,
+.tabs>details>summary:before {
+	content: "";
+	position: absolute;
+	bottom: -1px;
+	width: 6px;
+	height: 6px;
+	border-style: solid;
+	border-color: currentcolor;
+}
+
+.tabs>details[open]>summary:before {
+	box-shadow: 2px 2px 0 var(--tabSelectedBG);
+}
+
+.tabs>details[open]>summary {
+	z-index: 2;
+	cursor: default !important;
+	border-bottom-color: var(--tabSelectedBG) !important;
+	background: var(--tabSelectedBG) !important;
+	pointer-events: none;
+}
+
+.tabs>details[open]>summary:after {
+	box-shadow: -2px 2px 0 var(--tabSelectedBG);
+}
+
+
+.prettyTable {
+	clear: both;
+	border-collapse: separate;
+	border-spacing: 0;
+	border: 1px solid var(--tableBorder);
+	border-radius: 4px;
+}
+
+.prettyTable thead th {
+	padding-right: 1.25em;
+	border-bottom: 1px solid var(--tableBorder);
+}
+
+.prettyTable thead th.sortable:hover {
+	text-decoration: underline;
+	cursor: pointer;
+}
+
+.prettyTable tbody td:not(:first-child),
+.prettyTable thead th:not(:first-child) {
+	border-left: 1px solid var(--tableBorder);
+}
+
+.prettyTable .sortable {
+	min-height: 2em;
+	background-repeat: no-repeat;
+	background-position: right 0.25em center;
+	background-size: 1em;
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 42'%3E%3Cpath d='M1,23 h38 l-19,18 z' fill='%23aaa'  fill-opacity='0.25' stroke='none' stroke-linejoin='round' /%3E%3Cpath d='M1,20 h38 l-19,-18 z' fill='%23aaa' fill-opacity='0.25' stroke='none' stroke-linejoin='round' /%3E%3C/svg%3E%0A");
+}
+
+.prettyTable .sort {
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 42'%3E%3Cpath d='M1,23 h38 l-19,18 z' fill='%23aaa'  fill-opacity='0.25' stroke='none' stroke-linejoin='round' /%3E%3Cpath d='M1,20 h38 l-19,-18 z' fill='%23f00' fill-opacity='1' stroke='%23000' stroke-linejoin='round' /%3E%3C/svg%3E%0A");
+}
+
+.prettyTable .reverse {
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 42'%3E%3Cpath d='M1,23 h38 l-19,18 z' fill='%23f00'  fill-opacity='1' stroke='%23000' stroke-linejoin='round' /%3E%3Cpath d='M1,20 h38 l-19,-18 z' fill='%23aaa' fill-opacity='0.25' stroke='none' stroke-linejoin='round' /%3E%3C/svg%3E%0A");
+}
+
+.prettyTable tbody tr {
+	background-color: var(--tableOddBG);
+	color: var(--tableOddFont);
+}
+
+.prettyTable tbody tr:nth-child(even) {
+	background-color: var(--tableEventBG);
+	color: var(--tableEvenFont);
+}
+
+.prettyTable tbody tr:not(.noHover):hover {
+	background-color: var(--tableHoverBG);
+	color: var(--tableHoverFont);
+	cursor: pointer;
+}
+
+.prettyTable tbody tr.noHover {
+	cursor: not-allowed;
+}
+
+.prettyTable tbody tr.selected {
+	background-color: var(--tableSelectedBG);
+	color: var(--tableSelectedFont);
+}
+
+.prettyTable tbody tr td {
+	padding: 0.5em 0.25em;
+}
+
+.prettyTable thead td {
+	border-bottom: 1px solid var(--tableBorder);
+}
+
+@media (prefers-color-scheme: light) {
+	html {
+		--colour: #000;
+		--background: #fff;
+
+		--subtleBorder: #ddd;
+		--subtleBG: #f8f8f8;
+
+		--inputAccent: #428bca;
+
+		--tableBorder: #ccc;
+		--tableHoverBG: #c0cee9;
+		--tableHoverFont: currentColor;
+		--tableSelectedBG: #b0bed9;
+		--tableSelectedFont: currentColor;
+		--tableOddBG: var(--background);
+		--tableOddFont: currentColor;
+		--tableEventBG: #f9f9f9;
+		--tableOddFont: currentColor;
+
+		--diskTreeDetailsBG: #ddd;
+		--diskTreeDetailsBorder: #aaa;
+		--diskTreeDetailsFont: currentColor;
+
+		--colourKeyBG: var(--inputAccent);
+		--colourKeyFont: #fff;
+
+		--tabFont: currentColor;
+		--tabBGFrom: #ececec;
+		--tabBGTo: #d1d1d1;
+		--tabHoverBGFrom: var(--inputAccent);
+		--tabHoverBGMid: color-mix(in srgb, var(--inputAccent) 25%, #fff);
+		--tabHoverBGTo: #d1d1d1;
+		--tabShadow: #d1d1d1;
+		--tabSelectedBG: var(--background);
+		--tabSelectedFont: currentColor;
+	}
+}
+
+@media (prefers-color-scheme: dark) {
+	html {
+		--colour: #fff;
+		--background: #222;
+
+		--subtleBorder: #888;
+		--subtleBG: #666;
+
+		--inputAccent: #80caff;
+
+		--tableBorder: #aaa;
+		--tableHoverBG: #445;
+		--tableHoverFont: currentColor;
+		--tableSelectedBG: #446;
+		--tableSelectedFont: currentColor;
+		--tableOddBG: var(--background);
+		--tableOddFont: currentColor;
+		--tableEventBG: #333;
+		--tableOddFont: currentColor;
+
+		--diskTreeDetailsBG: #444;
+		--diskTreeDetailsBorder: #888;
+		--diskTreeDetailsFont: currentColor;
+
+		--colourKeyBG: var(--inputAccent);
+		--colourKeyFont: #000;
+
+		--tabFont: currentColor;
+		--tabBGFrom: #777;
+		--tabBGTo: #111;
+		--tabHoverBGFrom: var(--inputAccent);
+		--tabHoverBGMid: color-mix(in srgb, var(--inputAccent) 50%, #000);
+		--tabHoverBGTo: #111;
+		--tabShadow: #2e2e2e;
+		--tabSelectedBG: var(--background);
+		--tabSelectedFont: currentColor;
+	}
+}

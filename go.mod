@@ -6,11 +6,13 @@ require (
 	github.com/go-sql-driver/mysql v1.9.3
 	github.com/klauspost/pgzip v1.2.6
 	github.com/smartystreets/goconvey v1.8.1
-	github.com/wtsi-hgi/wrstat-ui v1.8.3
+	github.com/wtsi-hgi/wrstat-ui v1.8.6-0.20250926150046-33f172249bf7
 	golang.org/x/sys v0.34.0
 	modernc.org/sqlite v1.38.2
 	vimagination.zapto.org/byteio v1.2.1
+	vimagination.zapto.org/httpbuffer v1.1.0
 	vimagination.zapto.org/tree v1.3.1
+	vimagination.zapto.org/tsserver v1.0.15
 )
 
 require (
@@ -28,4 +30,8 @@ require (
 	modernc.org/libc v1.66.3 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
+	vimagination.zapto.org/httpencoding v1.1.1 // indirect
+	vimagination.zapto.org/httpwrap v1.0.1 // indirect
+	vimagination.zapto.org/javascript v1.5.1 // indirect
+	vimagination.zapto.org/parser v1.2.2 // indirect
 )
