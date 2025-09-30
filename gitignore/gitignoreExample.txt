@@ -1,0 +1,21 @@
+# comment 1
+*.log
+/build/
+
+# comment 2
+file.txt
+child/
+file.txt
+
+# comment 3
+!/important.log
+
+# /root/a
+#
+# /build/:
+# /root/a/build/ignored.txt
+# /root/a/b/build/notignored.txt
+#
+# child/:
+# /root/a/child/ignored.txt
+# /root/a/b/child/alsoignored/txt

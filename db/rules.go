@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"time"
+	"strings"
 )
 
 type BackupType uint8
@@ -25,6 +26,14 @@ type Rule struct {
 	Frequency   uint
 
 	Created, Modified time.Time
+}
+
+func (r Rule) ForDir() bool {
+	return strings.HasSuffix(r.Match, "/")
+}
+
+func (r Rule) ForAnySubDir() bool {
+	return !strings.HasPrefix(r.Match, "*") && !strings.HasPrefix(r.Match, "/")
 }
 
 func (d *DB) CreateDirectoryRule(dir *Directory, rule *Rule) error {
