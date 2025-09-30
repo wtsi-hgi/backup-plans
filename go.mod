@@ -5,9 +5,15 @@ go 1.24.4
 require (
 	github.com/inconshreveable/log15 v2.16.0+incompatible
 	github.com/klauspost/pgzip v1.2.6
+	github.com/mattn/go-sqlite3 v1.14.24
+	github.com/smarty/assertions v1.15.0
 	github.com/smartystreets/goconvey v1.8.1
 	github.com/spf13/cobra v1.9.1
+	github.com/ugorji/go/codec v1.2.14
+	github.com/wtsi-hgi/go-authserver v1.5.1
+	github.com/wtsi-hgi/ibackup v1.11.0
 	github.com/wtsi-hgi/wrstat-ui v1.8.6-0.20250926150046-33f172249bf7
+	go.etcd.io/bbolt v1.4.0
 	golang.org/x/sys v0.34.0
 	modernc.org/sqlite v1.38.2
 	vimagination.zapto.org/byteio v1.2.1
@@ -36,6 +42,9 @@ require (
 	github.com/goccy/go-json v0.10.5 // indirect
 	github.com/golang-jwt/jwt/v4 v4.5.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
+	github.com/googleapis/gnostic v0.7.0 // indirect
+	github.com/gophercloud/gophercloud v1.14.1 // indirect
+	github.com/gophercloud/utils v0.0.0-20231010081019-80377eca5d56 // indirect
 	github.com/gopherjs/gopherjs v1.17.2 // indirect
 	github.com/gorilla/securecookie v1.1.2 // indirect
 	github.com/gorilla/sessions v1.4.0 // indirect
@@ -44,6 +53,7 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/jtolds/gls v4.20.0+incompatible // indirect
+	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
 	github.com/klauspost/compress v1.18.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.10 // indirect
 	github.com/kr/text v0.2.0 // indirect
@@ -66,7 +76,14 @@ require (
 	github.com/pelletier/go-toml/v2 v2.2.3 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
-	github.com/smarty/assertions v1.15.0 // indirect
+	github.com/ricochet2200/go-disk-usage/du v0.0.0-20210707232629-ac9918953285 // indirect
+	github.com/rivo/uniseg v0.4.7 // indirect
+	github.com/rs/xid v1.6.0 // indirect
+	github.com/rs/zerolog v1.34.0 // indirect
+	github.com/sb10/l15h v0.0.0-20170510122137-64c488bf8e22 // indirect
+	github.com/sb10/waitgroup v0.0.0-20200305124406-7ed665007efa // indirect
+	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
+	github.com/slack-go/slack v0.17.0 // indirect
 	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/thanhpk/randstr v1.0.6 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
@@ -87,7 +104,8 @@ require (
 	modernc.org/libc v1.66.3 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
-	vimagination.zapto.org/httpencoding v1.1.2 // indirect
+	nanomsg.org/go-mangos v1.4.0 // indirect
+	vimagination.zapto.org/httpencoding v1.1.1 // indirect
 	vimagination.zapto.org/httpwrap v1.0.1 // indirect
 	vimagination.zapto.org/javascript v1.5.1 // indirect
 	vimagination.zapto.org/jspacker v1.0.0 // indirect
@@ -112,3 +130,5 @@ replace github.com/docker/spdystream => github.com/docker/spdystream v0.1.0
 replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.16
 
 tool vimagination.zapto.org/jspacker/cmd/jspacker
+
+replace github.com/wtsi-npg/extendo/v2 => github.com/mjkw31/extendo/v2 v2.7.1-beta2
