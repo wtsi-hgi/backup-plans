@@ -272,7 +272,8 @@ input[type="checkbox"] {
 }
 
 #treeOptions[open] {
-	width: 100px;
+	width: 160px;
+	padding: 0 1em;
 }
 
 #treeOptions:not([open]) {

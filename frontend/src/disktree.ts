@@ -1,8 +1,9 @@
-import type { DirectoryWithChildren } from './types.js';
+import type { Directory, DirectoryWithChildren } from './types.js';
 import type { Children } from './lib/dom.js';
 import { clearNode } from './lib/dom.js';
-import { details, div, summary } from './lib/html.js';
+import { br, details, div, label, option, select, summary } from './lib/html.js';
 import { rect, svg, text, use } from './lib/svg.js';
+import { BackupWarn } from './types.js';
 
 
 export type Entry = {
@@ -46,7 +47,7 @@ const phi = (1 + Math.sqrt(5)) / 2,
 			"tabIndex": "0",
 			"aria-label": entry.name + (entry.onclick ? "" : entry.noauth ? "; No authorisation to view" : "; No children with current filter"),
 			"stroke": "#000",
-			"fill": entry.backgroundColour ?? "#fff",
+			"style": "--fill: " + entry.backgroundColour,
 			"class": entry.onclick ? "hasClick box" : "box",
 			"click": (e: MouseEvent) => {
 				if (e.button !== 0) {
@@ -212,9 +213,44 @@ const phi = (1 + Math.sqrt(5)) / 2,
 			buildTree(table, box)
 		)
 	},
+	secondsInSevenYears = 7 * 365 * 86400,
+	colourFns = [
+		(dir: Directory) => Math.max(0, Math.min(100, 100 * (dir.mtime - (+new Date() / 1000) + secondsInSevenYears) / secondsInSevenYears)),
+		(dir: Directory) => 100 * Number(dir.size - (dir.actions[BackupWarn]?.size ?? 0n)) / Number(dir.size),
+		(dir: Directory) => 100 * Number(dir.count - (dir.actions[BackupWarn]?.count ?? 0n)) / Number(dir.count),
+	],
+	areaFns = [
+		(dir: Directory) => Number(dir.size),
+		(dir: Directory) => Number(dir.count),
+		(dir: Directory) => Number(dir.actions[BackupWarn]?.size ?? 0),
+		(dir: Directory) => Number(dir.actions[BackupWarn]?.count ?? 0),
+	],
 	options = details({ "id": "treeOptions" }, [
 		summary("View Options"),
-		"Options to change"
+		label({ "for": "colourBy" }, "Colour By"),
+		select({
+			"id": "colourBy", "change": function (this: HTMLSelectElement) {
+				colourFn = Math.max(0, Math.min(colourFns.length - 1, parseInt(this.value) || 0));
+				reload();
+			}
+		}, [
+			option({ "value": "0" }, "Modified Time"),
+			option({ "value": "1" }, "Backup Size %"),
+			option({ "value": "2" }, "Backup Files %"),
+		]),
+		br(),
+		label({ "for": "areaRepresents" }, "Area Represents"),
+		select({
+			"id": "areaRepresents", "change": function (this: HTMLSelectElement) {
+				areaFn = Math.max(0, Math.min(areaFns.length - 1, parseInt(this.value) || 0));
+				reload();
+			}
+		}, [
+			option({ "value": "0" }, "Total Size"),
+			option({ "value": "1" }, "Total Files"),
+			option({ "value": "2" }, "Unplanned Size"),
+			option({ "value": "3" }, "Unplanned Files"),
+		]),
 	]),
 	svgBase = div(),
 	base = div({ "id": "tree" }, [
@@ -222,8 +258,10 @@ const phi = (1 + Math.sqrt(5)) / 2,
 		options
 	])
 
-let width = 10,
-	render = () => { };
+let areaFn = 0,
+	colourFn = 0,
+	render = () => { },
+	reload = () => { };
 
 new ResizeObserver(() => render()).observe(svgBase);
 
@@ -232,10 +270,11 @@ export default Object.assign(base, {
 		const entries: Table = [];
 
 		for (const [dir, child] of Object.entries(data.children)) {
+			console.log(child);
 			entries.push({
 				"name": dir.replace("/", ""),
-				"value": Number(child.size),
-				"backgroundColour": "#ff8888",
+				"value": areaFns[areaFn](child),
+				"backgroundColour": colourFns[colourFn](child) + "",
 				"onclick": () => load(path + dir),
 				"onmouseover": () => { },
 				"noauth": false
@@ -247,5 +286,7 @@ export default Object.assign(base, {
 		render = () => clearNode(svgBase, buildTreeMap(entries, svgBase.clientWidth, svgBase.clientHeight, false, () => { }));
 
 		render();
+
+		reload = () => load(path);
 	}
 });

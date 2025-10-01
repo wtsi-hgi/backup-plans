@@ -2,6 +2,10 @@ rect.hasClick {
 	cursor: pointer;
 }
 
+rect {
+	fill: color-mix(in hsl, #1a9850 calc(var(--fill) * 1%), #d73027);
+}
+
 rect+text,
 rect+use,
 rect+use+text {
