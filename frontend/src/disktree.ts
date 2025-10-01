@@ -1,7 +1,7 @@
 import type { DirectoryWithChildren } from './types.js';
 import type { Children } from './lib/dom.js';
 import { clearNode } from './lib/dom.js';
-import { div } from './lib/html.js';
+import { details, div, summary } from './lib/html.js';
 import { rect, svg, text, use } from './lib/svg.js';
 
 
@@ -212,12 +212,20 @@ const phi = (1 + Math.sqrt(5)) / 2,
 			buildTree(table, box)
 		)
 	},
-	base = div();
+	options = details({ "id": "treeOptions" }, [
+		summary("View Options"),
+		"Options to change"
+	]),
+	svgBase = div(),
+	base = div({ "id": "tree" }, [
+		svgBase,
+		options
+	])
 
-let width = 500,
+let width = 10,
 	render = () => { };
 
-new ResizeObserver(() => render()).observe(base);
+new ResizeObserver(() => render()).observe(svgBase);
 
 export default Object.assign(base, {
 	"update": (path: string, data: DirectoryWithChildren, load: (path: string) => void) => {
@@ -236,7 +244,7 @@ export default Object.assign(base, {
 
 		entries.sort((a, b) => b.value - a.value);
 
-		render = () => clearNode(base, buildTreeMap(entries, base.clientWidth, 500, false, () => { }));
+		render = () => clearNode(svgBase, buildTreeMap(entries, svgBase.clientWidth, svgBase.clientHeight, false, () => { }));
 
 		render();
 	}

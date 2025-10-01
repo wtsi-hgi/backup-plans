@@ -1,4 +1,6 @@
-import { BackupWarn, type Directory, type DirectoryWithChildren, type DirSummary, type Rule, type Rules, type RuleStats, type RuleSummary, type SizeCountTime } from "./types.js";
+import type { Directory, DirectoryWithChildren, DirSummary, Rule, RuleSummary, SizeCountTime, Stats } from './types.js';
+import { BackupWarn } from "./types.js";
+import { filter } from './filter.js';
 import { getTree } from "./rpc.js";
 
 
@@ -9,17 +11,17 @@ const all = function* (rs: RuleSummary) {
 		yield r;
 	}
 },
-	user = (users: string[]) => function* (rs: RuleSummary) {
+	users = (users: string[]) => function* (rs: RuleSummary) {
 		for (const r of rs.Users) {
 			if (users.includes(r.Name)) {
-				return r;
+				yield r;
 			}
 		}
 	},
-	group = (groups: string[]) => function* (rs: RuleSummary) {
+	groups = (groups: string[]) => function* (rs: RuleSummary) {
 		for (const r of rs.Groups) {
 			if (groups.includes(r.Name)) {
-				return r;
+				yield r;
 			}
 		}
 	},
@@ -28,7 +30,7 @@ const all = function* (rs: RuleSummary) {
 		s.count += count;
 		s.mtime = Math.max(s.mtime, time);
 	},
-	summarise = (tree: DirSummary, d: Directory, rules: RulesWithDirs, filter = all) => {
+	summarise = (tree: DirSummary, d: Directory, rules: RulesWithDirs, filter: (rs: RuleSummary) => Generator<Stats>) => {
 		for (const rs of tree.RuleSummaries) {
 			const rule = Object.assign(rules[rs.ID], {
 				"count": 0n,
@@ -58,15 +60,16 @@ export default (path: string) => getTree(path).then(data => {
 		"size": 0n,
 		"mtime": 0,
 		"actions": [],
-		"users": [],
-		"groups": [],
+		"users": Array.from(data.RuleSummaries.map(rs => rs.Users).map(u => u.map(u => u.Name)).flat().reduce((s, u) => (s.add(u), s), new Set<string>()).keys()).sort(),
+		"groups": Array.from(data.RuleSummaries.map(rs => rs.Groups).map(g => g.map(g => g.Name)).flat().reduce((s, u) => (s.add(u), s), new Set<string>()).keys()).sort(),
 		"rules": {},
 		"children": {}
 	},
 		rules = Object.entries(data.Rules)
 			.map(([dir, rules]) => Object.entries(rules).map(([id, rule]) => Object.assign(rule, { id, dir })))
 			.flat()
-			.reduce((c, r) => (c[r.id as unknown as number] = r, c), {} as RulesWithDirs);
+			.reduce((c, r) => (c[r.id as unknown as number] = r, c), {} as RulesWithDirs),
+		filterFn = filter.type === "users" ? users(filter.names) : filter.type === "groups" ? groups(filter.names) : all;
 
 	rules[0] = {
 		"BackupType": BackupWarn,
@@ -84,17 +87,17 @@ export default (path: string) => getTree(path).then(data => {
 			"size": 0n,
 			"mtime": 0,
 			"actions": [],
-			"users": [],
-			"groups": [],
+			"users": Array.from(child.RuleSummaries.map(rs => rs.Users).map(u => u.map(u => u.Name)).flat().reduce((s, u) => (s.add(u), s), new Set<string>()).keys()).sort(),
+			"groups": Array.from(child.RuleSummaries.map(rs => rs.Groups).map(g => g.map(g => g.Name)).flat().reduce((s, u) => (s.add(u), s), new Set<string>()).keys()).sort(),
 			"rules": {}
 		}
 
-		summarise(child, e, rules);
+		summarise(child, e, rules, filterFn);
 
 		d.children[name] = e;
 	};
 
-	summarise(data, d, rules);
+	summarise(data, d, rules, filterFn);
 
 	for (const [ruleID, rule] of Object.entries(data.Rules[path] ?? []) as unknown[] as [number, Rule][]) {
 		if (!d.rules[path].some(e => e.Match === rule.Match)) {

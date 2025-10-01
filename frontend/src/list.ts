@@ -5,7 +5,7 @@ import { formatBytes } from './lib/utils.js';
 
 const base = tbody();
 
-export default Object.assign(table({ "class": "prettyTable" }, [
+export default Object.assign(table({ "class": "prettyTable", "id": "dirlist" }, [
 	thead(tr([th("SubDirectory"), th("File Size"), th("File Count"), th("Last Modified")])),
 	base
 ]), {
