@@ -198,6 +198,8 @@ func getRuleDetails(r *http.Request) (*db.Rule, error) {
 	rule.Match = r.FormValue("match")
 	if rule.Match == "" {
 		rule.Match = "*"
+	} else if strings.Contains(rule.Match, "/") {
+		return nil, ErrInvalidMatch
 	}
 
 	if rule.ReviewDate = parseTime(r.FormValue("review")); rule.ReviewDate.IsZero() {
@@ -363,6 +365,10 @@ var (
 	ErrInvalidFrequency = Error{
 		Code: http.StatusBadRequest,
 		Err:  errors.New("invalid frequency"),
+	}
+	ErrInvalidMatch = Error{
+		Code: http.StatusBadRequest,
+		Err:  errors.New("invalid match string"),
 	}
 	ErrInvalidTime = Error{
 		Code: http.StatusBadRequest,
