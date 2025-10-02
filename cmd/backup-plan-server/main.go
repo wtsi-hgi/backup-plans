@@ -1,10 +1,13 @@
 package main
 
 import (
+	"encoding/base64"
 	"flag"
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
+	"unsafe"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/wtsi-hgi/backup-plans/db"
@@ -62,5 +65,16 @@ func run() error {
 }
 
 func getUser(r *http.Request) string {
-	return r.FormValue("user")
+	for _, cookie := range r.Cookies() {
+		if cookie.Name == "nginxauth" {
+			data, err := base64.StdEncoding.DecodeString(cookie.Value)
+			if err != nil {
+				return ""
+			}
+
+			return strings.SplitN(unsafe.String(unsafe.SliceData(data), len(data)), ":", 2)[0]
+		}
+	}
+
+	return ""
 }
