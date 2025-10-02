@@ -201,18 +201,12 @@ func (r *RootDir) rebuildStateMachine() error {
 
 func (r *RootDir) createRulePatchMap(dir string) map[string]bool {
 	rulePrefixes := make(map[string]bool)
+	rulePrefixes[dir] = true
 
-	for ruleDir := range r.directoryRules {
-		if !strings.HasPrefix(dir, ruleDir) {
-			continue
-		}
-
-		rulePrefixes[ruleDir] = true
-
-		for ruleDir != "/" {
-			ruleDir = ruleDir[:strings.LastIndexByte(ruleDir[:len(ruleDir)-1], '/')+1]
-			rulePrefixes[ruleDir] = rulePrefixes[ruleDir] || false
-		}
+	for dir != "/" {
+		pos := strings.LastIndexByte(dir[:len(dir)-1], '/')
+		dir = dir[:pos+1]
+		rulePrefixes[dir] = false
 	}
 
 	return rulePrefixes

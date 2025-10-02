@@ -106,8 +106,6 @@ func (r *RulesDir) initChildren() {
 }
 
 func (r *RulesDir) children(yield func(string, tree.Node) bool) {
-	var f file
-
 	for name, child := range r.node.Children() {
 		mchild := child.(*tree.MemTree)
 
@@ -118,18 +116,26 @@ func (r *RulesDir) children(yield func(string, tree.Node) bool) {
 			if !yield(name, r.child) {
 				return
 			}
-		} else {
-			rule := r.sm.GetGroup(&summary.FileInfo{Path: &r.dir, Name: fileName(name)})
+		} else if err := r.processFile(name, mchild.Data()); err != nil {
+			yield(name, tree.NewChildrenError(err))
 
-			if _, err := f.ReadFrom(bytes.NewReader(mchild.Data())); err != nil {
-				yield(name, tree.NewChildrenError(err))
-
-				return
-			}
-
-			r.setRule(rule, &f)
+			return
 		}
 	}
+}
+
+func (r *rulesDir) processFile(name string, data []byte) error {
+	var f file
+
+	rule := r.sm.GetGroup(&summary.FileInfo{Path: &r.dir, Name: fileName(name)})
+
+	if _, err := f.ReadFrom(bytes.NewReader(data)); err != nil {
+		return err
+	}
+
+	r.setRule(rule, &f)
+
+	return nil
 }
 
 func fileName(str string) []byte {
@@ -271,12 +277,19 @@ func (r *RuleLessDir) initChildren() {
 
 func (r *RuleLessDir) children(yield func(string, tree.Node) bool) {
 	for name, child := range r.node.Children() {
+		mchild := child.(*tree.MemTree)
+
 		if !strings.HasSuffix(name, "/") {
+			if err := r.processFile(name, mchild.Data()); err != nil {
+				yield(name, tree.NewChildrenError(err))
+
+				return
+			}
+
 			continue
 		}
 
 		r.child.dir.Name = name
-		mchild := child.(*tree.MemTree)
 
 		hasRules, isPrefix := r.ruleDirPrefixes[string(r.child.dir.AppendTo(r.nameBuf[:0]))]
 		if !isPrefix {
@@ -321,7 +334,15 @@ func (r *RuleLessDirPatch) Children() iter.Seq2[string, tree.Node] {
 
 func (r *RuleLessDirPatch) children(yield func(string, tree.Node) bool) {
 	for name, child := range r.node.Children() {
+		mchild := child.(*tree.MemTree)
+
 		if !strings.HasSuffix(name, "/") {
+			if err := r.processFile(name, mchild.Data()); err != nil {
+				yield(name, tree.NewChildrenError(err))
+
+				return
+			}
+
 			continue
 		}
 
@@ -330,7 +351,6 @@ func (r *RuleLessDirPatch) children(yield func(string, tree.Node) bool) {
 			Name:   name,
 		}
 
-		mchild := child.(*tree.MemTree)
 		pchild, _ := r.previousRules.Child(name)
 
 		hasRules, isPrefix := r.ruleDirPrefixes[string(dir.AppendTo(r.nameBuf[:0]))]
