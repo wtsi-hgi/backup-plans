@@ -130,79 +130,18 @@ func GetBackupActivity(client *server.Client, setName, requester string) (*SetBa
 		err error
 	)
 
-	sba.LastSuccess, err = GetSetLastCompleted(client, setName, requester)
-	if err != nil {
-		return nil, err
-	}
-
 	sba.Name = setName
 	sba.Requester = requester
 
 	got, err := client.GetSetByName(requester, setName)
-	if err != nil && err != server.ErrBadSet {
+	if err != nil {
 		return nil, err
 	}
 
 	if got != nil {
 		sba.Failures = got.Failed
+		sba.LastSuccess = got.LastCompleted
 	}
 
 	return &sba, nil
-}
-
-// GetBackupActivity queries an ibackup server to get the last completed backup
-// date for each set that corresponds to the given fofns (eg. as retrieved by
-// backups.New().Fofns()).
-// fofns iter.Seq2[backups.ProjectAction, []string]
-// TODO: have a new thing that gives us fofns, which are rules for a name+requester?
-// func GetBackupActivity(client *server.Client, rules []db.Rule) (BackupActivity, error) {
-// 	var ba BackupActivity
-
-// 	for _, rule := range rules {
-// 		var setName string
-// 		var err error
-// 		var bs SetBackupActivity
-
-// 		//TODO: convert these Action types to db types like BackupNone etc.
-// 		if rule.Metadata == "" && rule.BackupType == db.BackupManual {
-// 			continue
-// 		}
-
-// 		if rule.BackupType == db.BackupManual {
-// 			setName = rule.Metadata
-// 		} else {
-// 			setName = SetNamePrefix + "tempName" //TODO: get a name from somewhere?? action.Name
-// 		}
-
-// 		bs.LastSuccess, err = GetSetLastCompleted(client, setName, "tempRequester") //TODO: get a requestor from somewhere?? action.Requestor
-// 		if err != nil && err != server.ErrBadSet {
-// 			return nil, err
-// 		}
-
-// 		bs.Name = "tempName"           //TODO: get a name from somewhere?? action.Name
-// 		bs.Requester = "tempRequester" //TODO: get a requestor from somewhere?? action.Requestor
-
-// 		got, err := client.GetSetByName(bs.Requester, setName)
-// 		if err != nil && err != server.ErrBadSet {
-// 			return nil, err
-// 		}
-
-// 		if got != nil {
-// 			bs.Failures = got.Failed
-// 		}
-
-// 		ba = append(ba, bs)
-// 	}
-// 	return ba, nil
-// }
-
-// GetSetLastCompleted finds the given set by name and returns its LastCompelted
-// time.
-func GetSetLastCompleted(client *server.Client, setName, requester string) (time.Time, error) {
-	got, err := client.GetSetByName(requester, setName)
-	if err != nil {
-		return time.Time{}, err
-	}
-
-	return got.LastCompleted, nil
 }
