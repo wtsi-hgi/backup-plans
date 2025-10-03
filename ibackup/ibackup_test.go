@@ -132,6 +132,14 @@ func TestIbackup(t *testing.T) {
 				So(backupActivity.Name, ShouldEqual, manualSetName)
 				So(backupActivity.LastSuccess, ShouldEqual, time.Time{})
 			})
+
+			// TODO: try calling GetBackupActivity() for each dir in the
+			// database, plus each rule that is for manual backup Functions
+			// somewhere that do the above. Maybe these are tests in the db pkg?
+
+			// TODO: function somewhere that stores map of dirID to slice of
+			// file path strings, so that we can call Backup() for all automatic
+			// sets
 		})
 	})
 }
