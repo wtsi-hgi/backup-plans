@@ -70,9 +70,9 @@ func TestIbackup(t *testing.T) {
 				},
 			})
 
-			lastCompleted, err := GetSetLastCompleted(client, setNameWithPrefix, u.Username)
+			sba, err := GetBackupActivity(client, setNameWithPrefix, u.Username)
 			So(err, ShouldBeNil)
-			So(lastCompleted, ShouldHappenAfter, before)
+			So(sba.LastSuccess, ShouldHappenAfter, before)
 
 			Convey("You cannot update a sets files more often than the frequency allows", func() {
 				got, err := client.GetSetByName(u.Username, setNameWithPrefix)
