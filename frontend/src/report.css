@@ -1,0 +1,101 @@
+#report>fieldset {
+	border: 1px solid #000;
+	border-radius: 2em;
+	padding: 1em;
+	margin-top: 2em;
+}
+
+#report>fieldset>legend {
+	border: 1px solid #000;
+	border-radius: 1em;
+	padding: 1em 2em;
+	margin: 0 auto;
+	position: relative;
+}
+
+#report>fieldset>legend>h1 {
+	position: relative;
+	margin: 0;
+}
+
+#report>fieldset>legend:before {
+	content: "";
+	width: calc(100% + 2px);
+	height: calc(50% + 1px);
+	background-color: #fff;
+	position: absolute;
+	left: -1px;
+	top: 50%;
+}
+
+fieldset[data-status="g"]>legend {
+	background: linear-gradient(180deg, #00aa00 0%, rgba(255, 255, 255, 0) 50%);
+}
+
+fieldset[data-status="b"]>legend {
+	background: linear-gradient(180deg, #44aaf7 0%, rgba(255, 255, 255, 0) 50%);
+}
+
+fieldset[data-status="a"]>legend {
+	background: linear-gradient(180deg, #ffaa00 0%, rgba(255, 255, 255, 0) 50%);
+}
+
+fieldset[data-status="r"]>legend {
+	background: linear-gradient(180deg, #ff0000 0%, rgba(255, 255, 255, 0) 50%);
+}
+
+table.summary {
+	border-spacing: 0;
+	width: 100%;
+	min-width: 90vw;
+	border-top-width: 0;
+}
+
+.summary th {
+	color: #000;
+	padding: 1rem 1em;
+	background-color: #44aaf7;
+	border: 1px solid #000;
+}
+
+table.summary thead th:not(:nth-child(2)) {
+	border-left: 0;
+}
+
+.summary tr:first-child th:first-child,
+table.summary th:nth-child(2) {
+	border-top-left-radius: 0.5em;
+}
+
+table.summary tr:last-child th:first-child {
+	border-top: 0;
+	border-bottom-left-radius: 0.5em;
+}
+
+.summary th:last-child {
+	border-top-right-radius: 0.5em;
+}
+
+.summary td {
+	border-width: 0 1px 1px 0;
+	border-style: solid;
+	border-color: #000;
+	padding: 0.5em 0.75em;
+	text-align: center;
+}
+
+.summary td:first-child {
+	border-left-width: 1px;
+}
+
+.summary tbody tr:last-child td:first-child {
+	border-bottom-left-radius: 0.5em;
+}
+
+.summary tbody tr:last-child td:last-child {
+	border-bottom-right-radius: 0.5em;
+}
+
+.summary thead td {
+	border: 0;
+}

@@ -1,4 +1,4 @@
-import type { DirectoryRules, Tree } from './types.js';
+import type { DirectoryRules, ReportSummary, Tree } from './types.js';
 
 const getURL = <T>(url: string, params: Record<string, unknown> = {}) => {
 	return new Promise<T>((successFn, errorFn) => {
@@ -38,4 +38,5 @@ export const whoami = () => getURL<string>("/api/whoami"),
 	createRule = (dir: string, action: string, match: string) => getURL<void>("/api/rules/create", { dir, action, match, "review": 1, "remove": 1, "frequency": 7 }),
 	updateRule = (dir: string, action: string, match: string) => getURL<void>("/api/rules/update", { dir, action, match, "review": 1, "remove": 1, "frequency": 7 }),
 	removeRule = (dir: string, match: string) => getURL<void>("/api/rules/remove", { dir, match }),
+	getReportSummary = () => getURL<ReportSummary>("/api/report/summary"),
 	user = await whoami();

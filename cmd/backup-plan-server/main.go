@@ -23,10 +23,26 @@ func main() {
 	}
 }
 
+type reportRoots []string
+
+func (r reportRoots) String() string {
+	return fmt.Sprint([]string(r))
+}
+
+func (r *reportRoots) Set(val string) error {
+	*r = append(*r, val)
+
+	return nil
+}
+
 func run() error {
-	var port uint64
+	var (
+		port   uint64
+		report reportRoots
+	)
 
 	flag.Uint64Var(&port, "port", 12345, "port to start server on")
+	flag.Var(&report, "report", "reporting root, can be supplied more than once")
 
 	flag.Parse()
 
@@ -35,12 +51,12 @@ func run() error {
 		return err
 	}
 
-	s, err := server.New(d, getUser)
+	s, err := server.New(d, getUser, report)
 	if err != nil {
 		return err
 	}
 
-	for _, db := range os.Args[1:] {
+	for _, db := range flag.Args() {
 		fmt.Println("Loading ", db)
 
 		if err := s.AddTree(db); err != nil {
@@ -59,6 +75,7 @@ func run() error {
 	http.Handle("/api/rules/get", http.HandlerFunc(s.GetRules))
 	http.Handle("/api/rules/update", http.HandlerFunc(s.UpdateRule))
 	http.Handle("/api/rules/remove", http.HandlerFunc(s.RemoveRule))
+	http.Handle("/api/report/summary", http.HandlerFunc(s.Summary))
 	http.Handle("/", http.HandlerFunc(frontend.Serve))
 
 	return http.ListenAndServe(fmt.Sprintf(":%d", port), nil)

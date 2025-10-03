@@ -12,7 +12,7 @@ const warnCount = td(),
 	nobackupSize = td(),
 	tempbackupSize = td(),
 	backupSize = td(),
-	base = table({ "class": "prettyTable" }, [
+	base = table({ "class": "summary" }, [
 		thead(tr([td(), th("Warn"), th("No Backup"), th("Temp Backup"), th("Backup")])),
 		tbody([
 			tr([th("File count"), warnCount, nobackupCount, tempbackupCount, backupCount]),

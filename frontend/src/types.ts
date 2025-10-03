@@ -29,7 +29,7 @@ export type DirectoryRules = {
 	Rules: Record<string, Rule>;
 };
 
-type BackupType = -1 | 0 | 1 | 2 | 3;
+export type BackupType = -1 | 0 | 1 | 2 | 3;
 
 export const [BackupNone, BackupTemp, BackupIBackup, BackupManual] = Array.from({ "length": 4 }, (_, n) => n as BackupType),
 	BackupWarn = -1;
@@ -61,4 +61,13 @@ export type Directory = SizeCountTime & {
 export type DirectoryWithChildren = Directory & {
 	children: Record<string, Directory>;
 	claimedBy: string;
+}
+
+type ClaimedDire = DirSummary & {
+	ClaimedBy: string;
+}
+
+export type ReportSummary = {
+	Summaries: Record<string, ClaimedDire>;
+	Rules: Record<number, Rule>;
 }

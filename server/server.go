@@ -23,14 +23,16 @@ type Server struct {
 	dirs           map[uint64]*db.Directory
 	rules          map[uint64]*db.Rule
 	stateMachine   group.StateMachine[db.Rule]
+	reportRoots    []string
 
 	rootDir *ruletree.RootDir
 }
 
-func New(d *db.DB, getUser func(r *http.Request) string) (*Server, error) {
+func New(d *db.DB, getUser func(r *http.Request) string, reportRoots []string) (*Server, error) {
 	s := &Server{
-		getUser: getUser,
-		rulesDB: d,
+		getUser:     getUser,
+		rulesDB:     d,
+		reportRoots: reportRoots,
 	}
 
 	rules, err := s.loadRules()

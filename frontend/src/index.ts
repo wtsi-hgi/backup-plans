@@ -7,6 +7,7 @@ import Filter from './filter.js';
 import List from './list.js';
 import Rules from './rules.js';
 import Summary from './summary.js';
+import Report from './report.js';
 import { symbols } from './symbols.js';
 
 const load = (path: string) => Load(path).then(data => {
@@ -27,20 +28,29 @@ const load = (path: string) => Load(path).then(data => {
 	.then(() => {
 		document.body.replaceChildren(
 			symbols,
-			Breadcrumbs,
 			div({ "class": "tabs" }, [
-				Filter,
 				details({ "name": "tabs", "open": "open" }, [
-					summary("Directory Tree"),
-					DiskTree
+					summary("Rule Tree"),
+					Breadcrumbs,
+					div({ "class": "tabs" }, [
+						Filter,
+						details({ "name": "dirtabs", "open": "open" }, [
+							summary("Directory Tree"),
+							DiskTree
+						]),
+						details({ "name": "dirtabs" }, [
+							summary("Directory List"),
+							List
+						])
+					]),
+					DirInfo,
+					Summary,
+					Rules
 				]),
 				details({ "name": "tabs" }, [
-					summary("Directory List"),
-					List
+					summary("Top Level Report"),
+					Report
 				])
-			]),
-			DirInfo,
-			Summary,
-			Rules
+			])
 		);
 	});
