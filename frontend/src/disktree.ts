@@ -270,7 +270,6 @@ export default Object.assign(base, {
 		const entries: Table = [];
 
 		for (const [dir, child] of Object.entries(data.children)) {
-			console.log(child);
 			entries.push({
 				"name": dir.replace("/", ""),
 				"value": areaFns[areaFn](child),
