@@ -1,6 +1,4 @@
-const byteSizes = ["B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB", "RiB", "QiB"],
-	secondsInDay = 86400,
-	secondsInWeek = secondsInDay * 7;
+const byteSizes = ["B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB", "RiB", "QiB"];
 
 export const formatBytes = (size: bigint) => {
 	for (const suffix of byteSizes) {
@@ -13,6 +11,8 @@ export const formatBytes = (size: bigint) => {
 
 	return "∞";
 },
+	secondsInDay = 86400,
+	secondsInWeek = secondsInDay * 7,
 	longAgo = (unix: number) => {
 		const diff = Math.max(((+new Date()) / 1000) - unix, 0),
 			weeks = (diff / secondsInWeek) | 0;

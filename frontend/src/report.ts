@@ -2,15 +2,16 @@ import type { BackupType, SizeCountTime, Stats } from "./types.js";
 import type { Children } from "./lib/dom.js";
 import { amendNode } from "./lib/dom.js";
 import { div, fieldset, h1, legend, li, table, tbody, td, th, thead, tr, ul } from "./lib/html.js";
-import { formatBytes, longAgo } from "./lib/utils.js";
+import { formatBytes, longAgo, secondsInWeek } from "./lib/utils.js";
 import { getReportSummary } from "./rpc.js";
-import { BackupIBackup } from "./types.js";
+import { BackupIBackup, BackupNone } from "./types.js";
 
 class Summary {
 	actions: SizeCountTime[] = [];
 	path: string;
 	claimedBy: string;
 	lastestMTime = 0;
+	count = 0n;
 
 	constructor(path: string, claimedBy: string) {
 		this.path = path;
@@ -25,10 +26,17 @@ class Summary {
 		sct.mtime = Math.max(sct.mtime, rule.MTime);
 
 		this.lastestMTime = Math.max(this.lastestMTime, rule.MTime);
+		this.count += BigInt(rule.Files);
 	}
 
 	section() {
-		return fieldset([
+		const now = (+new Date()) / 1000,
+			backupTime = this.actions[BackupIBackup]?.mtime ?? 0,
+			lastActivity = Math.max(now - this.lastestMTime, 0),
+			lastBackupActivity = Math.max(now - backupTime),
+			dt = lastBackupActivity - lastActivity;
+
+		return fieldset({ "data-status": ((this.actions[BackupNone]?.count ?? 0n) !== this.count) ? dt < secondsInWeek ? "g" : dt < secondsInWeek * 3 ? "a" : "r" : "b" }, [
 			legend(h1(this.path)),
 			ul([
 				this.claimedBy ? li("Requester: " + this.claimedBy) : [],
