@@ -8,9 +8,7 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/ugorji/go/codec"
-	"github.com/wtsi-hgi/backup-plans/backups"
 	"github.com/wtsi-hgi/backup-plans/internal"
-	"github.com/wtsi-hgi/backup-plans/rules"
 	gas "github.com/wtsi-hgi/go-authserver"
 	"github.com/wtsi-hgi/ibackup/server"
 	"github.com/wtsi-hgi/ibackup/set"
@@ -105,66 +103,43 @@ func TestIbackup(t *testing.T) {
 			})
 
 			Convey("You can get the last backup status of automatically created sets", func() {
-				fs := func(yield func(backups.ProjectAction, []string) bool) {
-					if !yield(backups.ProjectAction{
-						Action:    rules.ActionBackup,
-						Name:      setName,
-						Requestor: u.Username,
-						Frequency: 7,
-					}, []string{}) {
-						return
-					}
-
-					if !yield(backups.ProjectAction{
-						Action:    rules.ActionBackup,
-						Name:      setName,
-						Requestor: u.Username,
-						Frequency: 0,
-					}, []string{}) {
-						return
-					}
-
-					if !yield(backups.ProjectAction{
-						Action:    rules.ActionManualBackup,
-						Name:      setName,
-						Requestor: u.Username,
-						Metadata:  "manualSetName",
-					}, []string{}) {
-						return
-					}
-
-					if !yield(backups.ProjectAction{
-						Action:    rules.ActionManualBackup,
-						Name:      setName,
-						Requestor: u.Username,
-						Metadata:  setNameWithPrefix,
-					}, []string{}) {
-
-						return
-					}
-				}
-
-				backupActivity, err := GetBackupActivity(client, fs)
+				backupActivity, err := GetBackupActivity(client, setNameWithPrefix, u.Username)
 				So(err, ShouldBeNil)
 				So(backupActivity, ShouldNotBeNil)
-				So(len(backupActivity), ShouldEqual, 4)
+				So(backupActivity.Requester, ShouldEqual, u.Username)
+				So(backupActivity.Name, ShouldEqual, setNameWithPrefix)
+				So(backupActivity.LastSuccess, ShouldHappenAfter, before)
 
-				So(backupActivity[0].Requester, ShouldEqual, u.Username)
-				So(backupActivity[0].Name, ShouldEqual, setName)
-				So(backupActivity[0].LastSuccess, ShouldHappenAfter, before)
+				_, err = GetBackupActivity(client, "invalidSetName", u.Username)
+				So(err, ShouldNotBeNil)
 
-				So(backupActivity[1].Requester, ShouldEqual, u.Username)
-				So(backupActivity[1].Name, ShouldEqual, setName)
-				So(backupActivity[1].LastSuccess, ShouldEqual, backupActivity[0].LastSuccess)
+				manualSetName := "manualSetName"
+				files := []string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}
+				manualSet := &set.Set{
+					Name:        manualSetName,
+					Requester:   u.Username,
+					Transformer: getTransformer(files[0]),
+					Description: "manual backup set",
+				}
 
-				So(backupActivity[2].Requester, ShouldEqual, u.Username)
-				So(backupActivity[2].Name, ShouldEqual, setName)
-				So(backupActivity[2].LastSuccess, ShouldEqual, time.Time{})
+				err = client.AddOrUpdateSet(manualSet)
+				So(err, ShouldBeNil)
 
-				So(backupActivity[3].Requester, ShouldEqual, u.Username)
-				So(backupActivity[3].Name, ShouldEqual, setName)
-				So(backupActivity[3].LastSuccess, ShouldEqual, backupActivity[0].LastSuccess)
+				backupActivity, err = GetBackupActivity(client, manualSetName, u.Username)
+				So(err, ShouldBeNil)
+				So(backupActivity, ShouldNotBeNil)
+				So(backupActivity.Requester, ShouldEqual, u.Username)
+				So(backupActivity.Name, ShouldEqual, manualSetName)
+				So(backupActivity.LastSuccess, ShouldEqual, time.Time{})
 			})
+
+			// TODO: try calling GetBackupActivity() for each dir in the
+			// database, plus each rule that is for manual backup Functions
+			// somewhere that do the above. Maybe these are tests in the db pkg?
+
+			// TODO: function somewhere that stores map of dirID to slice of
+			// file path strings, so that we can call Backup() for all automatic
+			// sets
 		})
 	})
 }

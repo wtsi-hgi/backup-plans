@@ -43,9 +43,9 @@ type Rule struct {
 	id          int64
 	directoryID int64
 	BackupType  BackupType
-	Metadata    string
-	ReviewDate  int64
-	RemoveDate  int64
+	Metadata    string // requester:name for manual
+	ReviewDate  time.Time
+	RemoveDate  time.Time
 	Match       string
 	Frequency   uint
 

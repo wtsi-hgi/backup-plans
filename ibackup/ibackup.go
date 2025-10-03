@@ -2,14 +2,14 @@ package ibackup
 
 import (
 	"errors"
-	"iter"
 	"regexp"
 	"time"
 
 	//TODO: replace use of backups and rules with a new pkg that figures out our
 	//fofns using tree dbs and the sql plan db
-	"github.com/wtsi-hgi/backup-plans/backups"
-	"github.com/wtsi-hgi/backup-plans/rules"
+	// "github.com/wtsi-hgi/backup-plans/backups"
+	// "github.com/wtsi-hgi/backup-plans/db/rules"
+
 	gas "github.com/wtsi-hgi/go-authserver"
 	"github.com/wtsi-hgi/ibackup/server"
 	"github.com/wtsi-hgi/ibackup/set"
@@ -122,51 +122,79 @@ type SetBackupActivity struct {
 	Failures    uint64
 }
 
-// BackupActivity is a slice of SetBackupActivity.
-type BackupActivity []SetBackupActivity
+// GetBackupActivity queires an ibackup server to get the last completed backup
+// date and number of failures for the given set name and requester.
+func GetBackupActivity(client *server.Client, setName, requester string) (*SetBackupActivity, error) {
+	var (
+		sba SetBackupActivity
+		err error
+	)
+
+	sba.LastSuccess, err = GetSetLastCompleted(client, setName, requester)
+	if err != nil {
+		return nil, err
+	}
+
+	sba.Name = setName
+	sba.Requester = requester
+
+	got, err := client.GetSetByName(requester, setName)
+	if err != nil && err != server.ErrBadSet {
+		return nil, err
+	}
+
+	if got != nil {
+		sba.Failures = got.Failed
+	}
+
+	return &sba, nil
+}
 
 // GetBackupActivity queries an ibackup server to get the last completed backup
 // date for each set that corresponds to the given fofns (eg. as retrieved by
 // backups.New().Fofns()).
-func GetBackupActivity(client *server.Client, fofns iter.Seq2[backups.ProjectAction, []string]) (BackupActivity, error) {
-	var ba BackupActivity
+// fofns iter.Seq2[backups.ProjectAction, []string]
+// TODO: have a new thing that gives us fofns, which are rules for a name+requester?
+// func GetBackupActivity(client *server.Client, rules []db.Rule) (BackupActivity, error) {
+// 	var ba BackupActivity
 
-	for action := range fofns {
-		var setName string
-		var err error
-		var bs SetBackupActivity
+// 	for _, rule := range rules {
+// 		var setName string
+// 		var err error
+// 		var bs SetBackupActivity
 
-		if action.Metadata == "" && action.Action == rules.ActionManualBackup {
-			continue
-		}
+// 		//TODO: convert these Action types to db types like BackupNone etc.
+// 		if rule.Metadata == "" && rule.BackupType == db.BackupManual {
+// 			continue
+// 		}
 
-		if action.Action == rules.ActionManualBackup {
-			setName = action.Metadata
-		} else {
-			setName = SetNamePrefix + action.Name
-		}
+// 		if rule.BackupType == db.BackupManual {
+// 			setName = rule.Metadata
+// 		} else {
+// 			setName = SetNamePrefix + "tempName" //TODO: get a name from somewhere?? action.Name
+// 		}
 
-		bs.LastSuccess, err = GetSetLastCompleted(client, setName, action.Requestor)
-		if err != nil && err != server.ErrBadSet {
-			return nil, err
-		}
+// 		bs.LastSuccess, err = GetSetLastCompleted(client, setName, "tempRequester") //TODO: get a requestor from somewhere?? action.Requestor
+// 		if err != nil && err != server.ErrBadSet {
+// 			return nil, err
+// 		}
 
-		bs.Name = action.Name
-		bs.Requester = action.Requestor
+// 		bs.Name = "tempName"           //TODO: get a name from somewhere?? action.Name
+// 		bs.Requester = "tempRequester" //TODO: get a requestor from somewhere?? action.Requestor
 
-		got, err := client.GetSetByName(bs.Requester, setName)
-		if err != nil && err != server.ErrBadSet {
-			return nil, err
-		}
+// 		got, err := client.GetSetByName(bs.Requester, setName)
+// 		if err != nil && err != server.ErrBadSet {
+// 			return nil, err
+// 		}
 
-		if got != nil {
-			bs.Failures = got.Failed
-		}
+// 		if got != nil {
+// 			bs.Failures = got.Failed
+// 		}
 
-		ba = append(ba, bs)
-	}
-	return ba, nil
-}
+// 		ba = append(ba, bs)
+// 	}
+// 	return ba, nil
+// }
 
 // GetSetLastCompleted finds the given set by name and returns its LastCompelted
 // time.
