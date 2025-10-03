@@ -2,7 +2,7 @@ import type { BackupType, SizeCountTime, Stats } from "./types.js";
 import type { Children } from "./lib/dom.js";
 import { amendNode } from "./lib/dom.js";
 import { div, fieldset, h1, legend, li, table, tbody, td, th, thead, tr, ul } from "./lib/html.js";
-import { formatBytes } from "./lib/utils.js";
+import { formatBytes, longAgo } from "./lib/utils.js";
 import { getReportSummary } from "./rpc.js";
 import { BackupIBackup } from "./types.js";
 
@@ -31,12 +31,12 @@ class Summary {
 		return fieldset([
 			legend(h1(this.path)),
 			ul([
-				li("Requester: " + this.claimedBy),
-				li("Last Activity in Backed-up Set: " + (this.actions[BackupIBackup]?.mtime ?? 0)),
-				li("Last Activity: " + new Date(this.lastestMTime * 1000).toUTCString()),
-				li("Last Backup: unknown"),
-				li("Backup name: plan::" + this.path),
-				li("Failures: 0 ")
+				this.claimedBy ? li("Requester: " + this.claimedBy) : [],
+				this.actions[BackupIBackup]?.mtime ? li("Last Activity in Backed-up Set: " + longAgo(this.actions[BackupIBackup]?.mtime ?? 0)) : [],
+				li("Last Activity: " + (this.lastestMTime ? longAgo(this.lastestMTime) : "--none--")),
+				this.claimedBy ? li("Last Backup: unknown") : [],
+				this.claimedBy ? li("Backup name: plan::" + this.path) : [],
+				this.claimedBy ? li("Failures: 0 ") : []
 			]),
 			this.table()
 		])

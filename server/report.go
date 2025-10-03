@@ -36,6 +36,11 @@ func (s *Server) summary(w http.ResponseWriter, r *http.Request) error {
 			return err
 		}
 
+		dirRules, ok := s.directoryRules[root]
+		if ok {
+			ds.ClaimedBy = dirRules.ClaimedBy
+		}
+
 		summary.Summaries[root] = ds
 
 		for _, rule := range ds.RuleSummaries {
