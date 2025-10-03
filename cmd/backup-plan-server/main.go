@@ -30,7 +30,7 @@ func run() error {
 
 	flag.Parse()
 
-	d, err := db.Init("mysql", os.Getenv("BACKUP_MYSQL_URL")+"?parseTime=true")
+	d, err := db.Init("mysql", os.Getenv("BACKUP_MYSQL_URL"))
 	if err != nil {
 		return err
 	}

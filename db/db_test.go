@@ -42,7 +42,6 @@ func createTestDatabase(t *testing.T) *DB {
 
 	if p := os.Getenv("BACKUP_MYSQL_URL"); p != "" { //nolint:nestif
 		sdriver = "mysql"
-		uri = p + "?parseTime=true"
 
 		So(dropTables(p), ShouldBeNil)
 	} else {

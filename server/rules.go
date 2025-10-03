@@ -202,11 +202,13 @@ func getRuleDetails(r *http.Request) (*db.Rule, error) {
 		return nil, ErrInvalidMatch
 	}
 
-	if rule.ReviewDate = parseTime(r.FormValue("review")); rule.ReviewDate.IsZero() {
+	var err error
+
+	if rule.ReviewDate, err = strconv.ParseInt(r.FormValue("review"), 10, 64); err != nil {
 		return nil, ErrInvalidTime
 	}
 
-	if rule.RemoveDate = parseTime(r.FormValue("remove")); rule.RemoveDate.IsZero() {
+	if rule.RemoveDate, err = strconv.ParseInt(r.FormValue("remove"), 10, 64); err != nil {
 		return nil, ErrInvalidTime
 	}
 

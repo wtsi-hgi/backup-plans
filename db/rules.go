@@ -1,7 +1,6 @@
 package db
 
 import (
-	"database/sql"
 	"time"
 )
 
@@ -19,8 +18,8 @@ type Rule struct {
 	directoryID int64
 	BackupType  BackupType
 	Metadata    string
-	ReviewDate  time.Time
-	RemoveDate  time.Time
+	ReviewDate  int64
+	RemoveDate  int64
 	Match       string
 	Frequency   uint
 
@@ -74,15 +73,13 @@ func (d *DBRO) ReadRules() *IterErr[*Rule] {
 func scanRule(scanner scanner) (*Rule, error) {
 	rule := new(Rule)
 
-	var reviewDate, removeDate sql.NullTime
-
 	if err := scanner.Scan(
 		&rule.id,
 		&rule.directoryID,
 		&rule.BackupType,
 		&rule.Metadata,
-		&reviewDate,
-		&removeDate,
+		&rule.ReviewDate,
+		&rule.RemoveDate,
 		&rule.Match,
 		&rule.Frequency,
 		&rule.Created,
@@ -90,9 +87,6 @@ func scanRule(scanner scanner) (*Rule, error) {
 	); err != nil {
 		return nil, err
 	}
-
-	rule.ReviewDate = reviewDate.Time
-	rule.RemoveDate = removeDate.Time
 
 	return rule, nil
 }
