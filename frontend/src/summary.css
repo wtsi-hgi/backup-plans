@@ -1,5 +1,6 @@
 .summary {
-	margin-top: 1em;
+	margin: 1em;
+	width: calc(100% - 2em) !important;
 }
 
 .summary thead td:not(:empty) {

@@ -19,6 +19,7 @@ import (
 
 type summariser interface {
 	Summary(string) (*DirSummary, error)
+	GetOwner(string) (uint32, uint32, error)
 }
 
 type DirRules struct {
@@ -219,6 +220,13 @@ func (r *RootDir) Summary(path string) (*DirSummary, error) {
 	return r.TopLevelDir.Summary(path)
 }
 
+func (r *RootDir) GetOwner(path string) (uint32, uint32, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	return r.TopLevelDir.GetOwner(path)
+}
+
 type TopLevelDir struct {
 	parent   *TopLevelDir
 	children map[string]summariser
@@ -270,14 +278,36 @@ func (t *TopLevelDir) Summary(path string) (*DirSummary, error) {
 		return &t.summary, nil
 	}
 
+	child, rest, err := t.getChild(path)
+	if err != nil {
+		return nil, err
+	}
+
+	return child.Summary(rest)
+}
+
+func (t *TopLevelDir) getChild(path string) (summariser, string, error) {
 	pos := strings.IndexByte(path, '/')
 
 	child := t.children[path[:pos+1]]
 	if child == nil {
-		return nil, ErrNotFound
+		return nil, "", ErrNotFound
 	}
 
-	return child.Summary(path[pos+1:])
+	return child, path[pos+1:], nil
+}
+
+func (t *TopLevelDir) GetOwner(path string) (uint32, uint32, error) {
+	if path == "" {
+		return 0, 0, nil
+	}
+
+	child, rest, err := t.getChild(path)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	return child.GetOwner(rest)
 }
 
 func (r *RootDir) AddTree(file string) (err error) {

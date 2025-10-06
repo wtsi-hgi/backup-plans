@@ -20,6 +20,7 @@ type Tree struct {
 	ClaimedBy    string
 	Rules        map[string]map[uint64]*db.Rule
 	Unauthorised []string
+	CanClaim     bool
 }
 
 func (s *Server) Tree(w http.ResponseWriter, r *http.Request) {
@@ -32,9 +33,7 @@ func (s *Server) tree(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	username := s.getUser(r)
-
-	groups := users.GetGroups(username)
+	uid, groups := users.GetIDs(s.getUser(r))
 	if len(groups) == 0 {
 		return ErrNotAuthorised
 	}
@@ -47,7 +46,9 @@ func (s *Server) tree(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	if !isAuthorised(summary, username, groups) {
+	duid, dgid := summary.IDs()
+
+	if !isAuthorised(summary, uid, groups) {
 		return ErrNotAuthorised
 	}
 
@@ -57,8 +58,10 @@ func (s *Server) tree(w http.ResponseWriter, r *http.Request) error {
 		Unauthorised: []string{},
 	}
 
+	t.CanClaim = uid == duid || slices.Contains(groups, dgid)
+
 	for name, child := range summary.Children {
-		if !isAuthorised(child, username, groups) {
+		if !isAuthorised(child, uid, groups) {
 			t.Unauthorised = append(t.Unauthorised, name)
 		}
 	}
@@ -96,16 +99,16 @@ func (s *Server) tree(w http.ResponseWriter, r *http.Request) error {
 	return json.NewEncoder(w).Encode(t)
 }
 
-func isAuthorised(summary *ruletree.DirSummary, username string, groups []string) bool {
+func isAuthorised(summary *ruletree.DirSummary, uid uint32, groups []uint32) bool {
 	for _, rs := range summary.RuleSummaries {
 		for _, u := range rs.Users {
-			if u.Name == username {
+			if u.ID() == uid {
 				return true
 			}
 		}
 
 		for _, g := range rs.Groups {
-			if slices.Contains(groups, g.Name) {
+			if slices.Contains(groups, g.ID()) {
 				return true
 			}
 		}

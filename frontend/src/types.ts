@@ -23,6 +23,7 @@ export type Tree = DirSummary & {
 	ClaimedBy: string;
 	Rules: Rules;
 	Unauthorised: string[];
+	CanClaim: boolean;
 };
 
 export type DirectoryRules = {
@@ -63,6 +64,7 @@ export type Directory = SizeCountTime & {
 export type DirectoryWithChildren = Directory & {
 	children: Record<string, Directory>;
 	claimedBy: string;
+	canClaim: boolean;
 }
 
 type ClaimedDir = DirSummary & {

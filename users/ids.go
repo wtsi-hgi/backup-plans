@@ -2,46 +2,54 @@ package users
 
 import (
 	"os/user"
+	"strconv"
 	"time"
 )
 
 type groups struct {
 	expiry time.Time
-	groups []string
+	uid    uint32
+	groups []uint32
 }
 
 var userGroupsCache = makeMuMap[string, groups]()
 
-func GetGroups(username string) []string {
+func GetIDs(username string) (uint32, []uint32) {
 	if gc, ok := userGroupsCache.Get(username); ok && gc.expiry.After(time.Now()) {
-		return gc.groups
+		return gc.uid, gc.groups
 	}
 
 	u, err := user.Lookup(username)
 	if err != nil {
-		return nil
+		return 0, nil
+	}
+
+	uid, err := strconv.ParseUint(u.Uid, 10, 32)
+	if err != nil {
+		return 0, nil
 	}
 
 	gids, err := u.GroupIds()
 	if err != nil {
-		return nil
+		return 0, nil
 	}
 
-	gs := make([]string, 0, len(gids))
+	gs := make([]uint32, 0, len(gids))
 
 	for _, gid := range gids {
-		g, err := user.LookupGroupId(gid)
+		g, err := strconv.ParseUint(gid, 10, 32)
 		if err != nil {
-			return nil
+			return 0, nil
 		}
 
-		gs = append(gs, g.Name)
+		gs = append(gs, uint32(g))
 	}
 
 	userGroupsCache.Set(username, groups{
 		expiry: time.Now().Add(time.Hour),
+		uid:    uint32(uid),
 		groups: gs,
 	})
 
-	return gs
+	return uint32(uid), gs
 }

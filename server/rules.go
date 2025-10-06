@@ -4,12 +4,14 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/ruletree"
+	"github.com/wtsi-hgi/backup-plans/users"
 	"github.com/wtsi-hgi/wrstat-ui/summary/group"
 )
 
@@ -76,7 +78,9 @@ func (s *Server) ClaimDir(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) claimDir(w http.ResponseWriter, r *http.Request) error {
 	user := s.getUser(r)
-	if user == "" {
+
+	uid, groups := users.GetIDs(s.getUser(r))
+	if groups == nil {
 		return ErrInvalidUser
 	}
 
@@ -90,6 +94,10 @@ func (s *Server) claimDir(w http.ResponseWriter, r *http.Request) error {
 
 	if _, ok := s.directoryRules[dir]; ok {
 		return ErrDirectoryClaimed
+	}
+
+	if !s.canClaim(dir, uid, groups) {
+		return ErrCannotClaimDirectory
 	}
 
 	directory := &db.Directory{
@@ -111,6 +119,15 @@ func (s *Server) claimDir(w http.ResponseWriter, r *http.Request) error {
 	w.Header().Set("Content-Type", "application/json")
 
 	return json.NewEncoder(w).Encode(user)
+}
+
+func (s *Server) canClaim(dir string, uid uint32, groups []uint32) bool {
+	duid, dgid, err := s.rootDir.GetOwner(dir)
+	if err != nil {
+		return false
+	}
+
+	return uid == duid || slices.Contains(groups, dgid)
 }
 
 func (s *Server) PassDirClaim(w http.ResponseWriter, r *http.Request) {
@@ -140,6 +157,10 @@ func (s *Server) createRule(w http.ResponseWriter, r *http.Request) error {
 	directory, ok := s.directoryRules[dir]
 	if !ok {
 		return ErrInvalidDir
+	}
+
+	if directory.ClaimedBy != s.getUser(r) {
+		return ErrInvalidUser
 	}
 
 	if _, ok := directory.Rules[rule.Match]; ok {
@@ -355,6 +376,10 @@ var (
 	ErrDirectoryClaimed = Error{
 		Code: http.StatusNotAcceptable,
 		Err:  errors.New("directory already claimed"),
+	}
+	ErrCannotClaimDirectory = Error{
+		Code: http.StatusNotAcceptable,
+		Err:  errors.New("cannot claim directory"),
 	}
 	ErrDirectoryNotClaimed = Error{
 		Code: http.StatusNotAcceptable,

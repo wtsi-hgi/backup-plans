@@ -64,7 +64,8 @@ export default (path: string) => getTree(path).then(data => {
 		"groups": Array.from(data.RuleSummaries.map(rs => rs.Groups).map(g => g.map(g => g.Name)).flat().reduce((s, u) => (s.add(u), s), new Set<string>()).keys()).sort(),
 		"rules": { [path]: [] },
 		"children": {},
-		"unauthorised": false
+		"unauthorised": false,
+		"canClaim": data.CanClaim
 	},
 		rules = Object.entries(data.Rules)
 			.map(([dir, rules]) => Object.entries(rules).map(([id, rule]) => Object.assign(rule, { id, dir })))

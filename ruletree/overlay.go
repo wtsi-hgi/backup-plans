@@ -41,6 +41,10 @@ func (d *DirSummary) MergeRules(rules []Rule) {
 	}
 }
 
+func (d *DirSummary) IDs() (uint32, uint32) {
+	return d.uid, d.gid
+}
+
 func setNames(rules ruleStats, name func(uint32) string) {
 	for n := range rules {
 		rules[n].Name = name(rules[n].id)
@@ -56,12 +60,21 @@ func (r *RuleOverlay) Summary(path string) (*DirSummary, error) {
 		return r.getSummaryWithChildren(), nil
 	}
 
+	cr, rest, err := r.getChild(path)
+	if err != nil {
+		return nil, err
+	}
+
+	return cr.Summary(rest)
+}
+
+func (r *RuleOverlay) getChild(path string) (*RuleOverlay, string, error) {
 	pos := strings.IndexByte(path, '/')
 	child := path[:pos+1]
 
 	lower, err := r.lower.Child(child)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	var upper *tree.MemTree
@@ -70,9 +83,30 @@ func (r *RuleOverlay) Summary(path string) (*DirSummary, error) {
 		upper, _ = r.upper.Child(child)
 	}
 
-	cr := RuleOverlay{lower, upper}
+	cr := &RuleOverlay{lower, upper}
 
-	return cr.Summary(path[pos+1:])
+	return cr, path[pos+1:], nil
+}
+
+func (r *RuleOverlay) GetOwner(path string) (uint32, uint32, error) {
+	if path == "" {
+		uid, gid := r.getOwner()
+
+		return uid, gid, nil
+	}
+
+	cr, rest, err := r.getChild(path)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	return cr.GetOwner(rest)
+}
+
+func (r *RuleOverlay) getOwner() (uint32, uint32) {
+	sr := byteio.StickyLittleEndianReader{Reader: bytes.NewReader(cmp.Or(r.upper, r.lower).Data())}
+
+	return uint32(sr.ReadUintX()), uint32(sr.ReadUintX())
 }
 
 func (r *RuleOverlay) getSummaryWithChildren() *DirSummary {
@@ -124,6 +158,10 @@ type Stats struct {
 	MTime uint64
 	Files uint64
 	Size  uint64
+}
+
+func (s *Stats) ID() uint32 {
+	return s.id
 }
 
 func (s *Stats) writeTo(sw *byteio.StickyLittleEndianWriter) {
