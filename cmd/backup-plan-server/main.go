@@ -57,7 +57,7 @@ func run() error {
 	}
 
 	for _, db := range flag.Args() {
-		fmt.Println("Loading ", db)
+		fmt.Println("Loading", db)
 
 		if err := s.AddTree(db); err != nil {
 			return err
