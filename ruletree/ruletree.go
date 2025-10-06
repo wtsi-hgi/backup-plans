@@ -2,7 +2,6 @@ package ruletree
 
 import (
 	"bytes"
-	"cmp"
 	"io"
 	"iter"
 	"slices"
@@ -76,6 +75,8 @@ func (r *rulesDir) initIDs() {
 
 	r.uid = uint32(sr.ReadUintX())
 	r.gid = uint32(sr.ReadUintX())
+
+	r.rules = r.rules[:0]
 }
 
 type RulesDir struct {
@@ -102,7 +103,6 @@ func (r *RulesDir) initChildren() {
 
 	r.child.parent = r
 	r.child.dir.Parent = &r.dir
-	r.rules = r.rules[:0]
 }
 
 func (r *RulesDir) children(yield func(string, tree.Node) bool) {
@@ -127,11 +127,11 @@ func (r *RulesDir) children(yield func(string, tree.Node) bool) {
 func (r *rulesDir) processFile(name string, data []byte) error {
 	var f file
 
-	rule := r.sm.GetGroup(&summary.FileInfo{Path: &r.dir, Name: fileName(name)})
-
 	if _, err := f.ReadFrom(bytes.NewReader(data)); err != nil {
 		return err
 	}
+
+	rule := r.sm.GetGroup(&summary.FileInfo{Path: &r.dir, Name: fileName(name)})
 
 	r.setRule(rule, &f)
 
@@ -180,24 +180,24 @@ func (r *rulesDir) getRulePos(ruleID int64) int {
 	return pos
 }
 
-func (r *rulesDir) addUserData(uid uint32, ruleID int64, mtime, files, bytes uint64) {
+func (r *rulesDir) addUserData(uid uint32, ruleID int64, mtime, files, size uint64) {
 	if r.parent != nil {
-		r.parent.addUserData(uid, ruleID, mtime, files, bytes)
+		r.parent.addUserData(uid, ruleID, mtime, files, size)
 	}
 
 	pos := r.getRulePos(ruleID)
 
-	r.rules[pos].Users.add(uid, mtime, files, bytes)
+	r.rules[pos].Users.add(uid, mtime, files, size)
 }
 
-func (r *rulesDir) addGroupData(gid uint32, ruleID int64, mtime, files, bytes uint64) {
+func (r *rulesDir) addGroupData(gid uint32, ruleID int64, mtime, files, size uint64) {
 	if r.parent != nil {
-		r.parent.addGroupData(gid, ruleID, mtime, files, bytes)
+		r.parent.addGroupData(gid, ruleID, mtime, files, size)
 	}
 
 	pos := r.getRulePos(ruleID)
 
-	r.rules[pos].Groups.add(gid, mtime, files, bytes)
+	r.rules[pos].Groups.add(gid, mtime, files, size)
 }
 
 func (r *rulesDir) addExisting(data []byte) {
@@ -219,9 +219,9 @@ func readArray(sr *byteio.StickyLittleEndianReader, ruleID int64, fn func(uint32
 		uid := uint32(sr.ReadUintX())
 		mtime := sr.ReadUintX()
 		files := sr.ReadUintX()
-		bytes := sr.ReadUintX()
+		size := sr.ReadUintX()
 
-		fn(uid, ruleID, mtime, files, bytes)
+		fn(uid, ruleID, mtime, files, size)
 	}
 }
 
@@ -355,8 +355,6 @@ func (r *RuleLessDirPatch) children(yield func(string, tree.Node) bool) {
 
 		hasRules, isPrefix := r.ruleDirPrefixes[string(dir.AppendTo(r.nameBuf[:0]))]
 		if !isPrefix {
-			r.addExisting(cmp.Or(pchild, mchild).Data())
-
 			if pchild != nil {
 				r.addExisting(pchild.Data())
 
@@ -374,7 +372,6 @@ func (r *RuleLessDirPatch) children(yield func(string, tree.Node) bool) {
 			node:   mchild,
 			sm:     r.sm,
 			dir:    dir,
-			rules:  r.rules,
 			parent: r,
 		}
 
