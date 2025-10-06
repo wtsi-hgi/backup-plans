@@ -10,7 +10,7 @@ export default Object.assign(table({ "class": "prettyTable", "id": "dirlist" }, 
 	base
 ]), {
 	"update": (path: string, data: DirectoryWithChildren, load: (path: string) => void) => clearNode(base, Object.entries(data.children).map(([name, child]) => {
-		return tr({ "click": () => load(path + name) }, [
+		return tr({ "style": child.unauthorised ? "cursor: not-allowed;" : "", "click": () => child.unauthorised || load(path + name) }, [
 			td(name),
 			td({ "title": child.size.toLocaleString() }, formatBytes(child.size)),
 			td(child.count.toLocaleString()),
