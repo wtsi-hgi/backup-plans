@@ -5,18 +5,14 @@
 @import url("rules.css");
 @import url("summary.css");
 
-
-body {
-	font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-	--fontSize: 14px;
-	font-size: var(--fontSize);
-}
-
 html,
 body {
 	margin: 0;
 	color: var(--colour);
 	background-color: var(--background);
+	font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+	--fontSize: 14px;
+	font-size: var(--fontSize);
 }
 
 button {
