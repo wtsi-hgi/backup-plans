@@ -1,0 +1,48 @@
+#filter {
+	border: 1px solid var(--tableBorder);
+	background-color: var(--subtleBG);
+	box-sizing: border-box;
+	border-top-left-radius: 1em;
+	border-bottom-left-radius: 1em;
+	margin-left: 1em;
+	align-self: stretch;
+	--tabSelectedBG: var(--subtleBG);
+	--background: var(--subtleBG);
+	overflow: hidden;
+	width: 2em;
+}
+
+#filter[open] {
+	width: 200px;
+}
+
+#filter[open] details>:not(summary) {
+	padding: 0 1em;
+}
+
+#filter>summary,
+#treeOptions>summary {
+	list-style: none;
+	text-align: center;
+	cursor: pointer;
+	user-select: none;
+}
+
+#filter:not([open]) {
+	writing-mode: sideways-lr;
+}
+
+.tabs:has(#filter:not([open])) #tree {
+	width: calc(100vw - 5em);
+}
+
+#filter input {
+	width: calc(100% - 2em);
+	box-sizing: border-box;
+}
+
+#filter select {
+	width: calc(100% - 2em);
+	box-sizing: border-box;
+	min-height: 10em;
+}

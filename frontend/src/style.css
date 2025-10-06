@@ -1,5 +1,6 @@
 @import url("breadcrumbs.css");
 @import url("disktree.css");
+@import url("filter.css");
 @import url("report.css");
 @import url("rules.css");
 
@@ -91,7 +92,7 @@ input[type="checkbox"] {
 
 .tabs>details[name]> :not(summary) {
 	order: 2;
-	width: 100vw;
+	width: 100%;
 }
 
 .tabs>details[name]>summary:before {
@@ -205,44 +206,6 @@ input[type="checkbox"] {
 
 .prettyTable thead td {
 	border-bottom: 1px solid var(--tableBorder);
-}
-
-#filter {
-	border: 1px solid var(--tableBorder);
-	background-color: var(--subtleBG);
-	box-sizing: border-box;
-	border-top-left-radius: 1em;
-	border-bottom-left-radius: 1em;
-	margin-left: 1em;
-	align-self: stretch;
-	--tabSelectedBG: var(--subtleBG);
-	--background: var(--subtleBG);
-	overflow: hidden;
-	width: 2em;
-}
-
-#filter[open] {
-	width: 200px;
-}
-
-#filter[open] details>:not(summary) {
-	padding: 0 1em;
-}
-
-#filter>summary,
-#treeOptions>summary {
-	list-style: none;
-	text-align: center;
-	cursor: pointer;
-	user-select: none;
-}
-
-#filter:not([open]) {
-	writing-mode: sideways-lr;
-}
-
-.tabs:has(#filter:not([open])) #tree {
-	width: calc(100vw - 5em);
 }
 
 #tree {
