@@ -63,7 +63,8 @@ export default (path: string) => getTree(path).then(data => {
 		"users": Array.from(data.RuleSummaries.map(rs => rs.Users).map(u => u.map(u => u.Name)).flat().reduce((s, u) => (s.add(u), s), new Set<string>()).keys()).sort(),
 		"groups": Array.from(data.RuleSummaries.map(rs => rs.Groups).map(g => g.map(g => g.Name)).flat().reduce((s, u) => (s.add(u), s), new Set<string>()).keys()).sort(),
 		"rules": { [path]: [] },
-		"children": {}
+		"children": {},
+		"unauthorised": false
 	},
 		rules = Object.entries(data.Rules)
 			.map(([dir, rules]) => Object.entries(rules).map(([id, rule]) => Object.assign(rule, { id, dir })))
@@ -89,7 +90,8 @@ export default (path: string) => getTree(path).then(data => {
 			"actions": [],
 			"users": Array.from(child.RuleSummaries.map(rs => rs.Users).map(u => u.map(u => u.Name)).flat().reduce((s, u) => (s.add(u), s), new Set<string>()).keys()).sort(),
 			"groups": Array.from(child.RuleSummaries.map(rs => rs.Groups).map(g => g.map(g => g.Name)).flat().reduce((s, u) => (s.add(u), s), new Set<string>()).keys()).sort(),
-			"rules": {}
+			"rules": {},
+			"unauthorised": data.Unauthorised.includes(name)
 		}
 
 		summarise(child, e, rules, filterFn);

@@ -274,9 +274,9 @@ export default Object.assign(base, {
 				"name": dir.replace("/", ""),
 				"value": areaFns[areaFn](child),
 				"backgroundColour": colourFns[colourFn](child) + "",
-				"onclick": () => load(path + dir),
+				"onclick": child.unauthorised ? undefined : () => load(path + dir),
 				"onmouseover": () => { },
-				"noauth": false
+				"noauth": child.unauthorised
 			})
 		}
 
