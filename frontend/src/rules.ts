@@ -52,6 +52,7 @@ const actions = ["No Backup", "Temp Backup", "IBackup", "Manual Backup"],
 export default Object.assign(base, {
 	"update": (path: string, data: DirectoryWithChildren, load: (path: string) => void) => {
 		clearNode(base, [
+			data.claimedBy ? h2("Rules on this directory") : [],
 			data.claimedBy && data.claimedBy == user ? button({
 				"click": () => addEditOverlay(path, {
 					"BackupType": 2,
@@ -63,13 +64,13 @@ export default Object.assign(base, {
 				}, load),
 			}, "Add Rule") : [],
 			data.claimedBy ? table({ "id": "rules", "class": "prettyTable" }, [
-				thead(tr([th("Match"), th("Action"), th("Files"), th("Size"), th()])),
+				thead(tr([th("Match"), th("Action"), th("Files"), th("Size"), data.claimedBy === user ? th() : []])),
 				tbody(Object.values(data.rules[path] ?? []).map(rule => tr([
 					td(rule.Match),
 					td(action(rule.BackupType)),
 					td(rule.count.toLocaleString()),
 					td({ "title": rule.size.toLocaleString() }, formatBytes(rule.size)),
-					td([
+					data.claimedBy === user ? td([
 						button({ "click": () => addEditOverlay(path, rule, load) }, svg([
 							title("Edit Rule"),
 							use({ "href": "#edit" })
@@ -104,7 +105,7 @@ export default Object.assign(base, {
 							title("Remove Rule"),
 							use({ "href": "#remove" })
 						]))
-					])
+					]) : []
 				])))
 			]) : [],
 			Object.entries(data.rules).some(([dir]) => dir && dir !== path) ? h2("Rules affecting this directory") : [],
