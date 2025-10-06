@@ -62,7 +62,7 @@ export default (path: string) => getTree(path).then(data => {
 		"actions": [],
 		"users": Array.from(data.RuleSummaries.map(rs => rs.Users).map(u => u.map(u => u.Name)).flat().reduce((s, u) => (s.add(u), s), new Set<string>()).keys()).sort(),
 		"groups": Array.from(data.RuleSummaries.map(rs => rs.Groups).map(g => g.map(g => g.Name)).flat().reduce((s, u) => (s.add(u), s), new Set<string>()).keys()).sort(),
-		"rules": {},
+		"rules": { [path]: [] },
 		"children": {}
 	},
 		rules = Object.entries(data.Rules)
@@ -99,7 +99,7 @@ export default (path: string) => getTree(path).then(data => {
 
 	summarise(data, d, rules, filterFn);
 
-	for (const [ruleID, rule] of Object.entries(data.Rules[path] ?? []) as unknown[] as [number, Rule][]) {
+	for (const [_, rule] of Object.entries(data.Rules[path] ?? []) as unknown[] as [number, Rule][]) {
 		if (!d.rules[path].some(e => e.Match === rule.Match)) {
 			d.rules[path].push(Object.assign(rule, {
 				"count": 0n,
