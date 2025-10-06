@@ -2,7 +2,6 @@ import { details, div, summary } from './lib/html.js';
 import Breadcrumbs from './breadcrumbs.js';
 import Load from './data.js';
 import DiskTree from './disktree.js';
-import DirInfo from './info.js';
 import Filter from './filter.js';
 import List from './list.js';
 import Rules from './rules.js';
@@ -14,7 +13,6 @@ const load = (path: string) => Load(path).then(data => {
 	Breadcrumbs.update(path, load);
 	DiskTree.update(path, data, load);
 	List.update(path, data, load);
-	DirInfo.update(path, data, load);
 	Filter.update(path, data, load);
 	Summary.update(path, data, load);
 	Rules.update(path, data, load);
