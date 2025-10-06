@@ -16,7 +16,7 @@ const load = (path: string) => Load(path).then(data => {
 	List.update(path, data, load);
 	DirInfo.update(path, data, load);
 	Filter.update(path, data, load);
-	Summary.update(path, data);
+	Summary.update(path, data, load);
 	Rules.update(path, data, load);
 
 	return data;
@@ -43,7 +43,6 @@ const load = (path: string) => Load(path).then(data => {
 							List
 						])
 					]),
-					DirInfo,
 					Summary,
 					Rules
 				]),

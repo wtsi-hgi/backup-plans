@@ -1,0 +1,12 @@
+.summary {
+	margin-top: 1em;
+}
+
+.summary thead td:not(:empty) {
+	text-align: left;
+}
+
+.summary thead td:not(:empty):before {
+	content: "Claimed By: ";
+	font-weight: bold;
+}
