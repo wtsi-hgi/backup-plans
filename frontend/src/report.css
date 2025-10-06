@@ -22,7 +22,7 @@
 	content: "";
 	width: calc(100% + 2px);
 	height: calc(50% + 1px);
-	background-color: #fff;
+	background-color: var(--background);
 	position: absolute;
 	left: -1px;
 	top: 50%;
@@ -57,7 +57,7 @@ table.summary {
 }
 
 .summary th {
-	color: #000;
+	/* color: #000; */
 	padding: 1rem 1em;
 	background-color: #44aaf7;
 	border: 1px solid #000;
