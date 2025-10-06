@@ -330,7 +330,7 @@ func openDB(file string) (*tree.MemTree, func(), error) {
 		return nil, nil, err
 	}
 
-	data, err := unix.Mmap(int(f.Fd()), 0, int(stat.Size()), unix.PROT_READ, unix.MAP_POPULATE|unix.MAP_SHARED)
+	data, err := unix.Mmap(int(f.Fd()), 0, int(stat.Size()), unix.PROT_READ, unix.MAP_SHARED)
 	if err != nil {
 		f.Close()
 
