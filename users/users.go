@@ -3,15 +3,43 @@ package users
 import (
 	"os/user"
 	"strconv"
+	"sync"
 )
 
+type muMap[K comparable, V any] struct {
+	mu sync.RWMutex
+	m  map[K]V
+}
+
+func (m *muMap[K, V]) Get(key K) (V, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	v, ok := m.m[key]
+
+	return v, ok
+}
+
+func (m *muMap[K, V]) Set(key K, value V) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.m[key] = value
+}
+
+func makeMuMap[K comparable, V any]() *muMap[K, V] {
+	return &muMap[K, V]{
+		m: make(map[K]V),
+	}
+}
+
 var (
-	userCache  = make(map[uint32]string)
-	groupCache = make(map[uint32]string)
+	userCache  = makeMuMap[uint32, string]()
+	groupCache = makeMuMap[uint32, string]()
 )
 
 func Username(uid uint32) string {
-	if u, ok := userCache[uid]; ok {
+	if u, ok := userCache.Get(uid); ok {
 		return u
 	}
 
@@ -20,13 +48,13 @@ func Username(uid uint32) string {
 		return ""
 	}
 
-	userCache[uid] = u.Username
+	userCache.Set(uid, u.Username)
 
 	return u.Username
 }
 
 func Group(gid uint32) string {
-	if g, ok := groupCache[gid]; ok {
+	if g, ok := groupCache.Get(gid); ok {
 		return g
 	}
 
@@ -35,7 +63,7 @@ func Group(gid uint32) string {
 		return ""
 	}
 
-	groupCache[gid] = g.Name
+	groupCache.Set(gid, g.Name)
 
 	return g.Name
 }
