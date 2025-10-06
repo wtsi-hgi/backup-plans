@@ -63,7 +63,7 @@ export default Object.assign(base, {
 					"Frequency": 7
 				}, load),
 			}, "Add Rule") : [],
-			data.claimedBy ? table({ "id": "rules", "class": "prettyTable" }, [
+			data.claimedBy && data.rules[path]?.length ? table({ "id": "rules", "class": "prettyTable" }, [
 				thead(tr([th("Match"), th("Action"), th("Files"), th("Size"), data.claimedBy === user ? th() : []])),
 				tbody(Object.values(data.rules[path] ?? []).map(rule => tr([
 					td(rule.Match),
@@ -109,7 +109,7 @@ export default Object.assign(base, {
 				])))
 			]) : [],
 			Object.entries(data.rules).some(([dir]) => dir && dir !== path) ? h2("Rules affecting this directory") : [],
-			Object.entries(data.rules).map(([dir, rules]) => dir && dir !== path ? table({ "class": "prettyTable" }, [
+			div({ "class": "affectingRules" }, Object.entries(data.rules).map(([dir, rules]) => dir && dir !== path ? table({ "class": "prettyTable" }, [
 				caption({ "align": "top" }, button({ "click": () => load(dir) }, dir)),
 				thead([th("Match"), th("Action"), th("Files"), th("Size")]),
 				tbody(rules.map(rule => tr([
@@ -118,7 +118,7 @@ export default Object.assign(base, {
 					td(rule.count.toLocaleString()),
 					td({ "title": rule.size.toLocaleString() }, formatBytes(rule.size))
 				])))
-			]) : [])
+			]) : []))
 		]);
 	}
 });

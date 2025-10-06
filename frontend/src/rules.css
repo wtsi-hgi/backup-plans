@@ -11,3 +11,10 @@
 ::backdrop {
 	background-color: rgba(0, 0, 0, 0.75);
 }
+
+.affectingRules {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: start;
+	gap: 1em;
+}
