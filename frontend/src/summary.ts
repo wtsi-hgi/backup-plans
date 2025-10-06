@@ -30,7 +30,8 @@ const claimedByCell = td(),
 
 export default Object.assign(base, {
 	"update": (path: string, data: DirectoryWithChildren, load: (path: string) => void) => {
-		clearNode(claimedByCell, data.claimedBy || data.canClaim ? button({ "click": () => claimDir(path).then(() => load(path)) }, "Claim") : []);
+		console.log(data.claimedBy);
+		clearNode(claimedByCell, data.claimedBy || (data.canClaim ? button({ "click": () => claimDir(path).then(() => load(path)) }, "Claim") : []));
 		setSummary(data, totalCount, totalSize);
 		setSummary(data.actions[BackupWarn], warnCount, warnSize);
 		setSummary(data.actions[BackupNone], nobackupCount, nobackupSize);
