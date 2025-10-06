@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"slices"
 
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/ruletree"
+	"github.com/wtsi-hgi/backup-plans/users"
 )
 
 func (s *Server) AddTree(file string) error {
@@ -15,8 +17,9 @@ func (s *Server) AddTree(file string) error {
 
 type Tree struct {
 	*ruletree.DirSummary
-	ClaimedBy string
-	Rules     map[string]map[uint64]*db.Rule
+	ClaimedBy    string
+	Rules        map[string]map[uint64]*db.Rule
+	Unauthorised []string
 }
 
 func (s *Server) Tree(w http.ResponseWriter, r *http.Request) {
@@ -29,6 +32,13 @@ func (s *Server) tree(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
+	username := s.getUser(r)
+
+	groups := users.GetGroups(username)
+	if len(groups) == 0 {
+		return ErrNotAuthorised
+	}
+
 	s.rulesMu.RLock()
 	defer s.rulesMu.RUnlock()
 
@@ -37,9 +47,20 @@ func (s *Server) tree(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
+	if !isAuthorised(summary, username, groups) {
+		return ErrNotAuthorised
+	}
+
 	t := Tree{
-		DirSummary: summary,
-		Rules:      make(map[string]map[uint64]*db.Rule),
+		DirSummary:   summary,
+		Rules:        make(map[string]map[uint64]*db.Rule),
+		Unauthorised: []string{},
+	}
+
+	for name, child := range summary.Children {
+		if !isAuthorised(child, username, groups) {
+			t.Unauthorised = append(t.Unauthorised, name)
+		}
 	}
 
 	dirRules, ok := s.directoryRules[dir]
@@ -75,9 +96,31 @@ func (s *Server) tree(w http.ResponseWriter, r *http.Request) error {
 	return json.NewEncoder(w).Encode(t)
 }
 
+func isAuthorised(summary *ruletree.DirSummary, username string, groups []string) bool {
+	for _, rs := range summary.RuleSummaries {
+		for _, u := range rs.Users {
+			if u.Name == username {
+				return true
+			}
+		}
+
+		for _, g := range rs.Groups {
+			if slices.Contains(groups, g.Name) {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
 var (
 	ErrNotFound = Error{
 		Code: http.StatusNotFound,
 		Err:  errors.New("404 page not found"),
+	}
+	ErrNotAuthorised = Error{
+		Code: http.StatusUnauthorized,
+		Err:  errors.New("not authorised to see this directory"),
 	}
 )
