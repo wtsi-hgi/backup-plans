@@ -50,4 +50,8 @@ const load = (path: string) => Load(path).then(data => {
 				])
 			])
 		);
+
+		if (window.location.hash !== "") {
+			window.location.hash = window.location.hash;
+		}
 	});
