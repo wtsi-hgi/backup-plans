@@ -15,16 +15,12 @@ import (
 	"github.com/wtsi-hgi/ibackup/set"
 )
 
-const SetNamePrefix = "plan::"
-
 var (
 	isHumgen = regexp.MustCompile(`^/lustre/scratch[0-9]+/humgen/`)
 	isGengen = regexp.MustCompile(`^/lustre/scratch[0-9]+/gengen/`)
 	isOtar   = regexp.MustCompile(`^/lustre/scratch[0-9]+/open-targets/`)
 
 	ErrInvalidPath = errors.New("cannot determine transformer from path")
-
-	toBackup = make(map[string]struct{})
 )
 
 // Connect returns a client that can talk to the given ibackup server using
@@ -46,53 +42,53 @@ func Connect(url, cert string) (*server.Client, error) {
 // Backup creates a new set called setName for the requester if frequency > 0
 // and it has been longer than the frequency since the last discovery for that
 // set.
-func Backup(client *server.Client, setName, requester string, files []string, frequency int) error {
+func Backup(client *server.Client, setName, requester string, files []string, frequency int) (string, error) {
 	if len(files) == 0 || frequency == 0 {
-		return nil
+		return "", nil
 	}
 
 	transformer := getTransformer(files[0])
 	if transformer == "" {
-		return ErrInvalidPath
+		return "", ErrInvalidPath
 	}
 
-	got, err := client.GetSetByName(requester, SetNamePrefix+setName)
+	got, err := client.GetSetByName(requester, setName)
 	if errors.Is(err, server.ErrBadSet) {
 		got = &set.Set{
-			Name:        SetNamePrefix + setName,
+			Name:        setName,
 			Requester:   requester,
 			Transformer: transformer,
-			Description: "automatic backup set",
 			Metadata:    map[string]string{},
 			Failed:      0,
 		}
 
 		if err := client.AddOrUpdateSet(got); err != nil {
-			return err
+			return "", err
 		}
+
 	} else if err != nil {
-		return err
+		return "", err
 	} else if got.LastDiscovery.Add(time.Hour*24*time.Duration(frequency-1) + time.Hour*12).After(time.Now()) {
-		return nil
+		return "", nil
 	}
 
 	if err := client.MergeFiles(got.ID(), files); err != nil {
-		return err
+		return "", err
 	}
 
-	toBackup[got.ID()] = struct{}{}
-
-	return nil
+	return got.ID(), nil
 }
 
-func RunBackups(client *server.Client) error {
-	for id := range toBackup {
+func RunBackups(setIDs []string, client *server.Client) error {
+	for _, id := range setIDs {
+		if id == "" {
+			continue
+		}
+
 		if err := client.TriggerDiscovery(id, false); err != nil {
 			return err
 		}
 	}
-
-	clear(toBackup)
 
 	return nil
 }
@@ -122,7 +118,7 @@ type SetBackupActivity struct {
 	Failures    uint64
 }
 
-// GetBackupActivity queires an ibackup server to get the last completed backup
+// GetBackupActivity queries an ibackup server to get the last completed backup
 // date and number of failures for the given set name and requester.
 func GetBackupActivity(client *server.Client, setName, requester string) (*SetBackupActivity, error) {
 	var (
