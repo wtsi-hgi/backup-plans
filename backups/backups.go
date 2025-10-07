@@ -1,10 +1,12 @@
 package backups
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/ibackup/server"
+	"github.com/wtsi-hgi/wrstat-ui/summary"
 	"github.com/wtsi-hgi/wrstat-ui/summary/group"
 	"vimagination.zapto.org/tree"
 )
@@ -16,7 +18,7 @@ import (
 // stores map of dirID to slice of file path strings, so that we can
 // call ibackup.Backup() for the sets.
 
-type ruleGroup group.PathGroup[db.Rule]
+type ruleGroup = group.PathGroup[db.Rule]
 
 func createRuleGroups(planDB *db.DB) []ruleGroup {
 	rules := planDB.ReadRules()
@@ -43,11 +45,22 @@ func createRuleGroups(planDB *db.DB) []ruleGroup {
 }
 
 func Backup(planDB *db.DB, treeNode tree.Node, client *server.Client) ([]string, error) {
-	//sm, _ := group.NewStatemachine[db.Rule]()
-	//sm.GetGroup()
-	// FileInfo struct {
-	// Path         *DirectoryPath // build this up as we go
-	// Name         []byte // basename
+	groups := createRuleGroups(planDB)
+	sm, _ := group.NewStatemachine(groups)
+
+	fd := filePathsV2(treeNode, func(path *summary.DirectoryPath) {
+		fmt.Printf("\nName: %s Depth: %v Parent: %s Next parent: %s Next parent %s", path.Name, path.Depth, path.Parent.Name, path.Parent.Parent.Name, path.Parent.Parent.Parent.Name)
+	})
+	fi := &summary.FileInfo{
+		Path: fd,
+	}
+	ret := sm.GetGroup(fi)
+	fmt.Printf("RET: %+v ", ret)
+	// since ret is nil, does this mean there are no matches in the gitignore so we need to backup the files?
+
+	// for _, group := range groups {
+	// 	fmt.Printf("\n MATCH: %s", group.Group.Match)
+	// }
 
 	// createRuleGroups():
 	// build map (map[uint64]*db.Directory) of directories
@@ -74,11 +87,34 @@ func callCBOnAllAbsoluteFilePaths(node tree.Node, currentpath string, cb func(st
 	for name, childnode := range node.Children() {
 		nextpath := currentpath + name
 		if strings.HasSuffix(name, "/") {
+			fmt.Println("calling on", nextpath)
 			callCBOnAllAbsoluteFilePaths(childnode, nextpath, cb)
 		} else {
 			cb(nextpath)
 		}
 	}
+}
+
+func filePathsV2(root tree.Node, cb func(path *summary.DirectoryPath)) (info *summary.DirectoryPath) {
+	output := callCBOnAllAbsoluteFilePathsV2(root, nil, 0, cb)
+	return output
+}
+
+func callCBOnAllAbsoluteFilePathsV2(node tree.Node, parent *summary.DirectoryPath, depth int, cb func(path *summary.DirectoryPath)) *summary.DirectoryPath {
+	for name, childnode := range node.Children() {
+		current := &summary.DirectoryPath{
+			Name:   name,
+			Depth:  depth + 1,
+			Parent: parent,
+		}
+
+		if strings.HasSuffix(name, "/") {
+			callCBOnAllAbsoluteFilePathsV2(childnode, current, depth+1, cb)
+		} else {
+			cb(current)
+		}
+	}
+	return nil
 }
 
 // // code to make a ruleList from info in db in a function in this pkg:
