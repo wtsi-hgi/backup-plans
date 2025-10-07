@@ -2,6 +2,7 @@ package backups
 
 import (
 	"bytes"
+	"fmt"
 	"os/user"
 	"testing"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/wtsi-hgi/backup-plans/internal"
 	"github.com/wtsi-hgi/backup-plans/internal/directories"
 	"github.com/wtsi-hgi/backup-plans/internal/testdb"
+	"github.com/wtsi-hgi/wrstat-ui/summary"
 	_ "modernc.org/sqlite"
 	"vimagination.zapto.org/tree"
 )
@@ -32,6 +34,45 @@ func TestFilePaths(t *testing.T) {
 			"/a/b/temp.jpg",
 			"/a/c/4.txt",
 		})
+	})
+}
+
+func TestFilePathsV2(t *testing.T) {
+	Convey("Given a tree of wrstat info you can get all the absolute file paths", t, func() {
+		tr := exampleTree()
+
+		var paths []*summary.DirectoryPath
+
+		_ = filePathsV2(tr, func(path *summary.DirectoryPath) {
+			fmt.Printf("\nName: %s Depth: %v Parent: %s Next parent: %s Next parent %s", path.Name, path.Depth, path.Parent.Name, path.Parent.Parent.Name, path.Parent.Parent.Parent.Name)
+			paths = append(paths, path)
+		})
+
+		tests := []struct {
+			index   int
+			name    string
+			depth   int
+			parents []string
+		}{
+			{0, "1.jpg", 4, []string{"b/", "a/", "/"}},
+			{1, "2.jpg", 4, []string{"b/", "a/", "/"}},
+			{2, "3.txt", 4, []string{"b/", "a/", "/"}},
+			{3, "temp.jpg", 4, []string{"b/", "a/", "/"}},
+			{4, "4.txt", 4, []string{"c/", "a/", "/"}},
+		}
+
+		for _, test := range tests {
+			path := paths[test.index]
+			So(path.Name, ShouldEqual, test.name)
+			So(path.Depth, ShouldEqual, test.depth)
+
+			parent := path.Parent
+			for _, actual := range test.parents {
+				So(parent.Name, ShouldEqual, actual)
+				parent = parent.Parent
+			}
+		}
+
 	})
 }
 
