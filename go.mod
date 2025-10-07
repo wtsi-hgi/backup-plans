@@ -16,7 +16,7 @@ require (
 	github.com/ugorji/go/codec v1.2.14
 	github.com/wtsi-hgi/go-authserver v1.5.1
 	github.com/wtsi-hgi/ibackup v1.11.0
-	github.com/wtsi-hgi/wrstat-ui v1.8.6-0.20250926150046-33f172249bf7
+	github.com/wtsi-hgi/wrstat-ui v1.8.9
 	go.etcd.io/bbolt v1.4.0
 	golang.org/x/sys v0.35.0
 	modernc.org/sqlite v1.38.2
