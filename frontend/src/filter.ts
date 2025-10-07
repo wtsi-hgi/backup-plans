@@ -1,17 +1,17 @@
 import type { DirectoryWithChildren } from './types';
 import { br, button, details, div, input, option, select, summary } from './lib/html.js';
 
-const userSelect = select({ "multiple": "multiple" }),
+const userOpts: HTMLOptionElement[] = [],
+	groupOpts: HTMLOptionElement[] = [],
+	userSelect = select({ "multiple": "multiple" }),
 	groupSelect = select({ "multiple": "multiple" }),
-	buildFilter = (s: HTMLSelectElement) => input({
+	buildFilter = (s: HTMLSelectElement, opts: HTMLOptionElement[]) => input({
 		"placeholder": "Filter", "input": function (this: HTMLInputElement) {
-			for (const child of s.children as unknown as HTMLOptionElement[]) {
-				child.style.display = child.innerText.includes(this.value) ? "" : "none"
-			}
+			s.replaceChildren(...opts.filter(opt => opt.innerText.includes(this.value)))
 		}
 	}),
-	userFilter = buildFilter(userSelect),
-	groupFilter = buildFilter(groupSelect),
+	userFilter = buildFilter(userSelect, userOpts),
+	groupFilter = buildFilter(groupSelect, groupOpts),
 	getValues = (select: HTMLSelectElement) => Array.from(select.options).filter(opt => opt.selected).map(opt => opt.innerText),
 	setFilter = (type: string, select: HTMLSelectElement) => {
 		const names = getValues(select);
@@ -25,14 +25,14 @@ const userSelect = select({ "multiple": "multiple" }),
 
 		loadFiltered();
 	},
-	clearFilter = (input: HTMLInputElement, select: HTMLSelectElement) => {
-		for (const opt of select.options) {
+	clearFilter = (input: HTMLInputElement, select: HTMLSelectElement, options: HTMLOptionElement[]) => {
+		for (const opt of options) {
 			opt.selected = false;
-			opt.style.display = "";
 		}
 
 		filter["type"] = "none";
 		input.value = "";
+		select.replaceChildren(...options);
 
 		loadFiltered();
 	},
@@ -45,7 +45,7 @@ const userSelect = select({ "multiple": "multiple" }),
 					userFilter,
 					userSelect,
 					br(),
-					button({ "click": () => clearFilter(userFilter, userSelect) }, "Clear"),
+					button({ "click": () => clearFilter(userFilter, userSelect, userOpts) }, "Clear"),
 					button({ "click": () => setFilter("users", userSelect) }, "Filter")
 				])
 			]),
@@ -55,7 +55,7 @@ const userSelect = select({ "multiple": "multiple" }),
 					groupFilter,
 					groupSelect,
 					br(),
-					button({ "click": () => clearFilter(groupFilter, groupSelect) }, "Clear"),
+					button({ "click": () => clearFilter(groupFilter, groupSelect, groupOpts) }, "Clear"),
 					button({ "click": () => setFilter("groups", groupSelect) }, "Filter")
 				])
 			])
@@ -74,9 +74,6 @@ export default Object.assign(base, {
 		loadFiltered = () => load(path);
 	},
 	"init": (users: string[], groups: string[]) => {
-		const userOpts: HTMLOptionElement[] = [],
-			groupOpts: HTMLOptionElement[] = [];
-
 		for (const user of users) {
 			userOpts.push(option(user))
 		}
