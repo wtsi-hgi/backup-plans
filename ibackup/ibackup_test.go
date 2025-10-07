@@ -34,17 +34,14 @@ func TestIbackup(t *testing.T) {
 			So(sets, ShouldBeNil)
 
 			setName := "mySet"
-			setNameWithPrefix := SetNamePrefix + setName
 
-			So(Backup(client, setName, u.Username, []string{}, 0), ShouldBeNil)
-			So(RunBackups(client), ShouldBeNil)
+			runTestBackups(client, setName, u.Username, []string{}, 0)
 
 			sets, err = client.GetSets(u.Username)
 			So(err, ShouldBeNil)
 			So(sets, ShouldBeNil)
 
-			So(Backup(client, setName, u.Username, []string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}, 0), ShouldBeNil)
-			So(RunBackups(client), ShouldBeNil)
+			runTestBackups(client, setName, u.Username, []string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}, 0)
 
 			sets, err = client.GetSets(u.Username)
 			So(err, ShouldBeNil)
@@ -52,17 +49,15 @@ func TestIbackup(t *testing.T) {
 
 			before := time.Now()
 
-			So(Backup(client, setName, u.Username, []string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}, 1), ShouldBeNil)
-			So(RunBackups(client), ShouldBeNil)
+			runTestBackups(client, setName, u.Username, []string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}, 1)
 
 			sets, err = client.GetSets(u.Username)
 			So(err, ShouldBeNil)
 			So(checkTimes(sets), ShouldResemble, []*set.Set{
 				{
-					Name:        setNameWithPrefix,
+					Name:        setName,
 					Requester:   u.Username,
 					Transformer: "humgen",
-					Description: "automatic backup set",
 					Metadata:    map[string]string{},
 					NumFiles:    1,
 					Missing:     1,
@@ -70,22 +65,21 @@ func TestIbackup(t *testing.T) {
 				},
 			})
 
-			sba, err := GetBackupActivity(client, setNameWithPrefix, u.Username)
+			sba, err := GetBackupActivity(client, setName, u.Username)
 			So(err, ShouldBeNil)
 			So(sba.LastSuccess, ShouldHappenAfter, before)
 
 			Convey("You cannot update a sets files more often than the frequency allows", func() {
-				got, err := client.GetSetByName(u.Username, setNameWithPrefix)
+				got, err := client.GetSetByName(u.Username, setName)
 				So(err, ShouldBeNil)
 
 				ld := time.Now().Add(-time.Hour)
 				got.LastDiscovery = ld
 
 				So(setSet(s, got), ShouldBeNil)
-				So(Backup(client, setName, u.Username, []string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}, 1), ShouldBeNil)
-				So(RunBackups(client), ShouldBeNil)
+				runTestBackups(client, setName, u.Username, []string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}, 1)
 
-				got, err = client.GetSetByName(u.Username, setNameWithPrefix)
+				got, err = client.GetSetByName(u.Username, setName)
 				So(err, ShouldBeNil)
 				So(got.LastDiscovery, ShouldEqual, ld)
 
@@ -94,20 +88,19 @@ func TestIbackup(t *testing.T) {
 
 				So(setSet(s, got), ShouldBeNil)
 
-				So(Backup(client, setName, u.Username, []string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}, 1), ShouldBeNil)
-				So(RunBackups(client), ShouldBeNil)
+				runTestBackups(client, setName, u.Username, []string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}, 1)
 
-				got, err = client.GetSetByName(u.Username, setNameWithPrefix)
+				got, err = client.GetSetByName(u.Username, setName)
 				So(err, ShouldBeNil)
 				So(got.LastDiscovery, ShouldHappenAfter, ld)
 			})
 
 			Convey("You can get the last backup status of automatically created sets", func() {
-				backupActivity, err := GetBackupActivity(client, setNameWithPrefix, u.Username)
+				backupActivity, err := GetBackupActivity(client, setName, u.Username)
 				So(err, ShouldBeNil)
 				So(backupActivity, ShouldNotBeNil)
 				So(backupActivity.Requester, ShouldEqual, u.Username)
-				So(backupActivity.Name, ShouldEqual, setNameWithPrefix)
+				So(backupActivity.Name, ShouldEqual, setName)
 				So(backupActivity.LastSuccess, ShouldHappenAfter, before)
 
 				_, err = GetBackupActivity(client, "invalidSetName", u.Username)
@@ -134,12 +127,8 @@ func TestIbackup(t *testing.T) {
 			})
 
 			// TODO: try calling GetBackupActivity() for each dir in the
-			// database, plus each rule that is for manual backup Functions
+			// plan database, plus each rule that is for manual backup Functions
 			// somewhere that do the above. Maybe these are tests in the db pkg?
-
-			// TODO: function somewhere that stores map of dirID to slice of
-			// file path strings, so that we can call Backup() for all automatic
-			// sets
 		})
 	})
 }
@@ -182,4 +171,15 @@ func setSet(s *server.Server, got *set.Set) error {
 
 		return b.Put([]byte(got.ID()), encoded)
 	})
+}
+
+func runTestBackups(client *server.Client, setname, requester string, files []string, frequency int) {
+	id, err := Backup(client, setname, requester, files, frequency)
+	So(err, ShouldBeNil)
+
+	if id == "" {
+		return
+	}
+
+	So(RunBackups([]string{id}, client), ShouldBeNil)
 }
