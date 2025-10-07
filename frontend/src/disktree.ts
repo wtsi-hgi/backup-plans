@@ -46,8 +46,7 @@ const phi = (1 + Math.sqrt(5)) / 2,
 			"height": rowHeight + "",
 			"tabIndex": "0",
 			"aria-label": entry.name + (entry.onclick ? "" : entry.noauth ? "; No authorisation to view" : "; No children with current filter"),
-			"stroke": "#000",
-			"style": "--fill: " + entry.backgroundColour,
+			"style": "stroke: currentColor; --fill: " + entry.backgroundColour,
 			"class": entry.onclick ? "hasClick box" : "box",
 			"click": (e: MouseEvent) => {
 				if (e.button !== 0) {

@@ -1,12 +1,18 @@
+#report {
+	margin: 0 1em;
+	width: calc(100% - 2em);
+	padding: 0 1em;
+}
+
 #report>fieldset {
-	border: 1px solid #000;
+	border: 1px solid currentColor;
 	border-radius: 2em;
 	padding: 1em;
 	margin-top: 2em;
 }
 
 #report>fieldset>legend {
-	border: 1px solid #000;
+	border: 1px solid currentColor;
 	border-radius: 1em;
 	padding: 1em 2em;
 	margin: 0 auto;
@@ -60,7 +66,7 @@ table.summary {
 	/* color: #000; */
 	padding: 1rem 1em;
 	background-color: #44aaf7;
-	border: 1px solid #000;
+	border: 1px solid currentColor;
 }
 
 table.summary thead th:not(:nth-child(2)) {
@@ -84,7 +90,7 @@ table.summary tr:last-child th:first-child {
 .summary td {
 	border-width: 0 1px 1px 0;
 	border-style: solid;
-	border-color: #000;
+	border-color: currentColor;
 	padding: 0.5em 0.75em;
 	text-align: center;
 }
