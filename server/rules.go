@@ -3,11 +3,11 @@ package server
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"slices"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/ruletree"
@@ -122,7 +122,7 @@ func (s *Server) claimDir(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (s *Server) canClaim(dir string, uid uint32, groups []uint32) bool {
-	duid, dgid, err := s.rootDir.GetOwner(dir)
+	duid, dgid, err := s.rootDir.GetOwner(dir[1:])
 	if err != nil {
 		return false
 	}
@@ -131,9 +131,81 @@ func (s *Server) canClaim(dir string, uid uint32, groups []uint32) bool {
 }
 
 func (s *Server) PassDirClaim(w http.ResponseWriter, r *http.Request) {
+	handle(w, r, s.passDirClaim)
+}
+
+func (s *Server) passDirClaim(w http.ResponseWriter, r *http.Request) error {
+	user := s.getUser(r)
+	passTo := r.FormValue("passTo")
+
+	uid, groups := users.GetIDs(passTo)
+	if groups == nil {
+		return ErrInvalidUser
+	}
+
+	dir, err := getDir(r)
+	if err != nil {
+		return err
+	}
+
+	s.rulesMu.Lock()
+	defer s.rulesMu.Unlock()
+
+	directory, ok := s.directoryRules[dir]
+	if !ok {
+		return ErrDirectoryNotClaimed
+	}
+
+	if directory.ClaimedBy != user {
+		return ErrInvalidUser
+	}
+
+	if !s.canClaim(dir, uid, groups) {
+		return ErrCannotClaimDirectory
+	}
+
+	directory.ClaimedBy = passTo
+
+	w.Header().Set("Content-Type", "application/json")
+	io.WriteString(w, "null")
+
+	return s.rulesDB.UpdateDirectory(directory.Directory)
 }
 
 func (s *Server) RevokeDirClaim(w http.ResponseWriter, r *http.Request) {
+	handle(w, r, s.revokeDirClaim)
+}
+
+func (s *Server) revokeDirClaim(w http.ResponseWriter, r *http.Request) error {
+	user := s.getUser(r)
+
+	dir, err := getDir(r)
+	if err != nil {
+		return err
+	}
+
+	s.rulesMu.Lock()
+	defer s.rulesMu.Unlock()
+
+	directory, ok := s.directoryRules[dir]
+	if !ok {
+		return ErrDirectoryNotClaimed
+	}
+
+	if directory.ClaimedBy != user {
+		return ErrInvalidUser
+	}
+
+	if len(directory.Rules) > 0 {
+		return ErrInvalidDir
+	}
+
+	delete(s.directoryRules, dir)
+
+	w.Header().Set("Content-Type", "application/json")
+	io.WriteString(w, "null")
+
+	return s.rulesDB.RemoveDirectory(directory.Directory)
 }
 
 func (s *Server) CreateRule(w http.ResponseWriter, r *http.Request) {
@@ -234,15 +306,6 @@ func getRuleDetails(r *http.Request) (*db.Rule, error) {
 	}
 
 	return rule, nil
-}
-
-func parseTime(str string) time.Time {
-	unix, err := strconv.ParseUint(str, 10, 64)
-	if err != nil || unix <= 0 {
-		return time.Time{}
-	}
-
-	return time.Unix(int64(unix), 0)
 }
 
 func (s *Server) GetRules(w http.ResponseWriter, r *http.Request) {

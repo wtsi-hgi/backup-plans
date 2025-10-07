@@ -252,6 +252,12 @@ input[type="checkbox"] {
 	width: calc(100vw - 5em);
 }
 
+dialog label:after {
+	content: ":";
+	display: inline-block;
+	padding-right: 1em;
+}
+
 @media (prefers-color-scheme: light) {
 	html {
 		--colour: #000;

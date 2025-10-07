@@ -1,3 +1,5 @@
+import { button, dialog, div } from "./html.js";
+
 const byteSizes = ["B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB", "RiB", "QiB"];
 
 export const formatBytes = (size: bigint) => {
@@ -32,4 +34,28 @@ export const formatBytes = (size: bigint) => {
 		}
 
 		return weeks + " weeks";
-	}
+	},
+	confirm = (msg: string, doAction: () => Promise<void>) => {
+		const remove = button({
+			"click": () => {
+				overlay.setAttribute("closedby", "none");
+				remove.toggleAttribute("disabled", true);
+				cancel.toggleAttribute("disabled", true);
+				doAction()
+					.then(() => overlay.close())
+					.catch((e: Error) => {
+						overlay.setAttribute("closedby", "any");
+						remove.removeAttribute("disabled");
+						cancel.removeAttribute("disabled");
+						alert("Error: " + e.message);
+					});
+			}
+		}, "Remove"),
+			cancel = button({ "click": () => overlay.close() }, "Cancel"),
+			overlay = document.body.appendChild(dialog({ "closedby": "any", "close": () => overlay.remove() }, [
+				div(msg),
+				remove, cancel
+			]));
+
+		overlay.showModal();
+	};

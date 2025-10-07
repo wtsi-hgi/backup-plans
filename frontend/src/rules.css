@@ -1,9 +1,9 @@
-#rules button {
+button.actionButton {
 	border: 0;
 	background: none;
 }
 
-#rules svg {
+button.actionButton svg {
 	width: 1em;
 	height: 1em;
 }

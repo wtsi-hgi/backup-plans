@@ -1,9 +1,10 @@
 import type { DirectoryWithChildren, SizeCountTime } from "./types.js";
-import { button, table, tbody, td, th, thead, tr } from "./lib/html.js";
 import { clearNode } from "./lib/dom.js";
-import { formatBytes } from "./lib/utils.js";
+import { br, button, dialog, input, label, table, tbody, td, th, thead, tr } from "./lib/html.js";
+import { svg, title, use } from "./lib/svg.js";
+import { confirm, formatBytes } from "./lib/utils.js";
+import { claimDir, passDirClaim, revokeDirClaim, user } from "./rpc.js";
 import { BackupNone, BackupIBackup, BackupTemp, BackupWarn } from './types.js';
-import { claimDir } from "./rpc.js";
 
 const claimedByCell = td(),
 	totalCount = td(),
@@ -30,8 +31,55 @@ const claimedByCell = td(),
 
 export default Object.assign(base, {
 	"update": (path: string, data: DirectoryWithChildren, load: (path: string) => void) => {
-		console.log(data.claimedBy);
-		clearNode(claimedByCell, data.claimedBy || (data.canClaim ? button({ "click": () => claimDir(path).then(() => load(path)) }, "Claim") : []));
+		clearNode(claimedByCell, data.claimedBy ?
+			[data.claimedBy, data.claimedBy === user ? data.rules[path]?.length ?
+				button({
+					"class": "actionButton",
+					"click": () => {
+						const passTo = input({ "id": "passTo", "placeholder": "Username" }),
+							set = button({
+								"click": () => {
+									overlay.setAttribute("closedby", "none");
+									set.toggleAttribute("disabled", true);
+									cancel.toggleAttribute("disabled", true);
+									passTo.toggleAttribute("disabled", true);
+
+									passDirClaim(path, passTo.value)
+										.then(() => {
+											load(path);
+											overlay.remove();
+										})
+										.catch((e: Error) => {
+											overlay.setAttribute("closedby", "any");
+											set.removeAttribute("disabled");
+											cancel.removeAttribute("disabled");
+											passTo.removeAttribute("disabled");
+											alert("Error: " + e.message);
+										});
+								}
+							}, "Pass"),
+							cancel = button({ "click": () => overlay.close() }, "Cancel"),
+							overlay = document.body.appendChild(dialog({ "closedby": "any", "close": () => overlay.remove() }, [
+								label({ "for": "passTo" }, "Pass To"), passTo,
+								br(),
+								set,
+								cancel
+							]));
+
+						overlay.showModal();
+					}
+				}, svg([
+					title("Pass Claim"),
+					use({ "href": "#edit" })
+				]))
+				: button({
+					"class": "actionButton",
+					"click": () => confirm("Are you sure you wish to remove your claim on this directory?", () => revokeDirClaim(path).then(() => load(path)))
+				}, svg([
+					title("Revoke Claim"),
+					use({ "href": "#remove" })
+				])) : []]
+			: data.canClaim ? button({ "click": () => claimDir(path).then(() => load(path)) }, "Claim") : []);
 		setSummary(data, totalCount, totalSize);
 		setSummary(data.actions[BackupWarn], warnCount, warnSize);
 		setSummary(data.actions[BackupNone], nobackupCount, nobackupSize);

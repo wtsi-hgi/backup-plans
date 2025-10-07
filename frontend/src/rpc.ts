@@ -1,4 +1,4 @@
-import type { DirectoryRules, ReportSummary, Tree } from './types.js';
+import type { ReportSummary, Tree } from './types.js';
 
 const getURL = <T>(url: string, params: Record<string, unknown> = {}) => {
 	return new Promise<T>((successFn, errorFn) => {
@@ -30,13 +30,12 @@ const getURL = <T>(url: string, params: Record<string, unknown> = {}) => {
 	});
 };
 
-export const whoami = () => getURL<string>("/api/whoami"),
-	getTree = (dir: string) => getURL<Tree>("/api/tree", { dir }),
-	claimDir = (dir: string) => getURL<DirectoryRules>("/api/dir/claim", { dir }),
-	passDirClaim = (dir: string) => getURL<DirectoryRules>("/api/dir/pass", { dir }),
-	revokeDirClaim = (dir: string) => getURL<DirectoryRules>("/api/dir/revoke", { dir }),
+export const getTree = (dir: string) => getURL<Tree>("/api/tree", { dir }),
+	claimDir = (dir: string) => getURL<void>("/api/dir/claim", { dir }),
+	passDirClaim = (dir: string, passTo: string) => getURL<void>("/api/dir/pass", { dir, passTo }),
+	revokeDirClaim = (dir: string) => getURL<void>("/api/dir/revoke", { dir }),
 	createRule = (dir: string, action: string, match: string) => getURL<void>("/api/rules/create", { dir, action, match, "review": 1, "remove": 1, "frequency": 7 }),
 	updateRule = (dir: string, action: string, match: string) => getURL<void>("/api/rules/update", { dir, action, match, "review": 1, "remove": 1, "frequency": 7 }),
 	removeRule = (dir: string, match: string) => getURL<void>("/api/rules/remove", { dir, match }),
 	getReportSummary = () => getURL<ReportSummary>("/api/report/summary"),
-	user = await whoami();
+	user = await getURL<string>("/api/whoami");

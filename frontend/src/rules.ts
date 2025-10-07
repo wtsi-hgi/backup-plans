@@ -2,9 +2,8 @@ import type { DirectoryWithChildren, Rule } from "./types.js"
 import { clearNode } from "./lib/dom.js";
 import { br, button, caption, dialog, div, h2, input, label, option, select, table, tbody, td, th, thead, tr } from './lib/html.js';
 import { svg, title, use } from './lib/svg.js';
-import { formatBytes } from "./lib/utils.js";
+import { confirm, formatBytes } from "./lib/utils.js";
 import { createRule, removeRule, updateRule, user } from "./rpc.js";
-import disktree from "./disktree.js";
 
 const actions = ["No Backup", "Temp Backup", "IBackup", "Manual Backup"],
 	action = (backupType: number) => actions[backupType] ?? "Unknown",
@@ -71,36 +70,16 @@ export default Object.assign(base, {
 					td(rule.count.toLocaleString()),
 					td({ "title": rule.size.toLocaleString() }, formatBytes(rule.size)),
 					data.claimedBy === user ? td([
-						button({ "click": () => addEditOverlay(path, rule, load) }, svg([
+						button({
+							"class": "actionButton",
+							"click": () => addEditOverlay(path, rule, load)
+						}, svg([
 							title("Edit Rule"),
 							use({ "href": "#edit" })
 						])),
 						button({
-							"click": () => {
-								const remove = button({
-									"click": () => {
-										overlay.setAttribute("closedby", "none");
-										remove.toggleAttribute("disabled", true);
-										cancel.toggleAttribute("disabled", true);
-										removeRule(path, rule.Match)
-											.then(() => load(path))
-											.then(() => overlay.close())
-											.catch((e: Error) => {
-												overlay.setAttribute("closedby", "any");
-												remove.removeAttribute("disabled");
-												cancel.removeAttribute("disabled");
-												alert("Error: " + e.message);
-											});
-									}
-								}, "Remove"),
-									cancel = button({ "click": () => overlay.close() }, "Cancel"),
-									overlay = document.body.appendChild(dialog({ "closedby": "any", "close": () => overlay.remove() }, [
-										div("Are you sure you wish to remove this rule?"),
-										remove, cancel
-									]));
-
-								overlay.showModal();
-							}
+							"class": "actionButton",
+							"click": () => confirm("Are you sure you wish to remove this rule?", () => removeRule(path, rule.Match).then(() => load(path)))
 						}, svg([
 							title("Remove Rule"),
 							use({ "href": "#remove" })
