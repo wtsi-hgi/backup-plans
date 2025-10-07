@@ -16,43 +16,65 @@ import (
 // stores map of dirID to slice of file path strings, so that we can
 // call ibackup.Backup() for the sets.
 
-func Backup(planDB *db.DB, treeNode tree.Node, client *server.Client) ([]string, error) {
-	iterRules := planDB.ReadRules()
+type ruleGroup group.PathGroup[db.Rule]
 
-	iterRules.ForEach(func(r *db.Rule) error {
-		// fmt.Printf("rule: %+v", r)
+func createRuleGroups(planDB *db.DB) []ruleGroup {
+	rules := planDB.ReadRules()
+	dirs := make(map[int64]string)
+
+	for dir := range planDB.ReadDirectories().Iter {
+		dirs[dir.ID()] = dir.Path
+	}
+
+	var groups []ruleGroup
+
+	rules.ForEach(func(rule *db.Rule) error { //nolint:errcheck
+		newgroup := ruleGroup{
+			Path:  []byte(dirs[rule.DirID()] + rule.Match),
+			Group: rule,
+		}
+
+		groups = append(groups, newgroup)
+
 		return nil
 	})
 
+	return groups
+}
+
+func Backup(planDB *db.DB, treeNode tree.Node, client *server.Client) ([]string, error) {
 	//sm, _ := group.NewStatemachine[db.Rule]()
 	//sm.GetGroup()
 	// FileInfo struct {
 	// Path         *DirectoryPath // build this up as we go
 	// Name         []byte // basename
 
-	type ruleGroup group.PathGroup[db.Rule]
-
-	planDB.ReadDirectories()
+	// createRuleGroups():
 	// build map (map[uint64]*db.Directory) of directories
 	// loop through rules, create slice of []ruleGroup
 	// where Path is Directory.Path + rule.Match and Group is Rule
-	// buikd statwmachine from from that slice
+	// build statemachine from that slice
 
-	// Walk treeNode, build file abs paths, run through statemachine to get rule
+	// filePaths():
+	// Walk treeNode, build file abs paths
+
+	// run through statemachine to get rule
 	// if backup, get directory; add path to directory FOFN.
 
 	return nil, nil
 }
 
+// filePaths calls the given cb with every absolute file path nested under the
+// given root node. Directory paths are not returned.
 func filePaths(root tree.Node, cb func(path string)) {
-	helper(root, "", cb)
+	callCBOnAllAbsoluteFilePaths(root, "", cb)
 }
 
-func helper(node tree.Node, currentpath string, cb func(string)) {
+func callCBOnAllAbsoluteFilePaths(node tree.Node, currentpath string, cb func(string)) {
 	for name, childnode := range node.Children() {
 		nextpath := currentpath + name
 		if strings.HasSuffix(name, "/") {
-			helper(childnode, nextpath, cb)
+			callCBOnAllAbsoluteFilePaths(childnode, nextpath, cb)
 		} else {
 			cb(nextpath)
 		}

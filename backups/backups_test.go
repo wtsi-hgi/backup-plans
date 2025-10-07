@@ -57,6 +57,82 @@ func exampleTree() tree.Node {
 	return tr
 }
 
+func TestRuleToGroups(t *testing.T) {
+	Convey("Given a plan database, you can create a slice of ruleGroups", t, func() {
+		testDB := examplePlanDB(t)
+
+		rgs := createRuleGroups(testDB)
+		So(len(rgs), ShouldEqual, 3)
+
+		var rules []*db.Rule
+
+		readRules := testDB.ReadRules()
+
+		readRules.ForEach(func(rule *db.Rule) error { //nolint:errcheck
+			rules = append(rules, rule)
+
+			return nil
+		})
+
+		So(rgs, ShouldResemble, []ruleGroup{
+			{
+				Path:  []byte("/a/b/" + rules[0].Match),
+				Group: rules[0],
+			},
+			{
+				Path:  []byte("/a/b/" + rules[1].Match),
+				Group: rules[1],
+			},
+			{
+				Path:  []byte("/a/c/" + rules[2].Match),
+				Group: rules[2],
+			},
+		})
+
+	})
+}
+
+func examplePlanDB(t *testing.T) *db.DB {
+	testDB := testdb.CreateTestDatabase(t)
+
+	userA := "userA"
+	userB := "userB"
+
+	dirA := &db.Directory{
+		Path:      "/a/b/",
+		ClaimedBy: userA,
+	}
+	dirB := &db.Directory{
+		Path:      "/a/c/",
+		ClaimedBy: userB,
+	}
+
+	So(testDB.CreateDirectory(dirA), ShouldBeNil)
+	So(testDB.CreateDirectory(dirB), ShouldBeNil)
+
+	ruleA := &db.Rule{
+		BackupType: db.BackupIBackup,
+		Match:      "*.jpg",
+		Frequency:  7,
+	}
+	ruleB := &db.Rule{
+		BackupType: db.BackupNone,
+		Match:      "temp.jpg",
+		Frequency:  7,
+	}
+	ruleC := &db.Rule{
+		BackupType: db.BackupManual,
+		Match:      "*.txt",
+		Metadata:   "manualSetName",
+	}
+
+	So(testDB.CreateDirectoryRule(dirA, ruleA), ShouldBeNil)
+	So(testDB.CreateDirectoryRule(dirA, ruleB), ShouldBeNil)
+	So(testDB.CreateDirectoryRule(dirB, ruleC), ShouldBeNil)
+
+	return testDB
+}
+
 func TestBackups(t *testing.T) {
 	Convey("Given a plan database, a tree of wrstat info and an ibackup server", t, func() {
 		s, addr, certPath, dfn, err := internal.NewTestIbackupServer(t)
@@ -74,43 +150,7 @@ func TestBackups(t *testing.T) {
 		So(u, ShouldNotBeNil)
 		So(ibackupClient, ShouldNotBeNil)
 
-		testDB := testdb.CreateTestDatabase(t)
-
-		userA := "userA"
-		userB := "userB"
-
-		dirA := &db.Directory{
-			Path:      "/a/b/",
-			ClaimedBy: userA,
-		}
-		dirB := &db.Directory{
-			Path:      "/a/c/",
-			ClaimedBy: userB,
-		}
-
-		So(testDB.CreateDirectory(dirA), ShouldBeNil)
-		So(testDB.CreateDirectory(dirB), ShouldBeNil)
-
-		ruleA := &db.Rule{
-			BackupType: db.BackupIBackup,
-			Match:      "*.jpg",
-			Frequency:  7,
-		}
-		ruleB := &db.Rule{
-			BackupType: db.BackupNone,
-			Match:      "temp.jpg",
-			Frequency:  7,
-		}
-		ruleC := &db.Rule{
-			BackupType: db.BackupManual,
-			Match:      "*.txt",
-			Metadata:   "manualSetName",
-		}
-
-		So(testDB.CreateDirectoryRule(dirA, ruleA), ShouldBeNil)
-		So(testDB.CreateDirectoryRule(dirA, ruleB), ShouldBeNil)
-		So(testDB.CreateDirectoryRule(dirB, ruleC), ShouldBeNil)
-
+		testDB := examplePlanDB(t)
 		tr := exampleTree()
 
 		Convey("You can create ibackup sets for all automatic ibackup plans, excluding BackupNone and BackupManual", func() {
@@ -118,12 +158,12 @@ func TestBackups(t *testing.T) {
 			So(err, ShouldBeNil)
 			So(len(setIDs), ShouldEqual, 1)
 
-			sets, err := ibackupClient.GetSets(userA)
+			sets, err := ibackupClient.GetSets("userA")
 			So(err, ShouldBeNil)
 			So(len(sets), ShouldEqual, 1)
 			So(sets[0].ID, ShouldEqual, setIDs[0])
 			So(sets[0].Name, ShouldEqual, "plan::/a/b")
-			So(sets[0].Requester, ShouldEqual, userA)
+			So(sets[0].Requester, ShouldEqual, "userA")
 		})
 	})
 }
