@@ -48,15 +48,22 @@ func Backup(planDB *db.DB, treeNode tree.Node, client *server.Client) ([]string,
 	groups := createRuleGroups(planDB)
 	sm, _ := group.NewStatemachine(groups)
 
-	fd := filePathsV2(treeNode, func(path *summary.DirectoryPath) {
-		fmt.Printf("\nName: %s Depth: %v Parent: %s Next parent: %s Next parent %s", path.Name, path.Depth, path.Parent.Name, path.Parent.Parent.Name, path.Parent.Parent.Parent.Name)
+	filePaths(treeNode, func(fi *summary.FileInfo) {
+		rule := sm.GetGroup(fi)
+		if rule == nil {
+			return
+		}
+		fmt.Printf("\n Fileinfo: %+v Rule: %+v BackupType: %+v", string(fi.Name), rule.Match, rule.BackupType)
+		if rule.BackupType == db.BackupManual || rule.BackupType == db.BackupNone {
+			return
+		}
+
+		// stores map of dirID to slice of file path strings, so that we can
+		// call ibackup.Backup() for the sets.
 	})
-	fi := &summary.FileInfo{
-		Path: fd,
-	}
-	ret := sm.GetGroup(fi)
-	fmt.Printf("RET: %+v ", ret)
+
 	// since ret is nil, does this mean there are no matches in the gitignore so we need to backup the files?
+	// if backup, get directory; add path to directory FOFN.
 
 	// for _, group := range groups {
 	// 	fmt.Printf("\n MATCH: %s", group.Group.Match)
@@ -72,49 +79,33 @@ func Backup(planDB *db.DB, treeNode tree.Node, client *server.Client) ([]string,
 	// Walk treeNode, build file abs paths
 
 	// run through statemachine to get rule
-	// if backup, get directory; add path to directory FOFN.
 
 	return nil, nil
 }
 
 // filePaths calls the given cb with every absolute file path nested under the
 // given root node. Directory paths are not returned.
-func filePaths(root tree.Node, cb func(path string)) {
-	callCBOnAllAbsoluteFilePaths(root, "", cb)
+func filePaths(root tree.Node, cb func(path *summary.FileInfo)) {
+	callCBOnAllAbsoluteFilePaths(root, nil, 0, cb)
 }
 
-func callCBOnAllAbsoluteFilePaths(node tree.Node, currentpath string, cb func(string)) {
+func callCBOnAllAbsoluteFilePaths(node tree.Node, parent *summary.DirectoryPath, depth int, cb func(path *summary.FileInfo)) {
 	for name, childnode := range node.Children() {
-		nextpath := currentpath + name
 		if strings.HasSuffix(name, "/") {
-			fmt.Println("calling on", nextpath)
-			callCBOnAllAbsoluteFilePaths(childnode, nextpath, cb)
+			current := &summary.DirectoryPath{
+				Name:   name,
+				Depth:  depth,
+				Parent: parent,
+			}
+			callCBOnAllAbsoluteFilePaths(childnode, current, depth+1, cb)
 		} else {
-			cb(nextpath)
+			fi := &summary.FileInfo{
+				Path: parent,
+				Name: []byte(name),
+			}
+			cb(fi)
 		}
 	}
-}
-
-func filePathsV2(root tree.Node, cb func(path *summary.DirectoryPath)) (info *summary.DirectoryPath) {
-	output := callCBOnAllAbsoluteFilePathsV2(root, nil, 0, cb)
-	return output
-}
-
-func callCBOnAllAbsoluteFilePathsV2(node tree.Node, parent *summary.DirectoryPath, depth int, cb func(path *summary.DirectoryPath)) *summary.DirectoryPath {
-	for name, childnode := range node.Children() {
-		current := &summary.DirectoryPath{
-			Name:   name,
-			Depth:  depth + 1,
-			Parent: parent,
-		}
-
-		if strings.HasSuffix(name, "/") {
-			callCBOnAllAbsoluteFilePathsV2(childnode, current, depth+1, cb)
-		} else {
-			cb(current)
-		}
-	}
-	return nil
 }
 
 // // code to make a ruleList from info in db in a function in this pkg:

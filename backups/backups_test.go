@@ -2,7 +2,6 @@ package backups
 
 import (
 	"bytes"
-	"fmt"
 	"os/user"
 	"testing"
 
@@ -21,30 +20,9 @@ func TestFilePaths(t *testing.T) {
 	Convey("Given a tree of wrstat info you can get all the absolute file paths", t, func() {
 		tr := exampleTree()
 
-		var paths []string
+		var paths []*summary.FileInfo
 
-		filePaths(tr, func(path string) {
-			paths = append(paths, path)
-		})
-
-		So(paths, ShouldResemble, []string{
-			"/a/b/1.jpg",
-			"/a/b/2.jpg",
-			"/a/b/3.txt",
-			"/a/b/temp.jpg",
-			"/a/c/4.txt",
-		})
-	})
-}
-
-func TestFilePathsV2(t *testing.T) {
-	Convey("Given a tree of wrstat info you can get all the absolute file paths", t, func() {
-		tr := exampleTree()
-
-		var paths []*summary.DirectoryPath
-
-		_ = filePathsV2(tr, func(path *summary.DirectoryPath) {
-			fmt.Printf("\nName: %s Depth: %v Parent: %s Next parent: %s Next parent %s", path.Name, path.Depth, path.Parent.Name, path.Parent.Parent.Name, path.Parent.Parent.Parent.Name)
+		filePaths(tr, func(path *summary.FileInfo) {
 			paths = append(paths, path)
 		})
 
@@ -52,21 +30,25 @@ func TestFilePathsV2(t *testing.T) {
 			index   int
 			name    string
 			depth   int
+			dir     string
 			parents []string
 		}{
-			{0, "1.jpg", 4, []string{"b/", "a/", "/"}},
-			{1, "2.jpg", 4, []string{"b/", "a/", "/"}},
-			{2, "3.txt", 4, []string{"b/", "a/", "/"}},
-			{3, "temp.jpg", 4, []string{"b/", "a/", "/"}},
-			{4, "4.txt", 4, []string{"c/", "a/", "/"}},
+			{0, "1.jpg", 2, "b/", []string{"a/", "/"}},
+			{1, "2.jpg", 2, "b/", []string{"a/", "/"}},
+			{2, "3.txt", 2, "b/", []string{"a/", "/"}},
+			{3, "temp.jpg", 2, "b/", []string{"a/", "/"}},
+			{4, "4.txt", 2, "c/", []string{"a/", "/"}},
 		}
 
 		for _, test := range tests {
 			path := paths[test.index]
-			So(path.Name, ShouldEqual, test.name)
-			So(path.Depth, ShouldEqual, test.depth)
+			dir := path.Path
 
-			parent := path.Parent
+			So(string(path.Name), ShouldEqual, test.name)
+			So(dir.Name, ShouldEqual, test.dir)
+			So(dir.Depth, ShouldEqual, test.depth)
+
+			parent := dir.Parent
 			for _, actual := range test.parents {
 				So(parent.Name, ShouldEqual, actual)
 				parent = parent.Parent
