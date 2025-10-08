@@ -75,11 +75,15 @@ export default Object.assign(base, {
 	},
 	"init": (users: string[], groups: string[]) => {
 		for (const user of users) {
-			userOpts.push(option(user))
+			if (user.trim()) {
+				userOpts.push(option(user))
+			}
 		}
 
 		for (const group of groups) {
-			groupOpts.push(option(group))
+			if (group.trim()) {
+				groupOpts.push(option(group))
+			}
 		}
 
 		userSelect.append(...userOpts)
