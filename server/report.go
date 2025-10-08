@@ -11,8 +11,9 @@ import (
 )
 
 type summary struct {
-	Summaries map[string]*ruletree.DirSummary
-	Rules     map[uint64]*db.Rule
+	Summaries   map[string]*ruletree.DirSummary
+	Rules       map[uint64]*db.Rule
+	Directories map[string][]uint64
 }
 
 func (s *Server) Summary(w http.ResponseWriter, r *http.Request) {
@@ -21,8 +22,9 @@ func (s *Server) Summary(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) summary(w http.ResponseWriter, r *http.Request) error {
 	summary := summary{
-		Summaries: make(map[string]*ruletree.DirSummary, len(s.reportRoots)),
-		Rules:     make(map[uint64]*db.Rule),
+		Summaries:   make(map[string]*ruletree.DirSummary, len(s.reportRoots)),
+		Rules:       make(map[uint64]*db.Rule),
+		Directories: make(map[string][]uint64),
 	}
 
 	s.rulesMu.RLock()
@@ -46,6 +48,20 @@ func (s *Server) summary(w http.ResponseWriter, r *http.Request) error {
 		for _, rule := range ds.RuleSummaries {
 			if _, ok := summary.Rules[rule.ID]; ok {
 				continue
+			}
+
+			if rule.ID > 0 {
+				dir := s.directoryRules[s.dirs[uint64(s.rules[rule.ID].DirID())].Path]
+
+				if _, ok := summary.Directories[dir.Path]; !ok {
+					var ruleIDs []uint64
+
+					for _, r := range dir.Rules {
+						ruleIDs = append(ruleIDs, uint64(r.ID()))
+					}
+
+					summary.Directories[dir.Path] = ruleIDs
+				}
 			}
 
 			summary.Rules[rule.ID] = s.rules[rule.ID]

@@ -3,7 +3,6 @@ package server
 import (
 	"encoding/json"
 	"errors"
-	"io"
 	"net/http"
 	"slices"
 	"strconv"
@@ -166,9 +165,6 @@ func (s *Server) passDirClaim(w http.ResponseWriter, r *http.Request) error {
 
 	directory.ClaimedBy = passTo
 
-	w.Header().Set("Content-Type", "application/json")
-	io.WriteString(w, "null")
-
 	return s.rulesDB.UpdateDirectory(directory.Directory)
 }
 
@@ -201,9 +197,6 @@ func (s *Server) revokeDirClaim(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	delete(s.directoryRules, dir)
-
-	w.Header().Set("Content-Type", "application/json")
-	io.WriteString(w, "null")
 
 	return s.rulesDB.RemoveDirectory(directory.Directory)
 }

@@ -58,4 +58,9 @@ export const formatBytes = (size: bigint) => {
 			]));
 
 		overlay.showModal();
+	},
+	setAndReturn = <K, V>(m: { set: (k: K, v: V) => void }, k: K, v: V) => {
+		m.set(k, v);
+
+		return v;
 	};

@@ -69,6 +69,8 @@ vimagination.zapto.org/byteio v1.2.1 h1:sFPhy2jX5QhnsdZbhnVjsM6ADnsj+vWmR8HMtNzl
 vimagination.zapto.org/byteio v1.2.1/go.mod h1:PvkDI/R/f6NXQWabWbOzaRxxeK7hdOTKGcgS8hBIiWw=
 vimagination.zapto.org/httpbuffer v1.1.0 h1:K5L5pHSYgz0MY1ESLsNggvaH2DPHj0J5jO4MrRgdVEU=
 vimagination.zapto.org/httpbuffer v1.1.0/go.mod h1:tf8MLzO/LFvKGQjprKBKPKTLCAjSz/T+nvcFpiuiPqE=
+vimagination.zapto.org/httpbuffer v1.1.3 h1:zoyRmKA8RqxrAXUOvWh6VctE8iAWkHC3Wsgs9AVYIoQ=
+vimagination.zapto.org/httpbuffer v1.1.3/go.mod h1:9fqSQiOj7vkizDrNDI8Ws6By82rDlSeW/Muesf29Eeo=
 vimagination.zapto.org/httpencoding v1.1.1 h1:QKE0Cz6yq50DtoWnPunBCKEUvh2loyT5q8+hA9nlzDk=
 vimagination.zapto.org/httpencoding v1.1.1/go.mod h1:jnEwxHVkbtkSBKt42IeT4FoNhRjDUqI1uBYjL9pmY3o=
 vimagination.zapto.org/httpwrap v1.0.1 h1:Gmvl/z456oRxLZzrWPIo3QRvhsZ5weeSg0TKaa/N0Ek=

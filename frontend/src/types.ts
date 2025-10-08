@@ -45,9 +45,12 @@ export type Rule = {
 	Frequency: number;
 };
 
-export type SizeCountTime = {
+export type SizeCount = {
 	size: bigint;
 	count: bigint;
+}
+
+export type SizeCountTime = SizeCount & {
 	mtime: number;
 }
 
@@ -74,4 +77,5 @@ type ClaimedDir = DirSummary & {
 export type ReportSummary = {
 	Summaries: Record<string, ClaimedDir>;
 	Rules: Record<number, Rule>;
+	Directories: Record<string, number[]>;
 }

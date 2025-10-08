@@ -10,7 +10,7 @@ require (
 	golang.org/x/sys v0.34.0
 	modernc.org/sqlite v1.38.2
 	vimagination.zapto.org/byteio v1.2.1
-	vimagination.zapto.org/httpbuffer v1.1.0
+	vimagination.zapto.org/httpbuffer v1.1.3
 	vimagination.zapto.org/tree v1.3.1
 	vimagination.zapto.org/tsserver v1.0.15
 )

@@ -69,16 +69,15 @@ table.summary {
 	border: 1px solid currentColor;
 }
 
-table.summary thead th:not(:nth-child(2)) {
+table.summary thead th:not(:first-of-type) {
 	border-left: 0;
 }
 
-.summary tr:first-child th:first-child,
-table.summary th:nth-child(2) {
+.summary tr:first-child th:first-of-type {
 	border-top-left-radius: 0.5em;
 }
 
-table.summary tr:last-child th:first-child {
+table.summary tbody tr:last-child th:first-child {
 	border-top: 0;
 	border-bottom-left-radius: 0.5em;
 }
