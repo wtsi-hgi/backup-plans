@@ -4,7 +4,7 @@ import { br, button, dialog, input, label, table, tbody, td, th, thead, tr } fro
 import { svg, title, use } from "./lib/svg.js";
 import { confirm, formatBytes } from "./lib/utils.js";
 import { claimDir, passDirClaim, revokeDirClaim, user } from "./rpc.js";
-import { BackupNone, BackupIBackup, BackupTemp, BackupWarn } from './types.js';
+import { BackupNone, BackupIBackup, BackupTemp, BackupWarn, BackupManual } from './types.js';
 
 const claimedByCell = td(),
 	totalCount = td(),
@@ -12,16 +12,18 @@ const claimedByCell = td(),
 	nobackupCount = td(),
 	tempbackupCount = td(),
 	backupCount = td(),
+	manualBackupCount = td(),
 	totalSize = td(),
 	warnSize = td(),
 	nobackupSize = td(),
 	tempbackupSize = td(),
 	backupSize = td(),
+	manualBackupSize = td(),
 	base = table({ "class": "summary" }, [
-		thead(tr([claimedByCell, th("Total"), th("Warn"), th("No Backup"), th("Temp Backup"), th("Backup")])),
+		thead(tr([claimedByCell, th("Total"), th("Warn"), th("No Backup"), th("Temp Backup"), th("Backup"), th("Manual Backup")])),
 		tbody([
-			tr([th("File count"), totalCount, warnCount, nobackupCount, tempbackupCount, backupCount]),
-			tr([th("File size"), totalSize, warnSize, nobackupSize, tempbackupSize, backupSize])
+			tr([th("File count"), totalCount, warnCount, nobackupCount, tempbackupCount, backupCount, manualBackupCount]),
+			tr([th("File size"), totalSize, warnSize, nobackupSize, tempbackupSize, backupSize, manualBackupSize])
 		])
 	]),
 	setSummary = (action: SizeCountTime, count: Element, size: Element) => {
@@ -85,5 +87,6 @@ export default Object.assign(base, {
 		setSummary(data.actions[BackupNone], nobackupCount, nobackupSize);
 		setSummary(data.actions[BackupTemp], tempbackupCount, tempbackupSize);
 		setSummary(data.actions[BackupIBackup], backupCount, backupSize);
+		setSummary(data.actions[BackupManual], manualBackupCount, manualBackupSize);
 	}
 });

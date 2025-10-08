@@ -1,4 +1,4 @@
-import type { DirectoryWithChildren, Rule } from "./types.js"
+import { BackupIBackup, type DirectoryWithChildren, type Rule } from "./types.js"
 import { clearNode } from "./lib/dom.js";
 import { br, button, caption, dialog, div, h2, input, label, option, select, table, tbody, td, th, thead, tr } from './lib/html.js';
 import { svg, title, use } from './lib/svg.js';
@@ -46,24 +46,25 @@ const actions = ["No Backup", "Temp Backup", "IBackup", "Manual Backup"],
 
 		overlay.showModal();
 	},
+	addRule = (path: string, load: (path: string) => void) => button({
+		"click": () => addEditOverlay(path, {
+			"BackupType": BackupIBackup,
+			"Metadata": "",
+			"ReviewDate": 0,
+			"RemoveDate": 0,
+			"Match": "",
+			"Frequency": 7
+		}, load),
+	}, "Add Rule"),
 	base = div();
 
 export default Object.assign(base, {
 	"update": (path: string, data: DirectoryWithChildren, load: (path: string) => void) => {
 		clearNode(base, [
 			data.claimedBy ? h2("Rules on this directory") : [],
-			data.claimedBy && data.claimedBy == user ? button({
-				"click": () => addEditOverlay(path, {
-					"BackupType": 2,
-					"Metadata": "",
-					"ReviewDate": 0,
-					"RemoveDate": 0,
-					"Match": "",
-					"Frequency": 7
-				}, load),
-			}, "Add Rule") : [],
-			data.claimedBy && data.rules[path]?.length ? table({ "id": "rules", "class": "prettyTable" }, [
-				thead(tr([th("Match"), th("Action"), th("Files"), th("Size"), data.claimedBy === user ? th() : []])),
+			data.claimedBy && data.claimedBy == user && !data.rules[path]?.length ? addRule(path, load) : [],
+			data.claimedBy && data.rules[path]?.length ? table({ "id": "rules", "class": "summary" }, [
+				thead(tr([th("Match"), th("Action"), th("Files"), th("Size"), data.claimedBy === user ? td(addRule(path, load)) : []])),
 				tbody(Object.values(data.rules[path] ?? []).map(rule => tr([
 					td(rule.Match),
 					td(action(rule.BackupType)),

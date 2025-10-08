@@ -82,7 +82,12 @@ table.summary tbody tr:last-child th:first-child {
 	border-bottom-left-radius: 0.5em;
 }
 
-.summary th:last-child {
+.summary thead th:last-of-type {
+	border-top-right-radius: 0.5em;
+}
+
+.summary:has(thead td:last-child) tbody tr:first-child td:last-child {
+	border-top: 1px solid #000;
 	border-top-right-radius: 0.5em;
 }
 

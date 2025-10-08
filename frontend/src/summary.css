@@ -7,7 +7,7 @@
 	text-align: left;
 }
 
-.summary thead td:not(:empty):before {
+.summary thead td:first-child:not(:empty):before {
 	content: "Claimed By: ";
 	font-weight: bold;
 }
