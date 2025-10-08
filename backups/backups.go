@@ -1,24 +1,21 @@
 package backups
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/wtsi-hgi/backup-plans/db"
+	"github.com/wtsi-hgi/backup-plans/ibackup"
 	"github.com/wtsi-hgi/ibackup/server"
 	"github.com/wtsi-hgi/wrstat-ui/summary"
 	"github.com/wtsi-hgi/wrstat-ui/summary/group"
 	"vimagination.zapto.org/tree"
 )
 
-//TODO: the function we implement here calls db.ReadRules() to get
-//rules from the db, and combines that with the paths from wrstat to
-//get matching paths from statemachine.
-//
-// stores map of dirID to slice of file path strings, so that we can
-// call ibackup.Backup() for the sets.
-
 type ruleGroup = group.PathGroup[db.Rule]
+
+const (
+	setNamePrefix = "plan::"
+)
 
 func createRuleGroups(planDB *db.DB) []ruleGroup {
 	rules := planDB.ReadRules()
@@ -48,39 +45,39 @@ func Backup(planDB *db.DB, treeNode tree.Node, client *server.Client) ([]string,
 	groups := createRuleGroups(planDB)
 	sm, _ := group.NewStatemachine(groups)
 
+	m := make(map[int64][]string)
+
 	filePaths(treeNode, func(fi *summary.FileInfo) {
 		rule := sm.GetGroup(fi)
 		if rule == nil {
 			return
 		}
-		fmt.Printf("\n Fileinfo: %+v Rule: %+v BackupType: %+v", string(fi.Name), rule.Match, rule.BackupType)
+
 		if rule.BackupType == db.BackupManual || rule.BackupType == db.BackupNone {
 			return
 		}
 
-		// stores map of dirID to slice of file path strings, so that we can
-		// call ibackup.Backup() for the sets.
+		m[rule.DirID()] = append(m[rule.DirID()], string(fi.Path.AppendTo(nil))+string(fi.Name))
 	})
 
-	// since ret is nil, does this mean there are no matches in the gitignore so we need to backup the files?
-	// if backup, get directory; add path to directory FOFN.
+	var setIDs []string
 
-	// for _, group := range groups {
-	// 	fmt.Printf("\n MATCH: %s", group.Group.Match)
-	// }
+	dirs := make(map[int64][]string)
+	for dir := range planDB.ReadDirectories().Iter {
+		dirs[dir.ID()] = []string{dir.Path, dir.ClaimedBy}
+	}
 
-	// createRuleGroups():
-	// build map (map[uint64]*db.Directory) of directories
-	// loop through rules, create slice of []ruleGroup
-	// where Path is Directory.Path + rule.Match and Group is Rule
-	// build statemachine from that slice
+	for dirId, fofns := range m {
+		setInfo := dirs[dirId]
+		setID, err := ibackup.Backup(client, setNamePrefix+setInfo[0], setInfo[1], fofns, 7)
+		if err != nil {
+			return nil, err
+		}
 
-	// filePaths():
-	// Walk treeNode, build file abs paths
+		setIDs = append(setIDs, setID)
+	}
 
-	// run through statemachine to get rule
-
-	return nil, nil
+	return setIDs, nil
 }
 
 // filePaths calls the given cb with every absolute file path nested under the
@@ -126,15 +123,3 @@ func callCBOnAllAbsoluteFilePaths(node tree.Node, parent *summary.DirectoryPath,
 
 // sm, err := group.NewStatemachine(ruleList)
 // So(err, ShouldBeNil)
-
-// // do something likd ruletree createRulePrefixMap to find dirs with
-// // rules in them, then:
-// // recursive function to talk the tree, along these lines:
-// for name, child := range tr.Children() {
-// 	if strings.HasSuffix(name, "/") {
-// 		// dir, recurse if has rules
-// 		child.Children()
-// 	} else {
-// 		// file, run it through rulemachine
-// 	}
-// }

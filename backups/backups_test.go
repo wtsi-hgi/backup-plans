@@ -26,6 +26,8 @@ func TestFilePaths(t *testing.T) {
 			paths = append(paths, path)
 		})
 
+		humgenDir := []string{"a/", "humgen/", "scratch123/", "lustre/", "/"}
+
 		tests := []struct {
 			index   int
 			name    string
@@ -33,11 +35,11 @@ func TestFilePaths(t *testing.T) {
 			dir     string
 			parents []string
 		}{
-			{0, "1.jpg", 2, "b/", []string{"a/", "/"}},
-			{1, "2.jpg", 2, "b/", []string{"a/", "/"}},
-			{2, "3.txt", 2, "b/", []string{"a/", "/"}},
-			{3, "temp.jpg", 2, "b/", []string{"a/", "/"}},
-			{4, "4.txt", 2, "c/", []string{"a/", "/"}},
+			{0, "1.jpg", 5, "b/", humgenDir},
+			{1, "2.jpg", 5, "b/", humgenDir},
+			{2, "3.txt", 5, "b/", humgenDir},
+			{3, "temp.jpg", 5, "b/", humgenDir},
+			{4, "4.txt", 5, "c/", humgenDir},
 		}
 
 		for _, test := range tests {
@@ -60,15 +62,16 @@ func TestFilePaths(t *testing.T) {
 
 func exampleTree() tree.Node {
 	dirRoot := directories.NewRoot("/", 12345)
+	humgen := dirRoot.AddDirectory("lustre").SetMeta(99, 98, 1).AddDirectory("scratch123").SetMeta(1, 1, 98765).AddDirectory("humgen").SetMeta(1, 1, 98765)
 
-	dirRoot.AddDirectory("a").SetMeta(99, 98, 1).AddDirectory("b").SetMeta(1, 1, 98765)
-	directories.AddFile(&dirRoot.Directory, "a/b/1.jpg", 1, 1, 9, 98766)
-	directories.AddFile(&dirRoot.Directory, "a/b/2.jpg", 1, 2, 8, 98767)
-	directories.AddFile(&dirRoot.Directory, "a/b/3.txt", 1, 2, 8, 98767)
-	directories.AddFile(&dirRoot.Directory, "a/b/temp.jpg", 1, 2, 8, 98767)
+	humgen.AddDirectory("a").SetMeta(99, 98, 1).AddDirectory("b").SetMeta(1, 1, 98765)
+	directories.AddFile(&dirRoot.Directory, "lustre/scratch123/humgen/a/b/1.jpg", 1, 1, 9, 98766)
+	directories.AddFile(&dirRoot.Directory, "lustre/scratch123/humgen/a/b/2.jpg", 1, 2, 8, 98767)
+	directories.AddFile(&dirRoot.Directory, "lustre/scratch123/humgen/a/b/3.txt", 1, 2, 8, 98767)
+	directories.AddFile(&dirRoot.Directory, "lustre/scratch123/humgen/a/b/temp.jpg", 1, 2, 8, 98767)
 
-	dirRoot.AddDirectory("a").AddDirectory("c").SetMeta(2, 1, 12349)
-	directories.AddFile(&dirRoot.Directory, "a/c/4.txt", 2, 1, 6, 12346)
+	humgen.AddDirectory("a").AddDirectory("c").SetMeta(2, 1, 12349)
+	directories.AddFile(&dirRoot.Directory, "lustre/scratch123/humgen/a/c/4.txt", 2, 1, 6, 12346)
 
 	var treeDB bytes.Buffer
 
@@ -99,15 +102,15 @@ func TestRuleToGroups(t *testing.T) {
 
 		So(rgs, ShouldResemble, []ruleGroup{
 			{
-				Path:  []byte("/a/b/" + rules[0].Match),
+				Path:  []byte("/lustre/scratch123/humgen/a/b/" + rules[0].Match),
 				Group: rules[0],
 			},
 			{
-				Path:  []byte("/a/b/" + rules[1].Match),
+				Path:  []byte("/lustre/scratch123/humgen/a/b/" + rules[1].Match),
 				Group: rules[1],
 			},
 			{
-				Path:  []byte("/a/c/" + rules[2].Match),
+				Path:  []byte("/lustre/scratch123/humgen/a/c/" + rules[2].Match),
 				Group: rules[2],
 			},
 		})
@@ -122,11 +125,11 @@ func examplePlanDB(t *testing.T) *db.DB {
 	userB := "userB"
 
 	dirA := &db.Directory{
-		Path:      "/a/b/",
+		Path:      "/lustre/scratch123/humgen/a/b/",
 		ClaimedBy: userA,
 	}
 	dirB := &db.Directory{
-		Path:      "/a/c/",
+		Path:      "/lustre/scratch123/humgen/a/c/",
 		ClaimedBy: userB,
 	}
 
@@ -184,8 +187,8 @@ func TestBackups(t *testing.T) {
 			sets, err := ibackupClient.GetSets("userA")
 			So(err, ShouldBeNil)
 			So(len(sets), ShouldEqual, 1)
-			So(sets[0].ID, ShouldEqual, setIDs[0])
-			So(sets[0].Name, ShouldEqual, "plan::/a/b")
+			So(sets[0].ID(), ShouldEqual, setIDs[0])
+			So(sets[0].Name, ShouldEqual, "plan::/lustre/scratch123/humgen/a/b/")
 			So(sets[0].Requester, ShouldEqual, "userA")
 		})
 	})
