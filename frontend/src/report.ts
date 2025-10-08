@@ -2,11 +2,10 @@ import type { BackupType, Rule, SizeCount, SizeCountTime, Stats } from "./types.
 import type { Children } from "./lib/dom.js";
 import { amendNode } from "./lib/dom.js";
 import { details, div, fieldset, h1, h2, legend, li, summary, table, tbody, td, th, thead, tr, ul } from "./lib/html.js";
-import { formatBytes, longAgo, secondsInWeek, setAndReturn } from "./lib/utils.js";
+import { action, formatBytes, longAgo, secondsInWeek, setAndReturn } from "./lib/utils.js";
 import { getReportSummary } from "./rpc.js";
 import { BackupIBackup, BackupNone } from "./types.js";
 
-const actions = ["No Backup", "Temp Backup", "IBackup", "Manual Backup"];
 
 class Summary {
 	actions: SizeCountTime[] = [];
@@ -54,7 +53,7 @@ class Summary {
 					td({ "title": (this.actions[0]?.size ?? 0).toLocaleString() }, formatBytes(this.actions[0]?.size ?? 0)),
 					td({ "title": (this.actions[1]?.size ?? 0).toLocaleString() }, formatBytes(this.actions[1]?.size ?? 0)),
 					td({ "title": (this.actions[2]?.size ?? 0).toLocaleString() }, formatBytes(this.actions[2]?.size ?? 0)),
-					td({ "title": (this.actions[3]?.size ?? 0).toLocaleString() }, formatBytes(this.actions[2]?.size ?? 0))
+					td({ "title": (this.actions[3]?.size ?? 0).toLocaleString() }, formatBytes(this.actions[3]?.size ?? 0))
 				])
 			])
 		])
@@ -125,7 +124,7 @@ class ChildSummary extends Summary {
 				thead(tr([th("Match"), th("Action"), th("Files"), th("Size")])),
 				tbody(Array.from(this.rules.entries()).map(([match, rule]) => tr([
 					td(match),
-					td(actions[rule.action] ?? "Unknown"),
+					td(action(rule.action)),
 					td(rule.count.toLocaleString()),
 					td({ "title": rule.size.toLocaleString() }, formatBytes(rule.size))
 				])))

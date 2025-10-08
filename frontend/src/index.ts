@@ -7,6 +7,7 @@ import List from './list.js';
 import Rules from './rules.js';
 import Summary from './summary.js';
 import Report from './report.js';
+import RuleTree from './ruletree.js';
 import { symbols } from './symbols.js';
 
 const load = (path: string) => Load(path).then(data => {
@@ -16,6 +17,7 @@ const load = (path: string) => Load(path).then(data => {
 	Filter.update(path, data, load);
 	Summary.update(path, data, load);
 	Rules.update(path, data, load);
+	RuleTree.update(path, data, load);
 
 	return data;
 });
@@ -42,7 +44,8 @@ const load = (path: string) => Load(path).then(data => {
 						])
 					]),
 					Summary,
-					Rules
+					Rules,
+					RuleTree
 				]),
 				details({ "name": "tabs" }, [
 					summary("Top Level Report"),
