@@ -1,6 +1,8 @@
 package backups
 
 import (
+	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/wtsi-hgi/backup-plans/db"
@@ -17,37 +19,58 @@ const (
 	setNamePrefix = "plan::"
 )
 
-func createRuleGroups(planDB *db.DB) []ruleGroup {
+func createRuleGroups(planDB *db.DB, dirs map[int64][]string) ([]ruleGroup, map[string]bool) {
 	rules := planDB.ReadRules()
-	dirs := make(map[int64]string)
-
-	for dir := range planDB.ReadDirectories().Iter {
-		dirs[dir.ID()] = dir.Path
-	}
 
 	var groups []ruleGroup
+	dirsWithRules := make(map[string]bool)
 
 	rules.ForEach(func(rule *db.Rule) error { //nolint:errcheck
+		path := dirs[rule.DirID()][0]
 		newgroup := ruleGroup{
-			Path:  []byte(dirs[rule.DirID()] + rule.Match),
+			Path:  []byte(path + rule.Match),
 			Group: rule,
 		}
 
 		groups = append(groups, newgroup)
 
+		// Add path and all parent paths to dirsWithRules
+		pathToAdd := strings.TrimRight(path, "/")
+		for {
+			if pathToAdd == "/" {
+				dirsWithRules[pathToAdd] = true
+				break
+			}
+
+			if dirsWithRules[pathToAdd+"/"] {
+				fmt.Printf("\n Already have %s in %+v.", pathToAdd+"/", dirsWithRules)
+				break
+			}
+
+			fmt.Printf("\n Adding %s", pathToAdd+"/")
+			dirsWithRules[pathToAdd+"/"] = true
+			pathToAdd = filepath.Dir(pathToAdd)
+		}
+
 		return nil
 	})
 
-	return groups
+	return groups, dirsWithRules
 }
 
 func Backup(planDB *db.DB, treeNode tree.Node, client *server.Client) ([]string, error) {
-	groups := createRuleGroups(planDB)
+	dirs := make(map[int64][]string)
+
+	for dir := range planDB.ReadDirectories().Iter {
+		dirs[dir.ID()] = []string{dir.Path, dir.ClaimedBy}
+	}
+
+	groups, dirsWithRules := createRuleGroups(planDB, dirs)
 	sm, _ := group.NewStatemachine(groups)
 
 	m := make(map[int64][]string)
 
-	filePaths(treeNode, func(fi *summary.FileInfo) {
+	fileInfos(treeNode, dirsWithRules, func(fi *summary.FileInfo) {
 		rule := sm.GetGroup(fi)
 		if rule == nil {
 			return
@@ -62,11 +85,6 @@ func Backup(planDB *db.DB, treeNode tree.Node, client *server.Client) ([]string,
 
 	var setIDs []string
 
-	dirs := make(map[int64][]string)
-	for dir := range planDB.ReadDirectories().Iter {
-		dirs[dir.ID()] = []string{dir.Path, dir.ClaimedBy}
-	}
-
 	for dirId, fofns := range m {
 		setInfo := dirs[dirId]
 		setID, err := ibackup.Backup(client, setNamePrefix+setInfo[0], setInfo[1], fofns, 7)
@@ -80,13 +98,18 @@ func Backup(planDB *db.DB, treeNode tree.Node, client *server.Client) ([]string,
 	return setIDs, nil
 }
 
-// filePaths calls the given cb with every absolute file path nested under the
+// fileInfos calls the given cb with every absolute file path nested under the
 // given root node. Directory paths are not returned.
-func filePaths(root tree.Node, cb func(path *summary.FileInfo)) {
-	callCBOnAllAbsoluteFilePaths(root, nil, 0, cb)
+//
+// TODO: have this skip directories which we know don't have rules; take a map
+// of directory paths that have rules (ie. taken from plan db ReadRules) and
+// that info to callCBOnAllAbsoluteFilePaths so it can skip (not recurse) dirs
+// with no rules.
+func fileInfos(root tree.Node, dirsWithRules map[string]bool, cb func(path *summary.FileInfo)) {
+	callCBOnAllFiles(root, dirsWithRules, nil, 0, cb)
 }
 
-func callCBOnAllAbsoluteFilePaths(node tree.Node, parent *summary.DirectoryPath, depth int, cb func(path *summary.FileInfo)) {
+func callCBOnAllFiles(node tree.Node, dirsWithRules map[string]bool, parent *summary.DirectoryPath, depth int, cb func(path *summary.FileInfo)) {
 	for name, childnode := range node.Children() {
 		if strings.HasSuffix(name, "/") {
 			current := &summary.DirectoryPath{
@@ -94,32 +117,21 @@ func callCBOnAllAbsoluteFilePaths(node tree.Node, parent *summary.DirectoryPath,
 				Depth:  depth,
 				Parent: parent,
 			}
-			callCBOnAllAbsoluteFilePaths(childnode, current, depth+1, cb)
+
+			dirPath := string(current.AppendTo(nil))
+			if dirsWithRules[dirPath] {
+				callCBOnAllFiles(childnode, dirsWithRules, current, depth+1, cb)
+			} else {
+				fmt.Printf("\n Dirpath %s not in dirsWithRules, skipping.", dirPath)
+			}
+
 		} else {
 			fi := &summary.FileInfo{
 				Path: parent,
 				Name: []byte(name),
 			}
+
 			cb(fi)
 		}
 	}
 }
-
-// // code to make a ruleList from info in db in a function in this pkg:
-// ruleList := []group.PathGroup[db.Rule] {
-// 	{
-// 		Path: []byte(dirA.Path),
-// 		Group: ruleA,
-// 	},
-// 	{
-// 		Path: []byte(dirA.Path),
-// 		Group: ruleB,
-// 	},
-// 	{
-// 		Path: []byte(dirB.Path),
-// 		Group: ruleC,
-// 	},
-// }
-
-// sm, err := group.NewStatemachine(ruleList)
-// So(err, ShouldBeNil)

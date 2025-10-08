@@ -16,15 +16,26 @@ import (
 	"vimagination.zapto.org/tree"
 )
 
-func TestFilePaths(t *testing.T) {
-	Convey("Given a tree of wrstat info you can get all the absolute file paths", t, func() {
+func TestFileInfos(t *testing.T) {
+	Convey("Given a tree of wrstat info you can get all the file infos", t, func() {
 		tr := exampleTree()
 
 		var paths []*summary.FileInfo
 
-		filePaths(tr, func(path *summary.FileInfo) {
+		dirsWithRules := map[string]bool{
+			"/lustre/scratch123/humgen/a/b/": true,
+			"/lustre/scratch123/humgen/a/":   true,
+			"/lustre/scratch123/humgen/":     true,
+			"/lustre/scratch123/":            true,
+			"/lustre/":                       true,
+			"/":                              true,
+		}
+
+		fileInfos(tr, dirsWithRules, func(path *summary.FileInfo) {
 			paths = append(paths, path)
 		})
+
+		So(len(paths), ShouldEqual, 4)
 
 		humgenDir := []string{"a/", "humgen/", "scratch123/", "lustre/", "/"}
 
@@ -39,7 +50,6 @@ func TestFilePaths(t *testing.T) {
 			{1, "2.jpg", 5, "b/", humgenDir},
 			{2, "3.txt", 5, "b/", humgenDir},
 			{3, "temp.jpg", 5, "b/", humgenDir},
-			{4, "4.txt", 5, "c/", humgenDir},
 		}
 
 		for _, test := range tests {
@@ -87,8 +97,15 @@ func TestRuleToGroups(t *testing.T) {
 	Convey("Given a plan database, you can create a slice of ruleGroups", t, func() {
 		testDB := examplePlanDB(t)
 
-		rgs := createRuleGroups(testDB)
+		dirs := make(map[int64][]string)
+
+		for dir := range testDB.ReadDirectories().Iter {
+			dirs[dir.ID()] = []string{dir.Path, dir.ClaimedBy}
+		}
+
+		rgs, dirsWithRules := createRuleGroups(testDB, dirs)
 		So(len(rgs), ShouldEqual, 3)
+		So(dirsWithRules, ShouldNotBeNil)
 
 		var rules []*db.Rule
 
