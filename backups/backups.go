@@ -1,6 +1,7 @@
 package backups
 
 import (
+	"fmt"
 	"path/filepath"
 	"strings"
 
@@ -23,6 +24,7 @@ func createRuleGroups(planDB *db.DB, dirs map[int64]*db.Directory) ([]ruleGroup,
 	rules := planDB.ReadRules()
 
 	var groups []ruleGroup
+	dirsWithRules := make(map[string]bool)
 
 	ruleList := make(map[string]struct{})
 
@@ -36,6 +38,24 @@ func createRuleGroups(planDB *db.DB, dirs map[int64]*db.Directory) ([]ruleGroup,
 		ruleList[path] = struct{}{}
 
 		groups = append(groups, newgroup)
+
+		// Add path and all parent paths to dirsWithRules
+		pathToAdd := strings.TrimRight(path, "/")
+		for {
+			if pathToAdd == "/" {
+				dirsWithRules[pathToAdd] = true
+				break
+			}
+
+			if dirsWithRules[pathToAdd+"/"] {
+				fmt.Printf("\n Already have %s in %+v.", pathToAdd+"/", dirsWithRules)
+				break
+			}
+
+			fmt.Printf("\n Adding %s", pathToAdd+"/")
+			dirsWithRules[pathToAdd+"/"] = true
+			pathToAdd = filepath.Dir(pathToAdd)
+		}
 
 		return nil
 	})
