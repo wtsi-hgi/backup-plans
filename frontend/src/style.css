@@ -269,6 +269,10 @@ details:not([open])> :not(summary) {
 	visibility: hidden;
 }
 
+use {
+	color: var(--colour);
+}
+
 @media (prefers-color-scheme: light) {
 	html {
 		--colour: #000;

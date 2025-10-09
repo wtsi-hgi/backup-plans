@@ -8,7 +8,7 @@
 	content: "";
 	margin-left: 0.25em;
 	display: inline-block;
-	border: 1px solid #000;
+	border: 1px solid currentColor;
 	width: 0.75em;
 	height: 0.75em;
 }
@@ -117,7 +117,7 @@ table.summary tbody tr:last-child th:first-child {
 }
 
 .summary:has(thead td:last-child) tbody tr:first-child td:last-child {
-	border-top: 1px solid #000;
+	border-top: 1px solid currentColor;
 	border-top-right-radius: 0.5em;
 }
 
