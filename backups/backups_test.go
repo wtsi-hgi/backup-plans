@@ -2,7 +2,6 @@ package backups
 
 import (
 	"bytes"
-	"fmt"
 	"os/user"
 	"testing"
 
@@ -23,22 +22,11 @@ func TestFileInfos(t *testing.T) {
 
 		var paths []*summary.FileInfo
 
-		dirsWithRules := map[string]bool{
-			"/lustre/scratch123/humgen/a/b/": true,
-			"/lustre/scratch123/humgen/a/":   true,
-			"/lustre/scratch123/humgen/":     true,
-			"/lustre/scratch123/":            true,
-			"/lustre/":                       true,
-			"/":                              true,
+		ruleList := map[string]struct{}{
+			"/lustre/scratch123/humgen/a/b/": {},
 		}
 
-		ruleList := []string{
-			"/lustre/scratch123/humgen/a/b/",
-			"/lustre/scratch123/humgen/a/b/",
-			// "/lustre/scratch123/humgen/a/c/",
-		}
-
-		fileInfos(tr, dirsWithRules, ruleList, func(path *summary.FileInfo) {
+		fileInfos(tr, ruleList, func(path *summary.FileInfo) {
 			paths = append(paths, path)
 		})
 
@@ -58,10 +46,6 @@ func TestFileInfos(t *testing.T) {
 			{2, "3.txt", 5, "b/", humgenDir},
 			{3, "temp.jpg", 5, "b/", humgenDir},
 			{4, "test.txt", 6, "testdir/", []string{"b/", "a/", "humgen/", "scratch123/", "lustre/", "/"}}, // TODO: sort this to use humgenDir
-		}
-
-		for _, p := range paths {
-			fmt.Printf("\n Path: %+v", string(p.Name))
 		}
 
 		for _, test := range tests {
@@ -116,9 +100,8 @@ func TestRuleToGroups(t *testing.T) {
 			dirs[dir.ID()] = []string{dir.Path, dir.ClaimedBy}
 		}
 
-		rgs, dirsWithRules, _ := createRuleGroups(testDB, dirs) // TODO: Test ruleList
+		rgs, _ := createRuleGroups(testDB, dirs) // TODO: Test ruleList
 		So(len(rgs), ShouldEqual, 3)
-		So(dirsWithRules, ShouldNotBeNil)
 
 		var rules []*db.Rule
 
