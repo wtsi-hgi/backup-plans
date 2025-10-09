@@ -79,20 +79,6 @@ func Backup(client *server.Client, setName, requester string, files []string, fr
 	return client.TriggerDiscovery(got.ID(), false)
 }
 
-func RunBackups(setIDs []string, client *server.Client) error {
-	for _, id := range setIDs {
-		if id == "" {
-			continue
-		}
-
-		if err := client.TriggerDiscovery(id, false); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 func getTransformer(file string) string {
 	if isHumgen.MatchString(file) {
 		return "humgen"
