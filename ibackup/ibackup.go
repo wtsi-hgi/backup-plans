@@ -42,14 +42,14 @@ func Connect(url, cert string) (*server.Client, error) {
 // Backup creates a new set called setName for the requester if frequency > 0
 // and it has been longer than the frequency since the last discovery for that
 // set.
-func Backup(client *server.Client, setName, requester string, files []string, frequency int) (string, error) {
+func Backup(client *server.Client, setName, requester string, files []string, frequency int) error {
 	if len(files) == 0 || frequency == 0 {
-		return "", nil
+		return nil
 	}
 
 	transformer := getTransformer(files[0])
 	if transformer == "" {
-		return "", ErrInvalidPath
+		return ErrInvalidPath
 	}
 
 	got, err := client.GetSetByName(requester, setName)
@@ -63,20 +63,20 @@ func Backup(client *server.Client, setName, requester string, files []string, fr
 		}
 
 		if err := client.AddOrUpdateSet(got); err != nil {
-			return "", err
+			return err
 		}
 
 	} else if err != nil {
-		return "", err
+		return err
 	} else if got.LastDiscovery.Add(time.Hour*24*time.Duration(frequency-1) + time.Hour*12).After(time.Now()) {
-		return "", nil
+		return nil
 	}
 
 	if err := client.MergeFiles(got.ID(), files); err != nil {
-		return "", err
+		return err
 	}
 
-	return got.ID(), nil
+	return client.TriggerDiscovery(got.ID(), false)
 }
 
 func RunBackups(setIDs []string, client *server.Client) error {

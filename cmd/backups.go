@@ -40,12 +40,14 @@ var backupCmd = &cobra.Command{
 	Long:  `Do backups.`,
 
 	RunE: func(_ *cobra.Command, _ []string) error {
+		// open tree, create ibackup.client run backups.backup
 		return nil
 	},
 }
 
 func init() {
 	RootCmd.AddCommand(serverCmd)
+	RootCmd.AddCommand(backupCmd)
 
 	// flags specific to this sub-command
 	// serverCmd.Flags().IntVarP(&serverPort, "port", "p", 12345,

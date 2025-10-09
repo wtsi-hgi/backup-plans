@@ -174,12 +174,6 @@ func setSet(s *server.Server, got *set.Set) error {
 }
 
 func runTestBackups(client *server.Client, setname, requester string, files []string, frequency int) {
-	id, err := Backup(client, setname, requester, files, frequency)
+	err := Backup(client, setname, requester, files, frequency)
 	So(err, ShouldBeNil)
-
-	if id == "" {
-		return
-	}
-
-	So(RunBackups([]string{id}, client), ShouldBeNil)
 }
