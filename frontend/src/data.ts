@@ -1,4 +1,4 @@
-import type { Directory, DirectoryWithChildren, DirSummary, Rule, RuleSummary, SizeCountTime, Stats } from './types.js';
+import type { Directory, DirectoryWithChildren, DirSummary, Rule, RuleSummary, SizeCountTime, Stats, Tree } from './types.js';
 import { BackupWarn } from "./types.js";
 import { filter } from './filter.js';
 import { getTree } from "./rpc.js";
@@ -53,64 +53,77 @@ const all = function* (rs: RuleSummary) {
 		}
 	}
 
-export default (path: string) => getTree(path).then(data => {
-	const d: DirectoryWithChildren = {
-		"claimedBy": data.ClaimedBy,
-		"count": 0n,
-		"size": 0n,
-		"mtime": 0,
-		"actions": [],
-		"users": Array.from(data.RuleSummaries.map(rs => rs.Users).map(u => u.map(u => u.Name)).flat().reduce((s, u) => (s.add(u), s), new Set<string>()).keys()).sort(),
-		"groups": Array.from(data.RuleSummaries.map(rs => rs.Groups).map(g => g.map(g => g.Name)).flat().reduce((s, u) => (s.add(u), s), new Set<string>()).keys()).sort(),
-		"rules": { [path]: [] },
-		"children": {},
-		"unauthorised": false,
-		"canClaim": data.CanClaim
-	},
-		rules = Object.entries(data.Rules)
-			.map(([dir, rules]) => Object.entries(rules).map(([id, rule]) => Object.assign(rule, { id, dir })))
-			.flat()
-			.reduce((c, r) => (c[r.id as unknown as number] = r, c), {} as RulesWithDirs),
-		filterFn = filter.type === "users" ? users(filter.names) : filter.type === "groups" ? groups(filter.names) : all;
+export default (path: string) => getTree(path)
+	.catch(e => {
+		console.log(e);
 
-	rules[0] = {
-		"BackupType": BackupWarn,
-		"Metadata": "",
-		"ReviewDate": 0,
-		"RemoveDate": 0,
-		"Match": "*",
-		"Frequency": 0,
-		"dir": ""
-	};
-
-	for (const [name, child] of Object.entries(data.Children)) {
-		const e: Directory = {
+		return {
+			"RuleSummaries": [],
+			"Children": {},
+			"ClaimedBy": "",
+			"Rules": {},
+			"Unauthorised": [""],
+			"CanClaim": false,
+		} as Tree;
+	})
+	.then(data => {
+		const d: DirectoryWithChildren = {
+			"claimedBy": data.ClaimedBy,
 			"count": 0n,
 			"size": 0n,
 			"mtime": 0,
 			"actions": [],
-			"users": Array.from(child.RuleSummaries.map(rs => rs.Users).map(u => u.map(u => u.Name)).flat().reduce((s, u) => (s.add(u), s), new Set<string>()).keys()).sort(),
-			"groups": Array.from(child.RuleSummaries.map(rs => rs.Groups).map(g => g.map(g => g.Name)).flat().reduce((s, u) => (s.add(u), s), new Set<string>()).keys()).sort(),
-			"rules": {},
-			"unauthorised": data.Unauthorised.includes(name)
-		}
+			"users": Array.from(data.RuleSummaries.map(rs => rs.Users).map(u => u.map(u => u.Name)).flat().reduce((s, u) => (s.add(u), s), new Set<string>()).keys()).sort(),
+			"groups": Array.from(data.RuleSummaries.map(rs => rs.Groups).map(g => g.map(g => g.Name)).flat().reduce((s, u) => (s.add(u), s), new Set<string>()).keys()).sort(),
+			"rules": { [path]: [] },
+			"children": {},
+			"unauthorised": data.Unauthorised.includes(""),
+			"canClaim": data.CanClaim
+		},
+			rules = Object.entries(data.Rules)
+				.map(([dir, rules]) => Object.entries(rules).map(([id, rule]) => Object.assign(rule, { id, dir })))
+				.flat()
+				.reduce((c, r) => (c[r.id as unknown as number] = r, c), {} as RulesWithDirs),
+			filterFn = filter.type === "users" ? users(filter.names) : filter.type === "groups" ? groups(filter.names) : all;
 
-		summarise(child, e, rules, filterFn);
+		rules[0] = {
+			"BackupType": BackupWarn,
+			"Metadata": "",
+			"ReviewDate": 0,
+			"RemoveDate": 0,
+			"Match": "*",
+			"Frequency": 0,
+			"dir": ""
+		};
 
-		d.children[name] = e;
-	};
-
-	summarise(data, d, rules, filterFn);
-
-	for (const [_, rule] of Object.entries(data.Rules[path] ?? []) as unknown[] as [number, Rule][]) {
-		if (!d.rules[path].some(e => e.Match === rule.Match)) {
-			d.rules[path].push(Object.assign(rule, {
+		for (const [name, child] of Object.entries(data.Children)) {
+			const e: Directory = {
 				"count": 0n,
 				"size": 0n,
-				"mtime": 0
-			}));
-		}
-	}
+				"mtime": 0,
+				"actions": [],
+				"users": Array.from(child.RuleSummaries.map(rs => rs.Users).map(u => u.map(u => u.Name)).flat().reduce((s, u) => (s.add(u), s), new Set<string>()).keys()).sort(),
+				"groups": Array.from(child.RuleSummaries.map(rs => rs.Groups).map(g => g.map(g => g.Name)).flat().reduce((s, u) => (s.add(u), s), new Set<string>()).keys()).sort(),
+				"rules": {},
+				"unauthorised": data.Unauthorised.includes(name)
+			}
 
-	return d;
-});
+			summarise(child, e, rules, filterFn);
+
+			d.children[name] = e;
+		};
+
+		summarise(data, d, rules, filterFn);
+
+		for (const [_, rule] of Object.entries(data.Rules[path] ?? []) as unknown[] as [number, Rule][]) {
+			if (!d.rules[path].some(e => e.Match === rule.Match)) {
+				d.rules[path].push(Object.assign(rule, {
+					"count": 0n,
+					"size": 0n,
+					"mtime": 0
+				}));
+			}
+		}
+
+		return d;
+	});

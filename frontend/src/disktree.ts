@@ -281,7 +281,7 @@ export default Object.assign(base, {
 
 		entries.sort((a, b) => b.value - a.value);
 
-		render = () => clearNode(svgBase, buildTreeMap(entries, svgBase.clientWidth, svgBase.clientHeight, false, () => { }));
+		render = () => clearNode(svgBase, buildTreeMap(entries, svgBase.clientWidth, svgBase.clientHeight, data.unauthorised, () => { }));
 
 		render();
 

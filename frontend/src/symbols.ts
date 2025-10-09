@@ -37,20 +37,13 @@ export const symbols = svg({ "style": `width: 0; height: 0` }, [
 		})
 	]),
 	symbol({ "id": "lock", "viewBox": "0 0 100 100" }, [
-		rect({
-			"rx": "15",
-			"x": "5",
-			"y": "38",
-			"width": "90",
-			"height": "62",
-			"fill": "currentColor"
-		}),
+		path({ "d": "M5,53 s0,-15 15,-15 h60 s15,0 15,15 v32 s0,15 -15,15 h-60 s-15,0 -15,-15 z M45,78 l2,-8 c-7,-12 13,-12 6,0 l2,8 z", "fill": "#000", "stroke": "#000", "stroke-linejoin": "round", "fill-rule": "evenodd" }),
 		path({
 			"d": "M27,40 v-10 a1,1 0,0,1 46,0 v10",
 			"fill": "none",
 			"stroke": "currentColor",
 			"stroke-width": "12",
-		})
+		}),
 	]),
 	symbol({ "id": "emptyDirectory", "viewBox": "0 0 130 100" }, [
 		path({
@@ -76,5 +69,15 @@ export const symbols = svg({ "style": `width: 0; height: 0` }, [
 			"stroke-width": "2"
 		}),
 		path({ "d": "M7,52 L1,68 L18,63 M53,12 L14,51 M57,16 L18,55" })
+	]),
+	symbol({ "id": "goto", "viewBox": "0 0 70 70" }, [
+		path({
+			"d": "M45,15 l20,20 h-5 M45,55 l20,-20 h-65",
+			"stroke-width": "10",
+			"stroke": "#000",
+			"fill": "none",
+			"stroke-linejoin": "round",
+			"stroke-linecap": "round"
+		}),
 	])
 ]);

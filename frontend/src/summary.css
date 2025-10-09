@@ -11,3 +11,13 @@
 	content: "Claimed By: ";
 	font-weight: bold;
 }
+
+.summary button {
+	background: none;
+	border: 0;
+}
+
+.summary button svg {
+	height: 1em;
+	width: 1.5em;
+}
