@@ -110,47 +110,41 @@ func Backup(planDB *db.DB, treeNode tree.Node, client *server.Client) ([]string,
 // that info to callCBOnAllAbsoluteFilePaths so it can skip (not recurse) dirs
 // with no rules.
 func fileInfos(root tree.Node, dirsWithRules map[string]bool, ruleList []string, cb func(path *summary.FileInfo)) {
-	callCBOnAllFiles(root, dirsWithRules, ruleList, nil, 0, cb)
+	findRuleDir(root, dirsWithRules, ruleList, nil, 0, cb)
 }
 
-func callCBOnAllFiles(node tree.Node, dirsWithRules map[string]bool, ruleList []string, parent *summary.DirectoryPath, depth int, cb func(path *summary.FileInfo)) {
+// findRuleDir will recursively traverse only the tree directories with rules
+// in them (dirsWithRules). When a directory in the ruleList is found, it will
+// call callCBOnAllSubdirs on that node.
+func findRuleDir(node tree.Node, dirsWithRules map[string]bool, ruleList []string, parent *summary.DirectoryPath, depth int, cb func(path *summary.FileInfo)) {
 	for name, childnode := range node.Children() {
-		if strings.HasSuffix(name, "/") {
-			current := &summary.DirectoryPath{
-				Name:   name,
-				Depth:  depth,
-				Parent: parent,
-			}
-
-			dirPath := string(current.AppendTo(nil))
-			if slices.Contains(ruleList, dirPath) {
-				fmt.Printf("\n Dirpath %s in ruleList.", dirPath)
-				// Backup everything in this dir and all subdirs
-				callCBOnAllSubdirs(childnode, current, cb)
-				continue
-			} else if dirsWithRules[dirPath] {
-				callCBOnAllFiles(childnode, dirsWithRules, ruleList, current, depth+1, cb)
-			} else {
-				fmt.Printf("\n Dirpath %s not in dirsWithRules.", dirPath)
-				// TODO:
-				// if an item in ruleList is one of dirPaths parents, then backup everything in dirPath
-				// maybe instead of doing this way and trying to recurse back up (which isnt even possible),
-				// have a check before recursing that, if the dir is in ruleList, calls another func that backs
-				// up everything under it regardless? opgtimise to use a map for O(1) lookups?
-				// or add a flag to dirsWithRules to indicate if it is a rule dir or just a parent of one?
-			}
-
-		} else {
-			fi := &summary.FileInfo{
-				Path: parent,
-				Name: []byte(name),
-			}
-
-			cb(fi)
+		// if strings.HasSuffix(name, "/") {
+		current := &summary.DirectoryPath{
+			Name:   name,
+			Depth:  depth,
+			Parent: parent,
 		}
+
+		dirPath := string(current.AppendTo(nil))
+		if slices.Contains(ruleList, dirPath) {
+			fmt.Printf("\n Dirpath %s in ruleList.", dirPath)
+			// Backup everything in this dir and all subdirs
+			callCBOnAllSubdirs(childnode, current, cb)
+			continue
+		} else if dirsWithRules[dirPath] {
+			findRuleDir(childnode, dirsWithRules, ruleList, current, depth+1, cb)
+		} else {
+			fmt.Printf("\n Dirpath %s not in dirsWithRules.", dirPath)
+			// TODO:
+			// up everything under it regardless? opgtimise to use a map for O(1) lookups?
+			// or add a flag to dirsWithRules to indicate if it is a rule dir or just a parent of one?
+		}
+		// }
 	}
 }
 
+// callCBOnAllSubdirs will create a FileInfo for every file in every directory
+// nested under the given node, and return it to cb.
 func callCBOnAllSubdirs(node tree.Node, parent *summary.DirectoryPath, cb func(path *summary.FileInfo)) {
 	for name, childnode := range node.Children() {
 		if strings.HasSuffix(name, "/") {
