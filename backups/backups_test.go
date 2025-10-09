@@ -2,6 +2,7 @@ package backups
 
 import (
 	"bytes"
+	"fmt"
 	"os/user"
 	"testing"
 
@@ -31,11 +32,17 @@ func TestFileInfos(t *testing.T) {
 			"/":                              true,
 		}
 
-		fileInfos(tr, dirsWithRules, func(path *summary.FileInfo) {
+		ruleList := []string{
+			"/lustre/scratch123/humgen/a/b/",
+			"/lustre/scratch123/humgen/a/b/",
+			// "/lustre/scratch123/humgen/a/c/",
+		}
+
+		fileInfos(tr, dirsWithRules, ruleList, func(path *summary.FileInfo) {
 			paths = append(paths, path)
 		})
 
-		So(len(paths), ShouldEqual, 4)
+		So(len(paths), ShouldEqual, 5)
 
 		humgenDir := []string{"a/", "humgen/", "scratch123/", "lustre/", "/"}
 
@@ -50,6 +57,11 @@ func TestFileInfos(t *testing.T) {
 			{1, "2.jpg", 5, "b/", humgenDir},
 			{2, "3.txt", 5, "b/", humgenDir},
 			{3, "temp.jpg", 5, "b/", humgenDir},
+			{4, "test.txt", 6, "testdir/", []string{"b/", "a/", "humgen/", "scratch123/", "lustre/", "/"}}, // TODO: sort this to use humgenDir
+		}
+
+		for _, p := range paths {
+			fmt.Printf("\n Path: %+v", string(p.Name))
 		}
 
 		for _, test := range tests {
@@ -74,11 +86,12 @@ func exampleTree() tree.Node {
 	dirRoot := directories.NewRoot("/", 12345)
 	humgen := dirRoot.AddDirectory("lustre").SetMeta(99, 98, 1).AddDirectory("scratch123").SetMeta(1, 1, 98765).AddDirectory("humgen").SetMeta(1, 1, 98765)
 
-	humgen.AddDirectory("a").SetMeta(99, 98, 1).AddDirectory("b").SetMeta(1, 1, 98765)
+	humgen.AddDirectory("a").SetMeta(99, 98, 1).AddDirectory("b").SetMeta(1, 1, 98765).AddDirectory("testdir").SetMeta(2, 1, 12349)
 	directories.AddFile(&dirRoot.Directory, "lustre/scratch123/humgen/a/b/1.jpg", 1, 1, 9, 98766)
 	directories.AddFile(&dirRoot.Directory, "lustre/scratch123/humgen/a/b/2.jpg", 1, 2, 8, 98767)
 	directories.AddFile(&dirRoot.Directory, "lustre/scratch123/humgen/a/b/3.txt", 1, 2, 8, 98767)
 	directories.AddFile(&dirRoot.Directory, "lustre/scratch123/humgen/a/b/temp.jpg", 1, 2, 8, 98767)
+	directories.AddFile(&dirRoot.Directory, "lustre/scratch123/humgen/a/b/testdir/test.txt", 2, 1, 6, 12346)
 
 	humgen.AddDirectory("a").AddDirectory("c").SetMeta(2, 1, 12349)
 	directories.AddFile(&dirRoot.Directory, "lustre/scratch123/humgen/a/c/4.txt", 2, 1, 6, 12346)
@@ -103,7 +116,7 @@ func TestRuleToGroups(t *testing.T) {
 			dirs[dir.ID()] = []string{dir.Path, dir.ClaimedBy}
 		}
 
-		rgs, dirsWithRules := createRuleGroups(testDB, dirs)
+		rgs, dirsWithRules, _ := createRuleGroups(testDB, dirs) // TODO: Test ruleList
 		So(len(rgs), ShouldEqual, 3)
 		So(dirsWithRules, ShouldNotBeNil)
 

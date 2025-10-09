@@ -3,6 +3,7 @@ package backups
 import (
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/wtsi-hgi/backup-plans/db"
@@ -19,10 +20,11 @@ const (
 	setNamePrefix = "plan::"
 )
 
-func createRuleGroups(planDB *db.DB, dirs map[int64][]string) ([]ruleGroup, map[string]bool) {
+func createRuleGroups(planDB *db.DB, dirs map[int64][]string) ([]ruleGroup, map[string]bool, []string) {
 	rules := planDB.ReadRules()
 
 	var groups []ruleGroup
+	var ruleList []string
 	dirsWithRules := make(map[string]bool)
 
 	rules.ForEach(func(rule *db.Rule) error { //nolint:errcheck
@@ -32,9 +34,11 @@ func createRuleGroups(planDB *db.DB, dirs map[int64][]string) ([]ruleGroup, map[
 			Group: rule,
 		}
 
+		ruleList = append(ruleList, string(path))
 		groups = append(groups, newgroup)
 
 		// Add path and all parent paths to dirsWithRules
+
 		pathToAdd := strings.TrimRight(path, "/")
 		for {
 			if pathToAdd == "/" {
@@ -43,11 +47,11 @@ func createRuleGroups(planDB *db.DB, dirs map[int64][]string) ([]ruleGroup, map[
 			}
 
 			if dirsWithRules[pathToAdd+"/"] {
-				fmt.Printf("\n Already have %s in %+v.", pathToAdd+"/", dirsWithRules)
+				// fmt.Printf("\n Already have %s in %+v.", pathToAdd+"/", dirsWithRules)
 				break
 			}
 
-			fmt.Printf("\n Adding %s", pathToAdd+"/")
+			// fmt.Printf("\n Adding %s", pathToAdd+"/")
 			dirsWithRules[pathToAdd+"/"] = true
 			pathToAdd = filepath.Dir(pathToAdd)
 		}
@@ -55,7 +59,7 @@ func createRuleGroups(planDB *db.DB, dirs map[int64][]string) ([]ruleGroup, map[
 		return nil
 	})
 
-	return groups, dirsWithRules
+	return groups, dirsWithRules, ruleList
 }
 
 func Backup(planDB *db.DB, treeNode tree.Node, client *server.Client) ([]string, error) {
@@ -65,12 +69,12 @@ func Backup(planDB *db.DB, treeNode tree.Node, client *server.Client) ([]string,
 		dirs[dir.ID()] = []string{dir.Path, dir.ClaimedBy}
 	}
 
-	groups, dirsWithRules := createRuleGroups(planDB, dirs)
+	groups, dirsWithRules, ruleList := createRuleGroups(planDB, dirs)
 	sm, _ := group.NewStatemachine(groups)
 
 	m := make(map[int64][]string)
 
-	fileInfos(treeNode, dirsWithRules, func(fi *summary.FileInfo) {
+	fileInfos(treeNode, dirsWithRules, ruleList, func(fi *summary.FileInfo) {
 		rule := sm.GetGroup(fi)
 		if rule == nil {
 			return
@@ -105,11 +109,11 @@ func Backup(planDB *db.DB, treeNode tree.Node, client *server.Client) ([]string,
 // of directory paths that have rules (ie. taken from plan db ReadRules) and
 // that info to callCBOnAllAbsoluteFilePaths so it can skip (not recurse) dirs
 // with no rules.
-func fileInfos(root tree.Node, dirsWithRules map[string]bool, cb func(path *summary.FileInfo)) {
-	callCBOnAllFiles(root, dirsWithRules, nil, 0, cb)
+func fileInfos(root tree.Node, dirsWithRules map[string]bool, ruleList []string, cb func(path *summary.FileInfo)) {
+	callCBOnAllFiles(root, dirsWithRules, ruleList, nil, 0, cb)
 }
 
-func callCBOnAllFiles(node tree.Node, dirsWithRules map[string]bool, parent *summary.DirectoryPath, depth int, cb func(path *summary.FileInfo)) {
+func callCBOnAllFiles(node tree.Node, dirsWithRules map[string]bool, ruleList []string, parent *summary.DirectoryPath, depth int, cb func(path *summary.FileInfo)) {
 	for name, childnode := range node.Children() {
 		if strings.HasSuffix(name, "/") {
 			current := &summary.DirectoryPath{
@@ -119,10 +123,21 @@ func callCBOnAllFiles(node tree.Node, dirsWithRules map[string]bool, parent *sum
 			}
 
 			dirPath := string(current.AppendTo(nil))
-			if dirsWithRules[dirPath] {
-				callCBOnAllFiles(childnode, dirsWithRules, current, depth+1, cb)
+			if slices.Contains(ruleList, dirPath) {
+				fmt.Printf("\n Dirpath %s in ruleList.", dirPath)
+				// Backup everything in this dir and all subdirs
+				callCBOnAllSubdirs(childnode, current, cb)
+				continue
+			} else if dirsWithRules[dirPath] {
+				callCBOnAllFiles(childnode, dirsWithRules, ruleList, current, depth+1, cb)
 			} else {
-				fmt.Printf("\n Dirpath %s not in dirsWithRules, skipping.", dirPath)
+				fmt.Printf("\n Dirpath %s not in dirsWithRules.", dirPath)
+				// TODO:
+				// if an item in ruleList is one of dirPaths parents, then backup everything in dirPath
+				// maybe instead of doing this way and trying to recurse back up (which isnt even possible),
+				// have a check before recursing that, if the dir is in ruleList, calls another func that backs
+				// up everything under it regardless? opgtimise to use a map for O(1) lookups?
+				// or add a flag to dirsWithRules to indicate if it is a rule dir or just a parent of one?
 			}
 
 		} else {
@@ -131,6 +146,28 @@ func callCBOnAllFiles(node tree.Node, dirsWithRules map[string]bool, parent *sum
 				Name: []byte(name),
 			}
 
+			cb(fi)
+		}
+	}
+}
+
+func callCBOnAllSubdirs(node tree.Node, parent *summary.DirectoryPath, cb func(path *summary.FileInfo)) {
+	for name, childnode := range node.Children() {
+		if strings.HasSuffix(name, "/") {
+			current := &summary.DirectoryPath{
+				Name:   name,
+				Depth:  parent.Depth + 1,
+				Parent: parent,
+			}
+
+			callCBOnAllSubdirs(childnode, current, cb)
+		} else {
+			fi := &summary.FileInfo{
+				Path: parent,
+				Name: []byte(name),
+			}
+
+			fmt.Printf("\n Calling cb on %s in callCBOnAllSubdirs", string(fi.Name))
 			cb(fi)
 		}
 	}
