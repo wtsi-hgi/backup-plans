@@ -4,14 +4,43 @@
 	padding: 0 1em;
 }
 
-#report>fieldset {
+#report>fieldset:first-of-type label:not(:first-of-type):after {
+	content: "";
+	margin-left: 0.25em;
+	display: inline-block;
+	border: 1px solid #000;
+	width: 0.75em;
+	height: 0.75em;
+}
+
+#report>fieldset:first-of-type label:nth-of-type(2):after {
+	background-color: #ff0000;
+}
+
+#report>fieldset:first-of-type label:nth-of-type(3):after {
+	background-color: #ffaa00;
+}
+
+#report>fieldset:first-of-type label:nth-of-type(4):after {
+	background-color: #00aa00;
+}
+
+#report>fieldset:first-of-type label:nth-of-type(5):after {
+	background-color: #44aaf7;
+}
+
+#report input[type=radio] {
+	margin-right: 2em;
+}
+
+#report>fieldset[data-name] {
 	border: 1px solid currentColor;
 	border-radius: 2em;
 	padding: 1em;
 	margin-top: 2em;
 }
 
-#report>fieldset>legend {
+#report>fieldset[data-name]>legend {
 	border: 1px solid currentColor;
 	border-radius: 1em;
 	padding: 1em 2em;
@@ -19,12 +48,12 @@
 	position: relative;
 }
 
-#report>fieldset>legend>h1 {
+#report>fieldset[data-name]>legend>h1 {
 	position: relative;
 	margin: 0;
 }
 
-#report>fieldset>legend:before {
+#report>fieldset[data-name]>legend:before {
 	content: "";
 	width: calc(100% + 2px);
 	height: calc(50% + 1px);
@@ -33,6 +62,7 @@
 	left: -1px;
 	top: 50%;
 }
+
 
 #report ul {
 	list-style: none;
@@ -113,4 +143,24 @@ table.summary tbody tr:last-child th:first-child {
 
 .summary thead td {
 	border: 0;
+}
+
+.h {
+	display: none;
+}
+
+#report td:before {
+	content: "" !important;
+}
+
+#report button {
+	display: none;
+}
+
+details #report button {
+	display: unset;
+}
+
+fieldset {
+	border-radius: 1em;
 }
