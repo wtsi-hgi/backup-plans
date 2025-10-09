@@ -264,6 +264,11 @@ dialog label:after {
 	padding-right: 1em;
 }
 
+details:not([open])> :not(summary) {
+	display: none;
+	visibility: hidden;
+}
+
 @media (prefers-color-scheme: light) {
 	html {
 		--colour: #000;
