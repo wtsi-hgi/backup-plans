@@ -1,4 +1,4 @@
-import type { DirectoryWithChildren } from './types';
+import type { DirectoryWithChildren } from './types.js';
 import { clearNode } from './lib/dom.js';
 import { table, tbody, td, th, thead, tr } from './lib/html.js';
 import { formatBytes } from './lib/utils.js';

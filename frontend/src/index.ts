@@ -4,10 +4,10 @@ import Load from './data.js';
 import DiskTree from './disktree.js';
 import Filter from './filter.js';
 import List from './list.js';
-import Rules from './rules.js';
-import Summary from './summary.js';
 import Report from './report.js';
+import Rules from './rules.js';
 import RuleTree from './ruletree.js';
+import Summary from './summary.js';
 import { symbols } from './symbols.js';
 
 const load = (path: string) => Load(path).then(data => {

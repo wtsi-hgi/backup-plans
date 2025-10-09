@@ -1,4 +1,4 @@
-import { circle, path, polyline, rect, svg, symbol } from './lib/svg.js';
+import { circle, path, polyline, svg, symbol } from './lib/svg.js';
 
 export const symbols = svg({ "style": `width: 0; height: 0` }, [
 	symbol({ "id": "ok", "viewBox": "0 0 100 100" }, [

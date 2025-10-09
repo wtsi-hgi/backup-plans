@@ -1,4 +1,4 @@
-import type { DirectoryWithChildren } from './types';
+import type { DirectoryWithChildren } from './types.js';
 import { br, button, details, div, input, option, select, summary } from './lib/html.js';
 
 const userOpts: HTMLOptionElement[] = [],

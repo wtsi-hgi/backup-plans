@@ -1,6 +1,6 @@
 import type { DirectoryWithChildren } from "./types.js";
 import { clearNode } from "./lib/dom.js";
-import { a, button, caption, div, h2, table, tbody, td, th, thead, tr } from "./lib/html.js";
+import { button, caption, div, h2, table, tbody, td, th, thead, tr } from "./lib/html.js";
 import { svg, title, use } from "./lib/svg.js";
 import { action, formatBytes, stringSort } from "./lib/utils.js";
 

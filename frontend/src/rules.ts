@@ -1,6 +1,6 @@
 import { BackupIBackup, type DirectoryWithChildren, type Rule } from "./types.js"
 import { clearNode } from "./lib/dom.js";
-import { br, button, caption, dialog, div, h2, input, label, option, select, table, tbody, td, th, thead, tr } from './lib/html.js';
+import { br, button, dialog, div, h2, input, label, option, select, table, tbody, td, th, thead, tr } from './lib/html.js';
 import { svg, title, use } from './lib/svg.js';
 import { action, confirm, formatBytes } from "./lib/utils.js";
 import { createRule, removeRule, updateRule, user } from "./rpc.js";
