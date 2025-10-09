@@ -43,7 +43,7 @@ func createRuleGroups(planDB *db.DB, dirs map[int64][]string) ([]ruleGroup, map[
 // Backup will back up all files in the given treeNode that match rules in the
 // given planDB, using the given ibackup client. It returns a list of the set IDs
 // created.
-func Backup(planDB *db.DB, treeNode tree.Node, client *server.Client) ([]string, error) {
+func Backup(planDB *db.DB, treeNode tree.Node, client *server.Client) error {
 	dirs := make(map[int64][]string)
 
 	for dir := range planDB.ReadDirectories().Iter {
@@ -68,19 +68,16 @@ func Backup(planDB *db.DB, treeNode tree.Node, client *server.Client) ([]string,
 		m[rule.DirID()] = append(m[rule.DirID()], string(fi.Path.AppendTo(nil))+string(fi.Name))
 	})
 
-	var setIDs []string
-
 	for dirId, fofns := range m {
 		setInfo := dirs[dirId]
-		setID, err := ibackup.Backup(client, setNamePrefix+setInfo[0], setInfo[1], fofns, 7)
+		err := ibackup.Backup(client, setNamePrefix+setInfo[0], setInfo[1], fofns, 7)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
-		setIDs = append(setIDs, setID)
 	}
 
-	return setIDs, nil
+	return nil
 }
 
 // fileInfos calls the given cb with every absolute file path nested under the
@@ -106,17 +103,17 @@ func fileInfos(root tree.Node, ruleList map[string]struct{}, cb func(path *summa
 		}
 	}
 
-	findRuleDir(root, dirsWithRules, ruleList, nil, 0, cb)
+	findRuleDir(root, dirsWithRules, ruleList, nil, cb)
 }
 
 // findRuleDir will recursively traverse only the tree directories with rules
 // in them (dirsWithRules). When a directory in the ruleList is found, it will
 // call callCBOnAllSubdirs on that node.
-func findRuleDir(node tree.Node, dirsWithRules map[string]bool, ruleList map[string]struct{}, parent *summary.DirectoryPath, depth int, cb func(path *summary.FileInfo)) {
+func findRuleDir(node tree.Node, dirsWithRules map[string]bool, ruleList map[string]struct{}, parent *summary.DirectoryPath, cb func(path *summary.FileInfo)) {
 	for name, childnode := range node.Children() {
 		current := &summary.DirectoryPath{
 			Name:   name,
-			Depth:  depth,
+			Depth:  parent.Depth + 1,
 			Parent: parent,
 		}
 
@@ -125,7 +122,7 @@ func findRuleDir(node tree.Node, dirsWithRules map[string]bool, ruleList map[str
 			callCBOnAllSubdirs(childnode, current, cb)
 			continue
 		} else if dirsWithRules[dirPath] {
-			findRuleDir(childnode, dirsWithRules, ruleList, current, depth+1, cb)
+			findRuleDir(childnode, dirsWithRules, ruleList, current, cb)
 		}
 	}
 }

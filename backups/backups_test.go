@@ -193,14 +193,12 @@ func TestBackups(t *testing.T) {
 		tr := exampleTree()
 
 		Convey("You can create ibackup sets for all automatic ibackup plans, excluding BackupNone and BackupManual", func() {
-			setIDs, err := Backup(testDB, tr, ibackupClient)
+			err := Backup(testDB, tr, ibackupClient)
 			So(err, ShouldBeNil)
-			So(len(setIDs), ShouldEqual, 1)
 
 			sets, err := ibackupClient.GetSets("userA")
 			So(err, ShouldBeNil)
 			So(len(sets), ShouldEqual, 1)
-			So(sets[0].ID(), ShouldEqual, setIDs[0])
 			So(sets[0].Name, ShouldEqual, "plan::/lustre/scratch123/humgen/a/b/")
 			So(sets[0].Requester, ShouldEqual, "userA")
 		})
