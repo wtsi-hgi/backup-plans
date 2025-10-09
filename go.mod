@@ -6,11 +6,8 @@ tool vimagination.zapto.org/jspacker/cmd/jspacker
 
 require (
 	github.com/go-sql-driver/mysql v1.9.3
-	github.com/gocarina/gocsv v0.0.0-20240520201108-78e41c74b4b1
 	github.com/inconshreveable/log15 v3.0.0-testing.5+incompatible
 	github.com/klauspost/pgzip v1.2.6
-	github.com/mattn/go-sqlite3 v1.14.24
-	github.com/smarty/assertions v1.15.0
 	github.com/smartystreets/goconvey v1.8.1
 	github.com/spf13/cobra v1.9.1
 	github.com/ugorji/go/codec v1.2.14
@@ -116,6 +113,7 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/mattn/go-shellwords v1.0.12 // indirect
+	github.com/mattn/go-sqlite3 v1.14.24 // indirect
 	github.com/minio/crc64nvme v1.0.2 // indirect
 	github.com/minio/md5-simd v1.1.2 // indirect
 	github.com/minio/minio-go/v7 v7.0.92 // indirect
@@ -144,6 +142,7 @@ require (
 	github.com/sb10/waitgroup v0.0.0-20200305124406-7ed665007efa // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
 	github.com/slack-go/slack v0.17.0 // indirect
+	github.com/smarty/assertions v1.15.0 // indirect
 	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/thanhpk/randstr v1.0.6 // indirect
 	github.com/tinylib/msgp v1.3.0 // indirect
@@ -181,7 +180,7 @@ require (
 	k8s.io/api v0.33.1 // indirect
 	k8s.io/apimachinery v0.33.1 // indirect
 	k8s.io/client-go v11.0.0+incompatible // indirect
-	modernc.org/libc v1.66.10 // indirect
+	modernc.org/libc v1.66.3 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
 	nanomsg.org/go-mangos v1.4.0 // indirect
