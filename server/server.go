@@ -1,80 +1,41 @@
 package server
 
 import (
-	"encoding/json"
-	"errors"
+	"log/slog"
 	"net/http"
-	"sync"
 
+	"github.com/wtsi-hgi/backup-plans/backend"
 	"github.com/wtsi-hgi/backup-plans/db"
-	"github.com/wtsi-hgi/backup-plans/ruletree"
-	"github.com/wtsi-hgi/wrstat-ui/summary/group"
-	"vimagination.zapto.org/httpbuffer"
-
-	_ "vimagination.zapto.org/httpbuffer/gzip"
+	"github.com/wtsi-hgi/backup-plans/frontend"
 )
 
-type Server struct {
-	getUser func(r *http.Request) string
-
-	rulesMu        sync.RWMutex
-	rulesDB        *db.DB
-	directoryRules map[string]*ruletree.DirRules
-	dirs           map[uint64]*db.Directory
-	rules          map[uint64]*db.Rule
-	stateMachine   group.StateMachine[db.Rule]
-	reportRoots    []string
-
-	rootDir *ruletree.RootDir
-}
-
-func New(d *db.DB, getUser func(r *http.Request) string, reportRoots []string) (*Server, error) {
-	s := &Server{
-		getUser:     getUser,
-		rulesDB:     d,
-		reportRoots: reportRoots,
-	}
-
-	rules, err := s.loadRules()
+func Start(listen string, d *db.DB, getUser func(*http.Request) string, report []string, initialTrees ...string) error {
+	b, err := backend.New(d, getUser, report)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	s.rootDir, err = ruletree.NewRoot(rules)
-	if err != nil {
-		return nil, err
+	for _, db := range initialTrees {
+		slog.Info("Loading", "db", db)
+
+		if err := b.AddTree(db); err != nil {
+			return err
+		}
 	}
 
-	return s, nil
-}
+	slog.Info("Serving")
 
-func (s *Server) WhoAmI(w http.ResponseWriter, r *http.Request) {
-	json.NewEncoder(w).Encode(s.getUser(r))
-}
+	http.Handle("/api/whoami", http.HandlerFunc(b.WhoAmI))
+	http.Handle("/api/tree", http.HandlerFunc(b.Tree))
+	http.Handle("/api/dir/claim", http.HandlerFunc(b.ClaimDir))
+	http.Handle("/api/dir/pass", http.HandlerFunc(b.PassDirClaim))
+	http.Handle("/api/dir/revoke", http.HandlerFunc(b.RevokeDirClaim))
+	http.Handle("/api/rules/create", http.HandlerFunc(b.CreateRule))
+	http.Handle("/api/rules/get", http.HandlerFunc(b.GetRules))
+	http.Handle("/api/rules/update", http.HandlerFunc(b.UpdateRule))
+	http.Handle("/api/rules/remove", http.HandlerFunc(b.RemoveRule))
+	http.Handle("/api/report/summary", http.HandlerFunc(b.Summary))
+	http.Handle("/", frontend.Index)
 
-func handle(w http.ResponseWriter, r *http.Request, fn func(http.ResponseWriter, *http.Request) error) {
-	httpbuffer.Handler{
-		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if err := fn(w, r); err != nil {
-				var errc Error
-
-				if errors.As(err, &errc) {
-					http.Error(w, errc.Err.Error(), errc.Code)
-
-					return
-				}
-
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-			}
-		}),
-	}.ServeHTTP(w, r)
-}
-
-type Error struct {
-	Code int
-	Err  error
-}
-
-func (e Error) Error() string {
-	return e.Err.Error()
+	return http.ListenAndServe(listen, nil)
 }

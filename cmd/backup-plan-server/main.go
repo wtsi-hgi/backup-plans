@@ -11,7 +11,6 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/wtsi-hgi/backup-plans/db"
-	"github.com/wtsi-hgi/backup-plans/frontend"
 	"github.com/wtsi-hgi/backup-plans/server"
 )
 
@@ -51,34 +50,8 @@ func run() error {
 		return err
 	}
 
-	s, err := server.New(d, getUser, report)
-	if err != nil {
-		return err
-	}
+	return server.Start(fmt.Sprintf(":%d", port), d, getUser, report, flag.Args()...)
 
-	for _, db := range flag.Args() {
-		fmt.Println("Loading", db)
-
-		if err := s.AddTree(db); err != nil {
-			return err
-		}
-	}
-
-	fmt.Println("Serving...")
-
-	http.Handle("/api/whoami", http.HandlerFunc(s.WhoAmI))
-	http.Handle("/api/tree", http.HandlerFunc(s.Tree))
-	http.Handle("/api/dir/claim", http.HandlerFunc(s.ClaimDir))
-	http.Handle("/api/dir/pass", http.HandlerFunc(s.PassDirClaim))
-	http.Handle("/api/dir/revoke", http.HandlerFunc(s.RevokeDirClaim))
-	http.Handle("/api/rules/create", http.HandlerFunc(s.CreateRule))
-	http.Handle("/api/rules/get", http.HandlerFunc(s.GetRules))
-	http.Handle("/api/rules/update", http.HandlerFunc(s.UpdateRule))
-	http.Handle("/api/rules/remove", http.HandlerFunc(s.RemoveRule))
-	http.Handle("/api/report/summary", http.HandlerFunc(s.Summary))
-	http.Handle("/", frontend.Index)
-
-	return http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
 }
 
 func getUser(r *http.Request) string {
