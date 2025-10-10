@@ -6,10 +6,8 @@ import (
 	"iter"
 	"slices"
 	"strings"
-	"unsafe"
 
 	"github.com/wtsi-hgi/backup-plans/db"
-	"github.com/wtsi-hgi/wrstat-ui/summary"
 	"github.com/wtsi-hgi/wrstat-ui/summary/group"
 	"vimagination.zapto.org/byteio"
 	"vimagination.zapto.org/tree"
@@ -56,8 +54,7 @@ func (r *ruleStats) add(id uint32, mtime, count, size uint64) {
 
 type rulesDir struct {
 	node *tree.MemTree
-	sm   group.StateMachine[db.Rule]
-	dir  summary.DirectoryPath
+	sm   group.State[db.Rule]
 
 	uid, gid uint32
 
@@ -88,14 +85,8 @@ func (r *RulesDir) Children() iter.Seq2[string, tree.Node] {
 
 func (r *RulesDir) initChildren() {
 	if r.child == nil {
-		r.child = &RulesDir{
-			rulesDir: rulesDir{
-				sm: r.sm,
-			},
-		}
+		r.child = new(RulesDir)
 	}
-
-	r.child.dir.Parent = &r.dir
 }
 
 func (r *RulesDir) children(yield func(string, tree.Node) bool) {
@@ -103,7 +94,7 @@ func (r *RulesDir) children(yield func(string, tree.Node) bool) {
 		mchild := child.(*tree.MemTree)
 
 		if strings.HasSuffix(name, "/") {
-			r.child.dir.Name = name
+			r.child.sm = r.sm.GetStateString(name)
 			r.child.node = mchild
 
 			if !yield(name, r.child) {
@@ -126,7 +117,7 @@ func (r *rulesDir) processFile(name string, data []byte) error {
 		return err
 	}
 
-	rule := r.sm.GetGroup(&summary.FileInfo{Path: &r.dir, Name: fileName(name)})
+	rule := r.sm.GetStateString(name).GetGroup()
 
 	r.setRule(rule, &f)
 
@@ -145,10 +136,6 @@ func (r *rulesDir) mergeChild(child *rulesDir) {
 			r.rules[pos].Groups.add(group.id, group.MTime, group.Files, group.Size)
 		}
 	}
-}
-
-func fileName(str string) []byte {
-	return unsafe.Slice(unsafe.StringData(str), len(str))
 }
 
 func (r *rulesDir) WriteTo(w io.Writer) (int64, error) {
@@ -242,7 +229,7 @@ func (f *file) ReadFrom(r io.Reader) (int64, error) {
 type RuleLessDir struct {
 	rulesDir
 	ruleDirPrefixes map[string]bool
-	nameBuf         *[4096]byte
+	nameBuf         []byte
 
 	child *RuleLessDir
 	rules *RulesDir
@@ -258,16 +245,11 @@ func (r *RuleLessDir) Children() iter.Seq2[string, tree.Node] {
 func (r *RuleLessDir) initChildren() {
 	if r.child == nil {
 		r.child = &RuleLessDir{
-			rulesDir: rulesDir{
-				sm: r.sm,
-			},
 			rules:           r.rules,
 			ruleDirPrefixes: r.ruleDirPrefixes,
-			nameBuf:         r.nameBuf,
 		}
 	}
 
-	r.child.dir.Parent = &r.dir
 	r.rulesDir.rules = r.rulesDir.rules[:0]
 }
 
@@ -285,9 +267,9 @@ func (r *RuleLessDir) children(yield func(string, tree.Node) bool) {
 			continue
 		}
 
-		r.child.dir.Name = name
+		nameBuf := append(r.nameBuf, name...)
 
-		hasRules, isPrefix := r.ruleDirPrefixes[string(r.child.dir.AppendTo(r.nameBuf[:0]))]
+		hasRules, isPrefix := r.ruleDirPrefixes[string(nameBuf)]
 		if !isPrefix {
 			r.addExisting(mchild.Data())
 
@@ -296,6 +278,8 @@ func (r *RuleLessDir) children(yield func(string, tree.Node) bool) {
 
 		if !hasRules {
 			r.child.node = mchild
+			r.child.nameBuf = nameBuf
+			r.child.sm = r.sm.GetStateString(name)
 
 			if !yield(name, r.child) {
 				return
@@ -307,7 +291,7 @@ func (r *RuleLessDir) children(yield func(string, tree.Node) bool) {
 		}
 
 		r.rules.node = mchild
-		r.rules.dir = r.child.dir
+		r.rules.sm = r.sm.GetStateString(name)
 
 		if !yield(name, r.rules) {
 			return
@@ -321,7 +305,7 @@ type RuleLessDirPatch struct {
 	rulesDir
 	ruleDirPrefixes map[string]bool
 	previousRules   *tree.MemTree
-	nameBuf         *[4096]byte
+	nameBuf         []byte
 }
 
 func (r *RuleLessDirPatch) Children() iter.Seq2[string, tree.Node] {
@@ -344,14 +328,10 @@ func (r *RuleLessDirPatch) children(yield func(string, tree.Node) bool) {
 			continue
 		}
 
-		dir := summary.DirectoryPath{
-			Parent: &r.dir,
-			Name:   name,
-		}
-
 		pchild, _ := r.previousRules.Child(name)
+		nameBuf := append(r.nameBuf, name...)
 
-		hasRules, isPrefix := r.ruleDirPrefixes[string(dir.AppendTo(r.nameBuf[:0]))]
+		hasRules, isPrefix := r.ruleDirPrefixes[string(nameBuf)]
 		if !isPrefix {
 			if pchild != nil {
 				r.addExisting(pchild.Data())
@@ -368,8 +348,7 @@ func (r *RuleLessDirPatch) children(yield func(string, tree.Node) bool) {
 
 		rd := rulesDir{
 			node: mchild,
-			sm:   r.sm,
-			dir:  dir,
+			sm:   r.sm.GetStateString(name),
 		}
 
 		if !hasRules {
@@ -381,7 +360,7 @@ func (r *RuleLessDirPatch) children(yield func(string, tree.Node) bool) {
 				childr := &RuleLessDir{
 					rulesDir:        rd,
 					ruleDirPrefixes: r.ruleDirPrefixes,
-					nameBuf:         r.nameBuf,
+					nameBuf:         nameBuf,
 					rules:           new(RulesDir),
 				}
 				child = &childr.rulesDir
@@ -391,7 +370,7 @@ func (r *RuleLessDirPatch) children(yield func(string, tree.Node) bool) {
 					rulesDir:        rd,
 					ruleDirPrefixes: r.ruleDirPrefixes,
 					previousRules:   pchild,
-					nameBuf:         r.nameBuf,
+					nameBuf:         nameBuf,
 				}
 				child = &childr.rulesDir
 				rchild = childr

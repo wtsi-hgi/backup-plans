@@ -11,7 +11,6 @@ import (
 	"sync"
 
 	"github.com/wtsi-hgi/backup-plans/db"
-	"github.com/wtsi-hgi/wrstat-ui/summary"
 	"github.com/wtsi-hgi/wrstat-ui/summary/group"
 	"golang.org/x/sys/unix"
 	"vimagination.zapto.org/tree"
@@ -118,9 +117,7 @@ func (r *RootDir) RemoveRule(dir *db.Directory, rule *db.Rule) error {
 
 func (r *RootDir) regenRules(dir string) error {
 	t := &r.TopLevelDir
-	path := &summary.DirectoryPath{
-		Name: "/",
-	}
+	pos := 1
 
 	for part := range pathParts(dir[1:]) {
 		child := t.children[part]
@@ -128,16 +125,13 @@ func (r *RootDir) regenRules(dir string) error {
 			return ErrNotFound
 		}
 
-		path = &summary.DirectoryPath{
-			Name:   part,
-			Parent: path,
-		}
+		pos += len(part)
 
 		switch child := child.(type) {
 		case *TopLevelDir:
 			t = child
 		case *RuleOverlay:
-			return r.regenRulesFor(t, child, dir, path)
+			return r.regenRulesFor(t, child, dir, dir[:pos], part)
 		default:
 			return ErrNotFound
 		}
@@ -146,7 +140,7 @@ func (r *RootDir) regenRules(dir string) error {
 	return ErrNotFound
 }
 
-func (r *RootDir) regenRulesFor(t *TopLevelDir, child *RuleOverlay, dir string, path *summary.DirectoryPath) error {
+func (r *RootDir) regenRulesFor(t *TopLevelDir, child *RuleOverlay, dir, curr, name string) error {
 	if err := r.rebuildStateMachine(); err != nil {
 		return err
 	}
@@ -154,12 +148,11 @@ func (r *RootDir) regenRulesFor(t *TopLevelDir, child *RuleOverlay, dir string, 
 	rd := RuleLessDirPatch{
 		rulesDir: rulesDir{
 			node: child.lower,
-			sm:   r.stateMachine,
-			dir:  *path,
+			sm:   r.stateMachine.GetStateString(curr),
 		},
 		ruleDirPrefixes: r.createRulePatchMap(dir),
 		previousRules:   child.upper,
-		nameBuf:         new([4096]byte),
+		nameBuf:         append(make([]byte, 0, 4096), curr...),
 	}
 
 	var buf bytes.Buffer
@@ -175,7 +168,7 @@ func (r *RootDir) regenRulesFor(t *TopLevelDir, child *RuleOverlay, dir string, 
 
 	child.upper = processed
 
-	return t.setChild(path.Name, child)
+	return t.setChild(name, child)
 }
 
 func (r *RootDir) rebuildStateMachine() error {
@@ -410,16 +403,11 @@ func (r *RootDir) processRules(treeRoot *tree.MemTree, rootPath string) (*RuleOv
 	rd := RuleLessDir{
 		rulesDir: rulesDir{
 			node: treeRoot,
-			sm:   r.stateMachine,
-			dir:  summary.DirectoryPath{Name: rootPath},
+			sm:   r.stateMachine.GetStateString(rootPath),
 		},
 		ruleDirPrefixes: r.createRulePrefixMap(rootPath),
-		rules: &RulesDir{
-			rulesDir: rulesDir{
-				sm: r.stateMachine,
-			},
-		},
-		nameBuf: new([4096]byte),
+		rules:           new(RulesDir),
+		nameBuf:         append(make([]byte, 0, 4096), rootPath...),
 	}
 
 	var buf bytes.Buffer
