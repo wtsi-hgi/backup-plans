@@ -1,14 +1,16 @@
+//go:build !dev
+// +build !dev
+
 package frontend
 
 import (
-	"net/http"
-	"os"
+	_ "embed"
+	"time"
 
-	"vimagination.zapto.org/tsserver"
+	"vimagination.zapto.org/httpembed"
 )
 
-var fs = http.FileServerFS(tsserver.WrapFS(os.DirFS("./src")))
+//go:embed index.html.gz
+var indexHTML []byte
 
-func Serve(w http.ResponseWriter, r *http.Request) {
-	fs.ServeHTTP(w, r)
-}
+var Index = httpembed.HandleBuffer("index.html", indexHTML, 35359, time.Unix(1760083976, 0))

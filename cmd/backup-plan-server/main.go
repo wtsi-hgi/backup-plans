@@ -76,7 +76,7 @@ func run() error {
 	http.Handle("/api/rules/update", http.HandlerFunc(s.UpdateRule))
 	http.Handle("/api/rules/remove", http.HandlerFunc(s.RemoveRule))
 	http.Handle("/api/report/summary", http.HandlerFunc(s.Summary))
-	http.Handle("/", http.HandlerFunc(frontend.Serve))
+	http.Handle("/", frontend.Index)
 
 	return http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
 }
