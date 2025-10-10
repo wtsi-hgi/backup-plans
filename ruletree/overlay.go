@@ -11,6 +11,8 @@ import (
 	"vimagination.zapto.org/tree"
 )
 
+// DirSummary contains summarised information about the directory and it's
+// children.
 type DirSummary struct {
 	uid, gid      uint32
 	ClaimedBy     string
@@ -18,7 +20,7 @@ type DirSummary struct {
 	Children      map[string]*DirSummary
 }
 
-func (d *DirSummary) MergeRules(rules []Rule) {
+func (d *DirSummary) mergeRules(rules []Rule) {
 	for _, rule := range rules {
 		pos, ok := slices.BinarySearchFunc(d.RuleSummaries, rule, func(a, b Rule) int {
 			return int(a.ID) - int(b.ID)
@@ -41,21 +43,22 @@ func (d *DirSummary) MergeRules(rules []Rule) {
 	}
 }
 
+// IDs returns the UID and GID for the directory.
 func (d *DirSummary) IDs() (uint32, uint32) {
 	return d.uid, d.gid
 }
 
-func setNames(rules ruleStats, name func(uint32) string) {
+func setNames(rules RuleStats, name func(uint32) string) {
 	for n := range rules {
 		rules[n].Name = name(rules[n].id)
 	}
 }
 
-type RuleOverlay struct {
+type ruleOverlay struct {
 	lower, upper *tree.MemTree
 }
 
-func (r *RuleOverlay) Summary(path string) (*DirSummary, error) {
+func (r *ruleOverlay) Summary(path string) (*DirSummary, error) {
 	if path == "" {
 		return r.getSummaryWithChildren(), nil
 	}
@@ -68,7 +71,7 @@ func (r *RuleOverlay) Summary(path string) (*DirSummary, error) {
 	return cr.Summary(rest)
 }
 
-func (r *RuleOverlay) getChild(path string) (*RuleOverlay, string, error) {
+func (r *ruleOverlay) getChild(path string) (*ruleOverlay, string, error) {
 	pos := strings.IndexByte(path, '/')
 	child := path[:pos+1]
 
@@ -83,12 +86,12 @@ func (r *RuleOverlay) getChild(path string) (*RuleOverlay, string, error) {
 		upper, _ = r.upper.Child(child)
 	}
 
-	cr := &RuleOverlay{lower, upper}
+	cr := &ruleOverlay{lower, upper}
 
 	return cr, path[pos+1:], nil
 }
 
-func (r *RuleOverlay) GetOwner(path string) (uint32, uint32, error) {
+func (r *ruleOverlay) GetOwner(path string) (uint32, uint32, error) {
 	if path == "" {
 		uid, gid := r.getOwner()
 
@@ -103,13 +106,13 @@ func (r *RuleOverlay) GetOwner(path string) (uint32, uint32, error) {
 	return cr.GetOwner(rest)
 }
 
-func (r *RuleOverlay) getOwner() (uint32, uint32) {
+func (r *ruleOverlay) getOwner() (uint32, uint32) {
 	sr := byteio.StickyLittleEndianReader{Reader: bytes.NewReader(cmp.Or(r.upper, r.lower).Data())}
 
 	return uint32(sr.ReadUintX()), uint32(sr.ReadUintX())
 }
 
-func (r *RuleOverlay) getSummaryWithChildren() *DirSummary {
+func (r *ruleOverlay) getSummaryWithChildren() *DirSummary {
 	ds := r.getSummary()
 
 	for name, lower := range r.lower.Children() {
@@ -123,7 +126,7 @@ func (r *RuleOverlay) getSummaryWithChildren() *DirSummary {
 			upper, _ = r.upper.Child(name)
 		}
 
-		cr := RuleOverlay{lower.(*tree.MemTree), upper}
+		cr := ruleOverlay{lower.(*tree.MemTree), upper}
 
 		ds.Children[name] = cr.getSummary()
 	}
@@ -131,7 +134,7 @@ func (r *RuleOverlay) getSummaryWithChildren() *DirSummary {
 	return ds
 }
 
-func (r *RuleOverlay) getSummary() *DirSummary {
+func (r *ruleOverlay) getSummary() *DirSummary {
 	layer := cmp.Or(r.upper, r.lower)
 	sr := byteio.StickyLittleEndianReader{Reader: bytes.NewReader(layer.Data())}
 	ds := &DirSummary{
@@ -152,6 +155,8 @@ func (r *RuleOverlay) getSummary() *DirSummary {
 	return ds
 }
 
+// Stats represents the summarised stats for a particular user or group for a
+// directory.
 type Stats struct {
 	id    uint32
 	Name  string
@@ -160,6 +165,7 @@ type Stats struct {
 	Size  uint64
 }
 
+// ID returns the UID or GID for the summarised stats.
 func (s *Stats) ID() uint32 {
 	return s.id
 }

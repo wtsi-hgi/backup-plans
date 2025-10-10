@@ -9,6 +9,7 @@ import (
 	"github.com/wtsi-hgi/backup-plans/frontend"
 )
 
+// Start creates and start a new server after loading the trees given.
 func Start(listen string, d *db.DB, getUser func(*http.Request) string, report []string, initialTrees ...string) error {
 	b, err := backend.New(d, getUser, report)
 	if err != nil {
@@ -31,7 +32,6 @@ func Start(listen string, d *db.DB, getUser func(*http.Request) string, report [
 	http.Handle("/api/dir/pass", http.HandlerFunc(b.PassDirClaim))
 	http.Handle("/api/dir/revoke", http.HandlerFunc(b.RevokeDirClaim))
 	http.Handle("/api/rules/create", http.HandlerFunc(b.CreateRule))
-	http.Handle("/api/rules/get", http.HandlerFunc(b.GetRules))
 	http.Handle("/api/rules/update", http.HandlerFunc(b.UpdateRule))
 	http.Handle("/api/rules/remove", http.HandlerFunc(b.RemoveRule))
 	http.Handle("/api/report/summary", http.HandlerFunc(b.Summary))

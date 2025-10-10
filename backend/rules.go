@@ -71,6 +71,13 @@ func (s *Server) loadRules() ([]ruletree.DirRule, error) {
 	return dirRules, nil
 }
 
+// ClaimDir is an HTTP endpoint that allows a user to claim a directory in order
+// to add rules to it. The user must be the owner of the directory, in the group
+// of the directory, own a file within the directory tree, or be in a group that
+// owns a file within the directory tree.
+//
+// The directory is taken from the 'dir' GET param and the username is
+// determined by calling the getUser func passed to New().
 func (s *Server) ClaimDir(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.claimDir)
 }
@@ -129,6 +136,12 @@ func (s *Server) canClaim(dir string, uid uint32, groups []uint32) bool {
 	return uid == duid || slices.Contains(groups, dgid)
 }
 
+// PassDirClaim allows the claimant of a directory to pass that claim to another
+// user. The other use must satisfy the same conditions as the initial user had
+// to in ClaimDir.
+//
+// Also like in ClaimDir, the directory is taken from the 'dir' GET param. The
+// new username is given in the 'passTo' GET param.
 func (s *Server) PassDirClaim(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.passDirClaim)
 }
@@ -168,6 +181,12 @@ func (s *Server) passDirClaim(w http.ResponseWriter, r *http.Request) error {
 	return s.rulesDB.UpdateDirectory(directory.Directory)
 }
 
+// RevokeDirClaim allows the claimant of a directory to remove their claim on a
+// directory.
+//
+// This is only allowed on directories without rules.
+//
+// Like in ClaimDir, the directory is taken from the 'dir' GET param.
 func (s *Server) RevokeDirClaim(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.revokeDirClaim)
 }
@@ -201,6 +220,19 @@ func (s *Server) revokeDirClaim(w http.ResponseWriter, r *http.Request) error {
 	return s.rulesDB.RemoveDirectory(directory.Directory)
 }
 
+// CreateRule allows the claimant of a directory to add a rule to that
+// directory.
+//
+// Like in ClaimDir, the directory is taken from the 'dir' GET param.
+//
+// The following are the GET params for the rule:
+//
+//	match       The match rule.
+//	action      One of nobackup, tempbackup, backup, or manualbackup.
+//	metadata    For a manualbackup, it's the requestor of the backup set.
+//	frequency   How often in days to run the backup.
+//	reviewdate  Unix seconds representing the date of the backup review.
+//	removedate  Unix seconds representing the date of the backup removal.
 func (s *Server) CreateRule(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.createRule)
 }
@@ -266,6 +298,8 @@ func getRuleDetails(r *http.Request) (*db.Rule, error) {
 	case "manualbackup":
 		rule.BackupType = db.BackupManual
 		requireMetadata = true
+	default:
+		return nil, ErrInvalidAction
 	}
 
 	if requireMetadata {
@@ -301,32 +335,11 @@ func getRuleDetails(r *http.Request) (*db.Rule, error) {
 	return rule, nil
 }
 
-func (s *Server) GetRules(w http.ResponseWriter, r *http.Request) {
-	handle(w, r, s.getRules)
-}
-
-func (s *Server) getRules(w http.ResponseWriter, r *http.Request) error {
-	dir, err := getDir(r)
-	if err != nil {
-		return err
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-
-	s.rulesMu.RLock()
-	defer s.rulesMu.RUnlock()
-
-	directory, ok := s.directoryRules[dir]
-	if ok {
-		return json.NewEncoder(w).Encode(directory)
-
-	}
-
-	w.Write([]byte{'{', '}'})
-
-	return nil
-}
-
+// UpdateRule allows the claimant of a directory to update a rule for that
+// directory. The rule is identified by the match string and, as such, cannot be
+// changed.
+//
+// The input matches that of CreateRule.
 func (s *Server) UpdateRule(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.updateRule)
 }
@@ -350,6 +363,10 @@ func (s *Server) updateRule(w http.ResponseWriter, r *http.Request) error {
 		return ErrInvalidDir
 	}
 
+	if directory.ClaimedBy != s.getUser(r) {
+		return ErrInvalidUser
+	}
+
 	existingRule, ok := directory.Rules[rule.Match]
 	if !ok {
 		return ErrNoRule
@@ -370,6 +387,11 @@ func (s *Server) updateRule(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+// RemoveRule allows the claimant of a directory to remove a rule from that
+// directory.
+//
+// Like in ClaimDir, the directory is taken from the 'dir' GET param. The rule
+// is determined by the 'match' GET param.
 func (s *Server) RemoveRule(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.removeRule)
 }
@@ -386,6 +408,10 @@ func (s *Server) removeRule(w http.ResponseWriter, r *http.Request) error {
 	directory, ok := s.directoryRules[dir]
 	if !ok {
 		return ErrDirectoryNotClaimed
+	}
+
+	if directory.ClaimedBy != s.getUser(r) {
+		return ErrInvalidUser
 	}
 
 	match := r.FormValue("match")
@@ -448,6 +474,10 @@ var (
 	ErrInvalidFrequency = Error{
 		Code: http.StatusBadRequest,
 		Err:  errors.New("invalid frequency"),
+	}
+	ErrInvalidAction = Error{
+		Code: http.StatusBadRequest,
+		Err:  errors.New("invalid action"),
 	}
 	ErrInvalidMatch = Error{
 		Code: http.StatusBadRequest,

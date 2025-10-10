@@ -38,6 +38,9 @@ var (
 	groupCache = makeMuMap[uint32, string]()
 )
 
+// Username returns the username assigned to the given UID.
+//
+// Returns empty string if the UID doesn't exist.
 func Username(uid uint32) string {
 	if u, ok := userCache.Get(uid); ok {
 		return u
@@ -53,6 +56,9 @@ func Username(uid uint32) string {
 	return u.Username
 }
 
+// Group returns the group name assigned to the given GID.
+//
+// Returns empty string if the GID doesn't exist.
 func Group(gid uint32) string {
 	if g, ok := groupCache.Get(gid); ok {
 		return g

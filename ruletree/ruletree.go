@@ -13,9 +13,10 @@ import (
 	"vimagination.zapto.org/tree"
 )
 
+// Rule contains the user and group summaries for a rule.
 type Rule struct {
 	ID            uint64
-	Users, Groups ruleStats
+	Users, Groups RuleStats
 }
 
 func (r *Rule) writeTo(sw *byteio.StickyLittleEndianWriter) {
@@ -33,9 +34,10 @@ func (r *Rule) writeTo(sw *byteio.StickyLittleEndianWriter) {
 	}
 }
 
-type ruleStats []Stats
+// RuleStats represents the stats for a list of users or groups.
+type RuleStats []Stats
 
-func (r *ruleStats) add(id uint32, mtime, count, size uint64) {
+func (r *RuleStats) add(id uint32, mtime, count, size uint64) {
 	newStats := Stats{
 		id: id,
 	}
@@ -70,39 +72,39 @@ func (r *rulesDir) initIDs() {
 	r.rules = r.rules[:0]
 }
 
-type RulesDir struct {
+type dirWithRule struct {
 	rulesDir
 
-	child *RulesDir
+	child *dirWithRule
 }
 
-func (r *RulesDir) Children() iter.Seq2[string, tree.Node] {
-	r.initIDs()
-	r.initChildren()
+func (d *dirWithRule) Children() iter.Seq2[string, tree.Node] {
+	d.initIDs()
+	d.initChildren()
 
-	return r.children
+	return d.children
 }
 
-func (r *RulesDir) initChildren() {
-	if r.child == nil {
-		r.child = new(RulesDir)
+func (d *dirWithRule) initChildren() {
+	if d.child == nil {
+		d.child = new(dirWithRule)
 	}
 }
 
-func (r *RulesDir) children(yield func(string, tree.Node) bool) {
-	for name, child := range r.node.Children() {
+func (d *dirWithRule) children(yield func(string, tree.Node) bool) {
+	for name, child := range d.node.Children() {
 		mchild := child.(*tree.MemTree)
 
 		if strings.HasSuffix(name, "/") {
-			r.child.sm = r.sm.GetStateString(name)
-			r.child.node = mchild
+			d.child.sm = d.sm.GetStateString(name)
+			d.child.node = mchild
 
-			if !yield(name, r.child) {
+			if !yield(name, d.child) {
 				return
 			}
 
-			r.mergeChild(&r.child.rulesDir)
-		} else if err := r.processFile(name, mchild.Data()); err != nil {
+			d.mergeChild(&d.child.rulesDir)
+		} else if err := d.processFile(name, mchild.Data()); err != nil {
 			yield(name, tree.NewChildrenError(err))
 
 			return
@@ -226,25 +228,25 @@ func (f *file) ReadFrom(r io.Reader) (int64, error) {
 	return lr.Count, lr.Err
 }
 
-type RuleLessDir struct {
+type ruleLessDir struct {
 	rulesDir
 	ruleDirPrefixes map[string]bool
 	nameBuf         []byte
 
-	child *RuleLessDir
-	rules *RulesDir
+	child *ruleLessDir
+	rules *dirWithRule
 }
 
-func (r *RuleLessDir) Children() iter.Seq2[string, tree.Node] {
+func (r *ruleLessDir) Children() iter.Seq2[string, tree.Node] {
 	r.initIDs()
 	r.initChildren()
 
 	return r.children
 }
 
-func (r *RuleLessDir) initChildren() {
+func (r *ruleLessDir) initChildren() {
 	if r.child == nil {
-		r.child = &RuleLessDir{
+		r.child = &ruleLessDir{
 			rules:           r.rules,
 			ruleDirPrefixes: r.ruleDirPrefixes,
 		}
@@ -253,7 +255,7 @@ func (r *RuleLessDir) initChildren() {
 	r.rulesDir.rules = r.rulesDir.rules[:0]
 }
 
-func (r *RuleLessDir) children(yield func(string, tree.Node) bool) {
+func (r *ruleLessDir) children(yield func(string, tree.Node) bool) {
 	for name, child := range r.node.Children() {
 		mchild := child.(*tree.MemTree)
 
@@ -301,20 +303,20 @@ func (r *RuleLessDir) children(yield func(string, tree.Node) bool) {
 	}
 }
 
-type RuleLessDirPatch struct {
+type ruleLessDirPatch struct {
 	rulesDir
 	ruleDirPrefixes map[string]bool
 	previousRules   *tree.MemTree
 	nameBuf         []byte
 }
 
-func (r *RuleLessDirPatch) Children() iter.Seq2[string, tree.Node] {
+func (r *ruleLessDirPatch) Children() iter.Seq2[string, tree.Node] {
 	r.initIDs()
 
 	return r.children
 }
 
-func (r *RuleLessDirPatch) children(yield func(string, tree.Node) bool) {
+func (r *ruleLessDirPatch) children(yield func(string, tree.Node) bool) {
 	for name, child := range r.node.Children() {
 		mchild := child.(*tree.MemTree)
 
@@ -357,16 +359,16 @@ func (r *RuleLessDirPatch) children(yield func(string, tree.Node) bool) {
 			var child *rulesDir
 
 			if pchild == nil {
-				childr := &RuleLessDir{
+				childr := &ruleLessDir{
 					rulesDir:        rd,
 					ruleDirPrefixes: r.ruleDirPrefixes,
 					nameBuf:         nameBuf,
-					rules:           new(RulesDir),
+					rules:           new(dirWithRule),
 				}
 				child = &childr.rulesDir
 				rchild = childr
 			} else {
-				childr := &RuleLessDirPatch{
+				childr := &ruleLessDirPatch{
 					rulesDir:        rd,
 					ruleDirPrefixes: r.ruleDirPrefixes,
 					previousRules:   pchild,
@@ -385,7 +387,7 @@ func (r *RuleLessDirPatch) children(yield func(string, tree.Node) bool) {
 			continue
 		}
 
-		rules := &RulesDir{
+		rules := &dirWithRule{
 			rulesDir: rd,
 		}
 

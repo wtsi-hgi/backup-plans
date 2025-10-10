@@ -14,6 +14,7 @@ import (
 	_ "vimagination.zapto.org/httpbuffer/gzip"
 )
 
+// Server represents all of the data requireed to run the backend server.
 type Server struct {
 	getUser func(r *http.Request) string
 
@@ -28,10 +29,11 @@ type Server struct {
 	rootDir *ruletree.RootDir
 }
 
-func New(d *db.DB, getUser func(r *http.Request) string, reportRoots []string) (*Server, error) {
+// New creates a new Backend API server.
+func New(db *db.DB, getUser func(r *http.Request) string, reportRoots []string) (*Server, error) {
 	s := &Server{
 		getUser:     getUser,
-		rulesDB:     d,
+		rulesDB:     db,
 		reportRoots: reportRoots,
 	}
 
@@ -48,6 +50,8 @@ func New(d *db.DB, getUser func(r *http.Request) string, reportRoots []string) (
 	return s, nil
 }
 
+// WhoAmI is an HTTP endpoint that returns the result of the getUser func that
+// was passed to the New function.
 func (s *Server) WhoAmI(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(s.getUser(r))
 }
@@ -70,6 +74,7 @@ func handle(w http.ResponseWriter, r *http.Request, fn func(http.ResponseWriter,
 	}.ServeHTTP(w, r)
 }
 
+// Error is an error that contains an HTTP error code.
 type Error struct {
 	Code int
 	Err  error

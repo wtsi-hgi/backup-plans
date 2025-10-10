@@ -11,11 +11,13 @@ import (
 	"github.com/wtsi-hgi/backup-plans/users"
 )
 
+// AddTree adds a tree database, specified by the given file path, to the
+// server, possibly overriding an existing database if they share the same root.
 func (s *Server) AddTree(file string) error {
 	return s.rootDir.AddTree(file)
 }
 
-type Tree struct {
+type treeDB struct {
 	*ruletree.DirSummary
 	ClaimedBy    string
 	Rules        map[string]map[uint64]*db.Rule
@@ -23,6 +25,8 @@ type Tree struct {
 	CanClaim     bool
 }
 
+// Tree is an HTTP endpoint that returns data about a given directory and its
+// direct children.
 func (s *Server) Tree(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.tree)
 }
@@ -52,7 +56,7 @@ func (s *Server) tree(w http.ResponseWriter, r *http.Request) error {
 		return ErrNotAuthorised
 	}
 
-	t := Tree{
+	t := treeDB{
 		DirSummary:   summary,
 		Rules:        make(map[string]map[uint64]*db.Rule),
 		Unauthorised: []string{},

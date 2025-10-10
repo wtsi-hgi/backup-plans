@@ -12,12 +12,14 @@ import (
 	"vimagination.zapto.org/tree"
 )
 
+// NewTree returns a WRStat summary.OperationGenerator that is used to convert
+// WRStat stat.gz files into an on-disk tree db.
 func NewTree(w io.Writer) summary.OperationGenerator {
 	ctx, cancel := context.WithCancelCause(context.Background())
 	next := newNode(ctx)
 	next.top = true
 
-	go func(node *Node) {
+	go func(node *treeNode) {
 		cancel(tree.Serialise(w, node))
 	}(next)
 
@@ -41,11 +43,11 @@ type NameChild struct {
 	Child tree.Node
 }
 
-type Node struct {
+type treeNode struct {
 	ctx context.Context
 
 	path  *summary.DirectoryPath
-	child *Node
+	child *treeNode
 
 	yield  chan NameChild
 	writer chan *byteio.StickyLittleEndianWriter
@@ -55,8 +57,8 @@ type Node struct {
 	top bool
 }
 
-func newNode(ctx context.Context) *Node {
-	return &Node{
+func newNode(ctx context.Context) *treeNode {
+	return &treeNode{
 		ctx:    ctx,
 		yield:  make(chan NameChild),
 		writer: make(chan *byteio.StickyLittleEndianWriter),
@@ -114,7 +116,7 @@ func (i IDMeta) Add(id uint32, t, size int64) {
 	existing.Bytes += uint64(size)
 }
 
-func (n *Node) Add(info *summary.FileInfo) error {
+func (n *treeNode) Add(info *summary.FileInfo) error {
 	if n.path == nil {
 		n.path = info.Path
 		n.UID = info.UID
@@ -143,7 +145,7 @@ func (n *Node) Add(info *summary.FileInfo) error {
 	return nil
 }
 
-func (n *Node) sendChild(name []byte, child tree.Node) error {
+func (n *treeNode) sendChild(name []byte, child tree.Node) error {
 	select {
 	case <-n.ctx.Done():
 		return context.Cause(n.ctx)
@@ -152,7 +154,7 @@ func (n *Node) sendChild(name []byte, child tree.Node) error {
 	}
 }
 
-func (n *Node) Output() error {
+func (n *treeNode) Output() error {
 	close(n.yield)
 
 	select {
@@ -191,7 +193,7 @@ func (n *Node) Output() error {
 	return err
 }
 
-func (n *Node) Children() iter.Seq2[string, tree.Node] {
+func (n *treeNode) Children() iter.Seq2[string, tree.Node] {
 	return func(yield func(string, tree.Node) bool) {
 		for nc := range n.yield {
 			if !yield(nc.Name, nc.Child) {
@@ -203,7 +205,7 @@ func (n *Node) Children() iter.Seq2[string, tree.Node] {
 	}
 }
 
-func (n *Node) WriteTo(w io.Writer) (int64, error) {
+func (n *treeNode) WriteTo(w io.Writer) (int64, error) {
 	lw := &byteio.StickyLittleEndianWriter{Writer: w}
 
 	n.writer <- lw

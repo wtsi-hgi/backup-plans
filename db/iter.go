@@ -75,6 +75,8 @@ func iterErr[T any](err error) *IterErr[T] {
 	}
 }
 
+// ForEach calls the given callback for each member of the iterator, stopping on
+// and returning the first error encountered.
 func (i *IterErr[T]) ForEach(fn func(T) error) error {
 	for item := range i.Iter {
 		if err := fn(item); err != nil {

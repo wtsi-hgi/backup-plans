@@ -16,6 +16,8 @@ type summary struct {
 	Directories map[string][]uint64
 }
 
+// Summary is an HTTP endpoint that produces a backup summary of all the
+// directories that were passed as reporting roots to the New function.
 func (s *Server) Summary(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.summary)
 }

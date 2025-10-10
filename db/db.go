@@ -35,6 +35,8 @@ type DB struct {
 	DBRO
 }
 
+// InitRO connects to a rule database as determined by the given driver and
+// connection strings, disallowing any modifications.
 func InitRO(driver, connection string) (*DBRO, error) {
 	db, err := sql.Open(driver, connection)
 	if err != nil {
@@ -44,6 +46,8 @@ func InitRO(driver, connection string) (*DBRO, error) {
 	return &DBRO{db: db}, nil
 }
 
+// Init connects to a rule database as determined by the given driver and
+// connection strings.
 func Init(driver, connection string) (*DB, error) {
 	db, err := sql.Open(driver, connection)
 	if err != nil {
@@ -85,6 +89,7 @@ func (d *DB) exec(sql string, params ...any) error {
 	return tx.Commit()
 }
 
+// Close closes the database connection.
 func (d *DBRO) Close() error {
 	return d.db.Close()
 }
