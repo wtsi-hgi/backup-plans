@@ -62,12 +62,6 @@ type rulesDir struct {
 	uid, gid uint32
 
 	rules []Rule
-
-	parent interface {
-		setRule(rule *db.Rule, f *file)
-		addUserData(uid uint32, ruleID int64, mtime, files, bytes uint64)
-		addGroupData(gid uint32, ruleID int64, mtime, files, bytes uint64)
-	}
 }
 
 func (r *rulesDir) initIDs() {
@@ -101,7 +95,6 @@ func (r *RulesDir) initChildren() {
 		}
 	}
 
-	r.child.parent = r
 	r.child.dir.Parent = &r.dir
 }
 
@@ -116,6 +109,8 @@ func (r *RulesDir) children(yield func(string, tree.Node) bool) {
 			if !yield(name, r.child) {
 				return
 			}
+
+			r.mergeChild(&r.child.rulesDir)
 		} else if err := r.processFile(name, mchild.Data()); err != nil {
 			yield(name, tree.NewChildrenError(err))
 
@@ -138,6 +133,20 @@ func (r *rulesDir) processFile(name string, data []byte) error {
 	return nil
 }
 
+func (r *rulesDir) mergeChild(child *rulesDir) {
+	for _, rule := range child.rules {
+		pos := r.getRulePos(int64(rule.ID))
+
+		for _, user := range rule.Users {
+			r.rules[pos].Users.add(user.id, user.MTime, user.Files, user.Size)
+		}
+
+		for _, group := range rule.Groups {
+			r.rules[pos].Groups.add(group.id, group.MTime, group.Files, group.Size)
+		}
+	}
+}
+
 func fileName(str string) []byte {
 	return unsafe.Slice(unsafe.StringData(str), len(str))
 }
@@ -157,10 +166,6 @@ func (r *rulesDir) WriteTo(w io.Writer) (int64, error) {
 }
 
 func (r *rulesDir) setRule(rule *db.Rule, f *file) {
-	if r.parent != nil {
-		r.parent.setRule(rule, f)
-	}
-
 	pos := r.getRulePos(rule.ID())
 
 	r.rules[pos].Users.add(f.uid, f.mtime, 1, f.size)
@@ -181,20 +186,12 @@ func (r *rulesDir) getRulePos(ruleID int64) int {
 }
 
 func (r *rulesDir) addUserData(uid uint32, ruleID int64, mtime, files, size uint64) {
-	if r.parent != nil {
-		r.parent.addUserData(uid, ruleID, mtime, files, size)
-	}
-
 	pos := r.getRulePos(ruleID)
 
 	r.rules[pos].Users.add(uid, mtime, files, size)
 }
 
 func (r *rulesDir) addGroupData(gid uint32, ruleID int64, mtime, files, size uint64) {
-	if r.parent != nil {
-		r.parent.addGroupData(gid, ruleID, mtime, files, size)
-	}
-
 	pos := r.getRulePos(ruleID)
 
 	r.rules[pos].Groups.add(gid, mtime, files, size)
@@ -270,7 +267,6 @@ func (r *RuleLessDir) initChildren() {
 		}
 	}
 
-	r.child.parent = r
 	r.child.dir.Parent = &r.dir
 	r.rulesDir.rules = r.rulesDir.rules[:0]
 }
@@ -300,22 +296,24 @@ func (r *RuleLessDir) children(yield func(string, tree.Node) bool) {
 
 		if !hasRules {
 			r.child.node = mchild
-			r.child.parent = r
 
 			if !yield(name, r.child) {
 				return
 			}
+
+			r.mergeChild(&r.child.rulesDir)
 
 			continue
 		}
 
 		r.rules.node = mchild
 		r.rules.dir = r.child.dir
-		r.rules.parent = r
 
 		if !yield(name, r.rules) {
 			return
 		}
+
+		r.mergeChild(&r.rules.rulesDir)
 	}
 }
 
@@ -369,34 +367,41 @@ func (r *RuleLessDirPatch) children(yield func(string, tree.Node) bool) {
 		}
 
 		rd := rulesDir{
-			node:   mchild,
-			sm:     r.sm,
-			dir:    dir,
-			parent: r,
+			node: mchild,
+			sm:   r.sm,
+			dir:  dir,
 		}
 
 		if !hasRules {
 			var rchild tree.Node
 
+			var child *rulesDir
+
 			if pchild == nil {
-				rchild = &RuleLessDir{
+				childr := &RuleLessDir{
 					rulesDir:        rd,
 					ruleDirPrefixes: r.ruleDirPrefixes,
 					nameBuf:         r.nameBuf,
 					rules:           new(RulesDir),
 				}
+				child = &childr.rulesDir
+				rchild = childr
 			} else {
-				rchild = &RuleLessDirPatch{
+				childr := &RuleLessDirPatch{
 					rulesDir:        rd,
 					ruleDirPrefixes: r.ruleDirPrefixes,
 					previousRules:   pchild,
 					nameBuf:         r.nameBuf,
 				}
+				child = &childr.rulesDir
+				rchild = childr
 			}
 
 			if !yield(name, rchild) {
 				return
 			}
+
+			r.mergeChild(child)
 
 			continue
 		}
@@ -408,5 +413,7 @@ func (r *RuleLessDirPatch) children(yield func(string, tree.Node) bool) {
 		if !yield(name, rules) {
 			return
 		}
+
+		r.mergeChild(&rules.rulesDir)
 	}
 }
