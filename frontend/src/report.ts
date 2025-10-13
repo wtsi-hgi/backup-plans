@@ -6,6 +6,7 @@ import { svg, title, use } from "./lib/svg.js";
 import { action, formatBytes, longAgo, secondsInWeek, setAndReturn } from "./lib/utils.js";
 import { getReportSummary } from "./rpc.js";
 import { BackupIBackup, BackupNone } from "./types.js";
+import { render } from "./disktree.js";
 
 
 class Summary {
@@ -98,6 +99,7 @@ class ParentSummary extends Summary {
 					"click": () => load(this.path).then(() => {
 						window.scrollTo(0, 0);
 						document.getElementsByTagName("summary")[0].click();
+						render();
 					})
 				}, svg([
 					title("Go to"),

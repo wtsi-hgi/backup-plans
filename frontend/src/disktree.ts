@@ -257,9 +257,10 @@ const phi = (1 + Math.sqrt(5)) / 2,
 		options
 	])
 
+export let render = () => { };
+
 let areaFn = 0,
 	colourFn = 0,
-	render = () => { },
 	reload = () => { };
 
 new ResizeObserver(() => render()).observe(svgBase);
