@@ -39,7 +39,7 @@ import (
 	_ "vimagination.zapto.org/httpbuffer/gzip"
 )
 
-// Server represents all of the data requireed to run the backend server.
+// Server represents all of the data required to run the backend server.
 type Server struct {
 	getUser func(r *http.Request) string
 

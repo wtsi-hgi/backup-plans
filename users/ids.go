@@ -43,7 +43,7 @@ var userGroupsCache = makeMuMap[string, groups]()
 //
 // Returns 0, nil when the user cannot be found.
 func GetIDs(username string) (uint32, []uint32) {
-	if gc, ok := userGroupsCache.Get(username); ok && gc.expiry.After(time.Now()) {
+	if gc, ok := userGroupsCache.Get(username); ok && !gc.expiry.After(time.Now()) {
 		return gc.uid, gc.groups
 	}
 

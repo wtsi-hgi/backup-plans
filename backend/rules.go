@@ -162,7 +162,7 @@ func (s *Server) canClaim(dir string, uid uint32, groups []uint32) bool {
 }
 
 // PassDirClaim allows the claimant of a directory to pass that claim to another
-// user. The other use must satisfy the same conditions as the initial user had
+// user. The other user must satisfy the same conditions as the initial user had
 // to in ClaimDir.
 //
 // Also like in ClaimDir, the directory is taken from the 'dir' GET param. The

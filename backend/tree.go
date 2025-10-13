@@ -36,6 +36,17 @@ import (
 	"github.com/wtsi-hgi/backup-plans/users"
 )
 
+var (
+	ErrNotFound = Error{
+		Code: http.StatusNotFound,
+		Err:  errors.New("404 page not found"),
+	}
+	ErrNotAuthorised = Error{
+		Code: http.StatusUnauthorized,
+		Err:  errors.New("not authorised to see this directory"),
+	}
+)
+
 // AddTree adds a tree database, specified by the given file path, to the
 // server, possibly overriding an existing database if they share the same root.
 func (s *Server) AddTree(file string) error {
@@ -87,7 +98,7 @@ func (s *Server) tree(w http.ResponseWriter, r *http.Request) error {
 		Unauthorised: []string{},
 	}
 
-	t.CanClaim = uid == duid || slices.Contains(groups, dgid)
+	t.CanClaim = isOwner(uid, groups, duid, dgid)
 
 	for name, child := range summary.Children {
 		if !isAuthorised(child, uid, groups) {
@@ -128,9 +139,13 @@ func (s *Server) tree(w http.ResponseWriter, r *http.Request) error {
 	return json.NewEncoder(w).Encode(t)
 }
 
+func isOwner(uid uint32, groups []uint32, duid, dgid uint32) bool {
+	return duid == uid || slices.Contains(groups, dgid)
+}
+
 func isAuthorised(summary *ruletree.DirSummary, uid uint32, groups []uint32) bool {
-	duid, dguid := summary.IDs()
-	if duid == uid || slices.Contains(groups, dguid) {
+	duid, dgid := summary.IDs()
+	if isOwner(uid, groups, duid, dgid) {
 		return true
 	}
 
@@ -150,14 +165,3 @@ func isAuthorised(summary *ruletree.DirSummary, uid uint32, groups []uint32) boo
 
 	return false
 }
-
-var (
-	ErrNotFound = Error{
-		Code: http.StatusNotFound,
-		Err:  errors.New("404 page not found"),
-	}
-	ErrNotAuthorised = Error{
-		Code: http.StatusUnauthorized,
-		Err:  errors.New("not authorised to see this directory"),
-	}
-)
