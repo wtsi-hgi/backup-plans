@@ -129,6 +129,11 @@ func (s *Server) tree(w http.ResponseWriter, r *http.Request) error {
 }
 
 func isAuthorised(summary *ruletree.DirSummary, uid uint32, groups []uint32) bool {
+	duid, dguid := summary.IDs()
+	if duid == uid || slices.Contains(groups, dguid) {
+		return true
+	}
+
 	for _, rs := range summary.RuleSummaries {
 		for _, u := range rs.Users {
 			if u.ID() == uid {
