@@ -39,6 +39,8 @@ import (
 	"github.com/wtsi-hgi/backup-plans/server"
 )
 
+var sqlDriver = "mysql"
+
 func main() {
 	if err := run(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -70,7 +72,7 @@ func run() error {
 
 	flag.Parse()
 
-	d, err := db.Init("mysql", os.Getenv("BACKUP_MYSQL_URL"))
+	d, err := db.Init(sqlDriver, os.Getenv("BACKUP_MYSQL_URL"))
 	if err != nil {
 		return err
 	}
