@@ -1,6 +1,6 @@
 import { BackupIBackup, type DirectoryWithChildren, type Rule } from "./types.js"
 import { clearNode } from "./lib/dom.js";
-import { br, button, dialog, div, h2, input, label, option, select, table, tbody, td, th, thead, tr } from './lib/html.js';
+import { br, button, dialog, div, form, h2, input, label, option, select, table, tbody, td, th, thead, tr } from './lib/html.js';
 import { svg, title, use } from './lib/svg.js';
 import { action, confirm, formatBytes } from "./lib/utils.js";
 import { createRule, removeRule, updateRule, user } from "./rpc.js";
@@ -12,8 +12,12 @@ const addEditOverlay = (path: string, rule: Rule, load: (path: string) => void) 
 		option({ "value": "manualbackup", [rule.BackupType === 3 ? "selected" : "unselected"]: "" }, "Manual Backup"),
 		option({ "value": "nobackup", [rule.BackupType === 0 ? "selected" : "unselected"]: "" }, "No Backup")
 	]),
-		set = button({
-			"click": () => {
+		set = input({ "type": "submit", "value": rule.Match ? "Update" : "Add" }),
+		cancel = button({ "click": () => overlay.close() }, "Cancel"),
+		match = input({ "id": "match", "type": "text", "value": rule.Match, [rule.Match ? "disabled" : "enabled"]: "" }),
+		overlay = document.body.appendChild(dialog({ "closedby": "any", "close": () => overlay.remove() }, form({
+			"submit": (e: Event) => {
+				e.preventDefault();
 				overlay.setAttribute("closedby", "none");
 				set.toggleAttribute("disabled", true);
 				cancel.toggleAttribute("disabled", true);
@@ -32,15 +36,12 @@ const addEditOverlay = (path: string, rule: Rule, load: (path: string) => void) 
 						alert("Error: " + e.message);
 					});
 			}
-		}, rule.Match ? "Update" : "Add"),
-		cancel = button({ "click": () => overlay.close() }, "Cancel"),
-		match = input({ "id": "match", "type": "text", "value": rule.Match, [rule.Match ? "disabled" : "enabled"]: "" }),
-		overlay = document.body.appendChild(dialog({ "closedby": "any", "close": () => overlay.remove() }, [
+		}, [
 			label({ "for": "match" }, "Match"), match, br(),
 			label({ "for": "backupType" }, "Backup Type"), backupType, br(),
 			set,
 			cancel
-		]));
+		])));
 
 	overlay.showModal();
 },
