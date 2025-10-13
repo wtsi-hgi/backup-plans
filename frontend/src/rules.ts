@@ -13,7 +13,7 @@ const addEditOverlay = (path: string, rule: Rule, load: (path: string) => void) 
 		option({ "value": "nobackup", [rule.BackupType === 0 ? "selected" : "unselected"]: "" }, "No Backup")
 	]),
 		set = input({ "type": "submit", "value": rule.Match ? "Update" : "Add" }),
-		cancel = button({ "click": () => overlay.close() }, "Cancel"),
+		cancel = button({ "click": () => overlay.remove(), "command": "close" }, "Cancel"),
 		match = input({ "id": "match", "type": "text", "value": rule.Match, [rule.Match ? "disabled" : "enabled"]: "" }),
 		overlay = document.body.appendChild(dialog({ "closedby": "any", "close": () => overlay.remove() }, form({
 			"submit": (e: Event) => {
