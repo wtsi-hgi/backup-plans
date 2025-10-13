@@ -6,7 +6,7 @@ require (
 	github.com/go-sql-driver/mysql v1.9.3
 	github.com/klauspost/pgzip v1.2.6
 	github.com/smartystreets/goconvey v1.8.1
-	github.com/wtsi-hgi/wrstat-ui v1.8.6-0.20251010093203-6e337a8a213e
+	github.com/wtsi-hgi/wrstat-ui v1.8.7-0.20251013120043-024cbc1414bc
 	golang.org/x/sys v0.34.0
 	modernc.org/sqlite v1.38.2
 	vimagination.zapto.org/byteio v1.2.1
@@ -34,7 +34,7 @@ require (
 	vimagination.zapto.org/httpencoding v1.1.2 // indirect
 	vimagination.zapto.org/httpwrap v1.0.1 // indirect
 	vimagination.zapto.org/javascript v1.5.1 // indirect
-	vimagination.zapto.org/jspacker v0.0.0-20250918165910-9c14614aa668 // indirect
+	vimagination.zapto.org/jspacker v1.0.0 // indirect
 	vimagination.zapto.org/memfs v1.0.0 // indirect
 	vimagination.zapto.org/parser v1.2.2 // indirect
 )
