@@ -7,13 +7,13 @@ import { action, formatBytes, stringSort } from "./lib/utils.js";
 const base = div({ "class": "affectingRules" });
 
 export default Object.assign(base, {
-	"update": (path: string, data: DirectoryWithChildren, load: (path: string) => void) => {
+	"update": (path: string, data: DirectoryWithChildren, load: (path: string) => Promise<DirectoryWithChildren>) => {
 		clearNode(base, !Object.entries(data.rules).some(([dir]) => dir && dir !== path) ? [] : [
 			h2("Rules affecting files within this directory tree"),
 			Object.entries(data.rules).toSorted(([dira], [dirb]) => stringSort(dira, dirb)).map(([dir, rules]) => dir && dir !== path && rules.length ? table({ "class": "summary" }, [
 				caption(h2([
 					dir,
-					button({ "click": () => load(dir) }, svg([
+					button({ "click": () => load(dir).then(() => window.scrollTo(0, 0)) }, svg([
 						title("Go to"),
 						use({ "href": "#goto" })
 					]))
