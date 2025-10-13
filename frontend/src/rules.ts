@@ -1,6 +1,6 @@
 import { BackupIBackup, type DirectoryWithChildren, type Rule } from "./types.js"
 import { clearNode } from "./lib/dom.js";
-import { br, button, dialog, div, form, h2, input, label, option, select, table, tbody, td, th, thead, tr } from './lib/html.js';
+import { br, button, dialog, div, form, h2, input, label, meta, option, select, table, tbody, td, th, thead, tr } from './lib/html.js';
 import { svg, title, use } from './lib/svg.js';
 import { action, confirm, formatBytes } from "./lib/utils.js";
 import { createRule, removeRule, updateRule, user } from "./rpc.js";
@@ -15,6 +15,12 @@ const addEditOverlay = (path: string, rule: Rule, load: (path: string) => void) 
 		set = input({ "type": "submit", "value": rule.Match ? "Update" : "Add" }),
 		cancel = button({ "click": () => overlay.remove(), "command": "close" }, "Cancel"),
 		match = input({ "id": "match", "type": "text", "value": rule.Match, [rule.Match ? "disabled" : "enabled"]: "" }),
+		metadata = input({ "id": "metadata", "type": "text", "value": rule.Metadata }),
+		metadataSection = div({ "id": "metadataInput" }, [
+			label({ "for": "metadata" }, "Metadata"),
+			metadata,
+			br(),
+		]),
 		overlay = document.body.appendChild(dialog({ "closedby": "any", "close": () => overlay.remove() }, form({
 			"submit": (e: Event) => {
 				e.preventDefault();
@@ -23,7 +29,7 @@ const addEditOverlay = (path: string, rule: Rule, load: (path: string) => void) 
 				cancel.toggleAttribute("disabled", true);
 				backupType.toggleAttribute("disabled", true);
 
-				(rule.Match ? updateRule : createRule)(path, backupType.value, rule.Match || match.value || "*")
+				(rule.Match ? updateRule : createRule)(path, backupType.value, rule.Match || match.value || "*", backupType.value === "manualbackup" ? metadata.value : "")
 					.then(() => {
 						load(path);
 						overlay.remove();
@@ -39,6 +45,7 @@ const addEditOverlay = (path: string, rule: Rule, load: (path: string) => void) 
 		}, [
 			label({ "for": "match" }, "Match"), match, br(),
 			label({ "for": "backupType" }, "Backup Type"), backupType, br(),
+			metadataSection,
 			set,
 			cancel
 		])));

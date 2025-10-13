@@ -18,3 +18,11 @@ button.actionButton svg {
 	align-items: start;
 	gap: 1em;
 }
+
+#metadataInput {
+	display: none;
+}
+
+select:has(option:checked[value="manualbackup"])~#metadataInput {
+	display: unset;
+}
