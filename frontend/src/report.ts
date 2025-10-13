@@ -1,7 +1,8 @@
-import type { BackupType, Rule, SizeCount, SizeCountTime, Stats } from "./types.js";
+import type { BackupType, DirectoryWithChildren, Rule, SizeCount, SizeCountTime, Stats } from "./types.js";
 import type { Children } from "./lib/dom.js";
 import { amendNode } from "./lib/dom.js";
 import { a, br, button, details, div, fieldset, h1, h2, input, label, legend, li, summary, table, tbody, td, th, thead, tr, ul } from "./lib/html.js";
+import { svg, title, use } from "./lib/svg.js";
 import { action, formatBytes, longAgo, secondsInWeek, setAndReturn } from "./lib/utils.js";
 import { getReportSummary } from "./rpc.js";
 import { BackupIBackup, BackupNone } from "./types.js";
@@ -91,7 +92,18 @@ class ParentSummary extends Summary {
 			"data-backup-size": (this.actions[2]?.size ?? 0) + "",
 			"data-name": this.path
 		}, [
-			legend(h1(this.path)),
+			legend(h1([
+				this.path,
+				button({
+					"click": () => load(this.path).then(() => {
+						window.scrollTo(0, 0);
+						document.getElementsByTagName("summary")[0].click();
+					})
+				}, svg([
+					title("Go to"),
+					use({ "href": "#goto" })
+				]))
+			])),
 			ul([
 				this.claimedBy ? li("Requester: " + this.claimedBy) : [],
 				this.actions[BackupIBackup]?.mtime ? li("Last Activity in Backed-up Set: " + longAgo(this.actions[BackupIBackup]?.mtime ?? 0)) : [],
@@ -185,7 +197,8 @@ const base = div({ "id": "report" }),
 		a({ "href": URL.createObjectURL(new Blob([html], { "type": "text/html;charset=utf-8" })), "download": `backup-report-${new Date(now).toISOString()}.html` }).click();
 	};
 
-let now = 0;
+let now = 0,
+	load: (path: string) => Promise<DirectoryWithChildren>;
 
 getReportSummary().then(data => {
 	now = +new Date();
@@ -253,4 +266,6 @@ getReportSummary().then(data => {
 	amendNode(base, children);
 });
 
-export default base;
+export default Object.assign(base, {
+	"init": (loadFn: (path: string) => Promise<DirectoryWithChildren>) => load = loadFn
+});

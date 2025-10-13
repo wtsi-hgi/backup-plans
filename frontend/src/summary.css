@@ -12,12 +12,14 @@
 	font-weight: bold;
 }
 
-.summary caption button {
+.summary caption button,
+legend button {
 	background: none;
 	border: 0;
 }
 
-.summary button svg {
+.summary button svg,
+legend button svg {
 	height: 1em;
 	width: 1.5em;
 }

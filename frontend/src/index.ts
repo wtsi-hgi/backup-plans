@@ -26,6 +26,7 @@ const load = (path: string) => Load(path).then(data => {
 	.then(() => load("/"))
 	.then((data) => Filter.init(data.users, data.groups))
 	.then(() => {
+		Report.init(load);
 		document.body.replaceChildren(
 			symbols,
 			div({ "class": "tabs" }, [
