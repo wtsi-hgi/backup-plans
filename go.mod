@@ -6,7 +6,7 @@ require (
 	github.com/go-sql-driver/mysql v1.9.3
 	github.com/klauspost/pgzip v1.2.6
 	github.com/smartystreets/goconvey v1.8.1
-	github.com/wtsi-hgi/wrstat-ui v1.8.7-0.20251013120043-024cbc1414bc
+	github.com/wtsi-hgi/wrstat-ui v1.8.7
 	golang.org/x/sys v0.34.0
 	modernc.org/sqlite v1.38.2
 	vimagination.zapto.org/byteio v1.2.1
