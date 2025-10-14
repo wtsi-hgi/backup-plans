@@ -163,7 +163,7 @@ func findRuleDir(node tree.Node, dirsWithRules map[string]bool,
 
 		current := &summary.DirectoryPath{
 			Name:   name,
-			Depth:  parent.Depth + 1,
+			Depth:  depth,
 			Parent: parent,
 		}
 
