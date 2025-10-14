@@ -12,8 +12,8 @@ const addEditOverlay = (path: string, rule: Rule, load: (path: string) => void) 
 		option({ "value": "manualbackup", [rule.BackupType === 3 ? "selected" : "unselected"]: "" }, "Manual Backup"),
 		option({ "value": "nobackup", [rule.BackupType === 0 ? "selected" : "unselected"]: "" }, "No Backup")
 	]),
-		set = input({ "type": "submit", "value": rule.Match ? "Update" : "Add" }),
-		cancel = button({ "click": () => overlay.remove(), "command": "close" }, "Cancel"),
+		set = button(rule.Match ? "Update" : "Add"),
+		cancel = button({ "command": "close" }, "Cancel"),
 		match = input({ "id": "match", "type": "text", "value": rule.Match, [rule.Match ? "disabled" : "enabled"]: "" }),
 		metadata = input({ "id": "metadata", "type": "text", "value": rule.Metadata }),
 		metadataSection = div({ "id": "metadataInput" }, [
