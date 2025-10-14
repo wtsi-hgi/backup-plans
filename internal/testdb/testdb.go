@@ -32,7 +32,7 @@ import (
 	"strings"
 	"testing"
 
-	. "github.com/smartystreets/goconvey/convey" //nolint:revive,staticcheck
+	. "github.com/smartystreets/goconvey/convey" //nolint:revive,stylecheck,staticcheck
 	"github.com/wtsi-hgi/backup-plans/db"
 )
 
@@ -50,7 +50,7 @@ func CreateTestDatabase(t *testing.T) *db.DB {
 	d, err := db.Init("sqlite:" + filepath.Join(t.TempDir(), "db?journal_mode=WAL&_pragma=foreign_keys(1)"))
 	So(err, ShouldBeNil)
 
-	Reset(func() { d.Close() })
+	Reset(func() { d.Close() }) //nolint:errcheck
 
 	return d
 }
