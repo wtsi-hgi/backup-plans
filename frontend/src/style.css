@@ -264,7 +264,8 @@ dialog label:after {
 	padding-right: 1em;
 }
 
-details:not([open])> :not(summary) {
+body>.tabs>details:not([open])> :not(summary),
+#breadcrumbs+.tabs>details:not(#filter):not([open])> :not(summary) {
 	display: none;
 	visibility: hidden;
 }
