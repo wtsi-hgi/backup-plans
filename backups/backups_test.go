@@ -45,7 +45,7 @@ func TestFileInfos(t *testing.T) {
 			{1, "2.jpg", 5, "b/", humgenDir},
 			{2, "3.txt", 5, "b/", humgenDir},
 			{3, "temp.jpg", 5, "b/", humgenDir},
-			{4, "test.txt", 6, "testdir/", []string{"b/", "a/", "humgen/", "scratch123/", "lustre/", "/"}}, // TODO: sort this to use humgenDir
+			{4, "test.txt", 6, "testdir/", append([]string{"b/"}, humgenDir...)},
 		}
 
 		for _, test := range tests {
@@ -90,7 +90,7 @@ func exampleTree() tree.Node {
 	return tr
 }
 
-func TestRuleToGroups(t *testing.T) {
+func TestCreateRuleGroups(t *testing.T) {
 	Convey("Given a plan database, you can create a slice of ruleGroups", t, func() {
 		testDB := examplePlanDB(t)
 
@@ -100,8 +100,9 @@ func TestRuleToGroups(t *testing.T) {
 			dirs[dir.ID()] = []string{dir.Path, dir.ClaimedBy}
 		}
 
-		rgs, _ := createRuleGroups(testDB, dirs) // TODO: Test ruleList
+		rgs, ruleList := createRuleGroups(testDB, dirs)
 		So(len(rgs), ShouldEqual, 3)
+		So(len(ruleList), ShouldEqual, 2)
 
 		var rules []*db.Rule
 
@@ -128,6 +129,10 @@ func TestRuleToGroups(t *testing.T) {
 			},
 		})
 
+		So(ruleList, ShouldResemble, map[string]struct{}{
+			"/lustre/scratch123/humgen/a/b/": {},
+			"/lustre/scratch123/humgen/a/c/": {},
+		})
 	})
 }
 
@@ -193,14 +198,23 @@ func TestBackups(t *testing.T) {
 		tr := exampleTree()
 
 		Convey("You can create ibackup sets for all automatic ibackup plans, excluding BackupNone and BackupManual", func() {
-			err := Backup(testDB, tr, ibackupClient)
+			setInfos, err := Backup(testDB, tr, ibackupClient)
 			So(err, ShouldBeNil)
+			So(setInfos, ShouldNotBeNil)
+			So(len(setInfos), ShouldEqual, 1)
+			So(setInfos[0].BackupSetName, ShouldEqual, "plan::/lustre/scratch123/humgen/a/b/")
+			So(setInfos[0].Requestor, ShouldEqual, "userA")
+			So(setInfos[0].FileCount, ShouldEqual, 2)
 
 			sets, err := ibackupClient.GetSets("userA")
 			So(err, ShouldBeNil)
 			So(len(sets), ShouldEqual, 1)
 			So(sets[0].Name, ShouldEqual, "plan::/lustre/scratch123/humgen/a/b/")
 			So(sets[0].Requester, ShouldEqual, "userA")
+
+			sets, err = ibackupClient.GetSets("userB")
+			So(err, ShouldBeNil)
+			So(len(sets), ShouldEqual, 0)
 		})
 	})
 }

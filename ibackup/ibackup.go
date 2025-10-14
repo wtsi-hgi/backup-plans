@@ -5,11 +5,6 @@ import (
 	"regexp"
 	"time"
 
-	//TODO: replace use of backups and rules with a new pkg that figures out our
-	//fofns using tree dbs and the sql plan db
-	// "github.com/wtsi-hgi/backup-plans/backups"
-	// "github.com/wtsi-hgi/backup-plans/db/rules"
-
 	gas "github.com/wtsi-hgi/go-authserver"
 	"github.com/wtsi-hgi/ibackup/server"
 	"github.com/wtsi-hgi/ibackup/set"

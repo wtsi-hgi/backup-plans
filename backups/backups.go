@@ -40,10 +40,16 @@ func createRuleGroups(planDB *db.DB, dirs map[int64][]string) ([]ruleGroup, map[
 	return groups, ruleList
 }
 
+type SetInfo struct {
+	BackupSetName string
+	Requestor     string
+	FileCount     int
+}
+
 // Backup will back up all files in the given treeNode that match rules in the
 // given planDB, using the given ibackup client. It returns a list of the set IDs
 // created.
-func Backup(planDB *db.DB, treeNode tree.Node, client *server.Client) error {
+func Backup(planDB *db.DB, treeNode tree.Node, client *server.Client) ([]SetInfo, error) {
 	dirs := make(map[int64][]string)
 
 	for dir := range planDB.ReadDirectories().Iter {
@@ -68,16 +74,25 @@ func Backup(planDB *db.DB, treeNode tree.Node, client *server.Client) error {
 		m[rule.DirID()] = append(m[rule.DirID()], string(fi.Path.AppendTo(nil))+string(fi.Name))
 	})
 
+	backupSetInfos := make([]SetInfo, 0, len(m))
+
 	for dirId, fofns := range m {
 		setInfo := dirs[dirId]
-		err := ibackup.Backup(client, setNamePrefix+setInfo[0], setInfo[1], fofns, 7)
+		backupSetName := setNamePrefix + setInfo[0]
+
+		err := ibackup.Backup(client, backupSetName, setInfo[1], fofns, 7)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
+		backupSetInfos = append(backupSetInfos, SetInfo{
+			BackupSetName: backupSetName,
+			Requestor:     setInfo[1],
+			FileCount:     len(fofns),
+		})
 	}
 
-	return nil
+	return backupSetInfos, nil
 }
 
 // fileInfos calls the given cb with every absolute file path nested under the
@@ -111,9 +126,14 @@ func fileInfos(root tree.Node, ruleList map[string]struct{}, cb func(path *summa
 // call callCBOnAllSubdirs on that node.
 func findRuleDir(node tree.Node, dirsWithRules map[string]bool, ruleList map[string]struct{}, parent *summary.DirectoryPath, cb func(path *summary.FileInfo)) {
 	for name, childnode := range node.Children() {
+		depth := 0
+		if parent != nil {
+			depth = parent.Depth + 1
+		}
+
 		current := &summary.DirectoryPath{
 			Name:   name,
-			Depth:  parent.Depth + 1,
+			Depth:  depth,
 			Parent: parent,
 		}
 

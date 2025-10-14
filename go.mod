@@ -5,6 +5,7 @@ go 1.24.4
 require (
 	github.com/inconshreveable/log15 v3.0.0-testing.5+incompatible
 	github.com/klauspost/pgzip v1.2.6
+	github.com/mattn/go-sqlite3 v1.14.24
 	github.com/smartystreets/goconvey v1.8.1
 	github.com/spf13/cobra v1.9.1
 	github.com/ugorji/go/codec v1.2.14
