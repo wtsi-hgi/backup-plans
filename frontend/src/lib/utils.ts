@@ -52,8 +52,8 @@ export const formatBytes = (size: bigint) => {
 					});
 			}
 		}, "Remove"),
-			cancel = button({ "click": () => overlay.close() }, "Cancel"),
-			overlay = document.body.appendChild(dialog({ "closedby": "any", "close": () => overlay.remove() }, [
+			cancel = button({ "type": "button", "click": () => overlay.close() }, "Cancel"),
+			overlay = document.body.appendChild(dialog({ "id": "confirm", "closedby": "any", "close": () => overlay.remove() }, [
 				div(msg),
 				remove, cancel
 			]));

@@ -13,7 +13,7 @@ const addEditOverlay = (path: string, rule: Rule, load: (path: string) => void) 
 		option({ "value": "nobackup", [rule.BackupType === 0 ? "selected" : "unselected"]: "" }, "No Backup")
 	]),
 		set = button(rule.Match ? "Update" : "Add"),
-		cancel = button({ "command": "close" }, "Cancel"),
+		cancel = button({ "type": "button", "click": () => overlay.close() }, "Cancel"),
 		match = input({ "id": "match", "type": "text", "value": rule.Match, [rule.Match ? "disabled" : "enabled"]: "" }),
 		metadata = input({ "id": "metadata", "type": "text", "value": rule.Metadata }),
 		metadataSection = div({ "id": "metadataInput" }, [
@@ -21,7 +21,7 @@ const addEditOverlay = (path: string, rule: Rule, load: (path: string) => void) 
 			metadata,
 			br(),
 		]),
-		overlay = document.body.appendChild(dialog({ "closedby": "any", "close": () => overlay.remove() }, form({
+		overlay = document.body.appendChild(dialog({ "id": "addEdit", "closedby": "any", "close": () => overlay.remove() }, form({
 			"submit": (e: Event) => {
 				e.preventDefault();
 				overlay.setAttribute("closedby", "none");
