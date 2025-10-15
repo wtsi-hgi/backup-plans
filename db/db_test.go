@@ -59,7 +59,7 @@ func createTestDatabase(t *testing.T) *DB {
 	d, err := Init(uri)
 	So(err, ShouldBeNil)
 
-	Reset(func() { d.Close() })
+	Reset(func() { d.Close() }) // nolint:errcheck
 
 	return d
 }
