@@ -119,8 +119,8 @@ func init() {
 		"ibackup server url")
 	backupCmd.Flags().StringVarP(&cert, "cert", "c", "", "Path to ibackup server certificate file")
 
-	backupCmd.MarkFlagRequired("plan")
-	backupCmd.MarkFlagRequired("tree")
-	backupCmd.MarkFlagRequired("ibackup")
-	backupCmd.MarkFlagRequired("cert")
+	backupCmd.MarkFlagRequired("plan")    // nolint:errcheck
+	backupCmd.MarkFlagRequired("tree")    // nolint:errcheck
+	backupCmd.MarkFlagRequired("ibackup") // nolint:errcheck
+	backupCmd.MarkFlagRequired("cert")    // nolint:errcheck
 }

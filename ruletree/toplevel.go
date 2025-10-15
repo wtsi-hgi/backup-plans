@@ -92,11 +92,9 @@ func NewRoot(rules []DirRule) (*RootDir, error) {
 		}
 	}
 
-	if err := r.rebuildStateMachine(); err != nil {
-		return nil, err
-	}
+	err := r.rebuildStateMachine()
 
-	return r, nil
+	return r, err
 }
 
 // AddRule adds the given rule to the given directory and regenerates the rule
@@ -391,21 +389,26 @@ func openDB(file string) (*tree.MemTree, func(), error) { //nolint:funlen
 
 	stat, err := f.Stat()
 	if err != nil {
-		f.Close()
+		f.Close() // nolint:errcheck
 
 		return nil, nil, err
 	}
 
 	data, err := unix.Mmap(int(f.Fd()), 0, int(stat.Size()), unix.PROT_READ, unix.MAP_SHARED)
 	if err != nil {
-		f.Close()
+		f.Close() // nolint:errcheck
 
 		return nil, nil, err
 	}
 
 	fn := func() {
+<<<<<<< HEAD
 		unix.Munmap(data) //nolint:errcheck
 		f.Close()
+=======
+		unix.Munmap(data) // nolint:errcheck
+		f.Close()         // nolint:errcheck
+>>>>>>> 0544c03 (Add Makefile; delint)
 	}
 
 	db, err := tree.OpenMem(data)
@@ -492,7 +495,12 @@ func createTopLevelDirs(treeRoot *ruleOverlay, rootPath string, p *topLevelDir) 
 		if !ok {
 			np = newTopLevelDir(p)
 
+<<<<<<< HEAD
 			if err := p.setChild(part, np); err != nil {
+=======
+			err := p.setChild(part, np)
+			if err != nil {
+>>>>>>> 0544c03 (Add Makefile; delint)
 				return err
 			}
 		}
