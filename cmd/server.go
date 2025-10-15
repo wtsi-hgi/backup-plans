@@ -48,7 +48,7 @@ var serverCmd = &cobra.Command{
 
 `,
 	RunE: func(_ *cobra.Command, _ []string) error {
-		d, err := db.Init("mysql", os.Getenv("BACKUP_MYSQL_URL")+"?parseTime=true")
+		d, err := db.Init("mysql", os.Getenv("BACKUP_PLANS_TEST_MYSQL"))
 		if err != nil {
 			return err
 		}

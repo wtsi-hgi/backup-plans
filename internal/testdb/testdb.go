@@ -26,6 +26,7 @@
 package testdb
 
 import (
+	"database/sql"
 	"os"
 	"path/filepath"
 	"testing"
@@ -49,7 +50,40 @@ func CreateTestDatabase(t *testing.T) *db.DB {
 	d, err := db.Init("sqlite", filepath.Join(t.TempDir(), "db?journal_mode=WAL&_pragma=foreign_keys(1)"))
 	So(err, ShouldBeNil)
 
-	Reset(func() { d.Close() }) //nolint:errcheck
+	Reset(func() { d.Close() })
 
 	return d
+}
+
+func GetTestDriverConnection(t *testing.T) (string, string) {
+	t.Helper()
+
+	var sdriver, uri string
+
+	if p := os.Getenv("BACKUP_PLANS_TEST_MYSQL"); p != "" { //nolint:nestif
+		sdriver = "mysql"
+		uri = p
+
+		So(dropTables(p), ShouldBeNil)
+	} else {
+		sdriver = "sqlite3"
+		uri = filepath.Join(t.TempDir(), "db?journal_mode=WAL&_pragma=foreign_keys(1)")
+	}
+
+	return sdriver, uri
+}
+
+func dropTables(uri string) error {
+	db, err := sql.Open("mysql", uri)
+	if err != nil {
+		return err
+	}
+
+	for _, table := range [...]string{"rules", "directories"} {
+		if _, err = db.Exec("DROP TABLE IF EXISTS `" + table + "`;"); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
