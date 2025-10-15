@@ -29,7 +29,7 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/smartystreets/goconvey/convey" //nolint:revive,stylecheck,staticcheck
+	. "github.com/smartystreets/goconvey/convey" //nolint:revive,staticcheck
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/internal/testdb"
 )

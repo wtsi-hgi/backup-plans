@@ -202,7 +202,7 @@ func (n *treeNode) writeData() error {
 	case <-n.ctx.Done():
 		return context.Cause(n.ctx)
 	case w := <-n.writer:
-		n.Directory.WriteTo(w) //nolint:errcheck
+		n.Directory.WriteTo(w) // nolint:errcheck
 
 		n.writer <- nil
 

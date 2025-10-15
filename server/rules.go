@@ -240,9 +240,9 @@ func (s *Server) getRules(w http.ResponseWriter, r *http.Request) error {
 
 	}
 
-	w.Write([]byte{'{', '}'})
+	_, err = w.Write([]byte{'{', '}'})
 
-	return nil
+	return err
 }
 
 func (s *Server) UpdateRule(w http.ResponseWriter, r *http.Request) {

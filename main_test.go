@@ -31,7 +31,7 @@ func TestMain(t *testing.T) {
 	}
 
 	mysqlConnection := os.Getenv("BACKUP_PLANS_TEST_MYSQL")
-	os.Unsetenv("BACKUP_PLANS_TEST_MYSQL")
+	os.Unsetenv("BACKUP_PLANS_TEST_MYSQL") // nolint:errcheck
 
 	Convey("Given an ibackup test server", t, func() {
 		So(tmpDir, ShouldNotBeEmpty)
@@ -89,7 +89,7 @@ func TestMain(t *testing.T) {
 		}
 
 		Convey("The backups command works with a mysql plan database", func() {
-			os.Setenv("BACKUP_PLANS_TEST_MYSQL", mysqlConnection)
+			os.Setenv("BACKUP_PLANS_TEST_MYSQL", mysqlConnection) // nolint:errcheck
 			plandb.PopulateExamplePlanDB(t)
 
 			out, err := exec.Command(filepath.Join(tmpDir, app), "backup", "--plan", "mysql:"+mysqlConnection, "--tree", "testdata/tree.db", "--ibackup", addr, "--cert", certPath).CombinedOutput()
@@ -113,7 +113,7 @@ func buildSelf() (string, func()) {
 		return "", nil
 	}
 
-	return tmpDir, func() { os.Remove(app) }
+	return tmpDir, func() { os.Remove(app) } // nolint:errcheck
 }
 
 func failMainTest(err string) {
