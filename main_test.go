@@ -10,6 +10,7 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/wtsi-hgi/backup-plans/ibackup"
 	"github.com/wtsi-hgi/backup-plans/internal"
+	"github.com/wtsi-hgi/backup-plans/internal/plandb"
 )
 
 // in this go process we want to do the equivalent of typing `go build .` on the
@@ -20,8 +21,7 @@ import (
 // set got created with the expeted name and files in it.
 
 const (
-	app       = "backup-plans"
-	userPerms = 0700
+	app = "backup-plans"
 )
 
 func TestMain(t *testing.T) {
@@ -29,6 +29,9 @@ func TestMain(t *testing.T) {
 	if cleanup != nil {
 		defer cleanup()
 	}
+
+	mysqlConnection := os.Getenv("BACKUP_PLANS_TEST_MYSQL")
+	os.Unsetenv("BACKUP_PLANS_TEST_MYSQL")
 
 	Convey("Given an ibackup test server", t, func() {
 		So(tmpDir, ShouldNotBeEmpty)
@@ -44,7 +47,9 @@ func TestMain(t *testing.T) {
 		})
 
 		Convey("The backups command results in a correct ibackup set being created given correct args", func() {
-			out, err := exec.Command(filepath.Join(tmpDir, app), "backup", "--plan", "testdata/plan.db", "--tree", "testdata/tree.db", "--ibackup", addr, "--cert", certPath).CombinedOutput()
+			_, dbPath := plandb.PopulateExamplePlanDB(t)
+
+			out, err := exec.Command(filepath.Join(tmpDir, app), "backup", "--plan", dbPath, "--tree", "testdata/tree.db", "--ibackup", addr, "--cert", certPath).CombinedOutput()
 
 			So(string(out), ShouldEqual, "ibackup set 'plan::/lustre/scratch123/humgen/a/b/' created for userA with 2 files\n")
 			So(err, ShouldBeNil)
@@ -65,11 +70,36 @@ func TestMain(t *testing.T) {
 			So(files[0].Path, ShouldEqual, "/lustre/scratch123/humgen/a/b/1.jpg")
 			So(files[1].Path, ShouldEqual, "/lustre/scratch123/humgen/a/b/2.jpg")
 		})
+
+		Convey("The backups command fails with an invalid plan schema", func() {
+			_, dbPath := plandb.PopulateExamplePlanDB(t)
+			_, err := exec.Command(filepath.Join(tmpDir, app), "backup", "--plan", "bad:"+dbPath, "--tree", "testdata/tree.db", "--ibackup", addr, "--cert", certPath).CombinedOutput()
+			So(err, ShouldNotBeNil)
+		})
+
+		Convey("The backups command works with an explicit sqlite3 plan schema", func() {
+			_, dbPath := plandb.PopulateExamplePlanDB(t)
+			_, err := exec.Command(filepath.Join(tmpDir, app), "backup", "--plan", "sqlite3:"+dbPath, "--tree", "testdata/tree.db", "--ibackup", addr, "--cert", certPath).CombinedOutput()
+			So(err, ShouldBeNil)
+		})
+
+		if mysqlConnection == "" {
+			SkipConvey("Skipping mysql tests as BACKUP_PLANS_TEST_MYSQL not set", func() {})
+			return
+		}
+
+		Convey("The backups command works with a mysql plan database", func() {
+			os.Setenv("BACKUP_PLANS_TEST_MYSQL", mysqlConnection)
+			plandb.PopulateExamplePlanDB(t)
+
+			out, err := exec.Command(filepath.Join(tmpDir, app), "backup", "--plan", "mysql:"+mysqlConnection, "--tree", "testdata/tree.db", "--ibackup", addr, "--cert", certPath).CombinedOutput()
+			So(string(out), ShouldEqual, "ibackup set 'plan::/lustre/scratch123/humgen/a/b/' created for userA with 2 files\n")
+			So(err, ShouldBeNil)
+		})
 	})
 }
 
 func buildSelf() (string, func()) {
-	//TODO: can we build in a tempdir instead with -o ...?
 	tmpDir, err := os.MkdirTemp("", "backup-plans-test")
 	if err != nil {
 		failMainTest(err.Error())
@@ -89,7 +119,3 @@ func buildSelf() (string, func()) {
 func failMainTest(err string) {
 	fmt.Println(err) //nolint:forbidigo
 }
-
-// TODO: create main_test.go that builds our binary and tests
-// literally running it with os/exec. We'll need a test tree.db and sqlite
-// plan.db, plus environment variables for a test ibackup server and cert.

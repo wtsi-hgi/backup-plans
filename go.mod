@@ -3,6 +3,7 @@ module github.com/wtsi-hgi/backup-plans
 go 1.24.4
 
 require (
+	github.com/go-sql-driver/mysql v1.9.3
 	github.com/inconshreveable/log15 v3.0.0-testing.5+incompatible
 	github.com/klauspost/pgzip v1.2.6
 	github.com/mattn/go-sqlite3 v1.14.24
@@ -25,6 +26,7 @@ require (
 require (
 	cloud.google.com/go/compute/metadata v0.7.0 // indirect
 	code.cloudfoundry.org/bytefmt v0.41.0 // indirect
+	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/BurntSushi/toml v1.5.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/VertebrateResequencing/muxfys/v4 v4.0.3 // indirect

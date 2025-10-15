@@ -42,8 +42,8 @@ var tables = [...]string{
 		"`directoryID` INTEGER NOT NULL, " +
 		"`type` INTEGER NOT NULL, " +
 		"`metadata` TEXT NOT NULL, " +
-		"`reviewDate` BIGINT, " +
-		"`removeDate` BIGINT, " +
+		"`reviewDate` BIGINT NOT NULL, " +
+		"`removeDate` BIGINT NOT NULL, " +
 		"`match` TEXT NOT NULL, " +
 		"`matchHash` " + hashColumnStart + "`match`" + hashColumnEnd + ", " +
 		"`frequency` INTEGER NOT NULL, " +

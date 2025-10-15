@@ -28,7 +28,9 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
+	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/spf13/cobra"
 	"github.com/wtsi-hgi/backup-plans/backups"
@@ -49,11 +51,13 @@ var backupCmd = &cobra.Command{
 	Short: "Use iBackup to backup files in a plan db.",
 	Long: `Use iBackup to backup files in a plan db.
 
-//TODO: give an example planDB connection string here
---plan should be a connection string for the plan database. 
-Optional prefixes are:
-  plan: for sqlite3 (default)
-  file: for mysql
+--plan should be a connection string for the plan database.
+
+For sqlite, say:
+  sqlite3:/path/to/plan.db
+
+For mysql, say:
+  mysql:user:password@tcp(host:port)/dbname
 
 --tree should be generated using the db command.
 `,
@@ -64,60 +68,39 @@ Optional prefixes are:
 			return fmt.Errorf("failed to connect to ibackup server: %w", err)
 		}
 
-		// TODO: detect driver from planDB string, see code we wrote previously
-		// in old repo
-		// old repo asks for driver in args (backup-plan-ui/main.go line 34)
-
-		// 1:
-
-		// // default driver is sqlite3
-		// driver := "sqlite3"
-		// pathItems := strings.Split(planDB, ":")
-		// if len(pathItems) > 1 {
-		// 	switch pathItems[0] {
-		// 	case "plan":
-		// 		driver = "sqlite3"
-		// 	case "file":
-		// 		driver = "mysql"
-		// 	default:
-		// 		return fmt.Errorf("unrecognised db driver: %s", pathItems[0])
-		// 	}
-		// }
-
-		// 2:
-
-		// ext := path.Ext(planDB)
-		// driver := "sqlite3"
-		// switch ext {
-		// case ".db", ".sqlite", ".sqlite3":
-		// 	driver = "sqlite3"
-		// case ".mysql":
-		// 	driver = "mysql"
-		// default:
-		// 	return fmt.Errorf("unrecognised db driver from file extension: %s", ext)
-		// }
-
 		driver := "sqlite3"
-		planDB, err := db.Init(driver, planDB)
+		pathItems := strings.SplitN(planDB, ":", 2)
+		if len(pathItems) > 1 {
+			switch pathItems[0] {
+			case "sqlite", "sqlite3":
+				driver = "sqlite3"
+			case "mysql":
+				driver = "mysql"
+			default:
+				return fmt.Errorf("unrecognised db driver: %s", pathItems[0])
+			}
+		}
+
+		path := pathItems[len(pathItems)-1]
+		planDB, err := db.Init(driver, path)
 		if err != nil {
 			return fmt.Errorf("failed to open db: %w", err)
 		}
 		defer planDB.Close() //nolint:errcheck
 
-		// sort treeNode incorrect type
 		treeNode, err := tree.OpenFile(treeDB)
 		if err != nil {
-			return fmt.Errorf("failed to open tree db: %w", err)
+			return fmt.Errorf("\n failed to open tree db: %w", err)
 		}
 		defer treeNode.Close() //nolint:errcheck
 
 		setInfos, err := backups.Backup(planDB, treeNode, client)
 		if err != nil {
-			return fmt.Errorf("failed to back up files: %w", err)
+			return fmt.Errorf("\n failed to back up files: %w", err)
 		}
 
 		for _, setIn := range setInfos {
-			fmt.Printf("ibackup set '%s' created for %s with %v files\n", setIn.BackupSetName, setIn.Requestor, setIn.FileCount)
+			cliPrintf("ibackup set '%s' created for %s with %v files\n", setIn.BackupSetName, setIn.Requestor, setIn.FileCount)
 		}
 
 		return nil

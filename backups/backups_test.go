@@ -5,12 +5,13 @@ import (
 	"os/user"
 	"testing"
 
+	_ "github.com/go-sql-driver/mysql"
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/ibackup"
 	"github.com/wtsi-hgi/backup-plans/internal"
 	"github.com/wtsi-hgi/backup-plans/internal/directories"
-	"github.com/wtsi-hgi/backup-plans/internal/testdb"
+	"github.com/wtsi-hgi/backup-plans/internal/plandb"
 	"github.com/wtsi-hgi/wrstat-ui/summary"
 	_ "modernc.org/sqlite"
 	"vimagination.zapto.org/tree"
@@ -92,7 +93,7 @@ func exampleTree() tree.Node {
 
 func TestCreateRuleGroups(t *testing.T) {
 	Convey("Given a plan database, you can create a slice of ruleGroups", t, func() {
-		testDB := examplePlanDB(t)
+		testDB, _ := plandb.PopulateExamplePlanDB(t)
 
 		dirs := make(map[int64][]string)
 
@@ -136,47 +137,6 @@ func TestCreateRuleGroups(t *testing.T) {
 	})
 }
 
-func examplePlanDB(t *testing.T) *db.DB {
-	testDB := testdb.CreateTestDatabase(t)
-
-	userA := "userA"
-	userB := "userB"
-
-	dirA := &db.Directory{
-		Path:      "/lustre/scratch123/humgen/a/b/",
-		ClaimedBy: userA,
-	}
-	dirB := &db.Directory{
-		Path:      "/lustre/scratch123/humgen/a/c/",
-		ClaimedBy: userB,
-	}
-
-	So(testDB.CreateDirectory(dirA), ShouldBeNil)
-	So(testDB.CreateDirectory(dirB), ShouldBeNil)
-
-	ruleA := &db.Rule{
-		BackupType: db.BackupIBackup,
-		Match:      "*.jpg",
-		Frequency:  7,
-	}
-	ruleB := &db.Rule{
-		BackupType: db.BackupNone,
-		Match:      "temp.jpg",
-		Frequency:  7,
-	}
-	ruleC := &db.Rule{
-		BackupType: db.BackupManual,
-		Match:      "*.txt",
-		Metadata:   "manualSetName",
-	}
-
-	So(testDB.CreateDirectoryRule(dirA, ruleA), ShouldBeNil)
-	So(testDB.CreateDirectoryRule(dirA, ruleB), ShouldBeNil)
-	So(testDB.CreateDirectoryRule(dirB, ruleC), ShouldBeNil)
-
-	return testDB
-}
-
 func TestBackups(t *testing.T) {
 	Convey("Given a plan database, a tree of wrstat info and an ibackup server", t, func() {
 		s, addr, certPath, dfn, err := internal.NewTestIbackupServer(t)
@@ -194,7 +154,7 @@ func TestBackups(t *testing.T) {
 		So(u, ShouldNotBeNil)
 		So(ibackupClient, ShouldNotBeNil)
 
-		testDB := examplePlanDB(t)
+		testDB, _ := plandb.PopulateExamplePlanDB(t)
 		tr := exampleTree()
 
 		Convey("You can create ibackup sets for all automatic ibackup plans, excluding BackupNone and BackupManual", func() {
