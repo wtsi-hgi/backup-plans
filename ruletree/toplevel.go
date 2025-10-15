@@ -92,11 +92,9 @@ func NewRoot(rules []DirRule) (*RootDir, error) {
 		}
 	}
 
-	if err := r.rebuildStateMachine(); err != nil {
-		return nil, err
-	}
+	err := r.rebuildStateMachine()
 
-	return r, nil
+	return r, err
 }
 
 // AddRule adds the given rule to the given directory and regenerates the rule
@@ -391,14 +389,14 @@ func openDB(file string) (*tree.MemTree, func(), error) { //nolint:funlen
 
 	stat, err := f.Stat()
 	if err != nil {
-		f.Close()
+		f.Close() // nolint:errcheck
 
 		return nil, nil, err
 	}
 
 	data, err := unix.Mmap(int(f.Fd()), 0, int(stat.Size()), unix.PROT_READ, unix.MAP_SHARED)
 	if err != nil {
-		f.Close()
+		f.Close() // nolint:errcheck
 
 		return nil, nil, err
 	}

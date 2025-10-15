@@ -49,7 +49,7 @@ func iterRows[T any](d *DBRO, scanner func(scanner) (T, error), query string, ar
 	}
 
 	ie.Iter = func(yield func(T) bool) {
-		defer rows.Close()
+		defer rows.Close() // nolint:errcheck
 
 		for rows.Next() {
 			v, err := scanner(rows)

@@ -120,7 +120,7 @@ func buildSelf() (string, func()) {
 		return "", nil
 	}
 
-	return tmpDir, func() { os.Remove(app) }
+	return tmpDir, func() { os.Remove(app) } // nolint:errcheck
 }
 
 func failMainTest(err string) {

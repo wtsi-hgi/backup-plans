@@ -62,7 +62,7 @@ database file.
 			return fmt.Errorf("error opening stats file: %w", err)
 		}
 
-		defer sf.Close()
+		defer sf.Close() // nolint:errcheck
 
 		var r io.Reader
 
