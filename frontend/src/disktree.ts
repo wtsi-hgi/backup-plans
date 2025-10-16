@@ -3,7 +3,7 @@ import type { Children } from './lib/dom.js';
 import { clearNode } from './lib/dom.js';
 import { br, details, div, label, option, select, summary } from './lib/html.js';
 import { rect, svg, text, use } from './lib/svg.js';
-import { BackupWarn } from './types.js';
+import { BackupIBackup, BackupNone, BackupWarn } from './types.js';
 
 
 export type Entry = {
@@ -216,6 +216,10 @@ const phi = (1 + Math.sqrt(5)) / 2,
 	colourFns = [
 		(dir: Directory) => dir.size ? 100 * Number(dir.size - (dir.actions[BackupWarn]?.size ?? 0n)) / Number(dir.size) : 100,
 		(dir: Directory) => dir.count ? 100 * Number(dir.count - (dir.actions[BackupWarn]?.count ?? 0n)) / Number(dir.count) : 100,
+		(dir: Directory) => dir.size ? 100 * Number(dir.actions[BackupIBackup]?.size ?? 0n) / Number(dir.size) : 100,
+		(dir: Directory) => dir.count ? 100 * Number(dir.actions[BackupIBackup]?.count ?? 0n) / Number(dir.count) : 100,
+		(dir: Directory) => dir.size ? 100 * Number(dir.actions[BackupNone]?.size ?? 0n) / Number(dir.size) : 100,
+		(dir: Directory) => dir.count ? 100 * Number(dir.actions[BackupNone]?.count ?? 0n) / Number(dir.count) : 100,
 		(dir: Directory) => Math.max(0, Math.min(100, 100 * (dir.mtime - (+new Date() / 1000) + secondsInSevenYears) / secondsInSevenYears))
 	],
 	areaFns = [
@@ -233,9 +237,13 @@ const phi = (1 + Math.sqrt(5)) / 2,
 				reload();
 			}
 		}, [
-			option({ "value": "0" }, "Backup Size %"),
-			option({ "value": "1" }, "Backup Files %"),
-			option({ "value": "2" }, "Modified Time")
+			option({ "value": "0" }, "Planned Size %"),
+			option({ "value": "1" }, "Planned Files %"),
+			option({ "value": "2" }, "Backup Size %"),
+			option({ "value": "3" }, "Backup Files %"),
+			option({ "value": "4" }, "No Backup Size %"),
+			option({ "value": "5" }, "No Backup Files %"),
+			option({ "value": "6" }, "Modified Time")
 		]),
 		br(),
 		label({ "for": "areaRepresents" }, "Area Represents"),
