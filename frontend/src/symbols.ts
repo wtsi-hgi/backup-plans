@@ -79,5 +79,6 @@ export const symbols = svg({ "style": `width: 0; height: 0` }, [
 			"stroke-linejoin": "round",
 			"stroke-linecap": "round"
 		}),
-	])
+	]),
+	symbol({ "id": "copy", "viewBox": "0 0 34 37" }, path({ "d": "M14,6 h-13 v30 h21 v-22 z v8 h8 M12,6 v-5 h13 l8,8 v22 h-11 m11,-22 h-8 v-8 M6,20 h11 m-11,5 h11 m-11,5 h11", "stroke": "currentColor", "fill": "none" }))
 ]);
