@@ -17,10 +17,10 @@ const getURL = <T>(url: string, params: Record<string, unknown> = {}) => {
 		xh.open("GET", url);
 		xh.addEventListener("readystatechange", () => {
 			if (xh.readyState === 4) {
-				if (xh.status === 200) {
-					successFn(JSON.parse(xh.responseText));
-				} else if (xh.status === 204) {
+				if (xh.status === 204 || !xh.responseText.length) {
 					successFn(null as T);
+				} else if (xh.status === 200) {
+					successFn(JSON.parse(xh.responseText));
 				} else {
 					errorFn(new Error(xh.responseText));
 				}
