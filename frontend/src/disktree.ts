@@ -214,15 +214,15 @@ const phi = (1 + Math.sqrt(5)) / 2,
 	},
 	secondsInSevenYears = 7 * 365 * 86400,
 	colourFns = [
-		(dir: Directory) => Math.max(0, Math.min(100, 100 * (dir.mtime - (+new Date() / 1000) + secondsInSevenYears) / secondsInSevenYears)),
 		(dir: Directory) => 100 * Number(dir.size - (dir.actions[BackupWarn]?.size ?? 0n)) / Number(dir.size),
 		(dir: Directory) => 100 * Number(dir.count - (dir.actions[BackupWarn]?.count ?? 0n)) / Number(dir.count),
+		(dir: Directory) => Math.max(0, Math.min(100, 100 * (dir.mtime - (+new Date() / 1000) + secondsInSevenYears) / secondsInSevenYears))
 	],
 	areaFns = [
-		(dir: Directory) => Number(dir.size),
-		(dir: Directory) => Number(dir.count),
 		(dir: Directory) => Number(dir.actions[BackupWarn]?.size ?? 0),
 		(dir: Directory) => Number(dir.actions[BackupWarn]?.count ?? 0),
+		(dir: Directory) => Number(dir.size),
+		(dir: Directory) => Number(dir.count)
 	],
 	options = details({ "id": "treeOptions" }, [
 		summary("View Options"),
@@ -233,9 +233,9 @@ const phi = (1 + Math.sqrt(5)) / 2,
 				reload();
 			}
 		}, [
-			option({ "value": "0" }, "Modified Time"),
-			option({ "value": "1" }, "Backup Size %"),
-			option({ "value": "2" }, "Backup Files %"),
+			option({ "value": "0" }, "Backup Size %"),
+			option({ "value": "1" }, "Backup Files %"),
+			option({ "value": "2" }, "Modified Time")
 		]),
 		br(),
 		label({ "for": "areaRepresents" }, "Area Represents"),
@@ -245,10 +245,10 @@ const phi = (1 + Math.sqrt(5)) / 2,
 				reload();
 			}
 		}, [
-			option({ "value": "0" }, "Total Size"),
-			option({ "value": "1" }, "Total Files"),
-			option({ "value": "2" }, "Unplanned Size"),
-			option({ "value": "3" }, "Unplanned Files"),
+			option({ "value": "0" }, "Unplanned Size"),
+			option({ "value": "1" }, "Unplanned Files"),
+			option({ "value": "2" }, "Total Size"),
+			option({ "value": "3" }, "Total Files"),
 		]),
 	]),
 	svgBase = div(),
