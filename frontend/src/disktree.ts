@@ -214,8 +214,8 @@ const phi = (1 + Math.sqrt(5)) / 2,
 	},
 	secondsInSevenYears = 7 * 365 * 86400,
 	colourFns = [
-		(dir: Directory) => 100 * Number(dir.size - (dir.actions[BackupWarn]?.size ?? 0n)) / Number(dir.size),
-		(dir: Directory) => 100 * Number(dir.count - (dir.actions[BackupWarn]?.count ?? 0n)) / Number(dir.count),
+		(dir: Directory) => dir.size ? 100 * Number(dir.size - (dir.actions[BackupWarn]?.size ?? 0n)) / Number(dir.size) : 100,
+		(dir: Directory) => dir.count ? 100 * Number(dir.count - (dir.actions[BackupWarn]?.count ?? 0n)) / Number(dir.count) : 100,
 		(dir: Directory) => Math.max(0, Math.min(100, 100 * (dir.mtime - (+new Date() / 1000) + secondsInSevenYears) / secondsInSevenYears))
 	],
 	areaFns = [
@@ -272,7 +272,7 @@ export default Object.assign(base, {
 		for (const [dir, child] of Object.entries(data.children)) {
 			entries.push({
 				"name": dir.replace("/", ""),
-				"value": areaFns[areaFn](child),
+				"value": Math.max(areaFns[areaFn](child), 0.0001),
 				"backgroundColour": colourFns[colourFn](child) + "",
 				"onclick": child.unauthorised ? undefined : () => load(path + dir),
 				"onmouseover": () => { },
