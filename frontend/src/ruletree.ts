@@ -132,26 +132,26 @@ export default Object.assign(base, {
           summaryEl.append(goBtn);
         }
 
-        if (hasRules) {
-          children.push(
-            table({ class: "summary" }, [
-              thead(tr([th("Match"), th("Action"), th("Files"), th("Size")])),
-              tbody(
-                data.__rules.map((rule) =>
-                  tr([
-                    td(rule.Match),
-                    td(action(rule.BackupType)),
-                    td(rule.count.toLocaleString()),
-                    td(
-                      { title: rule.size.toLocaleString() },
-                      formatBytes(rule.size)
-                    ),
-                  ])
-                )
-              ),
-            ])
-          );
-        }
+        // if (hasRules) {
+        //   children.push(
+        //     table({ class: "summary" }, [
+        //       thead(tr([th("Match"), th("Action"), th("Files"), th("Size")])),
+        //       tbody(
+        //         data.__rules.map((rule) =>
+        //           tr([
+        //             td(rule.Match),
+        //             td(action(rule.BackupType)),
+        //             td(rule.count.toLocaleString()),
+        //             td(
+        //               { title: rule.size.toLocaleString() },
+        //               formatBytes(rule.size)
+        //             ),
+        //           ])
+        //         )
+        //       ),
+        //     ])
+        //   );
+        // }
 
         if (hasChildren) {
           const childDetails = renderTree(data.__children, fullPath, depth + 1);

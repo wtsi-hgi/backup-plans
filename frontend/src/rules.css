@@ -13,34 +13,24 @@ button.actionButton svg {
 }
 
 .affectingRules {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: start;
   gap: 1em;
 }
 
 .card-container {
-  width: 100%;
   border: 1px solid #ddd;
   border-radius: 12px;
   padding: 16px;
   background: #fff;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
-  display: flex;
-  flex-direction: column;
-  gap: 1em;
   margin: 0.2em;
 }
 
 .card-header {
-  display: flex;
-  justify-content: space-between;
   align-items: center;
   margin-bottom: 8px;
 }
 
 .card-title {
-  flex: 1;
   text-align: center;
   margin: 0;
   font-size: 1.25rem;
@@ -55,9 +45,6 @@ button.actionButton svg {
 
 .rules-container {
   overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5em;
   padding-right: 4px;
   font-size: 14px;
 }
@@ -68,10 +55,11 @@ button.actionButton svg {
   padding: 2px 4px;
 }
 
+.rule-section summary {
+  list-style: none;
+}
+
 .summary-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
   cursor: pointer;
   padding: 4px 6px;
   user-select: none;
@@ -82,9 +70,6 @@ button.actionButton svg {
 }
 
 .rule-section summary {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
   cursor: pointer;
   padding: 4px 6px;
   user-select: none;
@@ -95,7 +80,6 @@ button.actionButton svg {
 }
 
 .rule-section summary .toggle-arrow {
-  display: inline-block;
   transition: transform 0.2s ease;
   margin-right: 6px;
 }
@@ -105,8 +89,6 @@ button.actionButton svg {
 }
 
 .tree-children {
-  display: flex;
-  flex-direction: column;
   position: relative;
   margin-left: 20px;
 }
@@ -137,8 +119,6 @@ button.actionButton svg {
   border: none;
   padding: 0;
   cursor: pointer;
-  display: flex;
-  align-items: center;
   margin-left: auto;
 }
 
@@ -146,18 +126,18 @@ button.actionButton svg {
 .load-button svg {
   width: 16px !important;
   height: 16px !important;
-  flex-shrink: 0;
+  padding-right: 0.5em;
+  display: inline-block;
+  margin-bottom: -0.25em;
 }
 
 .rule-badge {
-  display: inline-block;
   background: #e0f0ff;
   color: #000000;
   padding: 2px 6px;
   border-radius: 12px;
   margin-right: 4px;
   margin-bottom: 2px;
-  white-space: nowrap;
   cursor: default;
   transition: background 0.2s ease;
 }
