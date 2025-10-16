@@ -87,7 +87,6 @@ fieldset[data-status="r"]>legend {
 table.summary {
 	border-spacing: 0;
 	width: 100%;
-	min-width: 90vw;
 	border-top-width: 0;
 }
 
