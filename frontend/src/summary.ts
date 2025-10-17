@@ -20,7 +20,7 @@ const claimedByCell = td(),
 	backupSize = td(),
 	manualBackupSize = td(),
 	base = table({ "class": "summary" }, [
-		thead(tr([claimedByCell, th("Total"), th("Warn"), th("No Backup"), th("Temp Backup"), th("Backup"), th("Manual Backup")])),
+		thead(tr([claimedByCell, th("Total"), th("Unplanned"), th("No Backup"), th("Temp Backup"), th("Backup"), th("Manual Backup")])),
 		tbody([
 			tr([th("File count"), totalCount, warnCount, nobackupCount, tempbackupCount, backupCount, manualBackupCount]),
 			tr([th("File size"), totalSize, warnSize, nobackupSize, tempbackupSize, backupSize, manualBackupSize])

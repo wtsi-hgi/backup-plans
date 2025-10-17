@@ -34,7 +34,7 @@ class Summary {
 		return table({ "class": "summary" }, [
 			thead(tr([
 				td(),
-				th("Warn"),
+				th("Unplanned"),
 				th("No Backup"),
 				th("Temp Backup"),
 				th("Backup"),
