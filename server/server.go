@@ -35,11 +35,13 @@ import (
 )
 
 // Start creates and start a new server after loading the trees given.
-func Start(listen string, d *db.DB, getUser func(*http.Request) string, report []string, initialTrees ...string) error {
+func Start(listen string, d *db.DB, getUser func(*http.Request) string, report []string, adminGroup uint32, initialTrees ...string) error {
 	b, err := backend.New(d, getUser, report)
 	if err != nil {
 		return err
 	}
+
+	b.SetAdminGroup(adminGroup)
 
 	for _, db := range initialTrees {
 		slog.Info("Loading", "db", db)

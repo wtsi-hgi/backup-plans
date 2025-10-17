@@ -440,6 +440,7 @@ func (s *Server) removeRule(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	match := r.FormValue("match")
+
 	rule, ok := directory.Rules[match]
 	if !ok {
 		return ErrNoRule

@@ -88,7 +88,7 @@ func (s *Server) tree(w http.ResponseWriter, r *http.Request) error {
 
 	duid, dgid := summary.IDs()
 
-	if !isAuthorised(summary, uid, groups) {
+	if !isAuthorised(summary, uid, groups, s.adminGroup) {
 		return ErrNotAuthorised
 	}
 
@@ -101,7 +101,7 @@ func (s *Server) tree(w http.ResponseWriter, r *http.Request) error {
 	t.CanClaim = isOwner(uid, groups, duid, dgid)
 
 	for name, child := range summary.Children {
-		if !isAuthorised(child, uid, groups) {
+		if !isAuthorised(child, uid, groups, s.adminGroup) {
 			t.Unauthorised = append(t.Unauthorised, name)
 		}
 	}
@@ -143,9 +143,9 @@ func isOwner(uid uint32, groups []uint32, duid, dgid uint32) bool {
 	return duid == uid || slices.Contains(groups, dgid)
 }
 
-func isAuthorised(summary *ruletree.DirSummary, uid uint32, groups []uint32) bool {
+func isAuthorised(summary *ruletree.DirSummary, uid uint32, groups []uint32, adminGid uint32) bool {
 	duid, dgid := summary.IDs()
-	if isOwner(uid, groups, duid, dgid) {
+	if isOwner(uid, groups, duid, dgid) || slices.Contains(groups, adminGid) {
 		return true
 	}
 

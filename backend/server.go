@@ -50,6 +50,7 @@ type Server struct {
 	rules          map[uint64]*db.Rule
 	stateMachine   group.StateMachine[db.Rule]
 	reportRoots    []string
+	adminGroup     uint32
 
 	rootDir *ruletree.RootDir
 }
@@ -73,6 +74,10 @@ func New(db *db.DB, getUser func(r *http.Request) string, reportRoots []string) 
 	}
 
 	return s, nil
+}
+
+func (s *Server) SetAdminGroup(gid uint32) {
+	s.adminGroup = gid
 }
 
 // WhoAmI is an HTTP endpoint that returns the result of the getUser func that

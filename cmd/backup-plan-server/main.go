@@ -63,11 +63,13 @@ func (r *reportRoots) Set(val string) error {
 
 func run() error {
 	var (
-		port   uint64
-		report reportRoots
+		port       uint64
+		report     reportRoots
+		adminGroup uint64
 	)
 
 	flag.Uint64Var(&port, "port", 12345, "port to start server on")
+	flag.Uint64Var(&adminGroup, "admin", 0, "admin groups that can see the entire tree")
 	flag.Var(&report, "report", "reporting root, can be supplied more than once")
 
 	flag.Parse()
@@ -77,7 +79,7 @@ func run() error {
 		return err
 	}
 
-	return server.Start(fmt.Sprintf(":%d", port), d, getUser, report, flag.Args()...)
+	return server.Start(fmt.Sprintf(":%d", port), d, getUser, report, uint32(adminGroup), flag.Args()...)
 
 }
 
