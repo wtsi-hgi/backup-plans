@@ -277,7 +277,9 @@ export let render = () => { };
 
 let areaFn = 0,
 	colourFn = 0,
-	reload = () => { };
+	reload = () => { },
+	lastWidth = 0,
+	lastHeight = 0;
 
 new ResizeObserver(() => render()).observe(svgBase);
 
@@ -298,7 +300,7 @@ export default Object.assign(base, {
 
 		entries.sort((a, b) => b.value - a.value);
 
-		render = () => clearNode(svgBase, buildTreeMap(entries, svgBase.clientWidth, svgBase.clientHeight, data.unauthorised, () => { }));
+		render = () => clearNode(svgBase, buildTreeMap(entries, lastWidth = svgBase.clientWidth || lastWidth, lastHeight = svgBase.clientHeight || lastHeight, data.unauthorised, () => { }));
 
 		render();
 
