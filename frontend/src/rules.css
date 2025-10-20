@@ -66,14 +66,6 @@ button.actionButton svg {
   background: #f0f0f0;
 }
 
-.rule-section summary .toggle-arrow {
-  transition: transform 0.2s ease;
-  margin-right: 6px;
-}
-
-.rule-section[open] > summary .toggle-arrow {
-  transform: rotate(90deg);
-}
 .summary-header {
   cursor: pointer;
   padding: 4px 6px;

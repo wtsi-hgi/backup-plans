@@ -1,14 +1,6 @@
 import type { DirectoryWithChildren, RuleStats, TreeNode } from "./types.js";
 import { clearNode } from "./lib/dom.js";
-import {
-  button,
-  details,
-  div,
-  h2,
-  input,
-  span,
-  summary,
-} from "./lib/html.js";
+import { button, details, div, h2, input, span, summary } from "./lib/html.js";
 import { svg, title, use } from "./lib/svg.js";
 import { action, formatBytes, stringSort } from "./lib/utils.js";
 
@@ -21,6 +13,14 @@ export default Object.assign(base, {
     load: (path: string) => Promise<DirectoryWithChildren>
   ) => {
     let searchQuery = "";
+
+    const hasAnyRules = Object.entries(data.rules).some(
+      ([dir, rules]) => dir && dir !== path && rules.length
+    );
+    if (!hasAnyRules) {
+      clearNode(base);
+      return;
+    }
 
     const rulesList = Object.entries(data.rules)
       .filter(([dir, rules]) => dir && dir !== path && rules.length)
@@ -53,15 +53,6 @@ export default Object.assign(base, {
         { class: "card-title" },
         "Rules affecting files within this directory tree"
       ),
-      input({
-        class: "search-input",
-        placeholder: "🔎 Search directories",
-        value: searchQuery,
-        input: (e: any) => {
-          searchQuery = e.target.value;
-          renderTreeView();
-        },
-      }),
     ]);
 
     // Returns true if the node or any of its descendants has rules
@@ -136,32 +127,39 @@ export default Object.assign(base, {
         if (hasChildren && Object.values(data.__children).some(hasDeepRules)) {
           summaryEl.style.cursor = "pointer";
           summaryEl.onclick = (e) => {
+            e.preventDefault();
             e.stopPropagation();
 
-            const expandFirstPath = (
+            const isOpen = detailEl.open;
+
+            const toggleAllPaths = (
               node: TreeNode,
-              detail: HTMLDetailsElement
+              detail: HTMLDetailsElement,
+              open: boolean
             ) => {
-              const firstChildWithRules = Object.entries(node.__children).find(
-                ([_, n]) => hasDeepRules(n)
-              );
-              if (!firstChildWithRules) return;
+              detail.open = open;
 
-              const [childName, childNode] = firstChildWithRules;
+              const childDetails = Array.from(
+                detail.querySelectorAll(":scope > .tree-children > details")
+              ) as HTMLDetailsElement[];
 
-              const childDetail = Array.from(
-                detail.querySelectorAll<HTMLDetailsElement>("details")
-              ).find(
-                (d) => d.querySelector(".dir-title")?.textContent === childName
-              );
+              for (const [childName, childNode] of Object.entries(
+                node.__children
+              )) {
+                if (!hasDeepRules(childNode)) continue;
 
-              if (childDetail) {
-                childDetail.open = true;
-                expandFirstPath(childNode, childDetail);
+                const childDetail = childDetails.find(
+                  (d) =>
+                    d.querySelector(".dir-title")?.textContent === childName
+                );
+
+                if (childDetail) {
+                  toggleAllPaths(childNode, childDetail, open);
+                }
               }
             };
 
-            expandFirstPath(data, detailEl);
+            toggleAllPaths(data, detailEl, !isOpen);
           };
         }
 
