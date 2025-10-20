@@ -8,12 +8,6 @@ import {
   input,
   span,
   summary,
-  table,
-  tbody,
-  td,
-  th,
-  thead,
-  tr,
 } from "./lib/html.js";
 import { svg, title, use } from "./lib/svg.js";
 import { action, formatBytes, stringSort } from "./lib/utils.js";
@@ -70,6 +64,12 @@ export default Object.assign(base, {
       }),
     ]);
 
+    // Returns true if the node or any of its descendants has rules
+    const hasDeepRules = (node: TreeNode): boolean => {
+      if (node.__rules.length > 0) return true;
+      return Object.values(node.__children).some(hasDeepRules);
+    };
+
     const renderTree = (
       node: Record<string, TreeNode>,
       parentPath = "",
@@ -81,7 +81,7 @@ export default Object.assign(base, {
         const hasChildren = Object.keys(data.__children).length > 0;
 
         const detailEl = details({ class: "rule-section" });
-        if (depth < 1) detailEl.open = true;
+        if (depth < 4) detailEl.open = true;
 
         const children: HTMLElement[] = [];
         const getRuleSummaryElements = (rules: RuleStats[]): HTMLElement[] => {
@@ -103,34 +103,69 @@ export default Object.assign(base, {
           });
         };
 
-        const summaryChildren: (HTMLElement | SVGElement)[] = [
+        const summaryChildren: (HTMLElement | SVGElement | null)[] = [
           svg({ class: "folder-button" }, [
             title("Folder"),
             use({ href: "#folder" }),
           ]),
           span({ class: "dir-title" }, dir),
+          hasRules
+            ? button(
+                {
+                  class: "load-button",
+                  click: (e: Event) => {
+                    e.stopPropagation();
+                    load(data.__fullPath || fullPath).then(() =>
+                      window.scrollTo(0, 0)
+                    );
+                  },
+                },
+                svg([title("Go to"), use({ href: "#goto" })])
+              )
+            : null,
           ...getRuleSummaryElements(data.__rules),
         ];
 
-        const summaryEl = summary({ class: "summary-header" }, summaryChildren);
+        const summaryEl = summary(
+          { class: "summary-header" },
+          summaryChildren.filter(
+            (el): el is HTMLElement | SVGElement => el !== null
+          )
+        );
+
+        if (hasChildren && Object.values(data.__children).some(hasDeepRules)) {
+          summaryEl.style.cursor = "pointer";
+          summaryEl.onclick = (e) => {
+            e.stopPropagation();
+
+            const expandFirstPath = (
+              node: TreeNode,
+              detail: HTMLDetailsElement
+            ) => {
+              const firstChildWithRules = Object.entries(node.__children).find(
+                ([_, n]) => hasDeepRules(n)
+              );
+              if (!firstChildWithRules) return;
+
+              const [childName, childNode] = firstChildWithRules;
+
+              const childDetail = Array.from(
+                detail.querySelectorAll<HTMLDetailsElement>("details")
+              ).find(
+                (d) => d.querySelector(".dir-title")?.textContent === childName
+              );
+
+              if (childDetail) {
+                childDetail.open = true;
+                expandFirstPath(childNode, childDetail);
+              }
+            };
+
+            expandFirstPath(data, detailEl);
+          };
+        }
 
         detailEl.append(summaryEl);
-
-        if (hasRules) {
-          const goBtn = button(
-            {
-              class: "load-button",
-              click: (e: Event) => {
-                e.stopPropagation();
-                load(data.__fullPath || fullPath).then(() =>
-                  window.scrollTo(0, 0)
-                );
-              },
-            },
-            svg([title("Go to"), use({ href: "#goto" })])
-          );
-          summaryEl.append(goBtn);
-        }
 
         if (hasChildren) {
           const childDetails = renderTree(data.__children, fullPath, depth + 1);

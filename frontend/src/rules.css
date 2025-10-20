@@ -57,19 +57,6 @@ button.actionButton svg {
 
 .rule-section summary {
   list-style: none;
-}
-
-.summary-header {
-  cursor: pointer;
-  padding: 4px 6px;
-  user-select: none;
-}
-
-.summary-header:hover {
-  background: #e0e0e0;
-}
-
-.rule-section summary {
   cursor: pointer;
   padding: 4px 6px;
   user-select: none;
@@ -86,6 +73,15 @@ button.actionButton svg {
 
 .rule-section[open] > summary .toggle-arrow {
   transform: rotate(90deg);
+}
+.summary-header {
+  cursor: pointer;
+  padding: 4px 6px;
+  user-select: none;
+}
+
+.summary-header:hover {
+  background: #e0e0e0;
 }
 
 .tree-children {
@@ -126,7 +122,8 @@ button.actionButton svg {
 .load-button svg {
   width: 16px !important;
   height: 16px !important;
-  padding-right: 0.5em;
+  padding-left: 0.25em;
+  padding-right: 0.25em;
   display: inline-block;
   margin-bottom: -0.25em;
 }
