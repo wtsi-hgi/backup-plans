@@ -47,7 +47,7 @@ func (d *Directory) ID() int64 {
 
 // CreateDirectory adds the given Directory structure to the database.
 func (d *DB) CreateDirectory(dir *Directory) error {
-	tx, err := d.db.Begin()
+	tx, err := d.db.Begin() //nolint:noctx
 	if err != nil {
 		return err
 	}
@@ -56,7 +56,7 @@ func (d *DB) CreateDirectory(dir *Directory) error {
 	dir.Created = time.Now().Unix()
 	dir.Modified = dir.Created
 
-	res, err := tx.Exec(createDirectory, dir.Path, dir.ClaimedBy, dir.Created, dir.Modified)
+	res, err := tx.Exec(createDirectory, dir.Path, dir.ClaimedBy, dir.Created, dir.Modified) //nolint:noctx
 	if err != nil {
 		return err
 	}

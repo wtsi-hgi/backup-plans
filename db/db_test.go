@@ -72,7 +72,7 @@ func dropTables(uri string) error {
 	}
 
 	for _, table := range [...]string{"rules", "directories"} {
-		if _, err = db.Exec("DROP TABLE IF EXISTS `" + table + "`;"); err != nil {
+		if _, err = db.Exec("DROP TABLE IF EXISTS `" + table + "`;"); err != nil { //nolint:noctx
 			return err
 		}
 	}

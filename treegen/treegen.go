@@ -69,7 +69,7 @@ type NameChild struct {
 }
 
 type treeNode struct {
-	ctx context.Context
+	ctx context.Context //nolint:containedctx
 
 	path  *summary.DirectoryPath
 	child *treeNode
@@ -138,11 +138,11 @@ func (i IDMeta) Add(id uint32, t, size int64) {
 
 	existing.MTime = max(existing.MTime, uint64(t)) //nolint:gosec
 	existing.Files++
-	existing.Bytes += uint64(size)
+	existing.Bytes += uint64(size) //nolint:gosec
 }
 
 func (n *treeNode) Add(info *summary.FileInfo) error { //nolint:gocognit,gocyclo
-	if n.path == nil {
+	if n.path == nil { //nolint:gocritic,nestif
 		n.path = info.Path
 		n.UID = info.UID
 		n.GID = info.GID
@@ -251,6 +251,7 @@ func (n *treeNode) WriteTo(w io.Writer) (int64, error) {
 	lw := &byteio.StickyLittleEndianWriter{Writer: w}
 
 	n.writer <- lw
+
 	<-n.writer
 
 	return lw.Count, lw.Err
@@ -277,7 +278,7 @@ func writeIDTimes(w *byteio.StickyLittleEndianWriter, idts []IDData) {
 
 	for _, idt := range idts {
 		w.WriteUintX(uint64(idt.ID))
-		w.WriteUintX(uint64(idt.MTime))
+		w.WriteUintX(idt.MTime)
 		w.WriteUintX(idt.Files)
 		w.WriteUintX(idt.Bytes)
 	}

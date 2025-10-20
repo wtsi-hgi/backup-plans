@@ -67,7 +67,7 @@ func Init(driver, connection string) (*DB, error) {
 
 func (d *DB) initTables() error {
 	for _, table := range tables {
-		if _, err := d.db.Exec(table); err != nil {
+		if _, err := d.db.Exec(table); err != nil { //nolint:noctx
 			return err
 		}
 	}
@@ -76,13 +76,13 @@ func (d *DB) initTables() error {
 }
 
 func (d *DB) exec(sql string, params ...any) error {
-	tx, err := d.db.Begin()
+	tx, err := d.db.Begin() //nolint:noctx
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback() //nolint:errcheck
 
-	if _, err = tx.Exec(sql, params...); err != nil {
+	if _, err = tx.Exec(sql, params...); err != nil { //nolint:noctx
 		return err
 	}
 

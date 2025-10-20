@@ -72,7 +72,7 @@ func (r *Rule) DirID() int64 {
 
 // CreateDirectoryRule stores defines the given rule for the given directory.
 func (d *DB) CreateDirectoryRule(dir *Directory, rule *Rule) error {
-	tx, err := d.db.Begin()
+	tx, err := d.db.Begin() //nolint:noctx
 	if err != nil {
 		return err
 	}
@@ -81,7 +81,18 @@ func (d *DB) CreateDirectoryRule(dir *Directory, rule *Rule) error {
 	rule.Created = time.Now().Unix()
 	rule.Modified = rule.Created
 
-	res, err := tx.Exec(createRule, dir.id, rule.BackupType, rule.Metadata, rule.ReviewDate, rule.RemoveDate, rule.Match, rule.Frequency, rule.Created, rule.Modified)
+	res, err := tx.Exec( //nolint:noctx
+		createRule,
+		dir.id,
+		rule.BackupType,
+		rule.Metadata,
+		rule.ReviewDate,
+		rule.RemoveDate,
+		rule.Match,
+		rule.Frequency,
+		rule.Created,
+		rule.Modified,
+	)
 	if err != nil {
 		return err
 	}
@@ -125,7 +136,17 @@ func scanRule(scanner scanner) (*Rule, error) {
 func (d *DB) UpdateRule(rule *Rule) error {
 	rule.Modified = time.Now().Unix()
 
-	return d.exec(updateRule, rule.BackupType, rule.Metadata, rule.ReviewDate, rule.RemoveDate, rule.Match, rule.Frequency, rule.Modified, rule.id)
+	return d.exec(
+		updateRule,
+		rule.BackupType,
+		rule.Metadata,
+		rule.ReviewDate,
+		rule.RemoveDate,
+		rule.Match,
+		rule.Frequency,
+		rule.Modified,
+		rule.id,
+	)
 }
 
 // RemoveRule will remove the given Rule from the database.

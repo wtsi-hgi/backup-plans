@@ -143,7 +143,7 @@ func TestTimeTree(t *testing.T) {
 func readMeta(r io.Reader) (uint32, uint32, int64, uint64) {
 	lr := byteio.StickyLittleEndianReader{Reader: r}
 
-	return uint32(lr.ReadUintX()), uint32(lr.ReadUintX()), int64(lr.ReadUintX()), lr.ReadUintX()
+	return uint32(lr.ReadUintX()), uint32(lr.ReadUintX()), int64(lr.ReadUintX()), lr.ReadUintX() //nolint:gosec
 }
 
 func readSummary(r io.Reader) (uint32, uint32, []treegen.IDData, []treegen.IDData) {
@@ -155,14 +155,14 @@ func readSummary(r io.Reader) (uint32, uint32, []treegen.IDData, []treegen.IDDat
 	lr.ReadUint8()
 	lr.ReadUint8()
 
-	return uint32(uid), uint32(gid), readArray(&lr), readArray(&lr)
+	return uint32(uid), uint32(gid), readArray(&lr), readArray(&lr) //nolint:gosec
 }
 
 func readArray(lr *byteio.StickyLittleEndianReader) []treegen.IDData {
 	idts := make([]treegen.IDData, lr.ReadUintX())
 
 	for n := range idts {
-		idts[n].ID = uint32(lr.ReadUintX())
+		idts[n].ID = uint32(lr.ReadUintX()) //nolint:gosec
 		idts[n].Meta = new(treegen.Meta)
 		idts[n].MTime = lr.ReadUintX()
 		idts[n].Files = lr.ReadUintX()

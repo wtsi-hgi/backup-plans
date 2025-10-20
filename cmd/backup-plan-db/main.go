@@ -47,8 +47,8 @@ func main() {
 	}
 }
 
-func run() error {
-	if len(os.Args) != 3 {
+func run() error { //nolint:gocyclo,funlen
+	if len(os.Args) != 3 { //nolint:mnd
 		return ErrArgs
 	}
 
@@ -61,7 +61,7 @@ func run() error {
 
 	var r io.Reader
 
-	if strings.HasSuffix(os.Args[1], ".gz") {
+	if strings.HasSuffix(os.Args[1], ".gz") { //nolint:nestif
 		if r, err = pgzip.NewReader(sf); err != nil {
 			return fmt.Errorf("error decompressing stats file: %w", err)
 		}

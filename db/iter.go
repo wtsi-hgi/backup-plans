@@ -41,7 +41,7 @@ func noSeq[T any](_ func(T) bool) {}
 func iterRows[T any](d *DBRO, scanner func(scanner) (T, error), query string, args ...any) *IterErr[T] {
 	var ie IterErr[T]
 
-	rows, err := d.db.Query(query, args...)
+	rows, err := d.db.Query(query, args...) //nolint:noctx
 	if err != nil {
 		return iterErr[T](err)
 	}

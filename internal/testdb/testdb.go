@@ -35,7 +35,7 @@ import (
 	_ "modernc.org/sqlite" //
 )
 
-func CreateTestDatabase(t *testing.T) *db.DB { //nolint:funlen
+func CreateTestDatabase(t *testing.T) *db.DB {
 	t.Helper()
 
 	oldTmp := os.Getenv("TMPDIR")
