@@ -91,8 +91,8 @@ type rulesDir struct {
 func (r *rulesDir) initIDs() {
 	sr := byteio.StickyLittleEndianReader{Reader: bytes.NewReader(r.node.Data())}
 
-	r.uid = uint32(sr.ReadUintX())
-	r.gid = uint32(sr.ReadUintX())
+	r.uid = uint32(sr.ReadUintX()) //nolint:gosec
+	r.gid = uint32(sr.ReadUintX()) //nolint:gosec
 
 	r.rules = r.rules[:0]
 }
@@ -118,9 +118,9 @@ func (d *dirWithRule) initChildren() {
 
 func (d *dirWithRule) children(yield func(string, tree.Node) bool) {
 	for name, child := range d.node.Children() {
-		mchild := child.(*tree.MemTree)
+		mchild := child.(*tree.MemTree) //nolint:errcheck,forcetypeassert
 
-		if strings.HasSuffix(name, "/") {
+		if strings.HasSuffix(name, "/") { //nolint:nestif
 			d.child.sm = d.sm.GetStateString(name)
 			d.child.node = mchild
 
@@ -153,7 +153,7 @@ func (r *rulesDir) processFile(name string, data []byte) error {
 
 func (r *rulesDir) mergeChild(child *rulesDir) {
 	for _, rule := range child.rules {
-		pos := r.getRulePos(int64(rule.ID))
+		pos := r.getRulePos(int64(rule.ID)) //nolint:gosec
 
 		for _, user := range rule.Users {
 			r.rules[pos].Users.add(user.id, user.MTime, user.Files, user.Size)
@@ -187,10 +187,10 @@ func (r *rulesDir) setRule(rule *db.Rule, f *file) {
 }
 
 func (r *rulesDir) getRulePos(ruleID int64) int {
-	newRule := Rule{ID: uint64(ruleID)}
+	newRule := Rule{ID: uint64(ruleID)} //nolint:gosec
 
 	pos, ok := slices.BinarySearchFunc(r.rules, newRule, func(a, b Rule) int {
-		return int(a.ID - b.ID)
+		return int(a.ID - b.ID) //nolint:gosec
 	})
 	if !ok {
 		r.rules = slices.Insert(r.rules, pos, newRule)
@@ -220,14 +220,14 @@ func (r *rulesDir) addExisting(data []byte) {
 	for range sr.ReadUintX() {
 		ruleID := sr.ReadUintX()
 
-		readArray(&sr, int64(ruleID), r.addUserData)
-		readArray(&sr, int64(ruleID), r.addGroupData)
+		readArray(&sr, int64(ruleID), r.addUserData)  //nolint:gosec
+		readArray(&sr, int64(ruleID), r.addGroupData) //nolint:gosec
 	}
 }
 
 func readArray(sr *byteio.StickyLittleEndianReader, ruleID int64, fn func(uint32, int64, uint64, uint64, uint64)) {
 	for range sr.ReadUintX() {
-		uid := uint32(sr.ReadUintX())
+		uid := uint32(sr.ReadUintX()) //nolint:gosec
 		mtime := sr.ReadUintX()
 		files := sr.ReadUintX()
 		size := sr.ReadUintX()
@@ -245,8 +245,8 @@ type file struct {
 func (f *file) ReadFrom(r io.Reader) (int64, error) {
 	lr := byteio.StickyLittleEndianReader{Reader: r}
 
-	f.uid = uint32(lr.ReadUintX())
-	f.gid = uint32(lr.ReadUintX())
+	f.uid = uint32(lr.ReadUintX()) //nolint:gosec
+	f.gid = uint32(lr.ReadUintX()) //nolint:gosec
 	f.mtime = lr.ReadUintX()
 	f.size = lr.ReadUintX()
 
@@ -280,9 +280,9 @@ func (r *ruleLessDir) initChildren() {
 	r.rulesDir.rules = r.rulesDir.rules[:0]
 }
 
-func (r *ruleLessDir) children(yield func(string, tree.Node) bool) {
+func (r *ruleLessDir) children(yield func(string, tree.Node) bool) { //nolint:funlen,gocognit,gocyclo
 	for name, child := range r.node.Children() {
-		mchild := child.(*tree.MemTree)
+		mchild := child.(*tree.MemTree) //nolint:errcheck,forcetypeassert
 
 		if !strings.HasSuffix(name, "/") {
 			if err := r.processFile(name, mchild.Data()); err != nil {
@@ -294,7 +294,7 @@ func (r *ruleLessDir) children(yield func(string, tree.Node) bool) {
 			continue
 		}
 
-		nameBuf := append(r.nameBuf, name...)
+		nameBuf := append(r.nameBuf, name...) //nolint:gocritic
 
 		hasRules, isPrefix := r.ruleDirPrefixes[string(nameBuf)]
 		if !isPrefix {
@@ -341,9 +341,9 @@ func (r *ruleLessDirPatch) Children() iter.Seq2[string, tree.Node] {
 	return r.children
 }
 
-func (r *ruleLessDirPatch) children(yield func(string, tree.Node) bool) {
+func (r *ruleLessDirPatch) children(yield func(string, tree.Node) bool) { //nolint:funlen,gocognit,gocyclo,cyclop
 	for name, child := range r.node.Children() {
-		mchild := child.(*tree.MemTree)
+		mchild := child.(*tree.MemTree) //nolint:errcheck,forcetypeassert
 
 		if !strings.HasSuffix(name, "/") {
 			if err := r.processFile(name, mchild.Data()); err != nil {
@@ -355,11 +355,11 @@ func (r *ruleLessDirPatch) children(yield func(string, tree.Node) bool) {
 			continue
 		}
 
-		pchild, _ := r.previousRules.Child(name)
-		nameBuf := append(r.nameBuf, name...)
+		pchild, _ := r.previousRules.Child(name) //nolint:errcheck
+		nameBuf := append(r.nameBuf, name...)    //nolint:gocritic
 
 		hasRules, isPrefix := r.ruleDirPrefixes[string(nameBuf)]
-		if !isPrefix {
+		if !isPrefix { //nolint:nestif
 			if pchild != nil {
 				r.addExisting(pchild.Data())
 
@@ -378,7 +378,7 @@ func (r *ruleLessDirPatch) children(yield func(string, tree.Node) bool) {
 			sm:   r.sm.GetStateString(name),
 		}
 
-		if !hasRules {
+		if !hasRules { //nolint:nestif
 			var rchild tree.Node
 
 			var child *rulesDir

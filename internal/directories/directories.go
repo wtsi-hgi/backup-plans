@@ -14,9 +14,11 @@ import (
 	"vimagination.zapto.org/tree"
 )
 
+const dirSize = 4096
+
 type child interface {
 	tree.Node
-	writeTo(io.Writer)
+	writeTo(w io.Writer)
 }
 
 type Root struct {
@@ -62,9 +64,7 @@ func (r *Root) WriteTo(_ io.Writer) (int64, error) {
 func (d *Directory) AddDirectory(name string) *Directory {
 	if name == "." {
 		return d
-	}
-
-	if !strings.HasSuffix(name, "/") {
+	} else if !strings.HasSuffix(name, "/") {
 		name += "/"
 	}
 
@@ -123,7 +123,7 @@ func (d *Directory) AddFile(name string) *File {
 func (d *Directory) writeTo(w io.Writer) {
 	path := string(d.Path.AppendTo(nil))
 	fmt.Fprintf(w, "%q\t%d\t%d\t%d\t%d\t%d\t%d\t%c\t%d\t1\t1\t%d\n",
-		path, 4096, d.UID, d.GID, d.MTime, d.MTime, d.MTime, 'd', 0, 4096)
+		path, dirSize, d.UID, d.GID, d.MTime, d.MTime, d.MTime, 'd', 0, dirSize)
 
 	keys := slices.Collect(maps.Keys(d.children))
 
@@ -140,7 +140,7 @@ func (d *Directory) AsReader() io.ReadCloser {
 	pr, pw := io.Pipe()
 
 	go func() {
-		d.writeTo(pw) //nolint:errcheck
+		d.writeTo(pw)
 		pw.Close()
 	}()
 

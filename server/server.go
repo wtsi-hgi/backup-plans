@@ -35,7 +35,8 @@ import (
 )
 
 // Start creates and start a new server after loading the trees given.
-func Start(listen string, d *db.DB, getUser func(*http.Request) string, report []string, adminGroup uint32, initialTrees ...string) error {
+func Start(listen string, d *db.DB, getUser func(*http.Request) string,
+	report []string, adminGroup uint32, initialTrees ...string) error {
 	b, err := backend.New(d, getUser, report)
 	if err != nil {
 		return err
@@ -64,5 +65,5 @@ func Start(listen string, d *db.DB, getUser func(*http.Request) string, report [
 	http.Handle("/api/report/summary", http.HandlerFunc(b.Summary))
 	http.Handle("/", frontend.Index)
 
-	return http.ListenAndServe(listen, nil)
+	return http.ListenAndServe(listen, nil) //nolint:gosec
 }

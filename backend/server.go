@@ -33,10 +33,8 @@ import (
 
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/ruletree"
-	"github.com/wtsi-hgi/wrstat-ui/summary/group"
 	"vimagination.zapto.org/httpbuffer"
-
-	_ "vimagination.zapto.org/httpbuffer/gzip"
+	_ "vimagination.zapto.org/httpbuffer/gzip" //
 )
 
 // Server represents all of the data required to run the backend server.
@@ -48,7 +46,6 @@ type Server struct {
 	directoryRules map[string]*ruletree.DirRules
 	dirs           map[uint64]*db.Directory
 	rules          map[uint64]*db.Rule
-	stateMachine   group.StateMachine[db.Rule]
 	reportRoots    []string
 	adminGroup     uint32
 
@@ -83,7 +80,7 @@ func (s *Server) SetAdminGroup(gid uint32) {
 // WhoAmI is an HTTP endpoint that returns the result of the getUser func that
 // was passed to the New function.
 func (s *Server) WhoAmI(w http.ResponseWriter, r *http.Request) {
-	json.NewEncoder(w).Encode(s.getUser(r))
+	json.NewEncoder(w).Encode(s.getUser(r)) //nolint:errcheck,errchkjson
 }
 
 func handle(w http.ResponseWriter, r *http.Request, fn func(http.ResponseWriter, *http.Request) error) {

@@ -37,7 +37,7 @@ type groups struct {
 	groups []uint32
 }
 
-var userGroupsCache = makeMuMap[string, groups]()
+var userGroupsCache = makeMuMap[string, groups]() //nolint:gochecknoglobals
 
 // GetIDs returns the UID and a slice of GIDs for the given username.
 //
@@ -47,6 +47,21 @@ func GetIDs(username string) (uint32, []uint32) {
 		return gc.uid, gc.groups
 	}
 
+	uid, gids := getUserData(username)
+	if gids == nil {
+		return 0, nil
+	}
+
+	userGroupsCache.Set(username, groups{
+		expiry: time.Now().Add(time.Hour),
+		uid:    uid,
+		groups: gids,
+	})
+
+	return uid, gids
+}
+
+func getUserData(username string) (uint32, []uint32) {
 	u, err := user.Lookup(username)
 	if err != nil {
 		return 0, nil
@@ -72,12 +87,6 @@ func GetIDs(username string) (uint32, []uint32) {
 
 		gs = append(gs, uint32(g))
 	}
-
-	userGroupsCache.Set(username, groups{
-		expiry: time.Now().Add(time.Hour),
-		uid:    uint32(uid),
-		groups: gs,
-	})
 
 	return uint32(uid), gs
 }

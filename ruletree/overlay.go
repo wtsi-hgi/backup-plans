@@ -48,7 +48,7 @@ type DirSummary struct {
 func (d *DirSummary) mergeRules(rules []Rule) {
 	for _, rule := range rules {
 		pos, ok := slices.BinarySearchFunc(d.RuleSummaries, rule, func(a, b Rule) int {
-			return int(a.ID) - int(b.ID)
+			return int(a.ID) - int(b.ID) //nolint:gosec
 		})
 		if !ok {
 			d.RuleSummaries = slices.Insert(d.RuleSummaries, pos, Rule{ID: rule.ID})
@@ -108,7 +108,7 @@ func (r *ruleOverlay) getChild(path string) (*ruleOverlay, string, error) {
 	var upper *tree.MemTree
 
 	if r.upper != nil {
-		upper, _ = r.upper.Child(child)
+		upper, _ = r.upper.Child(child) //nolint:errcheck
 	}
 
 	cr := &ruleOverlay{lower, upper}
@@ -134,7 +134,7 @@ func (r *ruleOverlay) GetOwner(path string) (uint32, uint32, error) {
 func (r *ruleOverlay) getOwner() (uint32, uint32) {
 	sr := byteio.StickyLittleEndianReader{Reader: bytes.NewReader(cmp.Or(r.upper, r.lower).Data())}
 
-	return uint32(sr.ReadUintX()), uint32(sr.ReadUintX())
+	return uint32(sr.ReadUintX()), uint32(sr.ReadUintX()) //nolint:gosec
 }
 
 func (r *ruleOverlay) getSummaryWithChildren() *DirSummary {
@@ -148,10 +148,10 @@ func (r *ruleOverlay) getSummaryWithChildren() *DirSummary {
 		var upper *tree.MemTree
 
 		if r.upper != nil {
-			upper, _ = r.upper.Child(name)
+			upper, _ = r.upper.Child(name) //nolint:errcheck
 		}
 
-		cr := ruleOverlay{lower.(*tree.MemTree), upper}
+		cr := ruleOverlay{lower.(*tree.MemTree), upper} //nolint:errcheck,forcetypeassert
 
 		ds.Children[name] = cr.getSummary()
 	}
@@ -166,8 +166,8 @@ func (r *ruleOverlay) getSummary() *DirSummary {
 		Children: make(map[string]*DirSummary),
 	}
 
-	ds.uid = uint32(sr.ReadUintX())
-	ds.gid = uint32(sr.ReadUintX())
+	ds.uid = uint32(sr.ReadUintX()) //nolint:gosec
+	ds.gid = uint32(sr.ReadUintX()) //nolint:gosec
 
 	ds.RuleSummaries = make([]Rule, sr.ReadUintX())
 
@@ -197,8 +197,8 @@ func (s *Stats) ID() uint32 {
 
 func (s *Stats) writeTo(sw *byteio.StickyLittleEndianWriter) {
 	sw.WriteUintX(uint64(s.id))
-	sw.WriteUintX(uint64(s.MTime))
-	sw.WriteUintX(uint64(s.Files))
+	sw.WriteUintX(s.MTime)
+	sw.WriteUintX(s.Files)
 	sw.WriteUintX(s.Size)
 }
 
@@ -207,7 +207,7 @@ func readStats(br *byteio.StickyLittleEndianReader, name func(uint32) string) []
 
 	for n := range stats {
 		stats[n] = Stats{
-			id:    uint32(br.ReadUintX()),
+			id:    uint32(br.ReadUintX()), //nolint:gosec
 			MTime: br.ReadUintX(),
 			Files: br.ReadUintX(),
 			Size:  br.ReadUintX(),

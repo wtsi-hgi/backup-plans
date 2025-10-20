@@ -39,11 +39,11 @@ import (
 var (
 	ErrNotFound = Error{
 		Code: http.StatusNotFound,
-		Err:  errors.New("404 page not found"),
+		Err:  errors.New("404 page not found"), //nolint:err113
 	}
 	ErrNotAuthorised = Error{
 		Code: http.StatusUnauthorized,
-		Err:  errors.New("not authorised to see this directory"),
+		Err:  errors.New("not authorised to see this directory"), //nolint:err113
 	}
 )
 
@@ -67,7 +67,7 @@ func (s *Server) Tree(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.tree)
 }
 
-func (s *Server) tree(w http.ResponseWriter, r *http.Request) error {
+func (s *Server) tree(w http.ResponseWriter, r *http.Request) error { //nolint:funlen,gocyclo,cyclop,gocognit
 	dir, err := getDir(r)
 	if err != nil {
 		return err
@@ -113,7 +113,7 @@ func (s *Server) tree(w http.ResponseWriter, r *http.Request) error {
 		t.Rules[dir] = thisDir
 
 		for _, rule := range dirRules.Rules {
-			thisDir[uint64(rule.ID())] = rule
+			thisDir[uint64(rule.ID())] = rule //nolint:gosec
 		}
 	}
 
@@ -123,7 +123,7 @@ func (s *Server) tree(w http.ResponseWriter, r *http.Request) error {
 		}
 
 		rule := s.rules[rs.ID]
-		dir := s.dirs[uint64(rule.DirID())]
+		dir := s.dirs[uint64(rule.DirID())] //nolint:gosec
 
 		r, ok := t.Rules[dir.Path]
 		if !ok {
@@ -143,9 +143,9 @@ func isOwner(uid uint32, groups []uint32, duid, dgid uint32) bool {
 	return duid == uid || slices.Contains(groups, dgid)
 }
 
-func isAuthorised(summary *ruletree.DirSummary, uid uint32, groups []uint32, adminGid uint32) bool {
+func isAuthorised(summary *ruletree.DirSummary, uid uint32, groups []uint32, adminGID uint32) bool { //nolint:gocyclo,gocognit,lll
 	duid, dgid := summary.IDs()
-	if isOwner(uid, groups, duid, dgid) || slices.Contains(groups, adminGid) {
+	if isOwner(uid, groups, duid, dgid) || slices.Contains(groups, adminGID) {
 		return true
 	}
 

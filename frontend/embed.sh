@@ -46,5 +46,5 @@ import (
 //go:embed index.html.gz
 var indexHTML []byte
 
-var Index = httpembed.HandleBuffer("index.html", indexHTML, $size, time.Unix($time, 0))
+var Index = httpembed.HandleBuffer("index.html", indexHTML, $size, time.Unix($time, 0)) //nolint:gochecknoglobals,lll,mnd
 HEREDOC

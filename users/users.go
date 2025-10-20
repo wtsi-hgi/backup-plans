@@ -36,7 +36,7 @@ type muMap[K comparable, V any] struct {
 	m  map[K]V
 }
 
-func (m *muMap[K, V]) Get(key K) (V, bool) {
+func (m *muMap[K, V]) Get(key K) (V, bool) { //nolint:ireturn
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -59,8 +59,8 @@ func makeMuMap[K comparable, V any]() *muMap[K, V] {
 }
 
 var (
-	userCache  = makeMuMap[uint32, string]()
-	groupCache = makeMuMap[uint32, string]()
+	userCache  = makeMuMap[uint32, string]() //nolint:gochecknoglobals
+	groupCache = makeMuMap[uint32, string]() //nolint:gochecknoglobals
 )
 
 // Username returns the username assigned to the given UID.

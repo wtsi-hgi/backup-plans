@@ -41,9 +41,11 @@ import (
 	"vimagination.zapto.org/tree"
 )
 
+const nameBufLen = 4096
+
 type summariser interface {
-	Summary(string) (*DirSummary, error)
-	GetOwner(string) (uint32, uint32, error)
+	Summary(path string) (*DirSummary, error)
+	GetOwner(path string) (uint32, uint32, error)
 }
 
 // DirRules is a Directory reference and a map of its rules, keyed by the Match.
@@ -90,7 +92,9 @@ func NewRoot(rules []DirRule) (*RootDir, error) {
 		}
 	}
 
-	r.rebuildStateMachine()
+	if err := r.rebuildStateMachine(); err != nil {
+		return nil, err
+	}
 
 	return r, nil
 }
@@ -185,7 +189,7 @@ func (r *RootDir) regenRulesFor(t *topLevelDir, child *ruleOverlay, dir, curr, n
 		},
 		ruleDirPrefixes: r.createRulePatchMap(dir),
 		previousRules:   child.upper,
-		nameBuf:         append(make([]byte, 0, 4096), curr...),
+		nameBuf:         append(make([]byte, 0, nameBufLen), curr...),
 	}
 
 	var buf bytes.Buffer
@@ -314,7 +318,7 @@ func (t *topLevelDir) Summary(path string) (*DirSummary, error) {
 	return child.Summary(rest)
 }
 
-func (t *topLevelDir) getChild(path string) (summariser, string, error) {
+func (t *topLevelDir) getChild(path string) (summariser, string, error) { //nolint:ireturn
 	pos := strings.IndexByte(path, '/')
 
 	child := t.children[path[:pos+1]]
@@ -341,11 +345,12 @@ func (t *topLevelDir) GetOwner(path string) (uint32, uint32, error) {
 // AddTree adds a tree database, specified by the given file path, to the
 // RootDir, possibly overriding an existing database if they share the same
 // root.
-func (r *RootDir) AddTree(file string) (err error) {
+func (r *RootDir) AddTree(file string) (err error) { //nolint:funlen
 	db, closer, err := openDB(file)
 	if err != nil {
 		return err
 	}
+
 	defer func() {
 		if err != nil {
 			closer()
@@ -378,7 +383,7 @@ func (r *RootDir) AddTree(file string) (err error) {
 	return nil
 }
 
-func openDB(file string) (*tree.MemTree, func(), error) {
+func openDB(file string) (*tree.MemTree, func(), error) { //nolint:funlen
 	f, err := os.Open(file)
 	if err != nil {
 		return nil, nil, err
@@ -399,7 +404,7 @@ func openDB(file string) (*tree.MemTree, func(), error) {
 	}
 
 	fn := func() {
-		unix.Munmap(data)
+		unix.Munmap(data) //nolint:errcheck
 		f.Close()
 	}
 
@@ -425,7 +430,7 @@ func getRoot(db *tree.MemTree) (*tree.MemTree, string, error) {
 
 	db.Children()(func(path string, node tree.Node) bool {
 		rootPath = path
-		treeRoot = node.(*tree.MemTree)
+		treeRoot = node.(*tree.MemTree) //nolint:errcheck,forcetypeassert
 
 		return false
 	})
@@ -445,7 +450,7 @@ func (r *RootDir) processRules(treeRoot *tree.MemTree, rootPath string) (*ruleOv
 		},
 		ruleDirPrefixes: r.createRulePrefixMap(rootPath),
 		rules:           new(dirWithRule),
-		nameBuf:         append(make([]byte, 0, 4096), rootPath...),
+		nameBuf:         append(make([]byte, 0, nameBufLen), rootPath...),
 	}
 
 	var buf bytes.Buffer
@@ -481,13 +486,15 @@ func (r *RootDir) createRulePrefixMap(rootPath string) map[string]bool {
 	return rulePrefixes
 }
 
-func createTopLevelDirs(treeRoot *ruleOverlay, rootPath string, p *topLevelDir) error {
+func createTopLevelDirs(treeRoot *ruleOverlay, rootPath string, p *topLevelDir) error { //nolint:gocognit
 	for part := range pathParts(rootPath[1 : len(rootPath)-1]) {
 		np, ok := p.children[part]
 		if !ok {
 			np = newTopLevelDir(p)
 
-			p.setChild(part, np)
+			if err := p.setChild(part, np); err != nil {
+				return err
+			}
 		}
 
 		dir, ok := np.(*topLevelDir)
@@ -506,9 +513,7 @@ func createTopLevelDirs(treeRoot *ruleOverlay, rootPath string, p *topLevelDir) 
 		}
 	}
 
-	p.setChild(name, treeRoot)
-
-	return nil
+	return p.setChild(name, treeRoot)
 }
 
 func pathParts(path string) iter.Seq[string] {

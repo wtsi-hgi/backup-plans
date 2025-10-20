@@ -47,8 +47,8 @@ func (s *Server) Summary(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.summary)
 }
 
-func (s *Server) summary(w http.ResponseWriter, r *http.Request) error {
-	summary := summary{
+func (s *Server) summary(w http.ResponseWriter, _ *http.Request) error { //nolint:funlen,cyclop,gocognit,gocyclo
+	dirSummary := summary{
 		Summaries:   make(map[string]*ruletree.DirSummary, len(s.reportRoots)),
 		Rules:       make(map[uint64]*db.Rule),
 		Directories: make(map[string][]uint64),
@@ -70,32 +70,32 @@ func (s *Server) summary(w http.ResponseWriter, r *http.Request) error {
 			ds.ClaimedBy = dirRules.ClaimedBy
 		}
 
-		summary.Summaries[root] = ds
+		dirSummary.Summaries[root] = ds
 
 		for _, rule := range ds.RuleSummaries {
-			if _, ok := summary.Rules[rule.ID]; ok {
+			if _, ok := dirSummary.Rules[rule.ID]; ok {
 				continue
 			}
 
 			if rule.ID > 0 {
-				dir := s.directoryRules[s.dirs[uint64(s.rules[rule.ID].DirID())].Path]
+				dir := s.directoryRules[s.dirs[uint64(s.rules[rule.ID].DirID())].Path] //nolint:gosec
 
-				if _, ok := summary.Directories[dir.Path]; !ok {
+				if _, ok := dirSummary.Directories[dir.Path]; !ok {
 					var ruleIDs []uint64
 
 					for _, r := range dir.Rules {
-						ruleIDs = append(ruleIDs, uint64(r.ID()))
+						ruleIDs = append(ruleIDs, uint64(r.ID())) //nolint:gosec
 					}
 
-					summary.Directories[dir.Path] = ruleIDs
+					dirSummary.Directories[dir.Path] = ruleIDs
 				}
 			}
 
-			summary.Rules[rule.ID] = s.rules[rule.ID]
+			dirSummary.Rules[rule.ID] = s.rules[rule.ID]
 		}
 	}
 
 	w.Header().Set("Content-type", "application/json")
 
-	return json.NewEncoder(w).Encode(summary)
+	return json.NewEncoder(w).Encode(dirSummary)
 }

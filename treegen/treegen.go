@@ -136,12 +136,12 @@ func (i IDMeta) Add(id uint32, t, size int64) {
 		i[id] = existing
 	}
 
-	existing.MTime = max(existing.MTime, uint64(t))
+	existing.MTime = max(existing.MTime, uint64(t)) //nolint:gosec
 	existing.Files++
 	existing.Bytes += uint64(size)
 }
 
-func (n *treeNode) Add(info *summary.FileInfo) error {
+func (n *treeNode) Add(info *summary.FileInfo) error { //nolint:gocognit,gocyclo
 	if n.path == nil {
 		n.path = info.Path
 		n.UID = info.UID
@@ -182,11 +182,27 @@ func (n *treeNode) sendChild(name []byte, child tree.Node) error {
 func (n *treeNode) Output() error {
 	close(n.yield)
 
+	if err := n.writeData(); err != nil {
+		return err
+	}
+
+	if err := n.writeTopData(); err != nil {
+		return err
+	}
+
+	n.path = nil
+	clear(n.Users)
+	clear(n.Groups)
+
+	return nil
+}
+
+func (n *treeNode) writeData() error {
 	select {
 	case <-n.ctx.Done():
 		return context.Cause(n.ctx)
 	case w := <-n.writer:
-		n.Directory.WriteTo(w)
+		n.Directory.WriteTo(w) //nolint:errcheck
 
 		n.writer <- nil
 
@@ -195,8 +211,10 @@ func (n *treeNode) Output() error {
 		}
 	}
 
-	var err error
+	return nil
+}
 
+func (n *treeNode) writeTopData() error {
 	if n.top {
 		select {
 		case <-n.ctx.Done():
@@ -205,17 +223,16 @@ func (n *treeNode) Output() error {
 
 			<-n.ctx.Done()
 
-			if err = context.Cause(n.ctx); errors.Is(err, context.Canceled) {
-				err = nil
+			err := context.Cause(n.ctx)
+			if errors.Is(err, context.Canceled) {
+				return nil
 			}
+
+			return err
 		}
 	}
 
-	n.path = nil
-	clear(n.Users)
-	clear(n.Groups)
-
-	return err
+	return nil
 }
 
 func (n *treeNode) Children() iter.Seq2[string, tree.Node] {
@@ -276,8 +293,8 @@ func (f *File) WriteTo(w io.Writer) (int64, error) {
 
 	sw.WriteUintX(uint64(f.UID))
 	sw.WriteUintX(uint64(f.GID))
-	sw.WriteUintX(uint64(f.MTime))
-	sw.WriteUintX(uint64(f.Size))
+	sw.WriteUintX(uint64(f.MTime)) //nolint:gosec
+	sw.WriteUintX(uint64(f.Size))  //nolint:gosec
 
 	return sw.Count, sw.Err
 }

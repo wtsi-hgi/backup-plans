@@ -39,7 +39,55 @@ import (
 	"github.com/wtsi-hgi/wrstat-ui/summary/group"
 )
 
-func (s *Server) loadRules() ([]ruletree.DirRule, error) {
+var (
+	ErrOrphanedRule = errors.New("rule found without directory")
+	ErrInvalidDir   = Error{
+		Code: http.StatusBadRequest,
+		Err:  errors.New("invalid dir path"), //nolint:err113
+	}
+	ErrInvalidUser = Error{
+		Code: http.StatusBadRequest,
+		Err:  errors.New("invalid user"), //nolint:err113
+	}
+	ErrDirectoryClaimed = Error{
+		Code: http.StatusNotAcceptable,
+		Err:  errors.New("directory already claimed"), //nolint:err113
+	}
+	ErrCannotClaimDirectory = Error{
+		Code: http.StatusNotAcceptable,
+		Err:  errors.New("cannot claim directory"), //nolint:err113
+	}
+	ErrDirectoryNotClaimed = Error{
+		Code: http.StatusNotAcceptable,
+		Err:  errors.New("directory not claimed"), //nolint:err113
+	}
+	ErrRuleExists = Error{
+		Code: http.StatusBadRequest,
+		Err:  errors.New("rule already exists for that match string"), //nolint:err113
+	}
+	ErrInvalidFrequency = Error{
+		Code: http.StatusBadRequest,
+		Err:  errors.New("invalid frequency"), //nolint:err113
+	}
+	ErrInvalidAction = Error{
+		Code: http.StatusBadRequest,
+		Err:  errors.New("invalid action"), //nolint:err113
+	}
+	ErrInvalidMatch = Error{
+		Code: http.StatusBadRequest,
+		Err:  errors.New("invalid match string"), //nolint:err113
+	}
+	ErrInvalidTime = Error{
+		Code: http.StatusBadRequest,
+		Err:  errors.New("invalid time"), //nolint:err113
+	}
+	ErrNoRule = Error{
+		Code: http.StatusBadRequest,
+		Err:  errors.New("no matching rule"), //nolint:err113
+	}
+)
+
+func (s *Server) loadRules() ([]ruletree.DirRule, error) { //nolint:funlen
 	s.directoryRules = make(map[string]*ruletree.DirRules)
 	s.dirs = make(map[uint64]*db.Directory)
 	s.rules = make(map[uint64]*db.Rule)
@@ -53,7 +101,7 @@ func (s *Server) loadRules() ([]ruletree.DirRule, error) {
 		}
 		s.directoryRules[dir.Path] = dr
 		dirs[dir.ID()] = dr
-		s.dirs[uint64(dir.ID())] = dir
+		s.dirs[uint64(dir.ID())] = dir //nolint:gosec
 
 		return nil
 	}); err != nil {
@@ -68,7 +116,7 @@ func (s *Server) loadRules() ([]ruletree.DirRule, error) {
 			return ErrOrphanedRule
 		}
 
-		s.rules[uint64(r.ID())] = r
+		s.rules[uint64(r.ID())] = r //nolint:gosec
 
 		dir.Rules[r.Match] = r
 		ruleList = append(ruleList, group.PathGroup[db.Rule]{
@@ -86,13 +134,6 @@ func (s *Server) loadRules() ([]ruletree.DirRule, error) {
 		return nil, err
 	}
 
-	sm, err := group.NewStatemachine(ruleList)
-	if err != nil {
-		return nil, err
-	}
-
-	s.stateMachine = sm
-
 	return dirRules, nil
 }
 
@@ -107,7 +148,7 @@ func (s *Server) ClaimDir(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.claimDir)
 }
 
-func (s *Server) claimDir(w http.ResponseWriter, r *http.Request) error {
+func (s *Server) claimDir(w http.ResponseWriter, r *http.Request) error { //nolint:funlen
 	user := s.getUser(r)
 
 	uid, groups := users.GetIDs(s.getUser(r))
@@ -145,7 +186,7 @@ func (s *Server) claimDir(w http.ResponseWriter, r *http.Request) error {
 		Rules:     make(map[string]*db.Rule),
 	}
 
-	s.dirs[uint64(directory.ID())] = directory
+	s.dirs[uint64(directory.ID())] = directory //nolint:gosec
 
 	w.Header().Set("Content-Type", "application/json")
 
@@ -171,7 +212,7 @@ func (s *Server) PassDirClaim(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.passDirClaim)
 }
 
-func (s *Server) passDirClaim(w http.ResponseWriter, r *http.Request) error {
+func (s *Server) passDirClaim(_ http.ResponseWriter, r *http.Request) error { //nolint:funlen
 	user := s.getUser(r)
 	passTo := r.FormValue("passTo")
 
@@ -216,7 +257,7 @@ func (s *Server) RevokeDirClaim(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.revokeDirClaim)
 }
 
-func (s *Server) revokeDirClaim(w http.ResponseWriter, r *http.Request) error {
+func (s *Server) revokeDirClaim(_ http.ResponseWriter, r *http.Request) error {
 	user := s.getUser(r)
 
 	dir, err := getDir(r)
@@ -262,7 +303,7 @@ func (s *Server) CreateRule(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.createRule)
 }
 
-func (s *Server) createRule(w http.ResponseWriter, r *http.Request) error {
+func (s *Server) createRule(w http.ResponseWriter, r *http.Request) error { //nolint:funlen,gocyclo
 	dir, err := getDir(r)
 	if err != nil {
 		return err
@@ -294,7 +335,7 @@ func (s *Server) createRule(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	directory.Rules[rule.Match] = rule
-	s.rules[uint64(rule.ID())] = rule
+	s.rules[uint64(rule.ID())] = rule //nolint:gosec
 
 	if err := s.rootDir.AddRule(directory.Directory, rule); err != nil {
 		return err
@@ -305,7 +346,7 @@ func (s *Server) createRule(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func getRuleDetails(r *http.Request) (*db.Rule, error) {
+func getRuleDetails(r *http.Request) (*db.Rule, error) { //nolint:funlen,gocyclo,cyclop
 	rule := new(db.Rule)
 
 	var requireMetadata, requireFrequency bool
@@ -366,7 +407,7 @@ func (s *Server) UpdateRule(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.updateRule)
 }
 
-func (s *Server) updateRule(w http.ResponseWriter, r *http.Request) error {
+func (s *Server) updateRule(w http.ResponseWriter, r *http.Request) error { //nolint:funlen
 	dir, err := getDir(r)
 	if err != nil {
 		return err
@@ -418,7 +459,7 @@ func (s *Server) RemoveRule(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.removeRule)
 }
 
-func (s *Server) removeRule(w http.ResponseWriter, r *http.Request) error {
+func (s *Server) removeRule(w http.ResponseWriter, r *http.Request) error { //nolint:funlen
 	dir, err := getDir(r)
 	if err != nil {
 		return err
@@ -467,51 +508,3 @@ func getDir(r *http.Request) (string, error) {
 
 	return dir, nil
 }
-
-var (
-	ErrOrphanedRule = errors.New("rule found without directory")
-	ErrInvalidDir   = Error{
-		Code: http.StatusBadRequest,
-		Err:  errors.New("invalid dir path"),
-	}
-	ErrInvalidUser = Error{
-		Code: http.StatusBadRequest,
-		Err:  errors.New("invalid user"),
-	}
-	ErrDirectoryClaimed = Error{
-		Code: http.StatusNotAcceptable,
-		Err:  errors.New("directory already claimed"),
-	}
-	ErrCannotClaimDirectory = Error{
-		Code: http.StatusNotAcceptable,
-		Err:  errors.New("cannot claim directory"),
-	}
-	ErrDirectoryNotClaimed = Error{
-		Code: http.StatusNotAcceptable,
-		Err:  errors.New("directory not claimed"),
-	}
-	ErrRuleExists = Error{
-		Code: http.StatusBadRequest,
-		Err:  errors.New("rule already exists for that match string"),
-	}
-	ErrInvalidFrequency = Error{
-		Code: http.StatusBadRequest,
-		Err:  errors.New("invalid frequency"),
-	}
-	ErrInvalidAction = Error{
-		Code: http.StatusBadRequest,
-		Err:  errors.New("invalid action"),
-	}
-	ErrInvalidMatch = Error{
-		Code: http.StatusBadRequest,
-		Err:  errors.New("invalid match string"),
-	}
-	ErrInvalidTime = Error{
-		Code: http.StatusBadRequest,
-		Err:  errors.New("invalid time"),
-	}
-	ErrNoRule = Error{
-		Code: http.StatusBadRequest,
-		Err:  errors.New("no matching rule"),
-	}
-)

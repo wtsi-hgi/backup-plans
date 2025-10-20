@@ -32,7 +32,7 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey" //nolint:revive,stylecheck
 	"github.com/wtsi-hgi/backup-plans/db"
-	_ "modernc.org/sqlite"
+	_ "modernc.org/sqlite" //
 )
 
 func CreateTestDatabase(t *testing.T) *db.DB { //nolint:funlen

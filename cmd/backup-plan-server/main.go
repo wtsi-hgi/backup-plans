@@ -39,6 +39,8 @@ import (
 	"github.com/wtsi-hgi/backup-plans/server"
 )
 
+const defaultPort = 8080
+
 var sqlDriver = "mysql"
 
 func main() {
@@ -68,7 +70,7 @@ func run() error {
 		adminGroup uint64
 	)
 
-	flag.Uint64Var(&port, "port", 12345, "port to start server on")
+	flag.Uint64Var(&port, "port", defaultPort, "port to start server on")
 	flag.Uint64Var(&adminGroup, "admin", 0, "admin groups that can see the entire tree")
 	flag.Var(&report, "report", "reporting root, can be supplied more than once")
 
@@ -79,7 +81,7 @@ func run() error {
 		return err
 	}
 
-	return server.Start(fmt.Sprintf(":%d", port), d, getUser, report, uint32(adminGroup), flag.Args()...)
+	return server.Start(fmt.Sprintf(":%d", port), d, getUser, report, uint32(adminGroup), flag.Args()...) //nolint:gosec
 }
 
 func getUser(r *http.Request) string {
@@ -90,7 +92,7 @@ func getUser(r *http.Request) string {
 				return ""
 			}
 
-			return strings.SplitN(unsafe.String(unsafe.SliceData(data), len(data)), ":", 2)[0]
+			return strings.SplitN(unsafe.String(unsafe.SliceData(data), len(data)), ":", 2)[0] //nolint:mnd
 		}
 	}
 
