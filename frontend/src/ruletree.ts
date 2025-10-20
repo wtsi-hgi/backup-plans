@@ -125,7 +125,6 @@ export default Object.assign(base, {
         );
 
         if (hasChildren && Object.values(data.__children).some(hasDeepRules)) {
-          summaryEl.style.cursor = "pointer";
           summaryEl.onclick = (e) => {
             e.preventDefault();
             e.stopPropagation();
