@@ -294,7 +294,7 @@ func (s *Server) revokeDirClaim(_ http.ResponseWriter, r *http.Request) error {
 // The following are the GET params for the rule:
 //
 //	match       The match rule.
-//	action      One of nobackup, tempbackup, backup, or manualbackup.
+//	action      One of nobackup, backup, or manualbackup.
 //	metadata    For a manualbackup, it's the requestor of the backup set.
 //	frequency   How often in days to run the backup.
 //	reviewdate  Unix seconds representing the date of the backup review.
