@@ -87,27 +87,8 @@ button.actionButton svg {
   margin-left: 20px;
 }
 
-.tree-children::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 10px;
-  bottom: 0;
-  width: 1px;
-  background: var(--subtleBorder);
-}
-
 .tree-children > details {
   position: relative;
-}
-
-.tree-children > details::before {
-  content: "";
-  position: absolute;
-  top: 12px;
-  left: -10px;
-  width: 10px;
-  background: var(--subtleBorder);
 }
 
 .load-button {
