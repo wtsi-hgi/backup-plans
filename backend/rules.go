@@ -386,7 +386,6 @@ func getRuleDetails(r *http.Request) (*db.Rule, error) { //nolint:funlen,gocyclo
 	}
 
 	var err error
-
 	if rule.ReviewDate, err = strconv.ParseInt(r.FormValue("review"), 10, 64); err != nil {
 		return nil, ErrInvalidTime
 	}

@@ -72,7 +72,7 @@ linters:
     - usestdlibvars
     - wastedassign
     - whitespace
-    - wsl
+    - wsl_v5
   settings:
     dupl:
       threshold: 100
@@ -110,9 +110,12 @@ linters:
     whitespace:
       multi-if: false
       multi-func: false
-    wsl:
-      allow-cuddle-declarations: false
-      force-err-cuddling: true
+    wsl_v5:
+      allow-first-in-block: true
+      allow-whole-block: false
+      branch-max-lines: 2
+      enable:
+        - err
   exclusions:
     generated: lax
     presets:

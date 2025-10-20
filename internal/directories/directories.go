@@ -174,7 +174,7 @@ func (d *Directory) addFileData(uid, gid uint32, mtime, size int64) {
 		d.parent.addFileData(uid, gid, mtime, size)
 	}
 
-	d.Directory.Add(uid, gid, mtime, size)
+	d.Add(uid, gid, mtime, size)
 }
 
 // File represents a pseudo-file entry.

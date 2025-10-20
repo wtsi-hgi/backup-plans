@@ -30,7 +30,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	. "github.com/smartystreets/goconvey/convey" //nolint:revive,stylecheck
+	. "github.com/smartystreets/goconvey/convey" //nolint:revive,staticcheck
 	"github.com/wtsi-hgi/backup-plans/db"
 	_ "modernc.org/sqlite" //
 )
@@ -44,7 +44,7 @@ func CreateTestDatabase(t *testing.T) *db.DB { //nolint:funlen
 		os.Setenv("TMPDIR", "/dev/shm")
 	}
 
-	os.Setenv("TMPDIR", oldTmp) //nolint:tenv
+	os.Setenv("TMPDIR", oldTmp)
 
 	d, err := db.Init("sqlite", filepath.Join(t.TempDir(), "db?journal_mode=WAL&_pragma=foreign_keys(1)"))
 	So(err, ShouldBeNil)
