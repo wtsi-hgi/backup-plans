@@ -14,7 +14,7 @@ export default Object.assign(table({ "class": "prettyTable", "id": "dirlist" }, 
 			td(name),
 			td({ "title": child.size.toLocaleString() }, formatBytes(child.size)),
 			td(child.count.toLocaleString()),
-			td(new Date(child.mtime * 1000).toISOString())
+			td(new Date(child.mtime * 1000).toLocaleString('en-GB', { timeZone: 'Europe/London', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }))
 		])
 	}))
 });
