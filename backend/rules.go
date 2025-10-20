@@ -314,9 +314,6 @@ func getRuleDetails(r *http.Request) (*db.Rule, error) {
 	case "nobackup":
 		rule.BackupType = db.BackupNone
 		requireFrequency = true
-	case "tempbackup":
-		rule.BackupType = db.BackupTemp
-		requireFrequency = true
 	case "backup":
 		rule.BackupType = db.BackupIBackup
 		requireFrequency = true

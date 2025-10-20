@@ -34,7 +34,6 @@ type BackupType uint8
 
 const (
 	BackupNone BackupType = iota
-	BackupTemp
 	BackupIBackup
 	BackupManual
 )

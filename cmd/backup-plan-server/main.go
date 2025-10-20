@@ -80,7 +80,6 @@ func run() error {
 	}
 
 	return server.Start(fmt.Sprintf(":%d", port), d, getUser, report, uint32(adminGroup), flag.Args()...)
-
 }
 
 func getUser(r *http.Request) string {

@@ -1,16 +1,16 @@
-import { BackupIBackup, type DirectoryWithChildren, type Rule } from "./types.js"
+import type { DirectoryWithChildren, Rule } from "./types.js"
 import { clearNode } from "./lib/dom.js";
-import { br, button, dialog, div, form, h2, input, label, meta, option, select, table, tbody, td, th, thead, tr } from './lib/html.js';
+import { br, button, dialog, div, form, h2, input, label, option, select, table, tbody, td, th, thead, tr } from './lib/html.js';
 import { svg, title, use } from './lib/svg.js';
 import { action, confirm, formatBytes } from "./lib/utils.js";
 import { createRule, removeRule, updateRule, user } from "./rpc.js";
+import { BackupIBackup, BackupManual, BackupNone } from "./types.js"
 
 const addEditOverlay = (path: string, rule: Rule, load: (path: string) => void) => {
 	const backupType = select({ "id": "backupType" }, [
-		option({ "value": "backup", [rule.BackupType === 2 ? "selected" : "unselected"]: "" }, "Backup"),
-		option({ "value": "tempbackup", [rule.BackupType === 1 ? "selected" : "unselected"]: "" }, "Temp Backup"),
-		option({ "value": "manualbackup", [rule.BackupType === 3 ? "selected" : "unselected"]: "" }, "Manual Backup"),
-		option({ "value": "nobackup", [rule.BackupType === 0 ? "selected" : "unselected"]: "" }, "No Backup")
+		option({ "value": "backup", [rule.BackupType === BackupIBackup ? "selected" : "unselected"]: "" }, "Backup"),
+		option({ "value": "manualbackup", [rule.BackupType === BackupManual ? "selected" : "unselected"]: "" }, "Manual Backup"),
+		option({ "value": "nobackup", [rule.BackupType === BackupNone ? "selected" : "unselected"]: "" }, "No Backup")
 	]),
 		set = button(rule.Match ? "Update" : "Add"),
 		cancel = button({ "type": "button", "click": () => overlay.close() }, "Cancel"),

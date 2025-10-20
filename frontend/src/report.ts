@@ -36,7 +36,6 @@ class Summary {
 				td(),
 				th("Unplanned"),
 				th("No Backup"),
-				th("Temp Backup"),
 				th("Backup"),
 				th("Manual Backup")
 			])),
@@ -46,16 +45,14 @@ class Summary {
 					td(this.actions[-1]?.count.toLocaleString() ?? "0"),
 					td(this.actions[0]?.count.toLocaleString() ?? "0"),
 					td(this.actions[1]?.count.toLocaleString() ?? "0"),
-					td(this.actions[2]?.count.toLocaleString() ?? "0"),
-					td(this.actions[3]?.count.toLocaleString() ?? "0")
+					td(this.actions[2]?.count.toLocaleString() ?? "0")
 				]),
 				tr([
 					th("File size"),
 					td({ "title": (this.actions[-1]?.size ?? 0).toLocaleString() }, formatBytes(this.actions[-1]?.size ?? 0)),
 					td({ "title": (this.actions[0]?.size ?? 0).toLocaleString() }, formatBytes(this.actions[0]?.size ?? 0)),
 					td({ "title": (this.actions[1]?.size ?? 0).toLocaleString() }, formatBytes(this.actions[1]?.size ?? 0)),
-					td({ "title": (this.actions[2]?.size ?? 0).toLocaleString() }, formatBytes(this.actions[2]?.size ?? 0)),
-					td({ "title": (this.actions[3]?.size ?? 0).toLocaleString() }, formatBytes(this.actions[3]?.size ?? 0))
+					td({ "title": (this.actions[2]?.size ?? 0).toLocaleString() }, formatBytes(this.actions[2]?.size ?? 0))
 				])
 			])
 		])
@@ -89,7 +86,6 @@ class ParentSummary extends Summary {
 			"data-status": ((this.actions[BackupNone]?.count ?? 0n) !== this.count) ? dt < secondsInWeek ? "g" : dt < secondsInWeek * 3 ? "a" : "r" : "b",
 			"data-warn-size": (this.actions[-1]?.size ?? 0) + "",
 			"data-nobackup-size": (this.actions[0]?.size ?? 0) + "",
-			"data-tempbackup-size": (this.actions[1]?.size ?? 0) + "",
 			"data-backup-size": (this.actions[2]?.size ?? 0) + "",
 			"data-name": this.path
 		}, [
@@ -155,13 +151,12 @@ class ChildSummary extends Summary {
 }
 
 const base = div({ "id": "report" }),
-	initFilterSort = (container: HTMLDivElement, children: HTMLFieldSetElement[], [filterProject, filterAll, filterR, filterA, filterG, filterB, sortName, sortWarnSize, sortNoBackupSize, sortTempBackupSize, sortBackupSize]: [HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement]) => {
+	initFilterSort = (container: HTMLDivElement, children: HTMLFieldSetElement[], [filterProject, filterAll, filterR, filterA, filterG, filterB, sortName, sortWarnSize, sortNoBackupSize, sortBackupSize]: [HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement]) => {
 		const projects = children.map(child => ({
 			"elem": child,
 			"name": child.dataset.name!,
 			"warnSize": parseInt(child.dataset.warnSize!),
 			"nobackupSize": parseInt(child.dataset.nobackupSize!),
-			"tempbackupSize": parseInt(child.dataset.tempbackupSize!),
 			"backupSize": parseInt(child.dataset.backupSize!),
 			"status": child.dataset.status!,
 		})),
@@ -173,7 +168,7 @@ const base = div({ "id": "report" }),
 					project.elem.classList.toggle("h", !project.name.includes(filterData["name"]) || !project.status.includes(filterData["status"]));
 				}
 			},
-			sort = (key: "name" | "warnSize" | "nobackupSize" | "tempbackupSize" | "backupSize") => {
+			sort = (key: "name" | "warnSize" | "nobackupSize" | "backupSize") => {
 				projects.sort((a, b) => key === "name" ? stringSort(a[key], b[key]) : b[key] - a[key]);
 				container.append(...projects.map(p => p.elem));
 			};
@@ -188,7 +183,6 @@ const base = div({ "id": "report" }),
 		sortName.addEventListener("click", () => sort("name"));
 		sortWarnSize.addEventListener("click", () => sort("warnSize"));
 		sortNoBackupSize.addEventListener("click", () => sort("nobackupSize"));
-		sortTempBackupSize.addEventListener("click", () => sort("tempbackupSize"));
 		sortBackupSize.addEventListener("click", () => sort("backupSize"));
 	},
 	download = () => {
@@ -216,7 +210,6 @@ getReportSummary().then(data => {
 		sortName = input({ "id": "sortName", "name": "sort", "type": "radio", "checked": "checked" }),
 		sortWarnSize = input({ "id": "sortWarnSize", "name": "sort", "type": "radio" }),
 		sortNoBackupSize = input({ "id": "sortNoBackupSize", "name": "sort", "type": "radio" }),
-		sortTempBackupSize = input({ "id": "sortTempBackupSize", "name": "sort", "type": "radio" }),
 		sortBackupSize = input({ "id": "sortBackupSize", "name": "sort", "type": "radio" });
 
 	for (const [dir, summary] of Object.entries(data.Summaries)) {
@@ -258,13 +251,12 @@ getReportSummary().then(data => {
 		label({ "for": "sortName" }, "Name"), sortName,
 		label({ "for": "sortWarnSize" }, "Warning size"), sortWarnSize,
 		label({ "for": "sortNoBackupSize" }, "No Backup Size"), sortNoBackupSize,
-		label({ "for": "sortTempBackupSize" }, "Temp Backup Size"), sortTempBackupSize,
 		label({ "for": "sortBackupSize" }, "Backup Size"), sortBackupSize
 	])
 
 	children[0].firstChild?.firstChild?.firstChild?.appendChild(button({ "click": download }, "Download Report"))
 
-	initFilterSort(base, children.slice(3) as HTMLFieldSetElement[], [filterProject, filterAll, filterR, filterA, filterG, filterB, sortName, sortWarnSize, sortNoBackupSize, sortTempBackupSize, sortBackupSize]);
+	initFilterSort(base, children.slice(3) as HTMLFieldSetElement[], [filterProject, filterAll, filterR, filterA, filterG, filterB, sortName, sortWarnSize, sortNoBackupSize, sortBackupSize]);
 	amendNode(base, children);
 });
 

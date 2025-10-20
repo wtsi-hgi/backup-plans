@@ -54,7 +54,7 @@ func TestRules(t *testing.T) {
 				Frequency:  7,
 			}
 			ruleB := &Rule{
-				BackupType: BackupTemp,
+				BackupType: BackupManual,
 				Match:      "*.log",
 				Frequency:  1,
 			}
