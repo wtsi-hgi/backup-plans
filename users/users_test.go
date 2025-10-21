@@ -26,67 +26,42 @@
 package users
 
 import (
-	"os/user"
-	"strconv"
-	"time"
+	"os"
+	"testing"
+
+	. "github.com/smartystreets/goconvey/convey"
 )
 
-type groups struct {
-	expiry time.Time
-	uid    uint32
-	groups []uint32
-}
+func TestUsername(t *testing.T) {
+	Convey("You can get a username from a user ID", t, func() {
+		So(Username(uint32(os.Getuid())), ShouldNotBeBlank)
 
-var userGroupsCache = makeMuMap[string, groups]() //nolint:gochecknoglobals
+		Convey("The cache is used for a username that's already been fetched", func() {
+			const (
+				fakeID       = 1234567
+				fakeUsername = "MY_REAL_USERNAME"
+			)
 
-// GetIDs returns the UID and a slice of GIDs for the given username.
-//
-// Returns 0, nil when the user cannot be found.
-func GetIDs(username string) (uint32, []uint32) {
-	if gc, ok := userGroupsCache.Get(username); ok && gc.expiry.After(time.Now()) {
-		return gc.uid, gc.groups
-	}
+			userCache.Set(fakeID, fakeUsername)
 
-	uid, gids := getUserData(username)
-	if gids == nil {
-		return 0, nil
-	}
-
-	userGroupsCache.Set(username, groups{
-		expiry: time.Now().Add(time.Hour),
-		uid:    uid,
-		groups: gids,
+			So(Username(fakeID), ShouldEqual, fakeUsername)
+		})
 	})
-
-	return uid, gids
 }
 
-func getUserData(username string) (uint32, []uint32) {
-	u, err := user.Lookup(username)
-	if err != nil {
-		return 0, nil
-	}
+func TestGroup(t *testing.T) {
+	Convey("You can get a group name from a group ID", t, func() {
+		So(Group(uint32(os.Getgid())), ShouldNotBeBlank)
 
-	uid, err := strconv.ParseUint(u.Uid, 10, 32)
-	if err != nil {
-		return 0, nil
-	}
+		Convey("The cache is used for a group name that's already been fetched", func() {
+			const (
+				fakeID    = 1234567
+				fakeGroup = "MY_REAL_GROUP"
+			)
 
-	gids, err := u.GroupIds()
-	if err != nil {
-		return 0, nil
-	}
+			groupCache.Set(fakeID, fakeGroup)
 
-	gs := make([]uint32, 0, len(gids))
-
-	for _, gid := range gids {
-		g, err := strconv.ParseUint(gid, 10, 32)
-		if err != nil {
-			return 0, nil
-		}
-
-		gs = append(gs, uint32(g))
-	}
-
-	return uint32(uid), gs
+			So(Group(fakeID), ShouldEqual, fakeGroup)
+		})
+	})
 }

@@ -28,65 +28,38 @@ package users
 import (
 	"os/user"
 	"strconv"
+	"testing"
 	"time"
+
+	. "github.com/smartystreets/goconvey/convey"
 )
 
-type groups struct {
-	expiry time.Time
-	uid    uint32
-	groups []uint32
-}
+func TestIDs(t *testing.T) {
+	Convey("You can get user and groups IDs from a username", t, func() {
+		me, err := user.Current()
+		So(err, ShouldBeNil)
 
-var userGroupsCache = makeMuMap[string, groups]() //nolint:gochecknoglobals
+		uid, gids := GetIDs(me.Username)
+		So(strconv.FormatUint(uint64(uid), 10), ShouldEqual, me.Uid)
+		So(gids, ShouldNotBeNil)
 
-// GetIDs returns the UID and a slice of GIDs for the given username.
-//
-// Returns 0, nil when the user cannot be found.
-func GetIDs(username string) (uint32, []uint32) {
-	if gc, ok := userGroupsCache.Get(username); ok && gc.expiry.After(time.Now()) {
-		return gc.uid, gc.groups
-	}
+		Convey("The cache is used for a username that's already been fetched", func() {
+			const (
+				fakeID       = 1234567
+				fakeUsername = "MY_REAL_USERNAME"
+			)
 
-	uid, gids := getUserData(username)
-	if gids == nil {
-		return 0, nil
-	}
+			fakeGroups := []uint32{4, 8, 1, 5, 16, 23, 42}
 
-	userGroupsCache.Set(username, groups{
-		expiry: time.Now().Add(time.Hour),
-		uid:    uid,
-		groups: gids,
+			userGroupsCache.Set(fakeUsername, groups{
+				expiry: time.Now().Add(time.Hour),
+				uid:    fakeID,
+				groups: fakeGroups,
+			})
+
+			uid, gids := GetIDs(fakeUsername)
+			So(uid, ShouldEqual, fakeID)
+			So(gids, ShouldResemble, fakeGroups)
+		})
 	})
-
-	return uid, gids
-}
-
-func getUserData(username string) (uint32, []uint32) {
-	u, err := user.Lookup(username)
-	if err != nil {
-		return 0, nil
-	}
-
-	uid, err := strconv.ParseUint(u.Uid, 10, 32)
-	if err != nil {
-		return 0, nil
-	}
-
-	gids, err := u.GroupIds()
-	if err != nil {
-		return 0, nil
-	}
-
-	gs := make([]uint32, 0, len(gids))
-
-	for _, gid := range gids {
-		g, err := strconv.ParseUint(gid, 10, 32)
-		if err != nil {
-			return 0, nil
-		}
-
-		gs = append(gs, uint32(g))
-	}
-
-	return uint32(uid), gs
 }
