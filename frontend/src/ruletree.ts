@@ -12,8 +12,6 @@ export default Object.assign(base, {
     data: DirectoryWithChildren,
     load: (path: string) => Promise<DirectoryWithChildren>
   ) => {
-    let searchQuery = "";
-
     const hasAnyRules = Object.entries(data.rules).some(
       ([dir, rules]) => dir && dir !== path && rules.length
     );
@@ -45,16 +43,6 @@ export default Object.assign(base, {
       return root;
     };
 
-    const container = div({ class: "rules-container" });
-    const card = div({ class: "card-container" });
-
-    const header = div({ class: "card-header" }, [
-      h2(
-        { class: "card-title" },
-        "Rules affecting files within this directory tree"
-      ),
-    ]);
-
     // Returns true if the node or any of its descendants has rules
     const hasDeepRules = (node: TreeNode): boolean => {
       if (node.__rules.length > 0) return true;
@@ -66,6 +54,49 @@ export default Object.assign(base, {
       parentPath = "",
       depth = 0
     ): HTMLElement[] => {
+      const getRuleSummaryElements = (rules: RuleStats[]): HTMLElement[] => {
+        if (!rules || rules.length === 0) return [];
+
+        return rules.map((rule) => {
+          const fileType = rule.Match;
+          const count = rule.count.toLocaleString();
+          const size = formatBytes(rule.size);
+          const actionText = action(rule.BackupType);
+
+          return span(
+            {
+              class: "rule-badge",
+              title: `${fileType}: ${count} files, ${size}, ${actionText}`,
+            },
+            `\u007B${fileType}\u007D • ${count} files • ${size} • ${actionText}`
+          );
+        });
+      };
+
+      const toggleAllPaths = (
+        node: TreeNode,
+        detail: HTMLDetailsElement,
+        open: boolean
+      ) => {
+        detail.open = open;
+
+        const childDetails = Array.from(
+          detail.querySelectorAll(":scope > .tree-children > details")
+        ) as HTMLDetailsElement[];
+
+        for (const [childName, childNode] of Object.entries(node.__children)) {
+          if (!hasDeepRules(childNode)) continue;
+
+          const childDetail = childDetails.find(
+            (d) => d.querySelector(".dir-title")?.textContent === childName
+          );
+
+          if (childDetail) {
+            toggleAllPaths(childNode, childDetail, open);
+          }
+        }
+      };
+
       return Object.entries(node).map(([dir, data]) => {
         const fullPath = parentPath + "/" + dir;
         const hasRules = data.__rules.length > 0;
@@ -74,27 +105,30 @@ export default Object.assign(base, {
         const detailEl = details({ class: "rule-section" });
         if (depth < 4) detailEl.open = true;
 
-        const children: HTMLElement[] = [];
-        const getRuleSummaryElements = (rules: RuleStats[]): HTMLElement[] => {
-          if (!rules || rules.length === 0) return [];
+        let expandIndicator: HTMLElement | null = null;
 
-          return rules.map((rule) => {
-            const fileType = rule.Match;
-            const count = rule.count.toLocaleString();
-            const size = formatBytes(rule.size);
-            const actionText = action(rule.BackupType);
-
-            return span(
-              {
-                class: "rule-badge",
-                title: `${fileType}: ${count} files, ${size}, ${actionText}`,
-              },
-              `\u007B${fileType}\u007D • ${count} files • ${size} • ${actionText}`
-            );
+        if (hasChildren) {
+          expandIndicator = span({
+            class: "expand-indicator",
           });
-        };
+          expandIndicator.textContent = detailEl.open ? "–" : "+";
+
+          expandIndicator.addEventListener("click", (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+
+            const isOpen = detailEl.open;
+
+            toggleAllPaths(data, detailEl, !isOpen);
+          });
+
+          detailEl.addEventListener("toggle", () => {
+            expandIndicator!.textContent = detailEl.open ? "–" : "+";
+          });
+        }
 
         const summaryChildren: (HTMLElement | SVGElement | null)[] = [
+          expandIndicator,
           svg({ class: "folder-button" }, [
             title("Folder"),
             use({ href: "#folder" }),
@@ -118,75 +152,37 @@ export default Object.assign(base, {
         ];
 
         const summaryEl = summary(
-          { class: "summary-header" },
+          {
+            class: "summary-header",
+            click: (e: MouseEvent) => {
+              e.preventDefault();
+            },
+          },
           summaryChildren.filter(
             (el): el is HTMLElement | SVGElement => el !== null
           )
         );
 
-        if (hasChildren && Object.values(data.__children).some(hasDeepRules)) {
-          summaryEl.onclick = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-
-            const isOpen = detailEl.open;
-
-            const toggleAllPaths = (
-              node: TreeNode,
-              detail: HTMLDetailsElement,
-              open: boolean
-            ) => {
-              detail.open = open;
-
-              const childDetails = Array.from(
-                detail.querySelectorAll(":scope > .tree-children > details")
-              ) as HTMLDetailsElement[];
-
-              for (const [childName, childNode] of Object.entries(
-                node.__children
-              )) {
-                if (!hasDeepRules(childNode)) continue;
-
-                const childDetail = childDetails.find(
-                  (d) =>
-                    d.querySelector(".dir-title")?.textContent === childName
-                );
-
-                if (childDetail) {
-                  toggleAllPaths(childNode, childDetail, open);
-                }
-              }
-            };
-
-            toggleAllPaths(data, detailEl, !isOpen);
-          };
-        }
-
         detailEl.append(summaryEl);
 
         if (hasChildren) {
           const childDetails = renderTree(data.__children, fullPath, depth + 1);
-          children.push(div({ class: "tree-children" }, childDetails));
+          detailEl.append(div({ class: "tree-children" }, childDetails));
         }
-
-        detailEl.append(...children);
         return detailEl;
       });
     };
 
-    const renderTreeView = () => {
-      clearNode(container);
-
-      const filteredList = rulesList.filter(([dir]) =>
-        dir.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-      const treeData = buildTree(filteredList);
-      container.append(...renderTree(treeData));
-    };
-
     clearNode(base);
-    card.append(header, container);
+    const card = div({ class: "card-container" }, [
+      div({ class: "card-header" }, [
+        h2(
+          { class: "card-title" },
+          "Rules affecting files within this directory tree"
+        ),
+      ]),
+      ...renderTree(buildTree(rulesList)),
+    ]);
     base.append(card);
-    renderTreeView();
   },
 });
