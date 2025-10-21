@@ -249,7 +249,7 @@ getReportSummary().then(data => {
 	children[2] = fieldset([
 		legend("Sort"),
 		label({ "for": "sortName" }, "Name"), sortName,
-		label({ "for": "sortWarnSize" }, "Warning size"), sortWarnSize,
+		label({ "for": "sortWarnSize" }, "Unplanned size"), sortWarnSize,
 		label({ "for": "sortNoBackupSize" }, "No Backup Size"), sortNoBackupSize,
 		label({ "for": "sortBackupSize" }, "Backup Size"), sortBackupSize
 	])

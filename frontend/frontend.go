@@ -13,4 +13,4 @@ import (
 //go:embed index.html.gz
 var indexHTML []byte
 
-var Index = httpembed.HandleBuffer("index.html", indexHTML, 40213, time.Unix(1760974281, 0)) //nolint:gochecknoglobals,lll,mnd
+var Index = httpembed.HandleBuffer("index.html", indexHTML, 40240, time.Unix(1761036202, 0)) //nolint:gochecknoglobals,lll,mnd
