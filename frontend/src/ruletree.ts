@@ -1,6 +1,14 @@
+import type {Children} from "./lib/dom.js"
 import type { DirectoryWithChildren, RuleStats, TreeNode } from "./types.js";
-import { clearNode } from "./lib/dom.js";
-import { button, details, div, h2, input, span, summary } from "./lib/html.js";
+import { amendNode, clearNode } from "./lib/dom.js";
+import {
+  button,
+  details,
+  div,
+  h2,
+  span,
+  summary,
+} from "./lib/html.js";
 import { svg, title, use } from "./lib/svg.js";
 import { action, formatBytes, stringSort } from "./lib/utils.js";
 
@@ -43,7 +51,6 @@ export default Object.assign(base, {
       return root;
     };
 
-    // Returns true if the node or any of its descendants has rules
     const hasDeepRules = (node: TreeNode): boolean => {
       if (node.__rules.length > 0) return true;
       return Object.values(node.__children).some(hasDeepRules);
@@ -53,7 +60,7 @@ export default Object.assign(base, {
       node: Record<string, TreeNode>,
       parentPath = "",
       depth = 0
-    ): HTMLElement[] => {
+    ): Children => {
       const getRuleSummaryElements = (rules: RuleStats[]): HTMLElement[] => {
         if (!rules || rules.length === 0) return [];
 
@@ -68,67 +75,18 @@ export default Object.assign(base, {
               class: "rule-badge",
               title: `${fileType}: ${count} files, ${size}, ${actionText}`,
             },
-            `\u007B${fileType}\u007D • ${count} files • ${size} • ${actionText}`
+            `{${fileType}} • ${count} files • ${size} • ${actionText}`
           );
         });
-      };
-
-      const toggleAllPaths = (
-        node: TreeNode,
-        detail: HTMLDetailsElement,
-        open: boolean
-      ) => {
-        detail.open = open;
-
-        const childDetails = Array.from(
-          detail.querySelectorAll(":scope > .tree-children > details")
-        ) as HTMLDetailsElement[];
-
-        for (const [childName, childNode] of Object.entries(node.__children)) {
-          if (!hasDeepRules(childNode)) continue;
-
-          const childDetail = childDetails.find(
-            (d) => d.querySelector(".dir-title")?.textContent === childName
-          );
-
-          if (childDetail) {
-            toggleAllPaths(childNode, childDetail, open);
-          }
-        }
       };
 
       return Object.entries(node).map(([dir, data]) => {
         const fullPath = parentPath + "/" + dir;
         const hasRules = data.__rules.length > 0;
         const hasChildren = Object.keys(data.__children).length > 0;
+        const children = hasChildren ? div({ class: "tree-children" }, renderTree(data.__children, fullPath, depth + 1)) : [];
 
-        const detailEl = details({ class: "rule-section" });
-        if (depth < 4) detailEl.open = true;
-
-        let expandIndicator: HTMLElement | null = null;
-
-        if (hasChildren) {
-          expandIndicator = span({
-            class: "expand-indicator",
-          });
-          expandIndicator.textContent = detailEl.open ? "–" : "+";
-
-          expandIndicator.addEventListener("click", (e) => {
-            e.stopPropagation();
-            e.preventDefault();
-
-            const isOpen = detailEl.open;
-
-            toggleAllPaths(data, detailEl, !isOpen);
-          });
-
-          detailEl.addEventListener("toggle", () => {
-            expandIndicator!.textContent = detailEl.open ? "–" : "+";
-          });
-        }
-
-        const summaryChildren: (HTMLElement | SVGElement | null)[] = [
-          expandIndicator,
+        const detailEl = (hasChildren ? summary : div)({class: "summary-header"}, [
           svg({ class: "folder-button" }, [
             title("Folder"),
             use({ href: "#folder" }),
@@ -147,42 +105,30 @@ export default Object.assign(base, {
                 },
                 svg([title("Go to"), use({ href: "#goto" })])
               )
-            : null,
-          ...getRuleSummaryElements(data.__rules),
-        ];
-
-        const summaryEl = summary(
-          {
-            class: "summary-header",
-            click: (e: MouseEvent) => {
-              e.preventDefault();
-            },
-          },
-          summaryChildren.filter(
-            (el): el is HTMLElement | SVGElement => el !== null
-          )
-        );
-
-        detailEl.append(summaryEl);
+            : [],
+            getRuleSummaryElements(data.__rules),
+          ]);
 
         if (hasChildren) {
-          const childDetails = renderTree(data.__children, fullPath, depth + 1);
-          detailEl.append(div({ class: "tree-children" }, childDetails));
+          return amendNode(details({ class: "rule-section", [depth !== Math.max(
+            4,
+            Array.from(path).reduce((a, b) => (b === "/" ? a + 1 : a), 0)
+          ) ? "open" : "closed"]: ""
+        }, detailEl), children);
         }
-        return detailEl;
+
+        return amendNode(detailEl, children);
       });
     };
 
-    clearNode(base);
-    const card = div({ class: "card-container" }, [
+    clearNode(base, div({ class: "card-container" }, [
       div({ class: "card-header" }, [
         h2(
           { class: "card-title" },
           "Rules affecting files within this directory tree"
         ),
       ]),
-      ...renderTree(buildTree(rulesList)),
-    ]);
-    base.append(card);
+      renderTree(buildTree(rulesList))
+    ]));
   },
 });

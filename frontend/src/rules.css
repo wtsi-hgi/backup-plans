@@ -26,6 +26,10 @@ button.actionButton svg {
   color: var(--colour);
 }
 
+.card-container > details {
+  padding-left : 1.2em;
+}
+
 .card-header {
   margin-bottom: 8px;
 }
@@ -37,25 +41,38 @@ button.actionButton svg {
   color: var(--colour);
 }
 
-.search-input {
-  width: 33%;
-  padding: 6px 8px;
-  border-radius: 6px;
-  border: 1px solid var(--subtleBorder);
-  background: var(--subtleBG);
-  color: var(--colour);
-}
-
 .rule-section {
   border-radius: 8px;
   background: var(--tableEventBG);
-  padding: 2px 4px;
+  /* padding: 2px 4px; */
 }
 
 .rule-section summary {
   list-style: none;
   padding: 4px 6px;
   user-select: none;
+  cursor: pointer;
+}
+
+details.rule-section > summary::marker {
+  content: "+";
+  /* display: inline-block; */
+  text-align: center;
+  font-weight: bold;
+  font-family: monospace;
+  margin-right: 4px;
+  color: var(--colour);
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.15s ease;
+}
+
+details[open].rule-section > summary::marker {
+  content: "–";
+}
+
+details.rule-section > summary:hover::marker {
+  color: var(--inputAccent);
 }
 
 .summary-header {
@@ -87,11 +104,6 @@ button.actionButton svg {
   margin-bottom: -0.25em;
 }
 
-.dir-title,
-.folder-button {
-  cursor: default !important;
-}
-
 .rule-badge {
   background: var(--inputAccent);
   color: var(--colourKeyFont);
@@ -101,21 +113,6 @@ button.actionButton svg {
   margin-bottom: 2px;
   cursor: default;
   transition: background 0.2s ease;
-}
-
-.expand-indicator {
-  display: inline-block;
-  width: 1.2em;
-  text-align: center;
-  font-weight: bold;
-  font-family: monospace;
-  cursor: pointer;
-  transition: transform 0.15s ease, color 0.15s ease;
-}
-
-.expand-indicator:hover {
-  color: var(--inputAccent);
-  transition: color 0.15s ease;
 }
 
 #metadataInput {
