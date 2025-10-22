@@ -26,8 +26,8 @@ github.com/smarty/assertions v1.15.0 h1:cR//PqUBUiQRakZWqBiFFQ9wb8emQGDb0HeGdqGB
 github.com/smarty/assertions v1.15.0/go.mod h1:yABtdzeQs6l1brC900WlRNwj6ZR55d7B+E8C6HtKdec=
 github.com/smartystreets/goconvey v1.8.1 h1:qGjIddxOk4grTu9JPOU31tVfq3cNdBlNa5sSznIX1xY=
 github.com/smartystreets/goconvey v1.8.1/go.mod h1:+/u4qLyY6x1jReYOp7GOM2FSt8aP9CzCZL03bI28W60=
-github.com/wtsi-hgi/wrstat-ui v1.8.7 h1:0sb+8upzJEBjAuEQT4nd+JAi6Tg28ALiY9/83hYid14=
-github.com/wtsi-hgi/wrstat-ui v1.8.7/go.mod h1:CzoIWr+SmfS3dugofCo1kTIeV6DN9RQZOD9uypry24g=
+github.com/wtsi-hgi/wrstat-ui v1.8.9-0.20251022122035-4eeeb9a1f0e0 h1:YU8gS7EMessf6tIz3iL0uMbsGpZUAMpvYtqFj9s6Y7g=
+github.com/wtsi-hgi/wrstat-ui v1.8.9-0.20251022122035-4eeeb9a1f0e0/go.mod h1:CzoIWr+SmfS3dugofCo1kTIeV6DN9RQZOD9uypry24g=
 golang.org/x/exp v0.0.0-20250620022241-b7579e27df2b h1:M2rDM6z3Fhozi9O7NWsxAkg/yqS/lQJ6PmkyIV3YP+o=
 golang.org/x/exp v0.0.0-20250620022241-b7579e27df2b/go.mod h1:3//PLf8L/X+8b4vuAfHzxeRUl04Adcb341+IGKfnqS8=
 golang.org/x/mod v0.25.0 h1:n7a+ZbQKQA/Ysbyb0/6IbB1H/X41mKgbhfv7AfG/44w=
