@@ -34,7 +34,7 @@ import (
 
 func TestUsername(t *testing.T) {
 	Convey("You can get a username from a user ID", t, func() {
-		So(Username(uint32(os.Getuid())), ShouldNotBeBlank)
+		So(Username(uint32(os.Getuid())), ShouldNotBeBlank) //nolint:gosec
 
 		Convey("The cache is used for a username that's already been fetched", func() {
 			const (
@@ -51,7 +51,7 @@ func TestUsername(t *testing.T) {
 
 func TestGroup(t *testing.T) {
 	Convey("You can get a group name from a group ID", t, func() {
-		So(Group(uint32(os.Getgid())), ShouldNotBeBlank)
+		So(Group(uint32(os.Getgid())), ShouldNotBeBlank) //nolint:gosec
 
 		Convey("The cache is used for a group name that's already been fetched", func() {
 			const (
