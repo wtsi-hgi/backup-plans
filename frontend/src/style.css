@@ -74,7 +74,9 @@ input[type="checkbox"] {
 	padding: 0 20px;
 	border-top-right-radius: 6px;
 	border-top-left-radius: 6px;
-	background: linear-gradient(to bottom, var(--tabBGFrom) 50%, var(--tabBGTo) 100%);
+	background: linear-gradient(to bottom,
+			var(--tabBGFrom) 50%,
+			var(--tabBGTo) 100%);
 	text-shadow: 0 1px var(--background);
 	border-color: currentColor;
 	cursor: pointer;
@@ -84,7 +86,10 @@ input[type="checkbox"] {
 .tabs>details[name]>summary:hover,
 .tabs>details[name]>summary:focus {
 	outline: none;
-	background: linear-gradient(to bottom, var(--tabHoverBGFrom) 1%, var(--tabHoverBGMid) 50%, var(--tabHoverBGTo) 100%);
+	background: linear-gradient(to bottom,
+			var(--tabHoverBGFrom) 1%,
+			var(--tabHoverBGMid) 50%,
+			var(--tabHoverBGTo) 100%);
 }
 
 .tabs>details[name]> :not(summary) {
@@ -310,6 +315,15 @@ use {
 		--tabShadow: #d1d1d1;
 		--tabSelectedBG: var(--background);
 		--tabSelectedFont: currentColor;
+
+		--rule-badge-bg: #d1d1d1;
+		--rule-badge-text: #000;
+		--action-no-backup-bg: #ff9800;
+		--action-no-backup-text: #fff;
+		--action-ibackup-bg: #4caf50;
+		--action-ibackup-text: #fff;
+		--action-manual-bg: #ffee58;
+		--action-manual-text: #000;
 	}
 }
 
@@ -349,5 +363,14 @@ use {
 		--tabShadow: #2e2e2e;
 		--tabSelectedBG: var(--background);
 		--tabSelectedFont: currentColor;
+
+		--rule-badge-bg: #aaa;
+		--rule-badge-text: #000;
+		--action-no-backup-bg: #ffb74d;
+		--action-no-backup-text: #000;
+		--action-ibackup-bg: #66bb6a;
+		--action-ibackup-text: #000;
+		--action-manual-bg: #ffee58;
+		--action-manual-text: #000;
 	}
 }

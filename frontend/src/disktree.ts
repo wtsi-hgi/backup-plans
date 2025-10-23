@@ -250,6 +250,8 @@ const phi = (1 + Math.sqrt(5)) / 2,
 			option({ "value": "6" }, "Modified Time")
 		]),
 		br(),
+		div({ "id": "spectrum" }),
+		br(),
 		label({ "for": "areaRepresents" }, "Area Represents"),
 		select({
 			"id": "areaRepresents", "change": function (this: HTMLSelectElement) {
@@ -265,8 +267,7 @@ const phi = (1 + Math.sqrt(5)) / 2,
 			option({ "value": "5" }, "No Backup Files"),
 			option({ "value": "6" }, "Total Size"),
 			option({ "value": "7" }, "Total Files"),
-		]),
-		div({ "id": "spectrum" })
+		])
 	]),
 	svgBase = div(),
 	base = div({ "id": "tree" }, [
