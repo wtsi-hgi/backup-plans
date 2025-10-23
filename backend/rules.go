@@ -46,7 +46,7 @@ var (
 		Err:  errors.New("invalid dir path"), //nolint:err113
 	}
 	ErrInvalidUser = Error{
-		Code: http.StatusBadRequest,
+		Code: http.StatusForbidden,
 		Err:  errors.New("invalid user"), //nolint:err113
 	}
 	ErrDirectoryClaimed = Error{
