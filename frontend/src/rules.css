@@ -27,7 +27,7 @@ button.actionButton svg {
 }
 
 .card-container > details {
-  padding-left : 1.2em;
+  padding-left: 1.2em;
 }
 
 .card-header {
@@ -56,7 +56,6 @@ button.actionButton svg {
 
 details.rule-section > summary::marker {
   content: "+";
-  /* display: inline-block; */
   text-align: center;
   font-weight: bold;
   font-family: monospace;
@@ -71,7 +70,7 @@ details[open].rule-section > summary::marker {
   content: "–";
 }
 
-details.rule-section > summary:hover::marker {
+details.rule-section > summary:not(:has(button:hover)):hover::marker {
   color: var(--inputAccent);
 }
 
@@ -105,14 +104,42 @@ details.rule-section > summary:hover::marker {
 }
 
 .rule-badge {
+  color: var(--rule-badge-text);
+  margin-right: 6px;
+  margin-bottom: 4px;
+}
+
+.rule-badge .file-type {
   background: var(--inputAccent);
-  color: var(--colourKeyFont);
-  padding: 2px 6px;
-  border-radius: 12px;
-  margin-right: 4px;
-  margin-bottom: 2px;
-  cursor: default;
-  transition: background 0.2s ease;
+  color: var(--rule-badge-text);
+  padding: 4px 8px;
+  border-radius: 10px 0 0 10px;
+}
+
+.file-summary {
+  background: var(--rule-badge-bg);
+  padding: 4px 8px;
+}
+
+.rule-badge .action-pill {
+  padding: 4px 8px;
+  border-radius: 0 10px 10px 0;
+  white-space: nowrap;
+}
+
+.rule-badge .action-pill[data-action="No Backup"] {
+  background-color: var(--action-no-backup-bg);
+  color: var(--action-no-backup-text);
+}
+
+.rule-badge .action-pill[data-action="IBackup"] {
+  background-color: var(--action-ibackup-bg);
+  color: var(--action-ibackup-text);
+}
+
+.rule-badge .action-pill[data-action="Manual Backup"] {
+  background-color: var(--action-manual-bg);
+  color: var(--action-manual-text);
 }
 
 #metadataInput {

@@ -1,14 +1,14 @@
-import type {Children} from "./lib/dom.js"
-import type { DirectoryWithChildren, RuleStats, TreeNode } from "./types.js";
-import { amendNode, clearNode } from "./lib/dom.js";
+import type { Children } from "./lib/dom.js";
 import {
-  button,
-  details,
-  div,
-  h2,
-  span,
-  summary,
-} from "./lib/html.js";
+  type DirectoryWithChildren,
+  type RuleStats,
+  type TreeNode,
+  BackupNone,
+  BackupIBackup,
+  BackupManual,
+} from "./types.js";
+import { amendNode, clearNode } from "./lib/dom.js";
+import { button, details, div, h2, span, summary } from "./lib/html.js";
 import { svg, title, use } from "./lib/svg.js";
 import { action, formatBytes, stringSort } from "./lib/utils.js";
 
@@ -69,13 +69,19 @@ export default Object.assign(base, {
           const count = rule.count.toLocaleString();
           const size = formatBytes(rule.size);
           const actionText = action(rule.BackupType);
-
           return span(
             {
               class: "rule-badge",
               title: `${fileType}: ${count} files, ${size}, ${actionText}`,
             },
-            `{${fileType}} • ${count} files • ${size} • ${actionText}`
+            [
+              span({ class: "file-type" }, `${fileType}`),
+              span({ class: "file-summary" }, ` ${count} files • ${size} `),
+              span(
+                { class: `action-pill`, "data-action": actionText },
+                actionText
+              ),
+            ]
           );
         });
       };
@@ -84,51 +90,73 @@ export default Object.assign(base, {
         const fullPath = parentPath + "/" + dir;
         const hasRules = data.__rules.length > 0;
         const hasChildren = Object.keys(data.__children).length > 0;
-        const children = hasChildren ? div({ class: "tree-children" }, renderTree(data.__children, fullPath, depth + 1)) : [];
+        const children = hasChildren
+          ? div(
+              { class: "tree-children" },
+              renderTree(data.__children, fullPath, depth + 1)
+            )
+          : [];
 
-        const detailEl = (hasChildren ? summary : div)({class: "summary-header"}, [
-          svg({ class: "folder-button" }, [
-            title("Folder"),
-            use({ href: "#folder" }),
-          ]),
-          span({ class: "dir-title" }, dir),
-          hasRules
-            ? button(
-                {
-                  class: "load-button",
-                  click: (e: Event) => {
-                    e.stopPropagation();
-                    load(data.__fullPath || fullPath).then(() =>
-                      window.scrollTo(0, 0)
-                    );
+        const detailEl = (hasChildren ? summary : div)(
+          { class: "summary-header" },
+          [
+            svg({ class: "folder-button" }, [
+              title("Folder"),
+              use({ href: "#folder" }),
+            ]),
+            span({ class: "dir-title" }, dir),
+            hasRules
+              ? button(
+                  {
+                    class: "load-button",
+                    click: (e: Event) => {
+                      e.stopPropagation();
+                      load(data.__fullPath || fullPath).then(() =>
+                        window.scrollTo(0, 0)
+                      );
+                    },
                   },
-                },
-                svg([title("Go to"), use({ href: "#goto" })])
-              )
-            : [],
+                  svg([title("Go to"), use({ href: "#goto" })])
+                )
+              : [],
             getRuleSummaryElements(data.__rules),
-          ]);
+          ]
+        );
 
         if (hasChildren) {
-          return amendNode(details({ class: "rule-section", [depth !== Math.max(
-            4,
-            Array.from(path).reduce((a, b) => (b === "/" ? a + 1 : a), 0)
-          ) ? "open" : "closed"]: ""
-        }, detailEl), children);
+          return amendNode(
+            details(
+              {
+                class: "rule-section",
+                [depth !==
+                Math.max(
+                  4,
+                  Array.from(path).reduce((a, b) => (b === "/" ? a + 1 : a), 0)
+                )
+                  ? "open"
+                  : "closed"]: "",
+              },
+              detailEl
+            ),
+            children
+          );
         }
 
         return amendNode(detailEl, children);
       });
     };
 
-    clearNode(base, div({ class: "card-container" }, [
-      div({ class: "card-header" }, [
-        h2(
-          { class: "card-title" },
-          "Rules affecting files within this directory tree"
-        ),
-      ]),
-      renderTree(buildTree(rulesList))
-    ]));
+    clearNode(
+      base,
+      div({ class: "card-container" }, [
+        div({ class: "card-header" }, [
+          h2(
+            { class: "card-title" },
+            "Rules affecting files within this directory tree"
+          ),
+        ]),
+        renderTree(buildTree(rulesList)),
+      ])
+    );
   },
 });

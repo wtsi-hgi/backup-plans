@@ -7,347 +7,374 @@
 
 html,
 body {
-	margin: 0;
-	color: var(--colour);
-	background-color: var(--background);
-	font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-	--fontSize: 14px;
-	font-size: var(--fontSize);
+  margin: 0;
+  color: var(--colour);
+  background-color: var(--background);
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --fontSize: 14px;
+  font-size: var(--fontSize);
 }
 
 button {
-	cursor: pointer;
+  cursor: pointer;
 }
 
 input[type="radio"],
 input[type="checkbox"] {
-	accent-color: var(--inputAccent);
+  accent-color: var(--inputAccent);
 }
 
 .tabs {
-	position: relative;
-	display: flex;
-	flex-wrap: wrap;
-	line-height: 24px;
-	width: 100%;
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  line-height: 24px;
+  width: 100%;
 }
 
 .tabs:before {
-	order: -1;
-	content: "";
-	width: 20px;
-	display: block;
+  order: -1;
+  content: "";
+  width: 20px;
+  display: block;
 }
 
 .tabs:after {
-	content: "";
-	width: 200%;
-	transform: translateX(0px);
-	z-index: 1;
-	margin-top: -1px;
-	border-top: 1px solid currentColor;
-	border-bottom: 2px solid var(--background);
-	order: -1;
+  content: "";
+  width: 200%;
+  transform: translateX(0px);
+  z-index: 1;
+  margin-top: -1px;
+  border-top: 1px solid currentColor;
+  border-bottom: 2px solid var(--background);
+  order: -1;
 }
 
-.tabs>details[name] {
-	display: contents;
+.tabs > details[name] {
+  display: contents;
 }
 
-.tabs>details {
-	flex: 0 0 auto;
+.tabs > details {
+  flex: 0 0 auto;
 }
 
-.tabs>details[name]:first-child>summary {
-	order: -1;
-	padding-left: 20px;
+.tabs > details[name]:first-child > summary {
+  order: -1;
+  padding-left: 20px;
 }
 
-.tabs>details[name]>summary {
-	order: -1;
-	display: block;
-	border-width: 1px;
-	border-style: solid;
-	position: relative;
-	z-index: 1;
-	margin: 0 -5px;
-	padding: 0 20px;
-	border-top-right-radius: 6px;
-	border-top-left-radius: 6px;
-	background: linear-gradient(to bottom, var(--tabBGFrom) 50%, var(--tabBGTo) 100%);
-	text-shadow: 0 1px var(--background);
-	border-color: currentColor;
-	cursor: pointer;
-	user-select: none;
+.tabs > details[name] > summary {
+  order: -1;
+  display: block;
+  border-width: 1px;
+  border-style: solid;
+  position: relative;
+  z-index: 1;
+  margin: 0 -5px;
+  padding: 0 20px;
+  border-top-right-radius: 6px;
+  border-top-left-radius: 6px;
+  background: linear-gradient(
+    to bottom,
+    var(--tabBGFrom) 50%,
+    var(--tabBGTo) 100%
+  );
+  text-shadow: 0 1px var(--background);
+  border-color: currentColor;
+  cursor: pointer;
+  user-select: none;
 }
 
-.tabs>details[name]>summary:hover,
-.tabs>details[name]>summary:focus {
-	outline: none;
-	background: linear-gradient(to bottom, var(--tabHoverBGFrom) 1%, var(--tabHoverBGMid) 50%, var(--tabHoverBGTo) 100%);
+.tabs > details[name] > summary:hover,
+.tabs > details[name] > summary:focus {
+  outline: none;
+  background: linear-gradient(
+    to bottom,
+    var(--tabHoverBGFrom) 1%,
+    var(--tabHoverBGMid) 50%,
+    var(--tabHoverBGTo) 100%
+  );
 }
 
-.tabs>details[name]> :not(summary) {
-	order: 2;
-	width: 100%;
+.tabs > details[name] > :not(summary) {
+  order: 2;
+  width: 100%;
 }
 
-.tabs>details[name]>summary:before {
-	left: -7px;
-	border-bottom-right-radius: 6px;
-	border-width: 0px 1px 1px 0px;
-	box-shadow: 2px 2px 0 var(--tabShadow);
+.tabs > details[name] > summary:before {
+  left: -7px;
+  border-bottom-right-radius: 6px;
+  border-width: 0px 1px 1px 0px;
+  box-shadow: 2px 2px 0 var(--tabShadow);
 }
 
-.tabs>details[name]>summary:after {
-	right: -7px;
-	border-bottom-left-radius: 6px;
-	border-width: 0px 0px 1px 1px;
-	box-shadow: -2px 2px 0 var(--tabShadow);
+.tabs > details[name] > summary:after {
+  right: -7px;
+  border-bottom-left-radius: 6px;
+  border-width: 0px 0px 1px 1px;
+  box-shadow: -2px 2px 0 var(--tabShadow);
 }
 
-.tabs>details[name]>summary:after,
-.tabs>details[name]>summary:before {
-	content: "";
-	position: absolute;
-	bottom: -1px;
-	width: 6px;
-	height: 6px;
-	border-style: solid;
-	border-color: currentcolor;
+.tabs > details[name] > summary:after,
+.tabs > details[name] > summary:before {
+  content: "";
+  position: absolute;
+  bottom: -1px;
+  width: 6px;
+  height: 6px;
+  border-style: solid;
+  border-color: currentcolor;
 }
 
-.tabs>details[name][open]>summary:before {
-	box-shadow: 2px 2px 0 var(--tabSelectedBG);
+.tabs > details[name][open] > summary:before {
+  box-shadow: 2px 2px 0 var(--tabSelectedBG);
 }
 
-.tabs>details[name][open]>summary {
-	z-index: 2;
-	cursor: default !important;
-	border-bottom-color: var(--tabSelectedBG) !important;
-	background: var(--tabSelectedBG) !important;
-	pointer-events: none;
+.tabs > details[name][open] > summary {
+  z-index: 2;
+  cursor: default !important;
+  border-bottom-color: var(--tabSelectedBG) !important;
+  background: var(--tabSelectedBG) !important;
+  pointer-events: none;
 }
 
-.tabs>details[name][open]>summary:after {
-	box-shadow: -2px 2px 0 var(--tabSelectedBG);
+.tabs > details[name][open] > summary:after {
+  box-shadow: -2px 2px 0 var(--tabSelectedBG);
 }
 
 .prettyTable {
-	clear: both;
-	border-collapse: separate;
-	border-spacing: 0;
-	border: 1px solid var(--tableBorder);
-	border-radius: 4px;
+  clear: both;
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid var(--tableBorder);
+  border-radius: 4px;
 }
 
 .prettyTable thead th {
-	padding-right: 1.25em;
-	border-bottom: 1px solid var(--tableBorder);
+  padding-right: 1.25em;
+  border-bottom: 1px solid var(--tableBorder);
 }
 
 .prettyTable thead th.sortable:hover {
-	text-decoration: underline;
-	cursor: pointer;
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 .prettyTable tbody td:not(:first-child),
 .prettyTable thead th:not(:first-child) {
-	border-left: 1px solid var(--tableBorder);
+  border-left: 1px solid var(--tableBorder);
 }
 
 .prettyTable .sortable {
-	min-height: 2em;
-	background-repeat: no-repeat;
-	background-position: right 0.25em center;
-	background-size: 1em;
-	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 42'%3E%3Cpath d='M1,23 h38 l-19,18 z' fill='%23aaa'  fill-opacity='0.25' stroke='none' stroke-linejoin='round' /%3E%3Cpath d='M1,20 h38 l-19,-18 z' fill='%23aaa' fill-opacity='0.25' stroke='none' stroke-linejoin='round' /%3E%3C/svg%3E%0A");
+  min-height: 2em;
+  background-repeat: no-repeat;
+  background-position: right 0.25em center;
+  background-size: 1em;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 42'%3E%3Cpath d='M1,23 h38 l-19,18 z' fill='%23aaa'  fill-opacity='0.25' stroke='none' stroke-linejoin='round' /%3E%3Cpath d='M1,20 h38 l-19,-18 z' fill='%23aaa' fill-opacity='0.25' stroke='none' stroke-linejoin='round' /%3E%3C/svg%3E%0A");
 }
 
 .prettyTable .sort {
-	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 42'%3E%3Cpath d='M1,23 h38 l-19,18 z' fill='%23aaa'  fill-opacity='0.25' stroke='none' stroke-linejoin='round' /%3E%3Cpath d='M1,20 h38 l-19,-18 z' fill='%23f00' fill-opacity='1' stroke='%23000' stroke-linejoin='round' /%3E%3C/svg%3E%0A");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 42'%3E%3Cpath d='M1,23 h38 l-19,18 z' fill='%23aaa'  fill-opacity='0.25' stroke='none' stroke-linejoin='round' /%3E%3Cpath d='M1,20 h38 l-19,-18 z' fill='%23f00' fill-opacity='1' stroke='%23000' stroke-linejoin='round' /%3E%3C/svg%3E%0A");
 }
 
 .prettyTable .reverse {
-	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 42'%3E%3Cpath d='M1,23 h38 l-19,18 z' fill='%23f00'  fill-opacity='1' stroke='%23000' stroke-linejoin='round' /%3E%3Cpath d='M1,20 h38 l-19,-18 z' fill='%23aaa' fill-opacity='0.25' stroke='none' stroke-linejoin='round' /%3E%3C/svg%3E%0A");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 42'%3E%3Cpath d='M1,23 h38 l-19,18 z' fill='%23f00'  fill-opacity='1' stroke='%23000' stroke-linejoin='round' /%3E%3Cpath d='M1,20 h38 l-19,-18 z' fill='%23aaa' fill-opacity='0.25' stroke='none' stroke-linejoin='round' /%3E%3C/svg%3E%0A");
 }
 
 .prettyTable tbody tr {
-	background-color: var(--tableOddBG);
-	color: var(--tableOddFont);
+  background-color: var(--tableOddBG);
+  color: var(--tableOddFont);
 }
 
 .prettyTable tbody tr:nth-child(even) {
-	background-color: var(--tableEventBG);
-	color: var(--tableEvenFont);
+  background-color: var(--tableEventBG);
+  color: var(--tableEvenFont);
 }
 
 .prettyTable tbody tr:not(.noHover):hover {
-	background-color: var(--tableHoverBG);
-	color: var(--tableHoverFont);
-	cursor: pointer;
+  background-color: var(--tableHoverBG);
+  color: var(--tableHoverFont);
+  cursor: pointer;
 }
 
 .prettyTable tbody tr.noHover {
-	cursor: not-allowed;
+  cursor: not-allowed;
 }
 
 .prettyTable tbody tr.selected {
-	background-color: var(--tableSelectedBG);
-	color: var(--tableSelectedFont);
+  background-color: var(--tableSelectedBG);
+  color: var(--tableSelectedFont);
 }
 
 .prettyTable tbody tr td {
-	padding: 0.5em 0.25em;
+  padding: 0.5em 0.25em;
 }
 
 .prettyTable thead td {
-	border-bottom: 1px solid var(--tableBorder);
+  border-bottom: 1px solid var(--tableBorder);
 }
 
 #tree {
-	width: calc(100vw - 200px - 3em);
-	height: 500px;
-	min-width: 200px;
-	display: flex;
+  width: calc(100vw - 200px - 3em);
+  height: 500px;
+  min-width: 200px;
+  display: flex;
 }
 
 #tree svg {
-	display: inline-block;
+  display: inline-block;
 }
 
-#tree>div {
-	min-width: 100px;
-	flex: 1 1 auto;
+#tree > div {
+  min-width: 100px;
+  flex: 1 1 auto;
 }
 
 #treeOptions {
-	border: 1px solid var(--tableBorder);
-	background-color: var(--subtleBG);
-	box-sizing: border-box;
-	border-top-right-radius: 1em;
-	border-bottom-right-radius: 1em;
-	align-self: stretch;
-	overflow: hidden;
-	width: 2em;
+  border: 1px solid var(--tableBorder);
+  background-color: var(--subtleBG);
+  box-sizing: border-box;
+  border-top-right-radius: 1em;
+  border-bottom-right-radius: 1em;
+  align-self: stretch;
+  overflow: hidden;
+  width: 2em;
 }
 
 #treeOptions[open] {
-	width: 160px;
-	padding: 0 1em;
+  width: 160px;
+  padding: 0 1em;
 }
 
 #treeOptions:not([open]) {
-	writing-mode: sideways-rl;
+  writing-mode: sideways-rl;
 }
 
 #dirlist {
-	border-left: 0;
-	border-top-left-radius: 0;
-	border-bottom-left-radius: 0;
-	width: calc(100vw - 200px - 3em);
+  border-left: 0;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  width: calc(100vw - 200px - 3em);
 }
 
 .tabs:has(#filter:not([open])) #dirlist {
-	width: calc(100vw - 5em);
+  width: calc(100vw - 5em);
 }
 
 dialog label {
-	display: inline-block;
-	width: 8em;
-	text-align: right;
+  display: inline-block;
+  width: 8em;
+  text-align: right;
 }
 
 dialog label:after {
-	content: ":";
-	display: inline-block;
-	padding-right: 1em;
+  content: ":";
+  display: inline-block;
+  padding-right: 1em;
 }
 
-body>.tabs>details:not([open])> :not(summary),
-#breadcrumbs+.tabs>details:not(#filter):not([open])> :not(summary) {
-	display: none;
-	visibility: hidden;
+body > .tabs > details:not([open]) > :not(summary),
+#breadcrumbs + .tabs > details:not(#filter):not([open]) > :not(summary) {
+  display: none;
+  visibility: hidden;
 }
 
 use {
-	color: var(--colour);
+  color: var(--colour);
 }
 
 @media (prefers-color-scheme: light) {
-	html {
-		--colour: #000;
-		--background: #fff;
+  html {
+    --colour: #000;
+    --background: #fff;
 
-		--subtleBorder: #ddd;
-		--subtleBG: #f8f8f8;
+    --subtleBorder: #ddd;
+    --subtleBG: #f8f8f8;
 
-		--inputAccent: #428bca;
+    --inputAccent: #428bca;
 
-		--tableBorder: #ccc;
-		--tableHoverBG: #c0cee9;
-		--tableHoverFont: currentColor;
-		--tableSelectedBG: #b0bed9;
-		--tableSelectedFont: currentColor;
-		--tableOddBG: var(--background);
-		--tableOddFont: currentColor;
-		--tableEventBG: #f9f9f9;
-		--tableOddFont: currentColor;
+    --tableBorder: #ccc;
+    --tableHoverBG: #c0cee9;
+    --tableHoverFont: currentColor;
+    --tableSelectedBG: #b0bed9;
+    --tableSelectedFont: currentColor;
+    --tableOddBG: var(--background);
+    --tableOddFont: currentColor;
+    --tableEventBG: #f9f9f9;
+    --tableOddFont: currentColor;
 
-		--diskTreeDetailsBG: #ddd;
-		--diskTreeDetailsBorder: #aaa;
-		--diskTreeDetailsFont: currentColor;
+    --diskTreeDetailsBG: #ddd;
+    --diskTreeDetailsBorder: #aaa;
+    --diskTreeDetailsFont: currentColor;
 
-		--colourKeyBG: var(--inputAccent);
-		--colourKeyFont: #fff;
+    --colourKeyBG: var(--inputAccent);
+    --colourKeyFont: #fff;
 
-		--tabFont: currentColor;
-		--tabBGFrom: #ececec;
-		--tabBGTo: #d1d1d1;
-		--tabHoverBGFrom: var(--inputAccent);
-		--tabHoverBGMid: color-mix(in srgb, var(--inputAccent) 25%, #fff);
-		--tabHoverBGTo: #d1d1d1;
-		--tabShadow: #d1d1d1;
-		--tabSelectedBG: var(--background);
-		--tabSelectedFont: currentColor;
-	}
+    --tabFont: currentColor;
+    --tabBGFrom: #ececec;
+    --tabBGTo: #d1d1d1;
+    --tabHoverBGFrom: var(--inputAccent);
+    --tabHoverBGMid: color-mix(in srgb, var(--inputAccent) 25%, #fff);
+    --tabHoverBGTo: #d1d1d1;
+    --tabShadow: #d1d1d1;
+    --tabSelectedBG: var(--background);
+    --tabSelectedFont: currentColor;
+
+    --rule-badge-bg: #d1d1d1;
+    --rule-badge-text: #000;
+    --action-no-backup-bg: #ff9800;
+    --action-no-backup-text: #fff;
+    --action-ibackup-bg: #4caf50;
+    --action-ibackup-text: #fff;
+    --action-manual-bg: #ffee58;
+    --action-manual-text: #000;
+  }
 }
 
 @media (prefers-color-scheme: dark) {
-	html {
-		--colour: #fff;
-		--background: #222;
+  html {
+    --colour: #fff;
+    --background: #222;
 
-		--subtleBorder: #888;
-		--subtleBG: #666;
+    --subtleBorder: #888;
+    --subtleBG: #666;
 
-		--inputAccent: #80caff;
+    --inputAccent: #80caff;
 
-		--tableBorder: #aaa;
-		--tableHoverBG: #445;
-		--tableHoverFont: currentColor;
-		--tableSelectedBG: #446;
-		--tableSelectedFont: currentColor;
-		--tableOddBG: var(--background);
-		--tableOddFont: currentColor;
-		--tableEventBG: #333;
-		--tableOddFont: currentColor;
+    --tableBorder: #aaa;
+    --tableHoverBG: #445;
+    --tableHoverFont: currentColor;
+    --tableSelectedBG: #446;
+    --tableSelectedFont: currentColor;
+    --tableOddBG: var(--background);
+    --tableOddFont: currentColor;
+    --tableEventBG: #333;
+    --tableOddFont: currentColor;
 
-		--diskTreeDetailsBG: #444;
-		--diskTreeDetailsBorder: #888;
-		--diskTreeDetailsFont: currentColor;
+    --diskTreeDetailsBG: #444;
+    --diskTreeDetailsBorder: #888;
+    --diskTreeDetailsFont: currentColor;
 
-		--colourKeyBG: var(--inputAccent);
-		--colourKeyFont: #000;
+    --colourKeyBG: var(--inputAccent);
+    --colourKeyFont: #000;
 
-		--tabFont: currentColor;
-		--tabBGFrom: #777;
-		--tabBGTo: #111;
-		--tabHoverBGFrom: var(--inputAccent);
-		--tabHoverBGMid: color-mix(in srgb, var(--inputAccent) 50%, #000);
-		--tabHoverBGTo: #111;
-		--tabShadow: #2e2e2e;
-		--tabSelectedBG: var(--background);
-		--tabSelectedFont: currentColor;
-	}
+    --tabFont: currentColor;
+    --tabBGFrom: #777;
+    --tabBGTo: #111;
+    --tabHoverBGFrom: var(--inputAccent);
+    --tabHoverBGMid: color-mix(in srgb, var(--inputAccent) 50%, #000);
+    --tabHoverBGTo: #111;
+    --tabShadow: #2e2e2e;
+    --tabSelectedBG: var(--background);
+    --tabSelectedFont: currentColor;
+
+    --rule-badge-bg: #aaa;
+    --rule-badge-text: #000;
+    --action-no-backup-bg: #ffb74d;
+    --action-no-backup-text: #000;
+    --action-ibackup-bg: #66bb6a;
+    --action-ibackup-text: #000;
+    --action-manual-bg: #ffee58;
+    --action-manual-text: #000;
+  }
 }
