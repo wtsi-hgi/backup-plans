@@ -47,6 +47,8 @@ func (u *userHandler) getUser(_ *http.Request) string {
 	return string(*u)
 }
 
+const root = "root"
+
 func TestClaimDir(t *testing.T) {
 	Convey("With a configured backend", t, func() {
 		var u userHandler
@@ -66,7 +68,7 @@ func TestClaimDir(t *testing.T) {
 			So(code, ShouldEqual, http.StatusForbidden)
 			So(resp, ShouldEqual, "invalid user\n")
 
-			u = "root"
+			u = root
 
 			code, resp = getResponse(s.ClaimDir, "/api/dir/claim?dir=/does/not/exist")
 			So(code, ShouldEqual, http.StatusBadRequest)
@@ -74,7 +76,7 @@ func TestClaimDir(t *testing.T) {
 
 			code, resp = getResponse(s.ClaimDir, "/api/dir/claim?dir=/some/path/MyDir/")
 			So(code, ShouldEqual, http.StatusOK)
-			So(resp, ShouldEqual, "\"root\"\n")
+			So(resp, ShouldEqual, "\""+root+"\"\n")
 
 			code, resp = getResponse(s.ClaimDir, "/api/dir/claim?dir=/some/path/MyDir/")
 			So(code, ShouldEqual, http.StatusNotAcceptable)
@@ -91,7 +93,7 @@ func TestClaimDir(t *testing.T) {
 				So(code, ShouldEqual, http.StatusForbidden)
 				So(resp, ShouldEqual, "invalid user\n")
 
-				u = "root"
+				u = root
 
 				code, resp = getResponse(s.RevokeDirClaim, "/api/dir/revoke?dir=/some/path/MyDir/")
 				So(code, ShouldEqual, http.StatusOK)
@@ -105,25 +107,39 @@ func TestClaimDir(t *testing.T) {
 			Convey("You can pass a claim", func() {
 				u = ""
 
-				code, resp := getResponse(s.PassDirClaim, "/api/dir/pass?dir=/does/not/exist&passTo="+user.Username)
+				code, resp := getResponse(
+					s.PassDirClaim, "/api/dir/pass?dir=/does/not/exist&passTo="+user.Username,
+				)
 				So(code, ShouldEqual, http.StatusBadRequest)
 				So(resp, ShouldEqual, "invalid dir path\n")
 
-				code, resp = getResponse(s.PassDirClaim, "/api/dir/pass?dir=/some/path/MyDir/&passTo="+user.Username)
+				code, resp = getResponse(
+					s.PassDirClaim,
+					"/api/dir/pass?dir=/some/path/MyDir/&passTo="+user.Username,
+				)
 				So(code, ShouldEqual, http.StatusForbidden)
 				So(resp, ShouldEqual, "invalid user\n")
 
-				u = "root"
+				u = root
 
-				code, resp = getResponse(s.PassDirClaim, "/api/dir/pass?dir=/some/path/MyDir/&passTo=NOT_A_REAL_USER")
+				code, resp = getResponse(
+					s.PassDirClaim,
+					"/api/dir/pass?dir=/some/path/MyDir/&passTo=NOT_A_REAL_USER",
+				)
 				So(code, ShouldEqual, http.StatusForbidden)
 				So(resp, ShouldEqual, "invalid user\n")
 
-				code, resp = getResponse(s.PassDirClaim, "/api/dir/pass?dir=/some/path/MyDir/&passTo="+user.Username)
+				code, resp = getResponse(
+					s.PassDirClaim,
+					"/api/dir/pass?dir=/some/path/MyDir/&passTo="+user.Username,
+				)
 				So(code, ShouldEqual, http.StatusOK)
 				So(resp, ShouldEqual, "")
 
-				code, resp = getResponse(s.PassDirClaim, "/api/dir/pass?dir=/some/path/MyDir/&passTo="+user.Username)
+				code, resp = getResponse(
+					s.PassDirClaim,
+					"/api/dir/pass?dir=/some/path/MyDir/&passTo="+user.Username,
+				)
 				So(code, ShouldEqual, http.StatusForbidden)
 				So(resp, ShouldEqual, "invalid user\n")
 			})
@@ -133,7 +149,7 @@ func TestClaimDir(t *testing.T) {
 
 func TestRules(t *testing.T) {
 	Convey("With a configured backend", t, func() {
-		u := userHandler("root")
+		u := userHandler(root)
 
 		s, err := New(testdb.CreateTestDatabase(t), u.getUser, nil)
 		So(err, ShouldBeNil)
@@ -143,40 +159,64 @@ func TestRules(t *testing.T) {
 		So(s.AddTree(treeDBPath), ShouldBeNil)
 
 		Convey("You can add rules", func() {
-			code, resp := getResponse(s.CreateRule, "/api/rules/create?dir=/some/path/MyDir/&action=backup&match=*.txt&frequency=7&review=100&remove=200")
+			code, resp := getResponse(
+				s.CreateRule,
+				"/api/rules/create?dir=/some/path/MyDir/&action=backup&match=*.txt&frequency=7&review=100&remove=200",
+			)
 			So(code, ShouldEqual, http.StatusBadRequest)
 			So(resp, ShouldEqual, "invalid dir path\n")
 
-			code, resp = getResponse(s.ClaimDir, "/api/dir/claim?dir=/some/path/MyDir/")
+			code, resp = getResponse(
+				s.ClaimDir,
+				"/api/dir/claim?dir=/some/path/MyDir/",
+			)
 			So(code, ShouldEqual, http.StatusOK)
-			So(resp, ShouldEqual, "\"root\"\n")
+			So(resp, ShouldEqual, "\""+root+"\"\n")
 
-			code, resp = getResponse(s.CreateRule, "/api/rules/create?dir=/some/path/MyDir/&action=backup&match=*.txt&frequency=7&review=100&remove=200")
+			code, resp = getResponse(
+				s.CreateRule,
+				"/api/rules/create?dir=/some/path/MyDir/&action=backup&match=*.txt&frequency=7&review=100&remove=200",
+			)
 			So(code, ShouldEqual, http.StatusNoContent)
 			So(resp, ShouldEqual, "")
 
-			code, resp = getResponse(s.CreateRule, "/api/rules/create?dir=/some/path/MyDir/&action=backup&match=*.txt&frequency=7&review=100&remove=200")
+			code, resp = getResponse(
+				s.CreateRule,
+				"/api/rules/create?dir=/some/path/MyDir/&action=backup&match=*.txt&frequency=7&review=100&remove=200",
+			)
 			So(code, ShouldEqual, http.StatusBadRequest)
 			So(resp, ShouldEqual, "rule already exists for that match string\n")
 
 			Convey("And remove them", func() {
 				u = "someone"
 
-				code, resp := getResponse(s.RemoveRule, "/api/rules/remove?dir=/some/path/MyDir/&action=backup&match=*.txt")
+				code, resp := getResponse(
+					s.RemoveRule,
+					"/api/rules/remove?dir=/some/path/MyDir/&action=backup&match=*.txt",
+				)
 				So(code, ShouldEqual, http.StatusForbidden)
 				So(resp, ShouldEqual, "invalid user\n")
 
-				u = "root"
+				u = root
 
-				code, resp = getResponse(s.RemoveRule, "/api/rules/remove?dir=/some/path/MyDir/&action=backup&match=*.tsv")
+				code, resp = getResponse(
+					s.RemoveRule,
+					"/api/rules/remove?dir=/some/path/MyDir/&action=backup&match=*.tsv",
+				)
 				So(code, ShouldEqual, http.StatusBadRequest)
 				So(resp, ShouldEqual, "no matching rule\n")
 
-				code, resp = getResponse(s.RemoveRule, "/api/rules/remove?dir=/some/path/MyDir/&action=backup&match=*.txt")
+				code, resp = getResponse(
+					s.RemoveRule,
+					"/api/rules/remove?dir=/some/path/MyDir/&action=backup&match=*.txt",
+				)
 				So(code, ShouldEqual, http.StatusNoContent)
 				So(resp, ShouldEqual, "")
 
-				code, resp = getResponse(s.RemoveRule, "/api/rules/remove?dir=/some/path/MyDir/&action=backup&match=*.txt")
+				code, resp = getResponse(
+					s.RemoveRule,
+					"/api/rules/remove?dir=/some/path/MyDir/&action=backup&match=*.txt",
+				)
 				So(code, ShouldEqual, http.StatusBadRequest)
 				So(resp, ShouldEqual, "no matching rule\n")
 			})
