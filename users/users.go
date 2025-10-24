@@ -36,7 +36,7 @@ type muMap[K comparable, V any] struct {
 	m  map[K]V
 }
 
-func (m *muMap[K, V]) Get(key K) (V, bool) {
+func (m *muMap[K, V]) Get(key K) (V, bool) { //nolint:ireturn,nolintlint
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
