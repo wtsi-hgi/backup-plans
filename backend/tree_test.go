@@ -69,7 +69,7 @@ func TestTree(t *testing.T) {
 				"{\"Name\":\"root\",\"MTime\":4,\"Files\":1,\"Size\":3},"+
 				"{\"Name\":\""+user.Username+"\",\"MTime\":6,\"Files\":1,\"Size\":5}],"+
 				"\"Groups\":["+
-				"{\"Name\":\"daemon\",\"MTime\":6,\"Files\":2,\"Size\":8}]}"+
+				"{\"Name\":\""+users.Group(2)+"\",\"MTime\":6,\"Files\":2,\"Size\":8}]}"+
 				"],\"Children\":{},\"ClaimedBy\":\"\",\"Rules\":{},\"Unauthorised\":[],\"CanClaim\":true}\n")
 
 			code, _ = getResponse(s.ClaimDir, "/api/dir/claim?dir=/some/path/MyDir/")
