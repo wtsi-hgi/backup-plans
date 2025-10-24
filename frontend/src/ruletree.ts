@@ -15,19 +15,16 @@ const base = div({ class: "affectingRules" });
 
 export default Object.assign(base, {
 	update: (path: string, data: DirectoryWithChildren, load: (path: string) => Promise<DirectoryWithChildren>) => {
-		const hasAnyRules = Object.entries(data.rules).some(
-			([dir, rules]) => dir && dir !== path && rules.length
-		);
+		const rulesList = Object.entries(data.rules)
+			.map(([path, rule]) => [path, rule.filter(r => r.count)] as [string, RuleStats[]])
+			.filter(([dir, rules]) => dir && dir !== path && rules.length)
+			.toSorted(([a], [b]) => stringSort(a, b));
 
-		if (!hasAnyRules) {
+		if (!Object.entries(rulesList).some(([dir, rules]) => dir && dir !== path && rules.length)) {
 			clearNode(base);
 
 			return;
 		}
-
-		const rulesList = Object.entries(data.rules)
-			.filter(([dir, rules]) => dir && dir !== path && rules.length)
-			.toSorted(([a], [b]) => stringSort(a, b));
 
 		const buildTree = (flatList: [string, RuleStats[]][]): Record<string, TreeNode> => {
 			const root: Record<string, TreeNode> = {};
