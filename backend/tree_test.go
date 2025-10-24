@@ -33,13 +33,14 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/wtsi-hgi/backup-plans/internal/testdb"
+	"github.com/wtsi-hgi/backup-plans/users"
 )
 
 func TestTree(t *testing.T) {
 	Convey("With a configured backend", t, func() {
 		var u userHandler
 
-		_, err := user.Current()
+		user, err := user.Current()
 		So(err, ShouldBeNil)
 
 		s, err := New(testdb.CreateTestDatabase(t), u.getUser, nil)
@@ -64,7 +65,7 @@ func TestTree(t *testing.T) {
 				"/api/tree?dir=/some/path/MyDir/",
 			)
 			So(code, ShouldEqual, http.StatusOK)
-			So(resp, ShouldEqual, "{\"RuleSummaries\":[{\"ID\":0,\"Users\":[{\"Name\":\"root\",\"MTime\":4,\"Files\":1,\"Size\":3},{\"Name\":\"michael\",\"MTime\":6,\"Files\":1,\"Size\":5}],\"Groups\":[{\"Name\":\"daemon\",\"MTime\":6,\"Files\":2,\"Size\":8}]}],\"Children\":{},\"ClaimedBy\":\"\",\"Rules\":{},\"Unauthorised\":[],\"CanClaim\":true}\n")
+			So(resp, ShouldEqual, "{\"RuleSummaries\":[{\"ID\":0,\"Users\":[{\"Name\":\"root\",\"MTime\":4,\"Files\":1,\"Size\":3},{\"Name\":\""+user.Username+"\",\"MTime\":6,\"Files\":1,\"Size\":5}],\"Groups\":[{\"Name\":\"daemon\",\"MTime\":6,\"Files\":2,\"Size\":8}]}],\"Children\":{},\"ClaimedBy\":\"\",\"Rules\":{},\"Unauthorised\":[],\"CanClaim\":true}\n")
 
 			code, _ = getResponse(s.ClaimDir, "/api/dir/claim?dir=/some/path/MyDir/")
 			So(code, ShouldEqual, http.StatusOK)
@@ -86,7 +87,7 @@ func TestTree(t *testing.T) {
 
 			resp = re.ReplaceAllString(resp, "Created\":0,\"Modified\":0")
 
-			So(resp, ShouldEqual, "{\"RuleSummaries\":[{\"ID\":0,\"Users\":[{\"Name\":\"michael\",\"MTime\":6,\"Files\":1,\"Size\":5}],\"Groups\":[{\"Name\":\"daemon\",\"MTime\":6,\"Files\":1,\"Size\":5}]},{\"ID\":1,\"Users\":[{\"Name\":\"root\",\"MTime\":4,\"Files\":1,\"Size\":3}],\"Groups\":[{\"Name\":\"daemon\",\"MTime\":4,\"Files\":1,\"Size\":3}]}],\"Children\":{},\"ClaimedBy\":\"root\",\"Rules\":{\"/some/path/MyDir/\":{\"1\":{\"BackupType\":1,\"Metadata\":\"\",\"ReviewDate\":100,\"RemoveDate\":200,\"Match\":\"*.txt\",\"Frequency\":7,\"Created\":0,\"Modified\":0}}},\"Unauthorised\":[],\"CanClaim\":true}\n")
+			So(resp, ShouldEqual, "{\"RuleSummaries\":[{\"ID\":0,\"Users\":[{\"Name\":\""+user.Username+"\",\"MTime\":6,\"Files\":1,\"Size\":5}],\"Groups\":[{\"Name\":\""+users.Username(2)+"\",\"MTime\":6,\"Files\":1,\"Size\":5}]},{\"ID\":1,\"Users\":[{\"Name\":\"root\",\"MTime\":4,\"Files\":1,\"Size\":3}],\"Groups\":[{\"Name\":\""+users.Group(2)+"\",\"MTime\":4,\"Files\":1,\"Size\":3}]}],\"Children\":{},\"ClaimedBy\":\"root\",\"Rules\":{\"/some/path/MyDir/\":{\"1\":{\"BackupType\":1,\"Metadata\":\"\",\"ReviewDate\":100,\"RemoveDate\":200,\"Match\":\"*.txt\",\"Frequency\":7,\"Created\":0,\"Modified\":0}}},\"Unauthorised\":[],\"CanClaim\":true}\n")
 		})
 	})
 }
