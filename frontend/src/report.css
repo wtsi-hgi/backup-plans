@@ -1,0 +1,165 @@
+#report {
+	margin: 0 1em;
+	width: calc(100% - 2em);
+	padding: 0 1em;
+}
+
+#report>fieldset:first-of-type label:not(:first-of-type):after {
+	content: "";
+	margin-left: 0.25em;
+	display: inline-block;
+	border: 1px solid currentColor;
+	width: 0.75em;
+	height: 0.75em;
+}
+
+#report>fieldset:first-of-type label:nth-of-type(2):after {
+	background-color: #ff0000;
+}
+
+#report>fieldset:first-of-type label:nth-of-type(3):after {
+	background-color: #ffaa00;
+}
+
+#report>fieldset:first-of-type label:nth-of-type(4):after {
+	background-color: #00aa00;
+}
+
+#report>fieldset:first-of-type label:nth-of-type(5):after {
+	background-color: #44aaf7;
+}
+
+#report input[type=radio] {
+	margin-right: 2em;
+}
+
+#report>fieldset[data-name] {
+	border: 1px solid currentColor;
+	border-radius: 2em;
+	padding: 1em;
+	margin-top: 2em;
+}
+
+#report>fieldset[data-name]>legend {
+	border: 1px solid currentColor;
+	border-radius: 1em;
+	padding: 1em 2em;
+	margin: 0 auto;
+	position: relative;
+}
+
+#report>fieldset[data-name]>legend>h1 {
+	position: relative;
+	margin: 0;
+}
+
+#report>fieldset[data-name]>legend:before {
+	content: "";
+	width: calc(100% + 2px);
+	height: calc(50% + 1px);
+	background-color: var(--background);
+	position: absolute;
+	left: -1px;
+	top: 50%;
+}
+
+#report ul {
+	list-style: none;
+	padding: 0;
+}
+
+fieldset[data-status="g"]>legend {
+	background: linear-gradient(180deg, #00aa00 0%, rgba(255, 255, 255, 0) 50%);
+}
+
+fieldset[data-status="b"]>legend {
+	background: linear-gradient(180deg, #44aaf7 0%, rgba(255, 255, 255, 0) 50%);
+}
+
+fieldset[data-status="a"]>legend {
+	background: linear-gradient(180deg, #ffaa00 0%, rgba(255, 255, 255, 0) 50%);
+}
+
+fieldset[data-status="r"]>legend {
+	background: linear-gradient(180deg, #ff0000 0%, rgba(255, 255, 255, 0) 50%);
+}
+
+table.summary {
+	border-spacing: 0;
+	width: 100%;
+	border-top-width: 0;
+	min-width: 90vw;
+}
+
+.summary th {
+	/* color: #000; */
+	padding: 1rem 1em;
+	background-color: #44aaf7;
+	border: 1px solid currentColor;
+}
+
+table.summary thead th:not(:first-of-type) {
+	border-left: 0;
+}
+
+.summary tr:first-child th:first-of-type {
+	border-top-left-radius: 0.5em;
+}
+
+table.summary tbody tr:last-child th:first-child {
+	border-top: 0;
+	border-bottom-left-radius: 0.5em;
+}
+
+.summary thead th:last-of-type {
+	border-top-right-radius: 0.5em;
+}
+
+.summary:has(thead td:last-child) tbody tr:first-child td:last-child {
+	border-top: 1px solid currentColor;
+	border-top-right-radius: 0.5em;
+}
+
+.summary td {
+	border-width: 0 1px 1px 0;
+	border-style: solid;
+	border-color: currentColor;
+	padding: 0.5em 0.75em;
+	text-align: center;
+}
+
+.summary td:first-child {
+	border-left-width: 1px;
+}
+
+.summary tbody tr:last-child td:first-child {
+	border-bottom-left-radius: 0.5em;
+}
+
+.summary tbody tr:last-child td:last-child {
+	border-bottom-right-radius: 0.5em;
+}
+
+.summary thead td {
+	border: 0;
+}
+
+.h {
+	display: none;
+}
+
+#report td:before {
+	content: "" !important;
+}
+
+#report button {
+	display: none;
+}
+
+details #report button {
+	display: unset;
+}
+
+fieldset {
+	border-radius: 1em;
+}

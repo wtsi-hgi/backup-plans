@@ -42,7 +42,6 @@ func createTestDatabase(t *testing.T) *DB {
 
 	if p := os.Getenv("BACKUP_MYSQL_URL"); p != "" { //nolint:nestif
 		sdriver = "mysql"
-		uri = p + "?parseTime=true"
 
 		So(dropTables(p), ShouldBeNil)
 	} else {
@@ -73,7 +72,7 @@ func dropTables(uri string) error {
 	}
 
 	for _, table := range [...]string{"rules", "directories"} {
-		if _, err = db.Exec("DROP TABLE IF EXISTS `" + table + "`;"); err != nil {
+		if _, err = db.Exec("DROP TABLE IF EXISTS `" + table + "`;"); err != nil { //nolint:noctx
 			return err
 		}
 	}

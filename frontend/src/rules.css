@@ -1,13 +1,157 @@
-#rules button {
+button.actionButton {
 	border: 0;
 	background: none;
 }
 
-#rules svg {
+button.actionButton svg {
 	width: 1em;
 	height: 1em;
 }
 
 ::backdrop {
 	background-color: rgba(0, 0, 0, 0.75);
+}
+
+.affectingRules {
+	gap: 1em;
+}
+
+.card-container {
+	border: 1px solid var(--subtleBorder);
+	border-radius: 12px;
+	padding: 16px;
+	background: var(--background);
+	box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+	margin: 0.2em;
+	color: var(--colour);
+}
+
+.card-container>details {
+	padding-left: 1.2em;
+}
+
+.card-header {
+	margin-bottom: 8px;
+}
+
+.card-title {
+	text-align: center;
+	margin: 0;
+	font-size: 1.25rem;
+	color: var(--colour);
+}
+
+.rule-section {
+	border-radius: 8px;
+	background: var(--tableEventBG);
+}
+
+.rule-section summary {
+	list-style: none;
+	padding: 4px 6px;
+	user-select: none;
+	cursor: pointer;
+}
+
+.rule-section summary:hover {
+	background-color: var(--tableHoverBG);
+}
+
+details.rule-section>summary::marker {
+	content: "+";
+	text-align: center;
+	font-weight: bold;
+	font-family: monospace;
+	margin-right: 4px;
+	color: var(--colour);
+	cursor: pointer;
+	user-select: none;
+	transition: color 0.15s ease;
+}
+
+details[open].rule-section>summary::marker {
+	content: "–";
+}
+
+details.rule-section>summary:not(:has(button:hover)):hover::marker {
+	color: var(--inputAccent);
+}
+
+.summary-header {
+	padding: 4px 6px;
+	user-select: none;
+}
+
+.tree-children {
+	margin-left: 20px;
+}
+
+.load-button {
+	background: none;
+	border: none;
+	padding: 0;
+	margin-left: auto;
+}
+
+.load-button:hover svg use {
+	color: var(--inputAccent) !important;
+	transition: color 0.15s ease;
+}
+
+.folder-button,
+.load-button svg {
+	width: 16px !important;
+	height: 16px !important;
+	padding-left: 0.25em;
+	padding-right: 0.25em;
+	margin-bottom: -0.25em;
+}
+
+.rule-badge {
+	color: var(--rule-badge-text);
+	margin-right: 6px;
+	margin-bottom: 4px;
+	word-break: keep-all;
+	display: inline-block;
+}
+
+.rule-badge .file-type {
+	background: var(--inputAccent);
+	color: var(--rule-badge-text);
+	padding: 4px 8px;
+	border-radius: 10px 0 0 10px;
+}
+
+.file-summary {
+	background: var(--rule-badge-bg);
+	padding: 4px 8px;
+}
+
+.rule-badge .action-pill {
+	padding: 4px 8px;
+	border-radius: 0 10px 10px 0;
+	white-space: nowrap;
+}
+
+.rule-badge .action-pill[data-action="No Backup"] {
+	background-color: var(--action-no-backup-bg);
+	color: var(--action-no-backup-text);
+}
+
+.rule-badge .action-pill[data-action="IBackup"] {
+	background-color: var(--action-ibackup-bg);
+	color: var(--action-ibackup-text);
+}
+
+.rule-badge .action-pill[data-action="Manual Backup"] {
+	background-color: var(--action-manual-bg);
+	color: var(--action-manual-text);
+}
+
+#metadataInput {
+	display: none;
+}
+
+select:has(option:checked[value="manualbackup"])~#metadataInput {
+	display: unset;
 }

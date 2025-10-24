@@ -23,73 +23,45 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  ******************************************************************************/
 
-package db
+package users
 
-import "database/sql"
+import (
+	"os"
+	"testing"
 
-type DBRO struct { //nolint:revive
-	db *sql.DB
+	. "github.com/smartystreets/goconvey/convey"
+)
+
+func TestUsername(t *testing.T) {
+	Convey("You can get a username from a user ID", t, func() {
+		So(Username(uint32(os.Getuid())), ShouldNotBeBlank) //nolint:gosec
+
+		Convey("The cache is used for a username that's already been fetched", func() {
+			const (
+				fakeID       = 1234567
+				fakeUsername = "MY_REAL_USERNAME"
+			)
+
+			userCache.Set(fakeID, fakeUsername)
+
+			So(Username(fakeID), ShouldEqual, fakeUsername)
+		})
+	})
 }
 
-type DB struct {
-	DBRO
-}
+func TestGroup(t *testing.T) {
+	Convey("You can get a group name from a group ID", t, func() {
+		So(Group(uint32(os.Getgid())), ShouldNotBeBlank) //nolint:gosec
 
-// InitRO connects to a rule database as determined by the given driver and
-// connection strings, disallowing any modifications.
-func InitRO(driver, connection string) (*DBRO, error) {
-	db, err := sql.Open(driver, connection)
-	if err != nil {
-		return nil, err
-	}
+		Convey("The cache is used for a group name that's already been fetched", func() {
+			const (
+				fakeID    = 1234567
+				fakeGroup = "MY_REAL_GROUP"
+			)
 
-	return &DBRO{db: db}, nil
-}
+			groupCache.Set(fakeID, fakeGroup)
 
-// Init connects to a rule database as determined by the given driver and
-// connection strings.
-func Init(driver, connection string) (*DB, error) {
-	db, err := sql.Open(driver, connection)
-	if err != nil {
-		return nil, err
-	}
-
-	d := &DB{
-		DBRO: DBRO{db: db},
-	}
-
-	if err = d.initTables(); err != nil {
-		return nil, err
-	}
-
-	return d, nil
-}
-
-func (d *DB) initTables() error {
-	for _, table := range tables {
-		if _, err := d.db.Exec(table); err != nil { //nolint:noctx
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (d *DB) exec(sql string, params ...any) error {
-	tx, err := d.db.Begin() //nolint:noctx
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback() //nolint:errcheck
-
-	if _, err = tx.Exec(sql, params...); err != nil { //nolint:noctx
-		return err
-	}
-
-	return tx.Commit()
-}
-
-// Close closes the database connection.
-func (d *DBRO) Close() error {
-	return d.db.Close()
+			So(Group(fakeID), ShouldEqual, fakeGroup)
+		})
+	})
 }

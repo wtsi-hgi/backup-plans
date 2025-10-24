@@ -1,0 +1,50 @@
+name: Go Checks
+
+on:
+  push:
+    branches:
+      - 'master'
+  pull_request:
+    branches:
+      - '**'
+
+permissions:
+  contents: read
+
+jobs:
+  run-tests:
+    name: go test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v5
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Run Tests
+        run: go test ./...
+
+  frontend-embed-check:
+    name: frontend embed check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v5
+      - name: Run embed check
+        run: bash -c '[ "$(stat -c %Y frontend/index.html.gz)" -ge "$(find frontend/src/ -type f -printf "%T@\n" | sort | tail -n1 | cut -d'.' -f1)" ]'
+
+  golangci:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version: stable
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.5

@@ -1,0 +1,25 @@
+.summary {
+	margin: 1em;
+	width: calc(100% - 2em) !important;
+}
+
+.summary thead td:not(:empty) {
+	text-align: left;
+}
+
+.summary thead td:first-child:not(:empty):before {
+	content: "Claimed By: ";
+	font-weight: bold;
+}
+
+.summary caption button,
+legend button {
+	background: none;
+	border: 0;
+}
+
+.summary button svg,
+legend button svg {
+	height: 1em;
+	width: 1.5em;
+}

@@ -23,73 +23,70 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  ******************************************************************************/
 
-package db
+package users
 
-import "database/sql"
+import (
+	"os/user"
+	"strconv"
+	"time"
+)
 
-type DBRO struct { //nolint:revive
-	db *sql.DB
+type groups struct {
+	expiry time.Time
+	uid    uint32
+	groups []uint32
 }
 
-type DB struct {
-	DBRO
+var userGroupsCache = makeMuMap[string, groups]() //nolint:gochecknoglobals
+
+// GetIDs returns the UID and a slice of GIDs for the given username.
+//
+// Returns 0, nil when the user cannot be found.
+func GetIDs(username string) (uint32, []uint32) {
+	if gc, ok := userGroupsCache.Get(username); ok && gc.expiry.After(time.Now()) {
+		return gc.uid, gc.groups
+	}
+
+	uid, gids := getUserData(username)
+	if gids == nil {
+		return 0, nil
+	}
+
+	userGroupsCache.Set(username, groups{
+		expiry: time.Now().Add(time.Hour),
+		uid:    uid,
+		groups: gids,
+	})
+
+	return uid, gids
 }
 
-// InitRO connects to a rule database as determined by the given driver and
-// connection strings, disallowing any modifications.
-func InitRO(driver, connection string) (*DBRO, error) {
-	db, err := sql.Open(driver, connection)
+func getUserData(username string) (uint32, []uint32) {
+	u, err := user.Lookup(username)
 	if err != nil {
-		return nil, err
+		return 0, nil
 	}
 
-	return &DBRO{db: db}, nil
-}
-
-// Init connects to a rule database as determined by the given driver and
-// connection strings.
-func Init(driver, connection string) (*DB, error) {
-	db, err := sql.Open(driver, connection)
+	uid, err := strconv.ParseUint(u.Uid, 10, 32)
 	if err != nil {
-		return nil, err
+		return 0, nil
 	}
 
-	d := &DB{
-		DBRO: DBRO{db: db},
+	gids, err := u.GroupIds()
+	if err != nil {
+		return 0, nil
 	}
 
-	if err = d.initTables(); err != nil {
-		return nil, err
-	}
+	gs := make([]uint32, 0, len(gids))
 
-	return d, nil
-}
-
-func (d *DB) initTables() error {
-	for _, table := range tables {
-		if _, err := d.db.Exec(table); err != nil { //nolint:noctx
-			return err
+	for _, gid := range gids {
+		g, err := strconv.ParseUint(gid, 10, 32)
+		if err != nil {
+			return 0, nil
 		}
+
+		gs = append(gs, uint32(g))
 	}
 
-	return nil
-}
-
-func (d *DB) exec(sql string, params ...any) error {
-	tx, err := d.db.Begin() //nolint:noctx
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback() //nolint:errcheck
-
-	if _, err = tx.Exec(sql, params...); err != nil { //nolint:noctx
-		return err
-	}
-
-	return tx.Commit()
-}
-
-// Close closes the database connection.
-func (d *DBRO) Close() error {
-	return d.db.Close()
+	return uint32(uid), gs
 }

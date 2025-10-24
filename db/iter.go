@@ -41,7 +41,7 @@ func noSeq[T any](_ func(T) bool) {}
 func iterRows[T any](d *DBRO, scanner func(scanner) (T, error), query string, args ...any) *IterErr[T] {
 	var ie IterErr[T]
 
-	rows, err := d.db.Query(query, args...)
+	rows, err := d.db.Query(query, args...) //nolint:noctx
 	if err != nil {
 		return iterErr[T](err)
 	}
@@ -75,6 +75,8 @@ func iterErr[T any](err error) *IterErr[T] {
 	}
 }
 
+// ForEach calls the given callback for each member of the iterator, stopping on
+// and returning the first error encountered.
 func (i *IterErr[T]) ForEach(fn func(T) error) error {
 	for item := range i.Iter {
 		if err := fn(item); err != nil {

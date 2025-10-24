@@ -2,6 +2,10 @@ rect.hasClick {
 	cursor: pointer;
 }
 
+rect {
+	fill: color-mix(in hsl, #1a9850 calc(var(--fill) * 1%), #d73027);
+}
+
 rect+text,
 rect+use,
 rect+use+text {
@@ -18,4 +22,10 @@ rect+use+text {
 
 .treeMap rect.hasClick:hover {
 	fill-opacity: 0.8;
+}
+
+#spectrum {
+	width: 100%;
+	height: 1em;
+	background: linear-gradient(in hsl to right, rgb(215, 48, 39) 0%, rgb(26, 152, 80) 100%);
 }

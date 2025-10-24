@@ -1,8 +1,9 @@
-import type { DirectoryWithChildren } from './types.js';
+import type { Directory, DirectoryWithChildren } from './types.js';
 import type { Children } from './lib/dom.js';
 import { clearNode } from './lib/dom.js';
-import { div } from './lib/html.js';
+import { br, details, div, label, option, select, summary } from './lib/html.js';
 import { rect, svg, text, use } from './lib/svg.js';
+import { BackupIBackup, BackupNone, BackupWarn } from './types.js';
 
 
 export type Entry = {
@@ -45,8 +46,7 @@ const phi = (1 + Math.sqrt(5)) / 2,
 			"height": rowHeight + "",
 			"tabIndex": "0",
 			"aria-label": entry.name + (entry.onclick ? "" : entry.noauth ? "; No authorisation to view" : "; No children with current filter"),
-			"stroke": "#000",
-			"fill": entry.backgroundColour ?? "#fff",
+			"style": "stroke: currentColor; --fill: " + entry.backgroundColour,
 			"class": entry.onclick ? "hasClick box" : "box",
 			"click": (e: MouseEvent) => {
 				if (e.button !== 0) {
@@ -212,12 +212,78 @@ const phi = (1 + Math.sqrt(5)) / 2,
 			buildTree(table, box)
 		)
 	},
-	base = div();
+	secondsInSevenYears = 7 * 365 * 86400,
+	colourFns = [
+		(dir: Directory) => dir.size ? 100 * Number(dir.size - (dir.actions[BackupWarn]?.size ?? 0n)) / Number(dir.size) : 100,
+		(dir: Directory) => dir.count ? 100 * Number(dir.count - (dir.actions[BackupWarn]?.count ?? 0n)) / Number(dir.count) : 100,
+		(dir: Directory) => dir.size ? 100 * Number(dir.actions[BackupIBackup]?.size ?? 0n) / Number(dir.size) : 100,
+		(dir: Directory) => dir.count ? 100 * Number(dir.actions[BackupIBackup]?.count ?? 0n) / Number(dir.count) : 100,
+		(dir: Directory) => dir.size ? 100 * Number(dir.actions[BackupNone]?.size ?? 0n) / Number(dir.size) : 100,
+		(dir: Directory) => dir.count ? 100 * Number(dir.actions[BackupNone]?.count ?? 0n) / Number(dir.count) : 100,
+		(dir: Directory) => Math.max(0, Math.min(100, 100 * (dir.mtime - (+new Date() / 1000) + secondsInSevenYears) / secondsInSevenYears))
+	],
+	areaFns = [
+		(dir: Directory) => Number(dir.actions[BackupWarn]?.size ?? 0),
+		(dir: Directory) => Number(dir.actions[BackupWarn]?.count ?? 0),
+		(dir: Directory) => Number(dir.actions[BackupIBackup]?.size ?? 0),
+		(dir: Directory) => Number(dir.actions[BackupIBackup]?.count ?? 0),
+		(dir: Directory) => Number(dir.actions[BackupNone]?.size ?? 0),
+		(dir: Directory) => Number(dir.actions[BackupNone]?.count ?? 0),
+		(dir: Directory) => Number(dir.size),
+		(dir: Directory) => Number(dir.count)
+	],
+	options = details({ "id": "treeOptions" }, [
+		summary("View Options"),
+		label({ "for": "colourBy" }, "Colour By"),
+		select({
+			"id": "colourBy", "change": function (this: HTMLSelectElement) {
+				colourFn = Math.max(0, Math.min(colourFns.length - 1, parseInt(this.value) || 0));
+				reload();
+			}
+		}, [
+			option({ "value": "0" }, "Planned Size %"),
+			option({ "value": "1" }, "Planned Files %"),
+			option({ "value": "2" }, "Backup Size %"),
+			option({ "value": "3" }, "Backup Files %"),
+			option({ "value": "4" }, "No Backup Size %"),
+			option({ "value": "5" }, "No Backup Files %"),
+			option({ "value": "6" }, "Modified Time")
+		]),
+		br(),
+		div({ "id": "spectrum" }),
+		br(),
+		label({ "for": "areaRepresents" }, "Area Represents"),
+		select({
+			"id": "areaRepresents", "change": function (this: HTMLSelectElement) {
+				areaFn = Math.max(0, Math.min(areaFns.length - 1, parseInt(this.value) || 0));
+				reload();
+			}
+		}, [
+			option({ "value": "0" }, "Unplanned Size"),
+			option({ "value": "1" }, "Unplanned Files"),
+			option({ "value": "2" }, "Backup Size"),
+			option({ "value": "3" }, "Backup Files"),
+			option({ "value": "4" }, "No Backup Size"),
+			option({ "value": "5" }, "No Backup Files"),
+			option({ "value": "6" }, "Total Size"),
+			option({ "value": "7" }, "Total Files"),
+		])
+	]),
+	svgBase = div(),
+	base = div({ "id": "tree" }, [
+		svgBase,
+		options
+	])
 
-let width = 500,
-	render = () => { };
+export let render = () => { };
 
-new ResizeObserver(() => render()).observe(base);
+let areaFn = 0,
+	colourFn = 0,
+	reload = () => { },
+	lastWidth = 0,
+	lastHeight = 0;
+
+new ResizeObserver(() => render()).observe(svgBase);
 
 export default Object.assign(base, {
 	"update": (path: string, data: DirectoryWithChildren, load: (path: string) => void) => {
@@ -226,18 +292,20 @@ export default Object.assign(base, {
 		for (const [dir, child] of Object.entries(data.children)) {
 			entries.push({
 				"name": dir.replace("/", ""),
-				"value": Number(child.size),
-				"backgroundColour": "#ff8888",
-				"onclick": () => load(path + dir),
+				"value": Math.max(areaFns[areaFn](child), 0.0001),
+				"backgroundColour": colourFns[colourFn](child) + "",
+				"onclick": child.unauthorised ? undefined : () => load(path + dir),
 				"onmouseover": () => { },
-				"noauth": false
+				"noauth": child.unauthorised
 			})
 		}
 
 		entries.sort((a, b) => b.value - a.value);
 
-		render = () => clearNode(base, buildTreeMap(entries, base.clientWidth, 500, false, () => { }));
+		render = () => clearNode(svgBase, buildTreeMap(entries, lastWidth = svgBase.clientWidth || lastWidth, lastHeight = svgBase.clientHeight || lastHeight, data.unauthorised, () => { }));
 
 		render();
+
+		reload = () => load(path);
 	}
 });

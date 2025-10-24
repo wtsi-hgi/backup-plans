@@ -1,123 +1,99 @@
 import type { DirectoryWithChildren, Rule } from "./types.js"
 import { clearNode } from "./lib/dom.js";
-import { br, button, caption, dialog, div, h2, input, label, option, select, table, tbody, td, th, thead, tr } from './lib/html.js';
+import { br, button, dialog, div, form, h2, input, label, option, select, table, tbody, td, th, thead, tr } from './lib/html.js';
 import { svg, title, use } from './lib/svg.js';
-import { formatBytes } from "./lib/utils.js";
+import { action, confirm, formatBytes } from "./lib/utils.js";
 import { createRule, removeRule, updateRule, user } from "./rpc.js";
-import disktree from "./disktree.js";
+import { BackupIBackup, BackupManual, BackupNone } from "./types.js"
 
-const actions = ["No Backup", "Temp Backup", "IBackup", "Manual Backup"],
-	action = (backupType: number) => actions[backupType] ?? "Unknown",
-	addEditOverlay = (path: string, rule: Rule, load: (path: string) => void) => {
-		const backupType = select({ "id": "backupType" }, [
-			option({ "value": "backup", [rule.BackupType === 2 ? "selected" : "unselected"]: "" }, "Backup"),
-			option({ "value": "tempbackup", [rule.BackupType === 1 ? "selected" : "unselected"]: "" }, "Temp Backup"),
-			option({ "value": "manualbackup", [rule.BackupType === 3 ? "selected" : "unselected"]: "" }, "Manual Backup"),
-			option({ "value": "nobackup", [rule.BackupType === 0 ? "selected" : "unselected"]: "" }, "No Backup")
+const addEditOverlay = (path: string, rule: Rule, load: (path: string) => void) => {
+	const backupType = select({ "id": "backupType" }, [
+		option({ "value": "backup", [rule.BackupType === BackupIBackup ? "selected" : "unselected"]: "" }, "Backup"),
+		option({ "value": "manualbackup", [rule.BackupType === BackupManual ? "selected" : "unselected"]: "" }, "Manual Backup"),
+		option({ "value": "nobackup", [rule.BackupType === BackupNone ? "selected" : "unselected"]: "" }, "No Backup")
+	]),
+		set = button(rule.Match ? "Update" : "Add"),
+		cancel = button({ "type": "button", "click": () => overlay.close() }, "Cancel"),
+		match = input({ "id": "match", "type": "text", "value": rule.Match, [rule.Match ? "disabled" : "enabled"]: "" }),
+		metadata = input({ "id": "metadata", "type": "text", "value": rule.Metadata }),
+		metadataSection = div({ "id": "metadataInput" }, [
+			label({ "for": "metadata" }, "Metadata"),
+			metadata,
+			br(),
 		]),
-			set = button({
-				"click": () => {
-					overlay.setAttribute("closedby", "none");
-					set.toggleAttribute("disabled", true);
-					cancel.toggleAttribute("disabled", true);
-					backupType.toggleAttribute("disabled", true);
+		overlay = document.body.appendChild(dialog({ "id": "addEdit", "closedby": "any", "close": () => overlay.remove() }, form({
+			"submit": (e: Event) => {
+				e.preventDefault();
+				overlay.setAttribute("closedby", "none");
+				set.toggleAttribute("disabled", true);
+				cancel.toggleAttribute("disabled", true);
+				backupType.toggleAttribute("disabled", true);
 
-					(rule.Match ? updateRule : createRule)(path, backupType.value, rule.Match || match.value || "*")
-						.then(() => {
-							load(path);
-							overlay.remove();
-						})
-						.catch((e: Error) => {
-							overlay.setAttribute("closedby", "any");
-							set.removeAttribute("disabled");
-							cancel.removeAttribute("disabled");
-							backupType.removeAttribute("disabled");
-							alert("Error: " + e.message);
-						});
-				}
-			}, rule.Match ? "Update" : "Add"),
-			cancel = button({ "click": () => overlay.close() }, "Cancel"),
-			match = input({ "id": "match", "type": "text", "value": rule.Match, [rule.Match ? "disabled" : "enabled"]: "" }),
-			overlay = document.body.appendChild(dialog({ "closedby": "any", "close": () => overlay.remove() }, [
-				label({ "for": "match" }, "Match"), match, br(),
-				label({ "for": "backupType" }, "Backup Type"), backupType, br(),
-				set,
-				cancel
-			]));
+				(rule.Match ? updateRule : createRule)(path, backupType.value, rule.Match || match.value || "*", backupType.value === "manualbackup" ? metadata.value : "")
+					.then(() => {
+						load(path);
+						overlay.remove();
+					})
+					.catch((e: Error) => {
+						overlay.setAttribute("closedby", "any");
+						set.removeAttribute("disabled");
+						cancel.removeAttribute("disabled");
+						backupType.removeAttribute("disabled");
+						alert("Error: " + e.message);
+					});
+			}
+		}, [
+			label({ "for": "match" }, "Match"), match, br(),
+			label({ "for": "backupType" }, "Backup Type"), backupType, br(),
+			metadataSection,
+			set,
+			cancel
+		])));
 
-		overlay.showModal();
-	},
+	overlay.showModal();
+},
+	addRule = (path: string, load: (path: string) => void) => button({
+		"click": () => addEditOverlay(path, {
+			"BackupType": BackupIBackup,
+			"Metadata": "",
+			"ReviewDate": 0,
+			"RemoveDate": 0,
+			"Match": "",
+			"Frequency": 7
+		}, load),
+	}, "Add Rule"),
 	base = div();
 
 export default Object.assign(base, {
 	"update": (path: string, data: DirectoryWithChildren, load: (path: string) => void) => {
 		clearNode(base, [
-			data.claimedBy && data.claimedBy == user ? button({
-				"click": () => addEditOverlay(path, {
-					"BackupType": 2,
-					"Metadata": "",
-					"ReviewDate": 0,
-					"RemoveDate": 0,
-					"Match": "",
-					"Frequency": 7
-				}, load),
-			}, "Add Rule") : [],
-			data.claimedBy ? table({ "id": "rules", "class": "prettyTable" }, [
-				thead(tr([th("Match"), th("Action"), th("Files"), th("Size"), th()])),
+			data.claimedBy ? h2("Rules on this directory") : [],
+			data.claimedBy && data.claimedBy == user && !data.rules[path]?.length ? addRule(path, load) : [],
+			data.claimedBy && data.rules[path]?.length ? table({ "id": "rules", "class": "summary" }, [
+				thead(tr([th("Match"), th("Action"), th("Files"), th("Size"), data.claimedBy === user ? td(addRule(path, load)) : []])),
 				tbody(Object.values(data.rules[path] ?? []).map(rule => tr([
 					td(rule.Match),
 					td(action(rule.BackupType)),
 					td(rule.count.toLocaleString()),
 					td({ "title": rule.size.toLocaleString() }, formatBytes(rule.size)),
-					td([
-						button({ "click": () => addEditOverlay(path, rule, load) }, svg([
+					data.claimedBy === user ? td([
+						button({
+							"class": "actionButton",
+							"click": () => addEditOverlay(path, rule, load)
+						}, svg([
 							title("Edit Rule"),
 							use({ "href": "#edit" })
 						])),
 						button({
-							"click": () => {
-								const remove = button({
-									"click": () => {
-										overlay.setAttribute("closedby", "none");
-										remove.toggleAttribute("disabled", true);
-										cancel.toggleAttribute("disabled", true);
-										removeRule(path, rule.Match)
-											.then(() => load(path))
-											.then(() => overlay.close())
-											.catch((e: Error) => {
-												overlay.setAttribute("closedby", "any");
-												remove.removeAttribute("disabled");
-												cancel.removeAttribute("disabled");
-												alert("Error: " + e.message);
-											});
-									}
-								}, "Remove"),
-									cancel = button({ "click": () => overlay.close() }, "Cancel"),
-									overlay = document.body.appendChild(dialog({ "closedby": "any", "close": () => overlay.remove() }, [
-										div("Are you sure you wish to remove this rule?"),
-										remove, cancel
-									]));
-
-								overlay.showModal();
-							}
+							"class": "actionButton",
+							"click": () => confirm("Are you sure you wish to remove this rule?", () => removeRule(path, rule.Match).then(() => load(path)))
 						}, svg([
 							title("Remove Rule"),
 							use({ "href": "#remove" })
 						]))
-					])
+					]) : []
 				])))
-			]) : [],
-			Object.entries(data.rules).some(([dir]) => dir && dir !== path) ? h2("Rules affecting this directory") : [],
-			Object.entries(data.rules).map(([dir, rules]) => dir && dir !== path ? table({ "class": "prettyTable" }, [
-				caption({ "align": "top" }, button({ "click": () => load(dir) }, dir)),
-				thead([th("Match"), th("Action"), th("Files"), th("Size")]),
-				tbody(rules.map(rule => tr([
-					td(rule.Match),
-					td(action(rule.BackupType)),
-					td(rule.count.toLocaleString()),
-					td({ "title": rule.size.toLocaleString() }, formatBytes(rule.size))
-				])))
-			]) : [])
+			]) : []
 		]);
 	}
 });

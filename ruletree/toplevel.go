@@ -1,3 +1,28 @@
+/*******************************************************************************
+ * Copyright (c) 2025 Genome Research Ltd.
+ *
+ * Author: Michael Woolnough <mw31@sanger.ac.uk>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included
+ * in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ ******************************************************************************/
+
 package ruletree
 
 import (
@@ -11,24 +36,28 @@ import (
 	"sync"
 
 	"github.com/wtsi-hgi/backup-plans/db"
-	"github.com/wtsi-hgi/wrstat-ui/summary"
 	"github.com/wtsi-hgi/wrstat-ui/summary/group"
 	"golang.org/x/sys/unix"
 	"vimagination.zapto.org/tree"
 )
 
+const nameBufLen = 4096
+
 type summariser interface {
-	Summary(string) (*DirSummary, error)
+	Summary(path string) (*DirSummary, error)
+	GetOwner(path string) (uint32, uint32, error)
 }
 
+// DirRules is a Directory reference and a map of its rules, keyed by the Match.
 type DirRules struct {
 	*db.Directory
 
 	Rules map[string]*db.Rule
 }
 
+// RootDir represents the root of a collection of tree databases and rules.
 type RootDir struct {
-	TopLevelDir
+	topLevelDir
 
 	directoryRules map[string]*DirRules
 	stateMachine   group.StateMachine[db.Rule]
@@ -37,16 +66,18 @@ type RootDir struct {
 	closers map[string]func()
 }
 
+// DirRule is a combined Directory reference and Rule reference.
 type DirRule struct {
 	*db.Directory
 	*db.Rule
 }
 
+// NewRoot create a new RootDir, initialised with the given rules.
 func NewRoot(rules []DirRule) (*RootDir, error) {
 	r := &RootDir{
 		directoryRules: make(map[string]*DirRules),
 		closers:        make(map[string]func()),
-		TopLevelDir: TopLevelDir{
+		topLevelDir: topLevelDir{
 			children: make(map[string]summariser),
 			summary: DirSummary{
 				Children:      make(map[string]*DirSummary),
@@ -61,11 +92,15 @@ func NewRoot(rules []DirRule) (*RootDir, error) {
 		}
 	}
 
-	r.rebuildStateMachine()
+	if err := r.rebuildStateMachine(); err != nil {
+		return nil, err
+	}
 
 	return r, nil
 }
 
+// AddRule adds the given rule to the given directory and regenerates the rule
+// summaries.
 func (r *RootDir) AddRule(dir *db.Directory, rule *db.Rule) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -97,6 +132,8 @@ func (r *RootDir) addRule(dir *db.Directory, rule *db.Rule) error {
 	return nil
 }
 
+// RemoveRule remove the given rule from the given directory and regenerates the
+// rule summaries.
 func (r *RootDir) RemoveRule(dir *db.Directory, rule *db.Rule) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -116,10 +153,8 @@ func (r *RootDir) RemoveRule(dir *db.Directory, rule *db.Rule) error {
 }
 
 func (r *RootDir) regenRules(dir string) error {
-	t := &r.TopLevelDir
-	path := &summary.DirectoryPath{
-		Name: "/",
-	}
+	t := &r.topLevelDir
+	pos := 1
 
 	for part := range pathParts(dir[1:]) {
 		child := t.children[part]
@@ -127,16 +162,13 @@ func (r *RootDir) regenRules(dir string) error {
 			return ErrNotFound
 		}
 
-		path = &summary.DirectoryPath{
-			Name:   part,
-			Parent: path,
-		}
+		pos += len(part)
 
 		switch child := child.(type) {
-		case *TopLevelDir:
+		case *topLevelDir:
 			t = child
-		case *RuleOverlay:
-			return r.regenRulesFor(t, child, dir, path)
+		case *ruleOverlay:
+			return r.regenRulesFor(t, child, dir, dir[:pos], part)
 		default:
 			return ErrNotFound
 		}
@@ -145,20 +177,19 @@ func (r *RootDir) regenRules(dir string) error {
 	return ErrNotFound
 }
 
-func (r *RootDir) regenRulesFor(t *TopLevelDir, child *RuleOverlay, dir string, path *summary.DirectoryPath) error {
+func (r *RootDir) regenRulesFor(t *topLevelDir, child *ruleOverlay, dir, curr, name string) error {
 	if err := r.rebuildStateMachine(); err != nil {
 		return err
 	}
 
-	rd := RuleLessDirPatch{
+	rd := ruleLessDirPatch{
 		rulesDir: rulesDir{
 			node: child.lower,
-			sm:   r.stateMachine,
-			dir:  *path,
+			sm:   r.stateMachine.GetStateString(curr),
 		},
 		ruleDirPrefixes: r.createRulePatchMap(dir),
 		previousRules:   child.upper,
-		nameBuf:         new([4096]byte),
+		nameBuf:         append(make([]byte, 0, nameBufLen), curr...),
 	}
 
 	var buf bytes.Buffer
@@ -174,7 +205,7 @@ func (r *RootDir) regenRulesFor(t *TopLevelDir, child *RuleOverlay, dir string, 
 
 	child.upper = processed
 
-	return t.setChild(path.Name, child)
+	return t.setChild(name, child)
 }
 
 func (r *RootDir) rebuildStateMachine() error {
@@ -201,38 +232,41 @@ func (r *RootDir) rebuildStateMachine() error {
 
 func (r *RootDir) createRulePatchMap(dir string) map[string]bool {
 	rulePrefixes := make(map[string]bool)
+	rulePrefixes[dir] = true
 
-	for ruleDir := range r.directoryRules {
-		if !strings.HasPrefix(dir, ruleDir) {
-			continue
-		}
-
-		rulePrefixes[ruleDir] = true
-
-		for ruleDir != "/" {
-			ruleDir = ruleDir[:strings.LastIndexByte(ruleDir[:len(ruleDir)-1], '/')+1]
-			rulePrefixes[ruleDir] = rulePrefixes[ruleDir] || false
-		}
+	for dir != "/" {
+		pos := strings.LastIndexByte(dir[:len(dir)-1], '/')
+		dir = dir[:pos+1]
+		rulePrefixes[dir] = false
 	}
 
 	return rulePrefixes
 }
 
+// Summary returns a Dirsummary for the directory denoted by the given path.
 func (r *RootDir) Summary(path string) (*DirSummary, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	return r.TopLevelDir.Summary(path)
+	return r.topLevelDir.Summary(path)
 }
 
-type TopLevelDir struct {
-	parent   *TopLevelDir
+// GetOwner returns the UID and GID for the directory denoted by the given path.
+func (r *RootDir) GetOwner(path string) (uint32, uint32, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	return r.topLevelDir.GetOwner(path)
+}
+
+type topLevelDir struct {
+	parent   *topLevelDir
 	children map[string]summariser
 	summary  DirSummary
 }
 
-func newTopLevelDir(parent *TopLevelDir) *TopLevelDir {
-	return &TopLevelDir{
+func newTopLevelDir(parent *topLevelDir) *topLevelDir {
+	return &topLevelDir{
 		parent:   parent,
 		children: make(map[string]summariser),
 		summary: DirSummary{
@@ -242,13 +276,13 @@ func newTopLevelDir(parent *TopLevelDir) *TopLevelDir {
 	}
 }
 
-func (t *TopLevelDir) setChild(name string, child summariser) error {
+func (t *topLevelDir) setChild(name string, child summariser) error {
 	t.children[name] = child
 
 	return t.Update()
 }
 
-func (t *TopLevelDir) Update() error {
+func (t *topLevelDir) Update() error {
 	clear(t.summary.Children)
 	t.summary.RuleSummaries = t.summary.RuleSummaries[:0]
 
@@ -258,7 +292,7 @@ func (t *TopLevelDir) Update() error {
 			return err
 		}
 
-		t.summary.MergeRules(s.RuleSummaries)
+		t.summary.mergeRules(s.RuleSummaries)
 		t.summary.Children[name] = &DirSummary{
 			RuleSummaries: s.RuleSummaries,
 		}
@@ -271,26 +305,52 @@ func (t *TopLevelDir) Update() error {
 	return nil
 }
 
-func (t *TopLevelDir) Summary(path string) (*DirSummary, error) {
+func (t *topLevelDir) Summary(path string) (*DirSummary, error) {
 	if path == "" {
 		return &t.summary, nil
 	}
 
+	child, rest, err := t.getChild(path)
+	if err != nil {
+		return nil, err
+	}
+
+	return child.Summary(rest)
+}
+
+func (t *topLevelDir) getChild(path string) (summariser, string, error) { //nolint:ireturn
 	pos := strings.IndexByte(path, '/')
 
 	child := t.children[path[:pos+1]]
 	if child == nil {
-		return nil, ErrNotFound
+		return nil, "", ErrNotFound
 	}
 
-	return child.Summary(path[pos+1:])
+	return child, path[pos+1:], nil
 }
 
-func (r *RootDir) AddTree(file string) (err error) {
+func (t *topLevelDir) GetOwner(path string) (uint32, uint32, error) {
+	if path == "" {
+		return 0, 0, nil
+	}
+
+	child, rest, err := t.getChild(path)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	return child.GetOwner(rest)
+}
+
+// AddTree adds a tree database, specified by the given file path, to the
+// RootDir, possibly overriding an existing database if they share the same
+// root.
+func (r *RootDir) AddTree(file string) (err error) { //nolint:funlen
 	db, closer, err := openDB(file)
 	if err != nil {
 		return err
 	}
+
 	defer func() {
 		if err != nil {
 			closer()
@@ -310,7 +370,7 @@ func (r *RootDir) AddTree(file string) (err error) {
 		return err
 	}
 
-	if err = createTopLevelDirs(processed, rootPath, &r.TopLevelDir); err != nil {
+	if err = createTopLevelDirs(processed, rootPath, &r.topLevelDir); err != nil {
 		return err
 	}
 
@@ -323,7 +383,7 @@ func (r *RootDir) AddTree(file string) (err error) {
 	return nil
 }
 
-func openDB(file string) (*tree.MemTree, func(), error) {
+func openDB(file string) (*tree.MemTree, func(), error) { //nolint:funlen
 	f, err := os.Open(file)
 	if err != nil {
 		return nil, nil, err
@@ -336,7 +396,7 @@ func openDB(file string) (*tree.MemTree, func(), error) {
 		return nil, nil, err
 	}
 
-	data, err := unix.Mmap(int(f.Fd()), 0, int(stat.Size()), unix.PROT_READ, unix.MAP_POPULATE|unix.MAP_SHARED)
+	data, err := unix.Mmap(int(f.Fd()), 0, int(stat.Size()), unix.PROT_READ, unix.MAP_SHARED)
 	if err != nil {
 		f.Close()
 
@@ -344,7 +404,7 @@ func openDB(file string) (*tree.MemTree, func(), error) {
 	}
 
 	fn := func() {
-		unix.Munmap(data)
+		unix.Munmap(data) //nolint:errcheck
 		f.Close()
 	}
 
@@ -370,7 +430,7 @@ func getRoot(db *tree.MemTree) (*tree.MemTree, string, error) {
 
 	db.Children()(func(path string, node tree.Node) bool {
 		rootPath = path
-		treeRoot = node.(*tree.MemTree)
+		treeRoot = node.(*tree.MemTree) //nolint:errcheck,forcetypeassert
 
 		return false
 	})
@@ -382,20 +442,15 @@ func getRoot(db *tree.MemTree) (*tree.MemTree, string, error) {
 	return treeRoot, rootPath, nil
 }
 
-func (r *RootDir) processRules(treeRoot *tree.MemTree, rootPath string) (*RuleOverlay, error) {
-	rd := RuleLessDir{
+func (r *RootDir) processRules(treeRoot *tree.MemTree, rootPath string) (*ruleOverlay, error) {
+	rd := ruleLessDir{
 		rulesDir: rulesDir{
 			node: treeRoot,
-			sm:   r.stateMachine,
-			dir:  summary.DirectoryPath{Name: rootPath},
+			sm:   r.stateMachine.GetStateString(rootPath),
 		},
 		ruleDirPrefixes: r.createRulePrefixMap(rootPath),
-		rules: &RulesDir{
-			rulesDir: rulesDir{
-				sm: r.stateMachine,
-			},
-		},
-		nameBuf: new([4096]byte),
+		rules:           new(dirWithRule),
+		nameBuf:         append(make([]byte, 0, nameBufLen), rootPath...),
 	}
 
 	var buf bytes.Buffer
@@ -409,7 +464,7 @@ func (r *RootDir) processRules(treeRoot *tree.MemTree, rootPath string) (*RuleOv
 		return nil, err
 	}
 
-	return &RuleOverlay{lower: treeRoot, upper: processed}, nil
+	return &ruleOverlay{lower: treeRoot, upper: processed}, nil
 }
 
 func (r *RootDir) createRulePrefixMap(rootPath string) map[string]bool {
@@ -431,16 +486,18 @@ func (r *RootDir) createRulePrefixMap(rootPath string) map[string]bool {
 	return rulePrefixes
 }
 
-func createTopLevelDirs(treeRoot *RuleOverlay, rootPath string, p *TopLevelDir) error {
+func createTopLevelDirs(treeRoot *ruleOverlay, rootPath string, p *topLevelDir) error { //nolint:gocognit
 	for part := range pathParts(rootPath[1 : len(rootPath)-1]) {
 		np, ok := p.children[part]
 		if !ok {
 			np = newTopLevelDir(p)
 
-			p.setChild(part, np)
+			if err := p.setChild(part, np); err != nil {
+				return err
+			}
 		}
 
-		dir, ok := np.(*TopLevelDir)
+		dir, ok := np.(*topLevelDir)
 		if !ok {
 			return ErrDeepTree
 		}
@@ -451,14 +508,12 @@ func createTopLevelDirs(treeRoot *RuleOverlay, rootPath string, p *TopLevelDir) 
 	name := rootPath[strings.LastIndexByte(rootPath[:len(rootPath)-1], '/')+1:]
 
 	if existing, ok := p.children[name]; ok {
-		if _, ok = existing.(*RuleOverlay); !ok {
+		if _, ok = existing.(*ruleOverlay); !ok {
 			return ErrDeepTree
 		}
 	}
 
-	p.setChild(name, treeRoot)
-
-	return nil
+	return p.setChild(name, treeRoot)
 }
 
 func pathParts(path string) iter.Seq[string] {

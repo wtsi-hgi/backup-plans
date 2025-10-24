@@ -16,3 +16,20 @@
 	display: inline-block;
 	padding: 0 0.5em;
 }
+
+#copy {
+	background: none;
+	border: 0;
+	transition: background-color 0.1s ease, filter 0.1s ease;
+}
+
+#copy svg {
+	width: 1.5em;
+	height: 1.5em;
+}
+
+#copy.highlight {
+	background-color: var(--background);
+	border-radius: 0.25em;
+	filter: invert(1);
+}

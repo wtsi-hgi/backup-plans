@@ -1,3 +1,28 @@
+/*******************************************************************************
+ * Copyright (c) 2025 Genome Research Ltd.
+ *
+ * Author: Michael Woolnough <mw31@sanger.ac.uk>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included
+ * in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ ******************************************************************************/
+
 package treegen
 
 import (
@@ -12,12 +37,14 @@ import (
 	"vimagination.zapto.org/tree"
 )
 
+// NewTree returns a WRStat summary.OperationGenerator that is used to convert
+// WRStat stat.gz files into an on-disk tree db.
 func NewTree(w io.Writer) summary.OperationGenerator {
 	ctx, cancel := context.WithCancelCause(context.Background())
 	next := newNode(ctx)
 	next.top = true
 
-	go func(node *Node) {
+	go func(node *treeNode) {
 		cancel(tree.Serialise(w, node))
 	}(next)
 
@@ -41,11 +68,11 @@ type NameChild struct {
 	Child tree.Node
 }
 
-type Node struct {
-	ctx context.Context
+type treeNode struct {
+	ctx context.Context //nolint:containedctx
 
 	path  *summary.DirectoryPath
-	child *Node
+	child *treeNode
 
 	yield  chan NameChild
 	writer chan *byteio.StickyLittleEndianWriter
@@ -55,8 +82,8 @@ type Node struct {
 	top bool
 }
 
-func newNode(ctx context.Context) *Node {
-	return &Node{
+func newNode(ctx context.Context) *treeNode {
+	return &treeNode{
 		ctx:    ctx,
 		yield:  make(chan NameChild),
 		writer: make(chan *byteio.StickyLittleEndianWriter),
@@ -109,13 +136,13 @@ func (i IDMeta) Add(id uint32, t, size int64) {
 		i[id] = existing
 	}
 
-	existing.MTime = max(existing.MTime, uint64(t))
+	existing.MTime = max(existing.MTime, uint64(t)) //nolint:gosec
 	existing.Files++
-	existing.Bytes += uint64(size)
+	existing.Bytes += uint64(size) //nolint:gosec
 }
 
-func (n *Node) Add(info *summary.FileInfo) error {
-	if n.path == nil {
+func (n *treeNode) Add(info *summary.FileInfo) error { //nolint:gocognit,gocyclo
+	if n.path == nil { //nolint:gocritic,nestif
 		n.path = info.Path
 		n.UID = info.UID
 		n.GID = info.GID
@@ -143,7 +170,7 @@ func (n *Node) Add(info *summary.FileInfo) error {
 	return nil
 }
 
-func (n *Node) sendChild(name []byte, child tree.Node) error {
+func (n *treeNode) sendChild(name []byte, child tree.Node) error {
 	select {
 	case <-n.ctx.Done():
 		return context.Cause(n.ctx)
@@ -152,14 +179,30 @@ func (n *Node) sendChild(name []byte, child tree.Node) error {
 	}
 }
 
-func (n *Node) Output() error {
+func (n *treeNode) Output() error {
 	close(n.yield)
 
+	if err := n.writeData(); err != nil {
+		return err
+	}
+
+	if err := n.writeTopData(); err != nil {
+		return err
+	}
+
+	n.path = nil
+	clear(n.Users)
+	clear(n.Groups)
+
+	return nil
+}
+
+func (n *treeNode) writeData() error {
 	select {
 	case <-n.ctx.Done():
 		return context.Cause(n.ctx)
 	case w := <-n.writer:
-		n.Directory.WriteTo(w)
+		n.Directory.WriteTo(w) //nolint:errcheck
 
 		n.writer <- nil
 
@@ -168,8 +211,10 @@ func (n *Node) Output() error {
 		}
 	}
 
-	var err error
+	return nil
+}
 
+func (n *treeNode) writeTopData() error {
 	if n.top {
 		select {
 		case <-n.ctx.Done():
@@ -178,20 +223,19 @@ func (n *Node) Output() error {
 
 			<-n.ctx.Done()
 
-			if err = context.Cause(n.ctx); errors.Is(err, context.Canceled) {
-				err = nil
+			err := context.Cause(n.ctx)
+			if errors.Is(err, context.Canceled) {
+				return nil
 			}
+
+			return err
 		}
 	}
 
-	n.path = nil
-	clear(n.Users)
-	clear(n.Groups)
-
-	return err
+	return nil
 }
 
-func (n *Node) Children() iter.Seq2[string, tree.Node] {
+func (n *treeNode) Children() iter.Seq2[string, tree.Node] {
 	return func(yield func(string, tree.Node) bool) {
 		for nc := range n.yield {
 			if !yield(nc.Name, nc.Child) {
@@ -203,10 +247,11 @@ func (n *Node) Children() iter.Seq2[string, tree.Node] {
 	}
 }
 
-func (n *Node) WriteTo(w io.Writer) (int64, error) {
+func (n *treeNode) WriteTo(w io.Writer) (int64, error) {
 	lw := &byteio.StickyLittleEndianWriter{Writer: w}
 
 	n.writer <- lw
+
 	<-n.writer
 
 	return lw.Count, lw.Err
@@ -233,7 +278,7 @@ func writeIDTimes(w *byteio.StickyLittleEndianWriter, idts []IDData) {
 
 	for _, idt := range idts {
 		w.WriteUintX(uint64(idt.ID))
-		w.WriteUintX(uint64(idt.MTime))
+		w.WriteUintX(idt.MTime)
 		w.WriteUintX(idt.Files)
 		w.WriteUintX(idt.Bytes)
 	}
@@ -249,8 +294,8 @@ func (f *File) WriteTo(w io.Writer) (int64, error) {
 
 	sw.WriteUintX(uint64(f.UID))
 	sw.WriteUintX(uint64(f.GID))
-	sw.WriteUintX(uint64(f.MTime))
-	sw.WriteUintX(uint64(f.Size))
+	sw.WriteUintX(uint64(f.MTime)) //nolint:gosec
+	sw.WriteUintX(uint64(f.Size))  //nolint:gosec
 
 	return sw.Count, sw.Err
 }

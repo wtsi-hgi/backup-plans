@@ -23,73 +23,43 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  ******************************************************************************/
 
-package db
+package users
 
-import "database/sql"
+import (
+	"os/user"
+	"strconv"
+	"testing"
+	"time"
 
-type DBRO struct { //nolint:revive
-	db *sql.DB
-}
+	. "github.com/smartystreets/goconvey/convey"
+)
 
-type DB struct {
-	DBRO
-}
+func TestIDs(t *testing.T) {
+	Convey("You can get user and groups IDs from a username", t, func() {
+		me, err := user.Current()
+		So(err, ShouldBeNil)
 
-// InitRO connects to a rule database as determined by the given driver and
-// connection strings, disallowing any modifications.
-func InitRO(driver, connection string) (*DBRO, error) {
-	db, err := sql.Open(driver, connection)
-	if err != nil {
-		return nil, err
-	}
+		uid, gids := GetIDs(me.Username)
+		So(strconv.FormatUint(uint64(uid), 10), ShouldEqual, me.Uid)
+		So(gids, ShouldNotBeNil)
 
-	return &DBRO{db: db}, nil
-}
+		Convey("The cache is used for a username that's already been fetched", func() {
+			const (
+				fakeID       = 1234567
+				fakeUsername = "MY_REAL_USERNAME"
+			)
 
-// Init connects to a rule database as determined by the given driver and
-// connection strings.
-func Init(driver, connection string) (*DB, error) {
-	db, err := sql.Open(driver, connection)
-	if err != nil {
-		return nil, err
-	}
+			fakeGroups := []uint32{4, 8, 1, 5, 16, 23, 42}
 
-	d := &DB{
-		DBRO: DBRO{db: db},
-	}
+			userGroupsCache.Set(fakeUsername, groups{
+				expiry: time.Now().Add(time.Hour),
+				uid:    fakeID,
+				groups: fakeGroups,
+			})
 
-	if err = d.initTables(); err != nil {
-		return nil, err
-	}
-
-	return d, nil
-}
-
-func (d *DB) initTables() error {
-	for _, table := range tables {
-		if _, err := d.db.Exec(table); err != nil { //nolint:noctx
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (d *DB) exec(sql string, params ...any) error {
-	tx, err := d.db.Begin() //nolint:noctx
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback() //nolint:errcheck
-
-	if _, err = tx.Exec(sql, params...); err != nil { //nolint:noctx
-		return err
-	}
-
-	return tx.Commit()
-}
-
-// Close closes the database connection.
-func (d *DBRO) Close() error {
-	return d.db.Close()
+			uid, gids := GetIDs(fakeUsername)
+			So(uid, ShouldEqual, fakeID)
+			So(gids, ShouldResemble, fakeGroups)
+		})
+	})
 }

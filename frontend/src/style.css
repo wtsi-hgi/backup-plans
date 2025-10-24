@@ -1,20 +1,18 @@
 @import url("breadcrumbs.css");
 @import url("disktree.css");
+@import url("filter.css");
+@import url("report.css");
 @import url("rules.css");
-
-
-body {
-	padding: 2px 0 0 0;
-	font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-	--fontSize: 14px;
-	font-size: var(--fontSize);
-}
+@import url("summary.css");
 
 html,
 body {
+	margin: 0;
 	color: var(--colour);
 	background-color: var(--background);
-	margin: 0;
+	font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+	--fontSize: 14px;
+	font-size: var(--fontSize);
 }
 
 button {
@@ -43,8 +41,8 @@ input[type="checkbox"] {
 
 .tabs:after {
 	content: "";
-	width: calc(100% + 20px);
-	transform: translateX(-20px);
+	width: 200%;
+	transform: translateX(0px);
 	z-index: 1;
 	margin-top: -1px;
 	border-top: 1px solid currentColor;
@@ -52,16 +50,20 @@ input[type="checkbox"] {
 	order: -1;
 }
 
-.tabs>details {
+.tabs>details[name] {
 	display: contents;
 }
 
-.tabs>details:first-child>summary {
+.tabs>details {
+	flex: 0 0 auto;
+}
+
+.tabs>details[name]:first-child>summary {
 	order: -1;
 	padding-left: 20px;
 }
 
-.tabs>details>summary {
+.tabs>details[name]>summary {
 	order: -1;
 	display: block;
 	border-width: 1px;
@@ -79,33 +81,33 @@ input[type="checkbox"] {
 	user-select: none;
 }
 
-.tabs>details>summary:hover,
-.tabs>details>summary:focus {
+.tabs>details[name]>summary:hover,
+.tabs>details[name]>summary:focus {
 	outline: none;
 	background: linear-gradient(to bottom, var(--tabHoverBGFrom) 1%, var(--tabHoverBGMid) 50%, var(--tabHoverBGTo) 100%);
 }
 
-.tabs>details> :not(summary) {
+.tabs>details[name]> :not(summary) {
 	order: 2;
-	width: 100vw;
+	width: 100%;
 }
 
-.tabs>details>summary:before {
+.tabs>details[name]>summary:before {
 	left: -7px;
 	border-bottom-right-radius: 6px;
 	border-width: 0px 1px 1px 0px;
 	box-shadow: 2px 2px 0 var(--tabShadow);
 }
 
-.tabs>details>summary:after {
+.tabs>details[name]>summary:after {
 	right: -7px;
 	border-bottom-left-radius: 6px;
 	border-width: 0px 0px 1px 1px;
 	box-shadow: -2px 2px 0 var(--tabShadow);
 }
 
-.tabs>details>summary:after,
-.tabs>details>summary:before {
+.tabs>details[name]>summary:after,
+.tabs>details[name]>summary:before {
 	content: "";
 	position: absolute;
 	bottom: -1px;
@@ -115,11 +117,11 @@ input[type="checkbox"] {
 	border-color: currentcolor;
 }
 
-.tabs>details[open]>summary:before {
+.tabs>details[name][open]>summary:before {
 	box-shadow: 2px 2px 0 var(--tabSelectedBG);
 }
 
-.tabs>details[open]>summary {
+.tabs>details[name][open]>summary {
 	z-index: 2;
 	cursor: default !important;
 	border-bottom-color: var(--tabSelectedBG) !important;
@@ -127,10 +129,9 @@ input[type="checkbox"] {
 	pointer-events: none;
 }
 
-.tabs>details[open]>summary:after {
+.tabs>details[name][open]>summary:after {
 	box-shadow: -2px 2px 0 var(--tabSelectedBG);
 }
-
 
 .prettyTable {
 	clear: both;
@@ -204,6 +205,75 @@ input[type="checkbox"] {
 	border-bottom: 1px solid var(--tableBorder);
 }
 
+#tree {
+	width: calc(100vw - 200px - 3em);
+	height: 500px;
+	min-width: 200px;
+	display: flex;
+}
+
+#tree svg {
+	display: inline-block;
+}
+
+#tree>div {
+	min-width: 100px;
+	flex: 1 1 auto;
+}
+
+#treeOptions {
+	border: 1px solid var(--tableBorder);
+	background-color: var(--subtleBG);
+	box-sizing: border-box;
+	border-top-right-radius: 1em;
+	border-bottom-right-radius: 1em;
+	align-self: stretch;
+	overflow: hidden;
+	width: 2em;
+}
+
+#treeOptions[open] {
+	width: 160px;
+	padding: 0 1em;
+}
+
+#treeOptions:not([open]) {
+	writing-mode: sideways-rl;
+}
+
+#dirlist {
+	border-left: 0;
+	border-top-left-radius: 0;
+	border-bottom-left-radius: 0;
+	width: calc(100vw - 200px - 3em);
+}
+
+.tabs:has(#filter:not([open])) #dirlist {
+	width: calc(100vw - 5em);
+}
+
+dialog label {
+	display: inline-block;
+	width: 8em;
+	text-align: right;
+}
+
+dialog label:after {
+	content: ":";
+	display: inline-block;
+	padding-right: 1em;
+}
+
+body>.tabs>details:not([open])> :not(summary),
+#breadcrumbs+.tabs>details:not(#filter):not([open])> :not(summary) {
+	display: none;
+	visibility: hidden;
+}
+
+use {
+	color: var(--colour);
+}
+
 @media (prefers-color-scheme: light) {
 	html {
 		--colour: #000;
@@ -240,6 +310,15 @@ input[type="checkbox"] {
 		--tabShadow: #d1d1d1;
 		--tabSelectedBG: var(--background);
 		--tabSelectedFont: currentColor;
+
+		--rule-badge-bg: #d1d1d1;
+		--rule-badge-text: #000;
+		--action-no-backup-bg: #ff9800;
+		--action-no-backup-text: #fff;
+		--action-ibackup-bg: #4caf50;
+		--action-ibackup-text: #fff;
+		--action-manual-bg: #ffee58;
+		--action-manual-text: #000;
 	}
 }
 
@@ -279,5 +358,14 @@ input[type="checkbox"] {
 		--tabShadow: #2e2e2e;
 		--tabSelectedBG: var(--background);
 		--tabSelectedFont: currentColor;
+
+		--rule-badge-bg: #aaa;
+		--rule-badge-text: #000;
+		--action-no-backup-bg: #ffb74d;
+		--action-no-backup-text: #000;
+		--action-ibackup-bg: #66bb6a;
+		--action-ibackup-text: #000;
+		--action-manual-bg: #ffee58;
+		--action-manual-text: #000;
 	}
 }

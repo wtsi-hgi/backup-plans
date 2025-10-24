@@ -2,9 +2,11 @@ import { details, div, summary } from './lib/html.js';
 import Breadcrumbs from './breadcrumbs.js';
 import Load from './data.js';
 import DiskTree from './disktree.js';
-import DirInfo from './info.js';
+import Filter from './filter.js';
 import List from './list.js';
+import Report from './report.js';
 import Rules from './rules.js';
+import RuleTree from './ruletree.js';
 import Summary from './summary.js';
 import { symbols } from './symbols.js';
 
@@ -12,29 +14,48 @@ const load = (path: string) => Load(path).then(data => {
 	Breadcrumbs.update(path, load);
 	DiskTree.update(path, data, load);
 	List.update(path, data, load);
-	DirInfo.update(path, data, load);
-	Summary.update(path, data);
+	Filter.update(path, data, load);
+	Summary.update(path, data, load);
 	Rules.update(path, data, load);
+	RuleTree.update(path, data, load);
+
+	return data;
 });
 
 (document.readyState === "complete" ? Promise.resolve() : new Promise(successFn => window.addEventListener("load", successFn, { "once": true })))
 	.then(() => load("/"))
+	.then((data) => Filter.init(data.users, data.groups))
 	.then(() => {
+		Report.init(load);
 		document.body.replaceChildren(
 			symbols,
-			Breadcrumbs,
 			div({ "class": "tabs" }, [
 				details({ "name": "tabs", "open": "open" }, [
-					summary("Directory Tree"),
-					DiskTree
+					summary("Rule Tree"),
+					Breadcrumbs,
+					div({ "class": "tabs" }, [
+						Filter,
+						details({ "name": "dirtabs", "open": "open" }, [
+							summary("Directory Tree"),
+							DiskTree
+						]),
+						details({ "name": "dirtabs" }, [
+							summary("Directory List"),
+							List
+						])
+					]),
+					Summary,
+					Rules,
+					RuleTree
 				]),
 				details({ "name": "tabs" }, [
-					summary("Directory List"),
-					List
+					summary("Top Level Report"),
+					Report
 				])
-			]),
-			DirInfo,
-			Summary,
-			Rules
+			])
 		);
+
+		if (window.location.hash !== "") {
+			window.location.hash = window.location.hash;
+		}
 	});

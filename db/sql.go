@@ -42,8 +42,8 @@ var tables = [...]string{
 		"`directoryID` INTEGER NOT NULL, " +
 		"`type` INTEGER NOT NULL, " +
 		"`metadata` TEXT NOT NULL, " +
-		"`reviewDate` DATETIME, " +
-		"`removeDate` DATETIME, " +
+		"`reviewDate` BIGINT, " +
+		"`removeDate` BIGINT, " +
 		"`match` TEXT NOT NULL, " +
 		"`matchHash` " + hashColumnStart + "`match`" + hashColumnEnd + ", " +
 		"`frequency` INTEGER NOT NULL, " +
@@ -62,13 +62,34 @@ const (
 	hashColumnEnd   = virtEnd + ") VIRTUAL /*! INVISIBLE */"
 
 	createDirectory = "INSERT INTO `directories` (`directory`, `claimedBy`, `created`, `modified`) VALUES (?, ?, ?, ?);"
-	createRule      = "INSERT INTO `rules` (`directoryID`, `type`, `metadata`, `reviewDate`, `removeDate`, `match`, `frequency`, `created`, `modified`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);"
+	createRule      = "INSERT INTO `rules` " +
+		"(`directoryID`, `type`, `metadata`, `reviewDate`, `removeDate`, `match`, `frequency`, `created`, `modified`) " +
+		"VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);"
 
 	selectAllDirectories = "SELECT `id`, `directory`, `claimedBy`, `created`, `modified` FROM `directories`;"
-	selectAllRules       = "SELECT `id`, `directoryID`, `type`, `metadata`, `reviewDate`, `removeDate`, `match`, `frequency`, `created`, `modified` FROM `rules`;"
+	selectAllRules       = "SELECT " +
+		"`id`, " +
+		"`directoryID`, " +
+		"`type`, " +
+		"`metadata`, " +
+		"`reviewDate`, " +
+		"`removeDate`, " +
+		"`match`, " +
+		"`frequency`, " +
+		"`created`, " +
+		"`modified` " +
+		"FROM `rules`;"
 
 	updateDirectory = "UPDATE `directories` SET `claimedBy` = ?, `modified` = ? WHERE `id` = ?;"
-	updateRule      = "UPDATE `rules` SET `type` = ?, `metadata` = ?, `reviewDate` = ?, `removeDate` = ?, `match` = ?, `frequency` = ?, `modified` = ? WHERE `id` = ?;"
+	updateRule      = "UPDATE `rules` SET " +
+		"`type` = ?, " +
+		"`metadata` = ?, " +
+		"`reviewDate` = ?, " +
+		"`removeDate` = ?, " +
+		"`match` = ?, " +
+		"`frequency` = ?, " +
+		"`modified` = ? " +
+		"WHERE `id` = ?;"
 
 	deleteDirectory = "DELETE FROM `directories` WHERE `id` = ?;"
 	deleteRule      = "DELETE FROM `rules` WHERE `id` = ?;"
