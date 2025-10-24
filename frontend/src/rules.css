@@ -53,6 +53,10 @@ button.actionButton svg {
 	cursor: pointer;
 }
 
+.rule-section summary:hover {
+	background-color: var(--tableHoverBG);
+}
+
 details.rule-section>summary::marker {
 	content: "+";
 	text-align: center;
