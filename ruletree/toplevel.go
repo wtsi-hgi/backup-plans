@@ -92,9 +92,11 @@ func NewRoot(rules []DirRule) (*RootDir, error) {
 		}
 	}
 
-	err := r.rebuildStateMachine()
+	if err := r.rebuildStateMachine(); err != nil {
+		return nil, err
+	}
 
-	return r, err
+	return r, nil
 }
 
 // AddRule adds the given rule to the given directory and regenerates the rule
