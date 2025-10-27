@@ -31,11 +31,11 @@ import (
 	"strings"
 
 	_ "github.com/go-sql-driver/mysql" //
-	_ "github.com/mattn/go-sqlite3"    //
 	"github.com/spf13/cobra"
 	"github.com/wtsi-hgi/backup-plans/backups"
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/ibackup"
+	_ "modernc.org/sqlite"
 	"vimagination.zapto.org/tree"
 )
 
@@ -68,7 +68,7 @@ For mysql, say:
 			return fmt.Errorf("failed to connect to ibackup server: %w", err)
 		}
 
-		driver := "sqlite3"
+		driver := "sqlite"
 
 		pathItems := strings.SplitN(planDB, ":", 2) //nolint:mnd
 		strings.Cut(planDB, ":")
