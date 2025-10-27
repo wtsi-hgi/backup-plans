@@ -11,6 +11,7 @@ import (
 	"github.com/wtsi-hgi/backup-plans/ibackup"
 	ibackup_test "github.com/wtsi-hgi/backup-plans/internal/ibackup"
 	"github.com/wtsi-hgi/backup-plans/internal/plandb"
+	"github.com/wtsi-hgi/backup-plans/internal/testirods"
 )
 
 // in this go process we want to do the equivalent of typing `go build .` on the
@@ -29,6 +30,8 @@ func TestMain(t *testing.T) {
 	if cleanup != nil {
 		defer cleanup()
 	}
+
+	testirods.AddPseudoIRODsToolsToPathIfRequired(t)
 
 	mysqlConnection := os.Getenv("BACKUP_PLANS_TEST_MYSQL")
 	os.Unsetenv("BACKUP_PLANS_TEST_MYSQL")

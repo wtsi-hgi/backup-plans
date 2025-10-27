@@ -66,7 +66,7 @@ func GetTestDriverConnection(t *testing.T) (string, string) {
 
 		So(dropTables(p), ShouldBeNil)
 	} else {
-		sdriver = "sqlite3"
+		sdriver = "sqlite"
 		uri = filepath.Join(t.TempDir(), "db?journal_mode=WAL&_pragma=foreign_keys(1)")
 	}
 
