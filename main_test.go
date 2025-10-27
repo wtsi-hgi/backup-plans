@@ -31,12 +31,11 @@ func TestMain(t *testing.T) {
 		defer cleanup()
 	}
 
-	testirods.AddPseudoIRODsToolsToPathIfRequired(t)
-
 	mysqlConnection := os.Getenv("BACKUP_PLANS_TEST_MYSQL")
 	os.Unsetenv("BACKUP_PLANS_TEST_MYSQL")
 
 	Convey("Given an ibackup test server", t, func() {
+		So(testirods.AddPseudoIRODsToolsToPathIfRequired(t), ShouldBeNil)
 		So(tmpDir, ShouldNotBeEmpty)
 
 		_, addr, certPath, dfn, err := ibackup_test.NewTestIbackupServer(t)

@@ -67,7 +67,7 @@ func TestFileInfos(t *testing.T) {
 	})
 }
 
-func exampleTree() tree.Node { //nolint:ireturn
+func exampleTree() tree.Node {
 	dirRoot := directories.NewRoot("/", 12345)
 	humgen := dirRoot.AddDirectory("lustre").SetMeta(99, 98, 1).AddDirectory("scratch123").
 		SetMeta(1, 1, 98765).AddDirectory("humgen").SetMeta(1, 1, 98765)
@@ -140,9 +140,8 @@ func TestCreateRuleGroups(t *testing.T) {
 }
 
 func TestBackups(t *testing.T) {
-	testirods.AddPseudoIRODsToolsToPathIfRequired(t)
-
 	Convey("Given a plan database, a tree of wrstat info and an ibackup server", t, func() {
+		So(testirods.AddPseudoIRODsToolsToPathIfRequired(t), ShouldBeNil)
 
 		s, addr, certPath, dfn, err := internal.NewTestIbackupServer(t)
 		So(err, ShouldBeNil)

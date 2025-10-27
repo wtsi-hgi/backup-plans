@@ -17,9 +17,9 @@ import (
 )
 
 func TestIbackup(t *testing.T) {
-	testirods.AddPseudoIRODsToolsToPathIfRequired(t)
-
 	Convey("Given a new ibackup server", t, func() {
+		So(testirods.AddPseudoIRODsToolsToPathIfRequired(t), ShouldBeNil)
+
 		s, addr, certPath, dfn, err := ibackup.NewTestIbackupServer(t)
 		So(err, ShouldBeNil)
 
