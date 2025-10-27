@@ -9,7 +9,7 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/wtsi-hgi/backup-plans/ibackup"
-	"github.com/wtsi-hgi/backup-plans/internal"
+	ibackup_test "github.com/wtsi-hgi/backup-plans/internal/ibackup"
 	"github.com/wtsi-hgi/backup-plans/internal/plandb"
 )
 
@@ -35,7 +35,7 @@ func TestMain(t *testing.T) {
 
 	Convey("Given an ibackup test server", t, func() {
 		So(tmpDir, ShouldNotBeEmpty)
-		_, addr, certPath, dfn, err := internal.NewTestIbackupServer(t)
+		_, addr, certPath, dfn, err := ibackup_test.NewTestIbackupServer(t)
 		So(err, ShouldBeNil)
 
 		Reset(func() { So(dfn(), ShouldBeNil) })

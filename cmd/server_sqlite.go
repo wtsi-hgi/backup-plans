@@ -1,7 +1,7 @@
 //go:build sqlite
 // +build sqlite
 
-package main
+package cmd
 
 import _ "modernc.org/sqlite"
 

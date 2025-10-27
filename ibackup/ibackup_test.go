@@ -8,7 +8,7 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/ugorji/go/codec"
-	"github.com/wtsi-hgi/backup-plans/internal"
+	"github.com/wtsi-hgi/backup-plans/internal/ibackup"
 	gas "github.com/wtsi-hgi/go-authserver"
 	"github.com/wtsi-hgi/ibackup/server"
 	"github.com/wtsi-hgi/ibackup/set"
@@ -17,7 +17,7 @@ import (
 
 func TestIbackup(t *testing.T) {
 	Convey("Given a new ibackup server", t, func() {
-		s, addr, certPath, dfn, err := internal.NewTestIbackupServer(t)
+		s, addr, certPath, dfn, err := ibackup.NewTestIbackupServer(t)
 		So(err, ShouldBeNil)
 
 		Reset(func() { So(dfn(), ShouldBeNil) })
