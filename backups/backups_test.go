@@ -67,7 +67,7 @@ func TestFileInfos(t *testing.T) {
 	})
 }
 
-func exampleTree() tree.Node {
+func exampleTree() tree.Node { //nolint:ireturn,nolintlint
 	dirRoot := directories.NewRoot("/", 12345)
 	humgen := dirRoot.AddDirectory("lustre").SetMeta(99, 98, 1).AddDirectory("scratch123").
 		SetMeta(1, 1, 98765).AddDirectory("humgen").SetMeta(1, 1, 98765)
