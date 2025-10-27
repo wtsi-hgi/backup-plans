@@ -175,34 +175,3 @@ func timerLoop(path string, b *backend.Server, treePaths []string) { //nolint:go
 		}
 	}
 }
-
-func (s *Server) WhoAmI(w http.ResponseWriter, r *http.Request) {
-	json.NewEncoder(w).Encode(s.getUser(r)) // nolint:errcheck
-}
-
-func handle(w http.ResponseWriter, r *http.Request, fn func(http.ResponseWriter, *http.Request) error) {
-	httpbuffer.Handler{
-		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if err := fn(w, r); err != nil {
-				var errc Error
-
-				if errors.As(err, &errc) {
-					http.Error(w, errc.Err.Error(), errc.Code)
-
-					return
-				}
-
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-			}
-		}),
-	}.ServeHTTP(w, r)
-}
-
-type Error struct {
-	Code int
-	Err  error
-}
-
-func (e Error) Error() string {
-	return e.Err.Error()
-}

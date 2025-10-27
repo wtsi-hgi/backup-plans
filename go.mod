@@ -9,8 +9,8 @@ require (
 	github.com/inconshreveable/log15 v3.0.0-testing.5+incompatible
 	github.com/klauspost/pgzip v1.2.6
 	github.com/smartystreets/goconvey v1.8.1
-	github.com/spf13/cobra v1.9.1
-	github.com/ugorji/go/codec v1.2.14
+	github.com/spf13/cobra v1.10.1
+	github.com/ugorji/go/codec v1.3.0
 	github.com/wtsi-hgi/go-authserver v1.5.1
 	github.com/wtsi-hgi/ibackup v1.11.0
 	github.com/wtsi-hgi/wrstat-ui v1.8.9
@@ -143,7 +143,7 @@ require (
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
 	github.com/slack-go/slack v0.17.0 // indirect
 	github.com/smarty/assertions v1.15.0 // indirect
-	github.com/spf13/pflag v1.0.6 // indirect
+	github.com/spf13/pflag v1.0.9 // indirect
 	github.com/thanhpk/randstr v1.0.6 // indirect
 	github.com/tinylib/msgp v1.3.0 // indirect
 	github.com/tklauser/go-sysconf v0.3.15 // indirect
@@ -168,7 +168,7 @@ require (
 	golang.org/x/exp v0.0.0-20250620022241-b7579e27df2b // indirect
 	golang.org/x/net v0.40.0 // indirect
 	golang.org/x/oauth2 v0.30.0 // indirect
-	golang.org/x/sync v0.15.0 // indirect
+	golang.org/x/sync v0.16.0 // indirect
 	golang.org/x/term v0.32.0 // indirect
 	golang.org/x/text v0.25.0 // indirect
 	golang.org/x/time v0.11.0 // indirect
@@ -180,7 +180,7 @@ require (
 	k8s.io/api v0.33.1 // indirect
 	k8s.io/apimachinery v0.33.1 // indirect
 	k8s.io/client-go v11.0.0+incompatible // indirect
-	modernc.org/libc v1.66.3 // indirect
+	modernc.org/libc v1.66.10 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
 	nanomsg.org/go-mangos v1.4.0 // indirect
