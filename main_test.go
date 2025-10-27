@@ -31,8 +31,11 @@ func TestMain(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	if err := testirods.AddPseudoIRODsToolsToPathIfRequired(t); err != nil {
+		t.Fatal(err)
+	}
+
 	Convey("Given an ibackup test server", t, func() {
-		So(testirods.AddPseudoIRODsToolsToPathIfRequired(t), ShouldBeNil)
 		So(tmpDir, ShouldNotBeEmpty)
 
 		_, addr, certPath, dfn, err := ibackup_test.NewTestIbackupServer(t)
