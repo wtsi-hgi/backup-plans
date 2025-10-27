@@ -31,7 +31,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	. "github.com/smartystreets/goconvey/convey" //nolint:revive,stylecheck,staticcheck
+	. "github.com/smartystreets/goconvey/convey" //nolint:revive,staticcheck
 	"github.com/wtsi-hgi/backup-plans/db"
 	_ "modernc.org/sqlite" //
 )
@@ -60,7 +60,7 @@ func GetTestDriverConnection(t *testing.T) (string, string) {
 
 	var sdriver, uri string
 
-	if p := os.Getenv("BACKUP_PLANS_TEST_MYSQL"); p != "" { //nolint:nestif
+	if p := os.Getenv("BACKUP_PLANS_TEST_MYSQL"); p != "" {
 		sdriver = "mysql"
 		uri = p
 
@@ -80,7 +80,7 @@ func dropTables(uri string) error {
 	}
 
 	for _, table := range [...]string{"rules", "directories"} {
-		if _, err = db.Exec("DROP TABLE IF EXISTS `" + table + "`;"); err != nil {
+		if _, err = db.Exec("DROP TABLE IF EXISTS `" + table + "`;"); err != nil { //nolint:noctx
 			return err
 		}
 	}

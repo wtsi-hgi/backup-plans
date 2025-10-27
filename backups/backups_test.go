@@ -63,15 +63,16 @@ func TestFileInfos(t *testing.T) {
 				parent = parent.Parent
 			}
 		}
-
 	})
 }
 
-func exampleTree() tree.Node {
+func exampleTree() tree.Node { //nolint:ireturn
 	dirRoot := directories.NewRoot("/", 12345)
-	humgen := dirRoot.AddDirectory("lustre").SetMeta(99, 98, 1).AddDirectory("scratch123").SetMeta(1, 1, 98765).AddDirectory("humgen").SetMeta(1, 1, 98765)
+	humgen := dirRoot.AddDirectory("lustre").SetMeta(99, 98, 1).AddDirectory("scratch123").
+		SetMeta(1, 1, 98765).AddDirectory("humgen").SetMeta(1, 1, 98765)
 
-	humgen.AddDirectory("a").SetMeta(99, 98, 1).AddDirectory("b").SetMeta(1, 1, 98765).AddDirectory("testdir").SetMeta(2, 1, 12349)
+	humgen.AddDirectory("a").SetMeta(99, 98, 1).AddDirectory("b").SetMeta(1, 1, 98765).
+		AddDirectory("testdir").SetMeta(2, 1, 12349)
 	directories.AddFile(&dirRoot.Directory, "lustre/scratch123/humgen/a/b/1.jpg", 1, 1, 9, 98766)
 	directories.AddFile(&dirRoot.Directory, "lustre/scratch123/humgen/a/b/2.jpg", 1, 2, 8, 98767)
 	directories.AddFile(&dirRoot.Directory, "lustre/scratch123/humgen/a/b/3.txt", 1, 2, 8, 98767)
@@ -95,10 +96,10 @@ func TestCreateRuleGroups(t *testing.T) {
 	Convey("Given a plan database, you can create a slice of ruleGroups", t, func() {
 		testDB, _ := plandb.PopulateExamplePlanDB(t)
 
-		dirs := make(map[int64][]string)
+		dirs := make(map[int64]*db.Directory)
 
 		for dir := range testDB.ReadDirectories().Iter {
-			dirs[dir.ID()] = []string{dir.Path, dir.ClaimedBy}
+			dirs[dir.ID()] = dir
 		}
 
 		rgs, ruleList := createRuleGroups(testDB, dirs)

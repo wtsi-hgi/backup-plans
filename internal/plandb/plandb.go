@@ -34,6 +34,8 @@ import (
 	"github.com/wtsi-hgi/backup-plans/internal/testdb"
 )
 
+const defaultFrequency = 7
+
 // CreateTestDatabase creates a new temporary database for testing and returns
 // the db handle and the connection string. The database will be automatically
 // closed at the end of the test. For sqlite3, the connection string is the path
@@ -46,7 +48,7 @@ func CreateTestDatabase(t *testing.T) (*db.DB, string) {
 	d, err := db.Init(driver, connection)
 	So(err, ShouldBeNil)
 
-	Reset(func() { d.Close() }) //nolint:errcheck
+	Reset(func() { d.Close() })
 
 	return d, connection
 }
@@ -56,7 +58,9 @@ func CreateTestDatabase(t *testing.T) (*db.DB, string) {
 // automatically closed at the end of the test. For sqlite3, the connection
 // string is the path to the database file. For mysql, it is the full
 // connection string including user, password, host, port and dbname.
-func PopulateExamplePlanDB(t *testing.T) (*db.DB, string) {
+func PopulateExamplePlanDB(t *testing.T) (*db.DB, string) { //nolint:funlen
+	t.Helper()
+
 	testDB, connectionStr := CreateTestDatabase(t)
 
 	userA := "userA"
@@ -74,20 +78,20 @@ func PopulateExamplePlanDB(t *testing.T) (*db.DB, string) {
 	So(testDB.CreateDirectory(dirA), ShouldBeNil)
 	So(testDB.CreateDirectory(dirB), ShouldBeNil)
 
-	reviewDate := time.Now().Add(24 * time.Hour).UTC().Truncate(1 * time.Second).Unix()
-	removeDate := time.Now().Add(48 * time.Hour).UTC().Truncate(1 * time.Second).Unix()
+	reviewDate := time.Now().Add(24 * time.Hour).UTC().Truncate(1 * time.Second).Unix() //nolint:mnd
+	removeDate := time.Now().Add(48 * time.Hour).UTC().Truncate(1 * time.Second).Unix() //nolint:mnd
 
 	ruleA := &db.Rule{
 		BackupType: db.BackupIBackup,
 		Match:      "*.jpg",
-		Frequency:  7,
+		Frequency:  defaultFrequency,
 		ReviewDate: reviewDate,
 		RemoveDate: removeDate,
 	}
 	ruleB := &db.Rule{
 		BackupType: db.BackupNone,
 		Match:      "temp.jpg",
-		Frequency:  7,
+		Frequency:  defaultFrequency,
 		ReviewDate: reviewDate,
 		RemoveDate: removeDate,
 	}

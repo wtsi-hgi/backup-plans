@@ -41,7 +41,8 @@ func TestIbackup(t *testing.T) {
 			So(err, ShouldBeNil)
 			So(sets, ShouldBeNil)
 
-			runTestBackups(client, setName, u.Username, []string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}, 0)
+			runTestBackups(client, setName, u.Username,
+				[]string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}, 0)
 
 			sets, err = client.GetSets(u.Username)
 			So(err, ShouldBeNil)
@@ -49,7 +50,8 @@ func TestIbackup(t *testing.T) {
 
 			before := time.Now()
 
-			runTestBackups(client, setName, u.Username, []string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}, 1)
+			runTestBackups(client, setName, u.Username,
+				[]string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}, 1)
 
 			sets, err = client.GetSets(u.Username)
 			So(err, ShouldBeNil)
@@ -77,7 +79,8 @@ func TestIbackup(t *testing.T) {
 				got.LastDiscovery = ld
 
 				So(setSet(s, got), ShouldBeNil)
-				runTestBackups(client, setName, u.Username, []string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}, 1)
+				runTestBackups(client, setName, u.Username,
+					[]string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}, 1)
 
 				got, err = client.GetSetByName(u.Username, setName)
 				So(err, ShouldBeNil)
@@ -88,7 +91,8 @@ func TestIbackup(t *testing.T) {
 
 				So(setSet(s, got), ShouldBeNil)
 
-				runTestBackups(client, setName, u.Username, []string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}, 1)
+				runTestBackups(client, setName, u.Username,
+					[]string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}, 1)
 
 				got, err = client.GetSetByName(u.Username, setName)
 				So(err, ShouldBeNil)
@@ -125,10 +129,6 @@ func TestIbackup(t *testing.T) {
 				So(backupActivity.Name, ShouldEqual, manualSetName)
 				So(backupActivity.LastSuccess, ShouldEqual, time.Time{})
 			})
-
-			// TODO: try calling GetBackupActivity() for each dir in the
-			// plan database, plus each rule that is for manual backup Functions
-			// somewhere that do the above. Maybe these are tests in the db pkg?
 		})
 	})
 }
@@ -164,6 +164,7 @@ func setSet(s *server.Server, got *set.Set) error {
 
 	return db.db.Update(func(tx *bbolt.Tx) error {
 		var encoded []byte
+
 		enc := codec.NewEncoderBytes(&encoded, db.ch)
 		enc.MustEncode(got)
 

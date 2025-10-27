@@ -53,7 +53,7 @@ Provide the path to a wrstat stats.gz file and the path to your desired tree
 database file.
 `,
 	RunE: func(_ *cobra.Command, args []string) error {
-		if len(args) != 2 {
+		if len(args) != 2 { //nolint:mnd
 			return ErrArgs
 		}
 
@@ -62,7 +62,7 @@ database file.
 			return fmt.Errorf("error opening stats file: %w", err)
 		}
 
-		defer sf.Close() // nolint:errcheck
+		defer sf.Close()
 
 		var r io.Reader
 

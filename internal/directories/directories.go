@@ -122,8 +122,8 @@ func (d *Directory) AddFile(name string) *File {
 // WriteTo writes the stats data for the directory.
 func (d *Directory) writeTo(w io.Writer) {
 	path := string(d.Path.AppendTo(nil))
-	fmt.Fprintf(w, "%q\t%d\t%d\t%d\t%d\t%d\t%d\t%c\t%d\t1\t1\t%d\n", // nolint:errcheck
-		path, 4096, d.UID, d.GID, d.MTime, d.MTime, d.MTime, 'd', 0, 4096)
+	fmt.Fprintf(w, "%q\t%d\t%d\t%d\t%d\t%d\t%d\t%c\t%d\t1\t1\t%d\n",
+		path, dirSize, d.UID, d.GID, d.MTime, d.MTime, d.MTime, 'd', 0, dirSize)
 
 	keys := slices.Collect(maps.Keys(d.children))
 
@@ -140,8 +140,8 @@ func (d *Directory) AsReader() io.ReadCloser {
 	pr, pw := io.Pipe()
 
 	go func() {
-		d.writeTo(pw) // nolint:errcheck
-		pw.Close()    // nolint:errcheck
+		d.writeTo(pw)
+		pw.Close()
 	}()
 
 	return pr
@@ -189,7 +189,7 @@ type File struct {
 // writeTo writes the stats data for a file entry.
 func (f *File) writeTo(w io.Writer) {
 	path := string(f.Path.AppendTo(nil))
-	fmt.Fprintf(w, "%q\t%d\t%d\t%d\t%d\t%d\t%d\t%c\t%d\t1\t1\t%d\n", // nolint:errcheck
+	fmt.Fprintf(w, "%q\t%d\t%d\t%d\t%d\t%d\t%d\t%c\t%d\t1\t1\t%d\n",
 		path, f.Size, f.UID, f.GID, f.MTime, f.MTime, f.MTime, f.Type, f.Inode, f.Size)
 }
 

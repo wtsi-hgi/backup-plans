@@ -60,7 +60,7 @@ var serverCmd = &cobra.Command{
 			return err
 		}
 
-		return server.Start(fmt.Sprintf(":%d", serverPort), d, getUser, reportRoots, adminGroup, args...) //nolint:gosec
+		return server.Start(fmt.Sprintf(":%d", serverPort), d, getUser, reportRoots, adminGroup, args...)
 	},
 }
 

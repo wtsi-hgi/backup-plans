@@ -30,8 +30,8 @@ import (
 	"fmt"
 	"strings"
 
-	_ "github.com/go-sql-driver/mysql"
-	_ "github.com/mattn/go-sqlite3"
+	_ "github.com/go-sql-driver/mysql" //
+	_ "github.com/mattn/go-sqlite3"    //
 	"github.com/spf13/cobra"
 	"github.com/wtsi-hgi/backup-plans/backups"
 	"github.com/wtsi-hgi/backup-plans/db"
@@ -62,22 +62,23 @@ For mysql, say:
 --tree should be generated using the db command.
 `,
 
-	RunE: func(_ *cobra.Command, args []string) error {
+	RunE: func(_ *cobra.Command, args []string) error { //nolint:revive
 		client, err := ibackup.Connect(ibackupURL, cert)
 		if err != nil {
 			return fmt.Errorf("failed to connect to ibackup server: %w", err)
 		}
 
 		driver := "sqlite3"
-		pathItems := strings.SplitN(planDB, ":", 2)
+
+		pathItems := strings.SplitN(planDB, ":", 2) //nolint:mnd
+		strings.Cut(planDB, ":")
 		if len(pathItems) > 1 {
 			switch pathItems[0] {
 			case "sqlite", "sqlite3":
-				driver = "sqlite3"
 			case "mysql":
 				driver = "mysql"
 			default:
-				return fmt.Errorf("unrecognised db driver: %s", pathItems[0])
+				return fmt.Errorf("unrecognised db driver: %s", pathItems[0]) //nolint:err113
 			}
 		}
 
@@ -86,13 +87,13 @@ For mysql, say:
 		if err != nil {
 			return fmt.Errorf("failed to open db: %w", err)
 		}
-		defer planDB.Close() //nolint:errcheck
+		defer planDB.Close()
 
 		treeNode, err := tree.OpenFile(treeDB)
 		if err != nil {
 			return fmt.Errorf("\n failed to open tree db: %w", err)
 		}
-		defer treeNode.Close() //nolint:errcheck
+		defer treeNode.Close()
 
 		setInfos, err := backups.Backup(planDB, treeNode, client)
 		if err != nil {
@@ -119,8 +120,8 @@ func init() {
 		"ibackup server url")
 	backupCmd.Flags().StringVarP(&cert, "cert", "c", "", "Path to ibackup server certificate file")
 
-	backupCmd.MarkFlagRequired("plan")    // nolint:errcheck
-	backupCmd.MarkFlagRequired("tree")    // nolint:errcheck
-	backupCmd.MarkFlagRequired("ibackup") // nolint:errcheck
-	backupCmd.MarkFlagRequired("cert")    // nolint:errcheck
+	backupCmd.MarkFlagRequired("plan")    //nolint:errcheck
+	backupCmd.MarkFlagRequired("tree")    //nolint:errcheck
+	backupCmd.MarkFlagRequired("ibackup") //nolint:errcheck
+	backupCmd.MarkFlagRequired("cert")    //nolint:errcheck
 }
