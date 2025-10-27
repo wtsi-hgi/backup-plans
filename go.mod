@@ -8,7 +8,6 @@ require (
 	github.com/go-sql-driver/mysql v1.9.3
 	github.com/inconshreveable/log15 v3.0.0-testing.5+incompatible
 	github.com/klauspost/pgzip v1.2.6
-	github.com/mattn/go-sqlite3 v1.14.32
 	github.com/smartystreets/goconvey v1.8.1
 	github.com/spf13/cobra v1.10.1
 	github.com/ugorji/go/codec v1.3.0
@@ -114,6 +113,7 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/mattn/go-shellwords v1.0.12 // indirect
+	github.com/mattn/go-sqlite3 v1.14.24 // indirect
 	github.com/minio/crc64nvme v1.0.2 // indirect
 	github.com/minio/md5-simd v1.1.2 // indirect
 	github.com/minio/minio-go/v7 v7.0.92 // indirect
