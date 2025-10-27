@@ -50,17 +50,14 @@ func Backup(client *server.Client, setName, requester string, files []string, fr
 	got, err := client.GetSetByName(requester, setName)
 	if errors.Is(err, server.ErrBadSet) { //nolint:gocritic,nestif
 		got = &set.Set{
-			Name:        setName,
-			Requester:   requester,
-			Transformer: transformer,
-			Metadata:    map[string]string{},
-			Failed:      0,
+			Name: setName, Requester: requester,
+			Transformer: transformer, Metadata: map[string]string{},
+			Failed: 0,
 		}
 
 		if err = client.AddOrUpdateSet(got); err != nil {
 			return err
 		}
-
 	} else if err != nil {
 		return err
 	} else if got.LastDiscovery.Add(time.Hour*24*time.Duration(frequency-1) + time.Hour*12).After(time.Now()) {

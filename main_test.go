@@ -33,6 +33,7 @@ func TestMain(t *testing.T) {
 
 	Convey("Given an ibackup test server", t, func() {
 		So(tmpDir, ShouldNotBeEmpty)
+
 		_, addr, certPath, dfn, err := ibackup_test.NewTestIbackupServer(t)
 		So(err, ShouldBeNil)
 
@@ -119,7 +120,7 @@ func buildSelf() (string, func()) {
 		return "", nil
 	}
 
-	return tmpDir, func() { os.Remove(app) } // nolint:errcheck
+	return tmpDir, func() { os.Remove(app) }
 }
 
 func failMainTest(err string) {

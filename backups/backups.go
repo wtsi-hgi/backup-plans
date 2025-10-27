@@ -35,6 +35,7 @@ func createRuleGroups(planDB *db.DB, dirs map[int64]*db.Directory) ([]ruleGroup,
 		}
 
 		ruleList[path] = struct{}{}
+
 		groups = append(groups, newgroup)
 
 		// Add path and all parent paths to dirsWithRules
