@@ -31,17 +31,18 @@ func TestMain(t *testing.T) {
 	}
 
 	mysqlConnection := os.Getenv("BACKUP_PLANS_TEST_MYSQL")
-	os.Unsetenv("BACKUP_PLANS_TEST_MYSQL") // nolint:errcheck
+	os.Unsetenv("BACKUP_PLANS_TEST_MYSQL")
 
 	Convey("Given an ibackup test server", t, func() {
 		So(tmpDir, ShouldNotBeEmpty)
+
 		_, addr, certPath, dfn, err := ibackup_test.NewTestIbackupServer(t)
 		So(err, ShouldBeNil)
 
 		Reset(func() { So(dfn(), ShouldBeNil) })
 
 		Convey("The backups command returns an error about required flags with no args", func() {
-			out, err := exec.Command(filepath.Join(tmpDir, app), "backup").CombinedOutput()
+			out, err := exec.Command(filepath.Join(tmpDir, app), "backup").CombinedOutput() //nolint:gosec,noctx
 			So(err, ShouldNotBeNil)
 			So(string(out), ShouldContainSubstring, "required flag(s) \"cert\", \"ibackup\", \"plan\", \"tree\" not set")
 		})
@@ -49,7 +50,8 @@ func TestMain(t *testing.T) {
 		Convey("The backups command results in a correct ibackup set being created given correct args", func() {
 			_, dbPath := plandb.PopulateExamplePlanDB(t)
 
-			out, err := exec.Command(filepath.Join(tmpDir, app), "backup", "--plan", dbPath, "--tree", "testdata/tree.db", "--ibackup", addr, "--cert", certPath).CombinedOutput()
+			out, err := exec.Command(filepath.Join(tmpDir, app), "backup", "--plan", dbPath, //nolint:gosec,noctx
+				"--tree", "testdata/tree.db", "--ibackup", addr, "--cert", certPath).CombinedOutput()
 
 			So(string(out), ShouldEqual, "ibackup set 'plan::/lustre/scratch123/humgen/a/b/' created for userA with 2 files\n")
 			So(err, ShouldBeNil)
@@ -73,26 +75,32 @@ func TestMain(t *testing.T) {
 
 		Convey("The backups command fails with an invalid plan schema", func() {
 			_, dbPath := plandb.PopulateExamplePlanDB(t)
-			_, err := exec.Command(filepath.Join(tmpDir, app), "backup", "--plan", "bad:"+dbPath, "--tree", "testdata/tree.db", "--ibackup", addr, "--cert", certPath).CombinedOutput()
+			_, err := exec.Command(filepath.Join(tmpDir, app), "backup", "--plan", "bad:"+dbPath, //nolint:gosec,noctx
+				"--tree", "testdata/tree.db", "--ibackup", addr, "--cert", certPath).CombinedOutput()
 			So(err, ShouldNotBeNil)
 		})
 
 		Convey("The backups command works with an explicit sqlite3 plan schema", func() {
 			_, dbPath := plandb.PopulateExamplePlanDB(t)
-			_, err := exec.Command(filepath.Join(tmpDir, app), "backup", "--plan", "sqlite3:"+dbPath, "--tree", "testdata/tree.db", "--ibackup", addr, "--cert", certPath).CombinedOutput()
+			_, err := exec.Command(filepath.Join(tmpDir, app), "backup", "--plan", "sqlite3:"+dbPath, //nolint:gosec,noctx
+				"--tree", "testdata/tree.db", "--ibackup", addr, "--cert", certPath).CombinedOutput()
 			So(err, ShouldBeNil)
 		})
 
 		if mysqlConnection == "" {
 			SkipConvey("Skipping mysql tests as BACKUP_PLANS_TEST_MYSQL not set", func() {})
+
 			return
 		}
 
 		Convey("The backups command works with a mysql plan database", func() {
-			os.Setenv("BACKUP_PLANS_TEST_MYSQL", mysqlConnection) // nolint:errcheck
+			os.Setenv("BACKUP_PLANS_TEST_MYSQL", mysqlConnection)
 			plandb.PopulateExamplePlanDB(t)
 
-			out, err := exec.Command(filepath.Join(tmpDir, app), "backup", "--plan", "mysql:"+mysqlConnection, "--tree", "testdata/tree.db", "--ibackup", addr, "--cert", certPath).CombinedOutput()
+			out, err := exec.Command( //nolint:gosec,noctx
+				filepath.Join(tmpDir, app), "backup", "--plan",
+				"mysql:"+mysqlConnection, "--tree", "testdata/tree.db",
+				"--ibackup", addr, "--cert", certPath).CombinedOutput()
 			So(string(out), ShouldEqual, "ibackup set 'plan::/lustre/scratch123/humgen/a/b/' created for userA with 2 files\n")
 			So(err, ShouldBeNil)
 		})
@@ -107,13 +115,13 @@ func buildSelf() (string, func()) {
 		return "", nil
 	}
 
-	if err := exec.Command("go", "build", "-o", tmpDir).Run(); err != nil {
+	if err := exec.Command("go", "build", "-o", tmpDir).Run(); err != nil { //nolint:noctx,noctx
 		failMainTest(err.Error())
 
 		return "", nil
 	}
 
-	return tmpDir, func() { os.Remove(app) } // nolint:errcheck
+	return tmpDir, func() { os.Remove(app) }
 }
 
 func failMainTest(err string) {

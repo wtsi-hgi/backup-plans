@@ -15,23 +15,26 @@ import (
 type ruleGroup = group.PathGroup[db.Rule]
 
 const (
-	setNamePrefix = "plan::"
+	setNamePrefix    = "plan::"
+	defaultFrequency = 7
 )
 
-func createRuleGroups(planDB *db.DB, dirs map[int64][]string) ([]ruleGroup, map[string]struct{}) {
+func createRuleGroups(planDB *db.DB, dirs map[int64]*db.Directory) ([]ruleGroup, map[string]struct{}) {
 	rules := planDB.ReadRules()
 
 	var groups []ruleGroup
+
 	ruleList := make(map[string]struct{})
 
 	rules.ForEach(func(rule *db.Rule) error { //nolint:errcheck
-		path := dirs[rule.DirID()][0]
+		path := dirs[rule.DirID()].Path
 		newgroup := ruleGroup{
 			Path:  []byte(path + rule.Match),
 			Group: rule,
 		}
 
 		ruleList[path] = struct{}{}
+
 		groups = append(groups, newgroup)
 
 		return nil
@@ -50,16 +53,16 @@ type SetInfo struct {
 // given planDB, using the given ibackup client. It returns a list of the set IDs
 // created.
 func Backup(planDB *db.DB, treeNode tree.Node, client *server.Client) ([]SetInfo, error) {
-	dirs := make(map[int64][]string)
+	dirs := make(map[int64]*db.Directory)
 
 	for dir := range planDB.ReadDirectories().Iter {
-		dirs[dir.ID()] = []string{dir.Path, dir.ClaimedBy}
+		dirs[dir.ID()] = dir
 	}
 
 	groups, ruleList := createRuleGroups(planDB, dirs)
-	sm, _ := group.NewStatemachine(groups)
+	sm, _ := group.NewStatemachine(groups) //nolint:errcheck
 
-	m := make(map[int64][]string)
+	setFofns := make(map[int64][]string)
 
 	fileInfos(treeNode, ruleList, func(fi *summary.FileInfo) {
 		rule := sm.GetGroup(fi)
@@ -71,23 +74,28 @@ func Backup(planDB *db.DB, treeNode tree.Node, client *server.Client) ([]SetInfo
 			return
 		}
 
-		m[rule.DirID()] = append(m[rule.DirID()], string(fi.Path.AppendTo(nil))+string(fi.Name))
+		setFofns[rule.DirID()] = append(setFofns[rule.DirID()], string(fi.Path.AppendTo(nil))+string(fi.Name))
 	})
 
-	backupSetInfos := make([]SetInfo, 0, len(m))
+	return addFofnsToIBackup(client, setFofns, dirs)
+}
 
-	for dirId, fofns := range m {
-		setInfo := dirs[dirId]
-		backupSetName := setNamePrefix + setInfo[0]
+func addFofnsToIBackup(client *server.Client, setFofns map[int64][]string,
+	dirs map[int64]*db.Directory) ([]SetInfo, error) {
+	backupSetInfos := make([]SetInfo, 0, len(setFofns))
 
-		err := ibackup.Backup(client, backupSetName, setInfo[1], fofns, 7)
+	for dirID, fofns := range setFofns {
+		setInfo := dirs[dirID]
+		backupSetName := setNamePrefix + setInfo.Path
+
+		err := ibackup.Backup(client, backupSetName, setInfo.ClaimedBy, fofns, defaultFrequency)
 		if err != nil {
 			return nil, err
 		}
 
 		backupSetInfos = append(backupSetInfos, SetInfo{
 			BackupSetName: backupSetName,
-			Requestor:     setInfo[1],
+			Requestor:     setInfo.ClaimedBy,
 			FileCount:     len(fofns),
 		})
 	}
@@ -106,6 +114,7 @@ func fileInfos(root tree.Node, ruleList map[string]struct{}, cb func(path *summa
 		for {
 			if pathToAdd == "/" {
 				dirsWithRules[pathToAdd] = true
+
 				break
 			}
 
@@ -124,7 +133,9 @@ func fileInfos(root tree.Node, ruleList map[string]struct{}, cb func(path *summa
 // findRuleDir will recursively traverse only the tree directories with rules
 // in them (dirsWithRules). When a directory in the ruleList is found, it will
 // call callCBOnAllSubdirs on that node.
-func findRuleDir(node tree.Node, dirsWithRules map[string]bool, ruleList map[string]struct{}, parent *summary.DirectoryPath, cb func(path *summary.FileInfo)) {
+func findRuleDir(node tree.Node, dirsWithRules map[string]bool,
+	ruleList map[string]struct{}, parent *summary.DirectoryPath,
+	cb func(path *summary.FileInfo)) {
 	for name, childnode := range node.Children() {
 		depth := 0
 		if parent != nil {
@@ -140,6 +151,7 @@ func findRuleDir(node tree.Node, dirsWithRules map[string]bool, ruleList map[str
 		dirPath := string(current.AppendTo(nil))
 		if _, exists := ruleList[dirPath]; exists {
 			callCBOnAllSubdirs(childnode, current, cb)
+
 			continue
 		} else if dirsWithRules[dirPath] {
 			findRuleDir(childnode, dirsWithRules, ruleList, current, cb)

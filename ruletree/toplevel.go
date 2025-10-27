@@ -389,21 +389,21 @@ func openDB(file string) (*tree.MemTree, func(), error) { //nolint:funlen
 
 	stat, err := f.Stat()
 	if err != nil {
-		f.Close() // nolint:errcheck
+		f.Close()
 
 		return nil, nil, err
 	}
 
 	data, err := unix.Mmap(int(f.Fd()), 0, int(stat.Size()), unix.PROT_READ, unix.MAP_SHARED)
 	if err != nil {
-		f.Close() // nolint:errcheck
+		f.Close()
 
 		return nil, nil, err
 	}
 
 	fn := func() {
-		unix.Munmap(data) // nolint:errcheck
-		f.Close()         // nolint:errcheck
+		unix.Munmap(data) //nolint:errcheck
+		f.Close()
 	}
 
 	db, err := tree.OpenMem(data)

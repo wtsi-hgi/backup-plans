@@ -12,7 +12,9 @@ import (
 
 // NewTestIbackupServer returns a test ibackup server, its address, certificate
 // path, a function you should defer to stop the server, and an error.
-func NewTestIbackupServer(t *testing.T) (*server.Server, string, string, func() error, error) {
+func NewTestIbackupServer(t *testing.T) (*server.Server, string, string, func() error, error) { //nolint:funlen
+	t.Helper()
+
 	handler, err := baton.GetBatonHandler()
 	if err != nil {
 		return nil, "", "", nil, err
@@ -33,18 +35,17 @@ func NewTestIbackupServer(t *testing.T) (*server.Server, string, string, func() 
 		return nil, "", "", nil, err
 	}
 
-	err = s.EnableAuthWithServerToken(certPath, keyPath, ".ibackup.token", func(u, p string) (bool, string) { return true, "1" })
+	err = s.EnableAuthWithServerToken(certPath, keyPath, ".ibackup.token",
+		func(_, _ string) (bool, string) { return true, "1" })
 	if err != nil {
 		return nil, "", "", nil, err
 	}
 
-	err = s.MakeQueueEndPoints()
-	if err != nil {
+	if err = s.MakeQueueEndPoints(); err != nil {
 		return nil, "", "", nil, err
 	}
 
-	err = s.LoadSetDB(filepath.Join(t.TempDir(), "db"), "")
-	if err != nil {
+	if err = s.LoadSetDB(filepath.Join(t.TempDir(), "db"), ""); err != nil {
 		return nil, "", "", nil, err
 	}
 

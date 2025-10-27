@@ -34,11 +34,11 @@ func init() {
 
 // cliPrintf outputs the message to STDOUT.
 func cliPrintf(msg string, a ...interface{}) {
-	fmt.Fprintf(os.Stdout, msg, a...) // nolint:errcheck
+	fmt.Fprintf(os.Stdout, msg, a...)
 }
 
 // die is a convenience to log a message at the Error level and exit non zero.
 func die(err error) {
-	appLogger.Error(err.Error()) // nolint:errcheck
+	appLogger.Error(err.Error())
 	os.Exit(1)
 }

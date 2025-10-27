@@ -37,7 +37,7 @@ func Connect(url, cert string) (*server.Client, error) {
 // Backup creates a new set called setName for the requester if frequency > 0
 // and it has been longer than the frequency since the last discovery for that
 // set.
-func Backup(client *server.Client, setName, requester string, files []string, frequency int) error {
+func Backup(client *server.Client, setName, requester string, files []string, frequency int) error { //nolint:gocyclo
 	if len(files) == 0 || frequency == 0 {
 		return nil
 	}
@@ -48,19 +48,16 @@ func Backup(client *server.Client, setName, requester string, files []string, fr
 	}
 
 	got, err := client.GetSetByName(requester, setName)
-	if errors.Is(err, server.ErrBadSet) {
+	if errors.Is(err, server.ErrBadSet) { //nolint:gocritic,nestif
 		got = &set.Set{
-			Name:        setName,
-			Requester:   requester,
-			Transformer: transformer,
-			Metadata:    map[string]string{},
-			Failed:      0,
+			Name: setName, Requester: requester,
+			Transformer: transformer, Metadata: map[string]string{},
+			Failed: 0,
 		}
 
-		if err := client.AddOrUpdateSet(got); err != nil {
+		if err = client.AddOrUpdateSet(got); err != nil {
 			return err
 		}
-
 	} else if err != nil {
 		return err
 	} else if got.LastDiscovery.Add(time.Hour*24*time.Duration(frequency-1) + time.Hour*12).After(time.Now()) {
