@@ -140,6 +140,8 @@ func TestCreateRuleGroups(t *testing.T) {
 }
 
 func TestBackups(t *testing.T) {
+	testirods.AddPseudoIRODsToolsToPathIfRequired(t)
+
 	Convey("Given a plan database, a tree of wrstat info and an ibackup server", t, func() {
 		So(testirods.AddPseudoIRODsToolsToPathIfRequired(t), ShouldBeNil)
 

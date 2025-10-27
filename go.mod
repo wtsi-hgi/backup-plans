@@ -10,9 +10,11 @@ require (
 	github.com/klauspost/pgzip v1.2.6
 	github.com/smartystreets/goconvey v1.8.1
 	github.com/spf13/cobra v1.10.1
+	github.com/ugorji/go/codec v1.3.0
 	github.com/wtsi-hgi/go-authserver v1.5.1
 	github.com/wtsi-hgi/ibackup v1.11.0
 	github.com/wtsi-hgi/wrstat-ui v1.8.9
+	go.etcd.io/bbolt v1.4.0
 	golang.org/x/sys v0.35.0
 	modernc.org/sqlite v1.38.2
 	vimagination.zapto.org/byteio v1.2.1
@@ -147,7 +149,6 @@ require (
 	github.com/tklauser/go-sysconf v0.3.15 // indirect
 	github.com/tklauser/numcpus v0.10.0 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
-	github.com/ugorji/go/codec v1.3.0 // indirect
 	github.com/viant/ptrie v1.0.1 // indirect
 	github.com/wtsi-hgi/grand v1.0.0 // indirect
 	github.com/wtsi-npg/extendo/v2 v2.7.1-0.20250509131519-b95b89bd744d // indirect
@@ -157,7 +158,6 @@ require (
 	github.com/wtsi-ssg/wrstat/v6 v6.4.2 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20240726163527-a2c0da244d78 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
-	go.etcd.io/bbolt v1.4.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.61.0 // indirect
 	go.opentelemetry.io/otel v1.36.0 // indirect
