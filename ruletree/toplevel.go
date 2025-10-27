@@ -34,6 +34,7 @@ import (
 	"path"
 	"strings"
 	"sync"
+	"unsafe"
 
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/wrstat-ui/summary/group"
@@ -429,7 +430,7 @@ func getRoot(db *tree.MemTree) (*tree.MemTree, string, error) {
 	)
 
 	db.Children()(func(path string, node tree.Node) bool {
-		rootPath = path
+		rootPath = string(unsafe.Slice(unsafe.StringData(path), len(path)))
 		treeRoot = node.(*tree.MemTree) //nolint:errcheck,forcetypeassert
 
 		return false

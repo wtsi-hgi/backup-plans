@@ -169,6 +169,15 @@ func (d *Directory) Children() iter.Seq2[string, tree.Node] {
 	}
 }
 
+func (d *Directory) WriteTo(w io.Writer) (int64, error) {
+	n, err := d.Directory.WriteTo(w)
+
+	d.Directory.Users = make(treegen.IDMeta)
+	d.Directory.Groups = make(treegen.IDMeta)
+
+	return n, err
+}
+
 func (d *Directory) addFileData(uid, gid uint32, mtime, size int64) {
 	if d.parent != nil {
 		d.parent.addFileData(uid, gid, mtime, size)
