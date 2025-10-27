@@ -1,4 +1,4 @@
-package internal
+package ibackup
 
 import (
 	"io"

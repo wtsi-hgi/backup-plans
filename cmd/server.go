@@ -33,12 +33,19 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/wtsi-hgi/backup-plans/db"
-	"github.com/wtsi-hgi/backup-plans/frontend"
 	"github.com/wtsi-hgi/backup-plans/server"
 )
 
+const defaultPort = 8080
+
 // options for this cmd.
-var serverPort int
+var (
+	serverPort  uint16
+	adminGroup  uint32
+	reportRoots []string
+
+	sqlDriver = "mysql"
+)
 
 // serverCmd represents the server command.
 var serverCmd = &cobra.Command{
@@ -47,40 +54,13 @@ var serverCmd = &cobra.Command{
 	Long: `Start the web server.
 
 `,
-	RunE: func(_ *cobra.Command, _ []string) error {
-		d, err := db.Init("mysql", os.Getenv("BACKUP_PLANS_TEST_MYSQL"))
+	RunE: func(_ *cobra.Command, args []string) error {
+		d, err := db.Init(sqlDriver, os.Getenv("BACKUP_MYSQL_URL"))
 		if err != nil {
 			return err
 		}
 
-		s, err := server.New(d, getUser)
-		if err != nil {
-			return err
-		}
-
-		for _, db := range os.Args[1:] {
-			fmt.Println("Loading ", db)
-
-			if err := s.AddTree(db); err != nil {
-				return err
-			}
-		}
-
-		fmt.Println("Serving...")
-
-		http.Handle("/api/whoami", http.HandlerFunc(s.WhoAmI))
-		http.Handle("/api/tree", http.HandlerFunc(s.Tree))
-		http.Handle("/api/dir/claim", http.HandlerFunc(s.ClaimDir))
-		http.Handle("/api/dir/pass", http.HandlerFunc(s.PassDirClaim))
-		http.Handle("/api/dir/revoke", http.HandlerFunc(s.RevokeDirClaim))
-		http.Handle("/api/rules/create", http.HandlerFunc(s.CreateRule))
-		http.Handle("/api/rules/get", http.HandlerFunc(s.GetRules))
-		http.Handle("/api/rules/update", http.HandlerFunc(s.UpdateRule))
-		http.Handle("/api/rules/remove", http.HandlerFunc(s.RemoveRule))
-		http.Handle("/", http.HandlerFunc(frontend.Serve))
-
-		return http.ListenAndServe(fmt.Sprintf(":%d", serverPort), nil)
-
+		return server.Start(fmt.Sprintf(":%d", serverPort), d, getUser, reportRoots, adminGroup, args...) //nolint:gosec
 	},
 }
 
@@ -88,8 +68,10 @@ func init() {
 	RootCmd.AddCommand(serverCmd)
 
 	// flags specific to this sub-command
-	serverCmd.Flags().IntVarP(&serverPort, "port", "p", 12345,
+	serverCmd.Flags().Uint16VarP(&serverPort, "port", "p", defaultPort,
 		"port to start server on")
+	serverCmd.Flags().Uint32VarP(&adminGroup, "admin", "a", 0, "admin groups that can see the entire tree")
+	serverCmd.Flags().StringSliceVarP(&reportRoots, "report", "r", nil, "reporting root, can be supplied more than once")
 }
 
 func getUser(r *http.Request) string {

@@ -402,13 +402,8 @@ func openDB(file string) (*tree.MemTree, func(), error) { //nolint:funlen
 	}
 
 	fn := func() {
-<<<<<<< HEAD
-		unix.Munmap(data) //nolint:errcheck
-		f.Close()
-=======
 		unix.Munmap(data) // nolint:errcheck
 		f.Close()         // nolint:errcheck
->>>>>>> 0544c03 (Add Makefile; delint)
 	}
 
 	db, err := tree.OpenMem(data)
@@ -495,12 +490,7 @@ func createTopLevelDirs(treeRoot *ruleOverlay, rootPath string, p *topLevelDir) 
 		if !ok {
 			np = newTopLevelDir(p)
 
-<<<<<<< HEAD
 			if err := p.setChild(part, np); err != nil {
-=======
-			err := p.setChild(part, np)
-			if err != nil {
->>>>>>> 0544c03 (Add Makefile; delint)
 				return err
 			}
 		}

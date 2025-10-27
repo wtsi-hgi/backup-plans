@@ -2,25 +2,27 @@ module github.com/wtsi-hgi/backup-plans
 
 go 1.24.4
 
+tool vimagination.zapto.org/jspacker/cmd/jspacker
+
 require (
 	github.com/go-sql-driver/mysql v1.9.3
 	github.com/inconshreveable/log15 v3.0.0-testing.5+incompatible
 	github.com/klauspost/pgzip v1.2.6
-	github.com/mattn/go-sqlite3 v1.14.24
+	github.com/mattn/go-sqlite3 v1.14.32
 	github.com/smartystreets/goconvey v1.8.1
-	github.com/spf13/cobra v1.9.1
-	github.com/ugorji/go/codec v1.2.14
+	github.com/spf13/cobra v1.10.1
+	github.com/ugorji/go/codec v1.3.0
 	github.com/wtsi-hgi/go-authserver v1.5.1
 	github.com/wtsi-hgi/ibackup v1.11.0
-	github.com/wtsi-hgi/wrstat-ui v1.8.6-0.20250926150046-33f172249bf7
-	go.etcd.io/bbolt v1.4.0
-	golang.org/x/sys v0.34.0
-	modernc.org/sqlite v1.38.2
-	vimagination.zapto.org/byteio v1.2.1
+	github.com/wtsi-hgi/wrstat-ui v1.8.9
+	go.etcd.io/bbolt v1.4.3
+	golang.org/x/sys v0.37.0
+	modernc.org/sqlite v1.39.1
+	vimagination.zapto.org/byteio v1.2.2
 	vimagination.zapto.org/httpbuffer v1.1.3
 	vimagination.zapto.org/httpembed v1.4.1
-	vimagination.zapto.org/tree v1.3.1
-	vimagination.zapto.org/tsserver v1.0.15
+	vimagination.zapto.org/tree v1.3.3
+	vimagination.zapto.org/tsserver v1.0.16
 )
 
 require (
@@ -112,7 +114,6 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/mattn/go-shellwords v1.0.12 // indirect
-	github.com/mattn/go-sqlite3 v1.14.24 // indirect
 	github.com/minio/crc64nvme v1.0.2 // indirect
 	github.com/minio/md5-simd v1.1.2 // indirect
 	github.com/minio/minio-go/v7 v7.0.92 // indirect
@@ -142,7 +143,7 @@ require (
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
 	github.com/slack-go/slack v0.17.0 // indirect
 	github.com/smarty/assertions v1.15.0 // indirect
-	github.com/spf13/pflag v1.0.6 // indirect
+	github.com/spf13/pflag v1.0.9 // indirect
 	github.com/thanhpk/randstr v1.0.6 // indirect
 	github.com/tinylib/msgp v1.3.0 // indirect
 	github.com/tklauser/go-sysconf v0.3.15 // indirect
@@ -167,7 +168,7 @@ require (
 	golang.org/x/exp v0.0.0-20250620022241-b7579e27df2b // indirect
 	golang.org/x/net v0.40.0 // indirect
 	golang.org/x/oauth2 v0.30.0 // indirect
-	golang.org/x/sync v0.15.0 // indirect
+	golang.org/x/sync v0.16.0 // indirect
 	golang.org/x/term v0.32.0 // indirect
 	golang.org/x/text v0.25.0 // indirect
 	golang.org/x/time v0.11.0 // indirect
@@ -179,7 +180,7 @@ require (
 	k8s.io/api v0.33.1 // indirect
 	k8s.io/apimachinery v0.33.1 // indirect
 	k8s.io/client-go v11.0.0+incompatible // indirect
-	modernc.org/libc v1.66.3 // indirect
+	modernc.org/libc v1.66.10 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
 	nanomsg.org/go-mangos v1.4.0 // indirect
@@ -206,7 +207,5 @@ replace github.com/docker/spdystream => github.com/docker/spdystream v0.1.0
 
 // mergo moved to a vanity URL in v1.0.0
 replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.16
-
-tool vimagination.zapto.org/jspacker/cmd/jspacker
 
 replace github.com/wtsi-npg/extendo/v2 => github.com/mjkw31/extendo/v2 v2.7.1-beta2
