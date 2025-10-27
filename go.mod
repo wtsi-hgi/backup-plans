@@ -2,31 +2,10 @@ module github.com/wtsi-hgi/backup-plans
 
 go 1.24.4
 
-// we need to specify these due to github.com/VertebrateResequencing/wr's deps
-replace github.com/grafov/bcast => github.com/grafov/bcast v0.0.0-20161019100130-e9affb593f6c
-
-replace k8s.io/apimachinery => k8s.io/apimachinery v0.0.0-20180228050457-302974c03f7e
-
-replace k8s.io/api => k8s.io/api v0.0.0-20180308224125-73d903622b73
-
-replace k8s.io/client-go => k8s.io/client-go v7.0.0+incompatible
-
-replace github.com/googleapis/gnostic => github.com/googleapis/gnostic v0.4.1-0.20200130232022-81b31a2e6e4e
-
-replace github.com/docker/spdystream => github.com/docker/spdystream v0.1.0
-
-// mergo moved to a vanity URL in v1.0.0
-replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.16
-
-replace github.com/wtsi-npg/extendo/v2 => github.com/mjkw31/extendo/v2 v2.7.1-beta2
-
-tool vimagination.zapto.org/jspacker/cmd/jspacker
-
 require (
 	github.com/go-sql-driver/mysql v1.9.3
 	github.com/inconshreveable/log15 v3.0.0-testing.5+incompatible
 	github.com/klauspost/pgzip v1.2.6
-	github.com/mattn/go-sqlite3 v1.14.32
 	github.com/smartystreets/goconvey v1.8.1
 	github.com/spf13/cobra v1.10.1
 	github.com/ugorji/go/codec v1.3.0
@@ -209,3 +188,24 @@ require (
 	vimagination.zapto.org/memfs v1.0.0 // indirect
 	vimagination.zapto.org/parser v1.2.2 // indirect
 )
+
+
+// we need to specify these due to github.com/VertebrateResequencing/wr's deps
+replace github.com/grafov/bcast => github.com/grafov/bcast v0.0.0-20161019100130-e9affb593f6c
+
+replace k8s.io/apimachinery => k8s.io/apimachinery v0.0.0-20180228050457-302974c03f7e
+
+replace k8s.io/api => k8s.io/api v0.0.0-20180308224125-73d903622b73
+
+replace k8s.io/client-go => k8s.io/client-go v7.0.0+incompatible
+
+replace github.com/googleapis/gnostic => github.com/googleapis/gnostic v0.4.1-0.20200130232022-81b31a2e6e4e
+
+replace github.com/docker/spdystream => github.com/docker/spdystream v0.1.0
+
+// mergo moved to a vanity URL in v1.0.0
+replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.16
+
+replace github.com/wtsi-npg/extendo/v2 => github.com/mjkw31/extendo/v2 v2.7.1-beta2
+
+tool vimagination.zapto.org/jspacker/cmd/jspacker
