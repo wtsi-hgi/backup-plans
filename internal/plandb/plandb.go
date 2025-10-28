@@ -44,8 +44,8 @@ const defaultFrequency = 7
 func CreateTestDatabase(t *testing.T) (*db.DB, string) {
 	t.Helper()
 
-	driver, connection := testdb.GetTestDriverConnection(t)
-	d, err := db.Init(driver, connection)
+	connection := testdb.GetTestDriverConnection(t)
+	d, err := db.Init(connection)
 	So(err, ShouldBeNil)
 
 	Reset(func() { d.Close() })

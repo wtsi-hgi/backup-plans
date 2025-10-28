@@ -28,14 +28,12 @@ package cmd
 
 import (
 	"fmt"
-	"strings"
+	"os"
 
-	_ "github.com/go-sql-driver/mysql" //
 	"github.com/spf13/cobra"
 	"github.com/wtsi-hgi/backup-plans/backups"
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/ibackup"
-	_ "modernc.org/sqlite" //
 	"vimagination.zapto.org/tree"
 )
 
@@ -59,6 +57,9 @@ For sqlite, say:
 For mysql, say:
   mysql:user:password@tcp(host:port)/dbname
 
+It is recommended to use the environment variable "BACKUP_MYSQL_URL" for this
+to maintain password security.
+
 --tree should be generated using the db command.
 `,
 
@@ -68,22 +69,7 @@ For mysql, say:
 			return fmt.Errorf("failed to connect to ibackup server: %w", err)
 		}
 
-		driver := "sqlite"
-
-		pathItems := strings.SplitN(planDB, ":", 2) //nolint:mnd
-		strings.Cut(planDB, ":")
-		if len(pathItems) > 1 {
-			switch pathItems[0] {
-			case "sqlite", "sqlite3":
-			case "mysql":
-				driver = "mysql"
-			default:
-				return fmt.Errorf("unrecognised db driver: %s", pathItems[0]) //nolint:err113
-			}
-		}
-
-		path := pathItems[len(pathItems)-1]
-		planDB, err := db.Init(driver, path)
+		planDB, err := db.Init(planDB)
 		if err != nil {
 			return fmt.Errorf("failed to open db: %w", err)
 		}
@@ -112,7 +98,7 @@ func init() {
 	RootCmd.AddCommand(backupCmd)
 
 	// flags specific to this sub-command
-	backupCmd.Flags().StringVarP(&planDB, "plan", "p", "",
+	backupCmd.Flags().StringVarP(&planDB, "plan", "p", os.Getenv("BACKUP_MYSQL_URL"),
 		"sql connection string for your plan database")
 	backupCmd.Flags().StringVarP(&treeDB, "tree", "t", "",
 		"Path to tree db file, usually generated using db cmd")

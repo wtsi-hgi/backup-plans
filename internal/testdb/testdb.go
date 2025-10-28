@@ -33,7 +33,6 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey" //nolint:revive,staticcheck
 	"github.com/wtsi-hgi/backup-plans/db"
-	_ "modernc.org/sqlite" //
 )
 
 func CreateTestDatabase(t *testing.T) *db.DB {
@@ -47,7 +46,7 @@ func CreateTestDatabase(t *testing.T) *db.DB {
 
 	os.Setenv("TMPDIR", oldTmp)
 
-	d, err := db.Init("sqlite", filepath.Join(t.TempDir(), "db?journal_mode=WAL&_pragma=foreign_keys(1)"))
+	d, err := db.Init("sqlite://" + filepath.Join(t.TempDir(), "db?journal_mode=WAL&_pragma=foreign_keys(1)"))
 	So(err, ShouldBeNil)
 
 	Reset(func() { d.Close() })
@@ -55,22 +54,20 @@ func CreateTestDatabase(t *testing.T) *db.DB {
 	return d
 }
 
-func GetTestDriverConnection(t *testing.T) (string, string) {
+func GetTestDriverConnection(t *testing.T) string {
 	t.Helper()
 
-	var sdriver, uri string
+	var uri string
 
 	if p := os.Getenv("BACKUP_PLANS_TEST_MYSQL"); p != "" {
-		sdriver = "mysql"
 		uri = p
 
 		So(dropTables(p), ShouldBeNil)
 	} else {
-		sdriver = "sqlite"
-		uri = filepath.Join(t.TempDir(), "db?journal_mode=WAL&_pragma=foreign_keys(1)")
+		uri = "sqlite://" + filepath.Join(t.TempDir(), "db?journal_mode=WAL&_pragma=foreign_keys(1)")
 	}
 
-	return sdriver, uri
+	return uri
 }
 
 func dropTables(uri string) error {

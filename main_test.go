@@ -14,13 +14,6 @@ import (
 	"github.com/wtsi-hgi/backup-plans/internal/testirods"
 )
 
-// in this go process we want to do the equivalent of typing `go build .` on the
-// terminal which creates a binary called "backup-plans"
-// so that we can then run do the equivalent of typing `./backup-plans backup
-// --plan <planDB> --tree <treeDB> --ibackup <url> --cert <cert>`
-// and check it works correctly by querying the ibackup server to see if the
-// set got created with the expeted name and files in it.
-
 const (
 	app = "backup-plans"
 )
