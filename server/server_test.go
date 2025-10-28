@@ -64,7 +64,7 @@ func TestSeverDBUpdate(t *testing.T) {
 		writeDB(t, dirB, tmp, "001_otherPath")
 
 		Convey("You can create a server", func() {
-			l, err := net.Listen("tcp", ":0")
+			l, err := net.Listen("tcp", ":0") //nolint:gosec,noctx
 			So(err, ShouldBeNil)
 
 			tdb := testdb.CreateTestDatabase(t)
@@ -75,7 +75,7 @@ func TestSeverDBUpdate(t *testing.T) {
 				errCh <- start(l, tdb, func(*http.Request) string { return u.Username }, nil, 0, tmp)
 			}()
 
-			baseURL := fmt.Sprintf("http://127.0.0.1:%d/", l.Addr().(*net.TCPAddr).Port) //nolint:errcheck
+			baseURL := fmt.Sprintf("http://127.0.0.1:%d/", l.Addr().(*net.TCPAddr).Port) //nolint:errcheck,forcetypeassert
 			tick := time.NewTicker(time.Second)
 
 		Loop:
@@ -84,7 +84,7 @@ func TestSeverDBUpdate(t *testing.T) {
 				case err = <-errCh:
 					So(err, ShouldBeNil)
 				case <-tick.C:
-					_, err = http.Get(baseURL) //nolint:noctx
+					_, err = http.Get(baseURL) //nolint:noctx,gosec
 					if err == nil {
 						break Loop
 					}

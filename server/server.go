@@ -26,7 +26,6 @@
 package server
 
 import (
-	"context"
 	"log"
 	"log/slog"
 	"net"
@@ -46,10 +45,7 @@ var dbCheckTime = time.Minute //nolint:gochecknoglobals
 // Start creates and start a new server after loading the trees given.
 func Start(listen string, d *db.DB, getUser func(*http.Request) string,
 	report []string, adminGroup uint32, initialTrees ...string) error {
-	// l, err := net.Listen("tcp", listen)
-	var lc net.ListenConfig
-
-	l, err := lc.Listen(context.Background(), "tcp", listen)
+	l, err := net.Listen("tcp", listen) //nolint:noctx
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
 	}
@@ -67,21 +63,15 @@ func start(listen net.Listener, d *db.DB, getUser func(*http.Request) string,
 
 	b.SetAdminGroup(adminGroup)
 
-	trees, err := loadTrees(initialTrees, b)
+	err = loadTrees(initialTrees, b)
 	if err != nil {
 		return err
 	}
 
-	// If initialTrees is a list of files, load them
-	for _, db := range trees {
-		err = loadDBs(db, b)
-		if err != nil {
-			slog.Error("Error loading db", "db", err)
+	return addHandlesAndListen(b, listen)
+}
 
-			continue
-		}
-	}
-
+func addHandlesAndListen(b *backend.Server, listen net.Listener) error {
 	http.Handle("/api/whoami", http.HandlerFunc(b.WhoAmI))
 	http.Handle("/api/tree", http.HandlerFunc(b.Tree))
 	http.Handle("/api/dir/claim", http.HandlerFunc(b.ClaimDir))
@@ -96,30 +86,47 @@ func start(listen net.Listener, d *db.DB, getUser func(*http.Request) string,
 	return http.Serve(listen, nil) //nolint:gosec
 }
 
-func loadTrees(initialTrees []string, b *backend.Server) ([]string, error) {
+func loadTrees(initialTrees []string, b *backend.Server) error {
 	if len(initialTrees) != 1 {
-		return initialTrees, nil
+		return loadDBs(b, initialTrees)
 	}
 
 	path := initialTrees[0]
 
 	stat, err := os.Stat(path)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	if !stat.IsDir() {
-		return initialTrees, nil
+		return loadDBs(b, initialTrees)
 	}
 
 	treePaths, err := getTreePaths(path)
 	if err != nil {
-		return nil, err
+		return err
+	}
+
+	if err := loadDBs(b, treePaths); err != nil {
+		return err
 	}
 
 	go timerLoop(path, b, treePaths)
 
-	return treePaths, nil
+	return nil
+}
+
+func loadDBs(b *backend.Server, trees []string) error {
+	for _, db := range trees {
+		err := b.AddTree(db)
+		if err != nil {
+			slog.Error("Error loading db", "db", err)
+
+			continue
+		}
+	}
+
+	return nil
 }
 
 // getTreePaths will, for a given dir, return a slice of filepaths to all
@@ -141,7 +148,6 @@ func getTreePaths(path string) ([]string, error) {
 
 // timerLoop will, given a path to a directory, check for and load all new trees
 // in the directory.
-// TODO: Is it possible to remove a tree? If so, how should this be handled?
 func timerLoop(path string, b *backend.Server, treePaths []string) { //nolint:gocognit
 	for {
 		time.Sleep(dbCheckTime)
@@ -158,7 +164,7 @@ func timerLoop(path string, b *backend.Server, treePaths []string) { //nolint:go
 				continue
 			}
 
-			err = loadDBs(path, b)
+			err = b.AddTree(path)
 			if err != nil {
 				slog.Error("Error loading db", "db", path, "Error", err)
 
@@ -168,12 +174,4 @@ func timerLoop(path string, b *backend.Server, treePaths []string) { //nolint:go
 			treePaths = append(treePaths, path)
 		}
 	}
-}
-
-func loadDBs(path string, b *backend.Server) error {
-	if err := b.AddTree(path); err != nil {
-		return err
-	}
-
-	return nil
 }

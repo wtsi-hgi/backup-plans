@@ -117,6 +117,9 @@ func (d *Directory) WriteTo(w io.Writer) (int64, error) {
 	writeIDTimes(&sw, getSortedIDTimes(d.Users))
 	writeIDTimes(&sw, getSortedIDTimes(d.Groups))
 
+	clear(d.Users)
+	clear(d.Groups)
+
 	return sw.Count, sw.Err
 }
 
@@ -191,8 +194,6 @@ func (n *treeNode) Output() error {
 	}
 
 	n.path = nil
-	clear(n.Users)
-	clear(n.Groups)
 
 	return nil
 }
