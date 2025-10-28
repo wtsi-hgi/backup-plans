@@ -1,4 +1,4 @@
-package ibackup
+package ibackup_test
 
 import (
 	"os/user"
@@ -8,7 +8,8 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/ugorji/go/codec"
-	"github.com/wtsi-hgi/backup-plans/internal/ibackup"
+	"github.com/wtsi-hgi/backup-plans/ibackup"
+	ib "github.com/wtsi-hgi/backup-plans/internal/ibackup"
 	"github.com/wtsi-hgi/backup-plans/internal/testirods"
 	gas "github.com/wtsi-hgi/go-authserver"
 	"github.com/wtsi-hgi/ibackup/server"
@@ -20,7 +21,7 @@ func TestIbackup(t *testing.T) {
 	Convey("Given a new ibackup server", t, func() {
 		So(testirods.AddPseudoIRODsToolsToPathIfRequired(t), ShouldBeNil)
 
-		s, addr, certPath, dfn, err := ibackup.NewTestIbackupServer(t)
+		s, addr, certPath, dfn, err := ib.NewTestIbackupServer(t)
 		So(err, ShouldBeNil)
 
 		Reset(func() { So(dfn(), ShouldBeNil) })
@@ -28,7 +29,7 @@ func TestIbackup(t *testing.T) {
 		u, err := user.Current()
 		So(err, ShouldBeNil)
 
-		client, err := Connect(addr, certPath)
+		client, err := ibackup.Connect(addr, certPath)
 		So(err, ShouldBeNil)
 
 		Convey("You can create backup sets", func() {
@@ -70,7 +71,7 @@ func TestIbackup(t *testing.T) {
 				},
 			})
 
-			sba, err := GetBackupActivity(client, setName, u.Username)
+			sba, err := ibackup.GetBackupActivity(client, setName, u.Username)
 			So(err, ShouldBeNil)
 			So(sba.LastSuccess, ShouldHappenAfter, before)
 
@@ -103,14 +104,14 @@ func TestIbackup(t *testing.T) {
 			})
 
 			Convey("You can get the last backup status of automatically created sets", func() {
-				backupActivity, err := GetBackupActivity(client, setName, u.Username)
+				backupActivity, err := ibackup.GetBackupActivity(client, setName, u.Username)
 				So(err, ShouldBeNil)
 				So(backupActivity, ShouldNotBeNil)
 				So(backupActivity.Requester, ShouldEqual, u.Username)
 				So(backupActivity.Name, ShouldEqual, setName)
 				So(backupActivity.LastSuccess, ShouldHappenAfter, before)
 
-				_, err = GetBackupActivity(client, "invalidSetName", u.Username)
+				_, err = ibackup.GetBackupActivity(client, "invalidSetName", u.Username)
 				So(err, ShouldNotBeNil)
 
 				manualSetName := "manualSetName"
@@ -118,19 +119,65 @@ func TestIbackup(t *testing.T) {
 				manualSet := &set.Set{
 					Name:        manualSetName,
 					Requester:   u.Username,
-					Transformer: getTransformer(files[0]),
+					Transformer: ibackup.GetTransformer(files[0]),
 					Description: "manual backup set",
 				}
 
 				err = client.AddOrUpdateSet(manualSet)
 				So(err, ShouldBeNil)
 
-				backupActivity, err = GetBackupActivity(client, manualSetName, u.Username)
+				backupActivity, err = ibackup.GetBackupActivity(client, manualSetName, u.Username)
 				So(err, ShouldBeNil)
 				So(backupActivity, ShouldNotBeNil)
 				So(backupActivity.Requester, ShouldEqual, u.Username)
 				So(backupActivity.Name, ShouldEqual, manualSetName)
 				So(backupActivity.LastSuccess, ShouldEqual, time.Time{})
+			})
+
+			Convey("You can retrieve the last backup status from the cache", func() {
+				cacheTimeout := time.Second * 2
+				cache := ibackup.NewCache(client, cacheTimeout)
+				backupActivity, err := cache.GetBackupActivity(setName, u.Username)
+				So(err, ShouldBeNil)
+				So(backupActivity, ShouldNotBeNil)
+				So(backupActivity.Requester, ShouldEqual, u.Username)
+				So(backupActivity.Name, ShouldEqual, setName)
+				So(backupActivity.LastSuccess, ShouldHappenAfter, before)
+
+				*(*string)(unsafe.Pointer(client)) = ""
+
+				backupActivity, err = cache.GetBackupActivity(setName, u.Username)
+				So(err, ShouldBeNil)
+				So(backupActivity, ShouldNotBeNil)
+				So(backupActivity.Requester, ShouldEqual, u.Username)
+				So(backupActivity.Name, ShouldEqual, setName)
+				So(backupActivity.LastSuccess, ShouldHappenAfter, before)
+			})
+
+			Convey("The cache updates after a specified amount of time", func() {
+				cacheTimeout := time.Second * 1
+				cache := ibackup.NewCache(client, cacheTimeout)
+				backupActivity, err := cache.GetBackupActivity(setName, u.Username)
+				So(err, ShouldBeNil)
+				So(backupActivity.LastSuccess, ShouldHappenAfter, before)
+
+				err = client.AddOrUpdateSet(sets[0])
+				So(err, ShouldBeNil)
+
+				backupActivity, err = cache.GetBackupActivity(setName, u.Username)
+				So(err, ShouldBeNil)
+				So(backupActivity.LastSuccess, ShouldHappenAfter, before)
+
+				before = backupActivity.LastSuccess
+
+				err = client.TriggerDiscovery(sets[0].ID(), false)
+				So(err, ShouldBeNil)
+
+				time.Sleep(2 * cacheTimeout)
+
+				backupActivity, err = cache.GetBackupActivity(setName, u.Username)
+				So(err, ShouldBeNil)
+				So(backupActivity.LastSuccess, ShouldHappenAfter, before)
 			})
 		})
 	})
@@ -178,6 +225,6 @@ func setSet(s *server.Server, got *set.Set) error {
 }
 
 func runTestBackups(client *server.Client, setname, requester string, files []string, frequency int) {
-	err := Backup(client, setname, requester, files, frequency)
+	err := ibackup.Backup(client, setname, requester, files, frequency)
 	So(err, ShouldBeNil)
 }

@@ -189,7 +189,6 @@ require (
 	vimagination.zapto.org/parser v1.2.2 // indirect
 )
 
-
 // we need to specify these due to github.com/VertebrateResequencing/wr's deps
 replace github.com/grafov/bcast => github.com/grafov/bcast v0.0.0-20161019100130-e9affb593f6c
 

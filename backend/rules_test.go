@@ -36,6 +36,7 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/wtsi-hgi/backup-plans/internal/directories"
+	"github.com/wtsi-hgi/backup-plans/internal/ibackup"
 	"github.com/wtsi-hgi/backup-plans/internal/testdb"
 	"github.com/wtsi-hgi/backup-plans/users"
 	"vimagination.zapto.org/tree"
@@ -56,7 +57,7 @@ func TestClaimDir(t *testing.T) {
 		user, err := user.Current()
 		So(err, ShouldBeNil)
 
-		s, err := New(testdb.CreateTestDatabase(t), u.getUser, nil)
+		s, err := New(testdb.CreateTestDatabase(t), u.getUser, nil, ibackup.NewClient(t))
 		So(err, ShouldBeNil)
 
 		treeDBPath := createTestTree(t)
@@ -151,7 +152,7 @@ func TestRules(t *testing.T) {
 	Convey("With a configured backend", t, func() {
 		u := userHandler(root)
 
-		s, err := New(testdb.CreateTestDatabase(t), u.getUser, nil)
+		s, err := New(testdb.CreateTestDatabase(t), u.getUser, nil, ibackup.NewClient(t))
 		So(err, ShouldBeNil)
 
 		treeDBPath := createTestTree(t)

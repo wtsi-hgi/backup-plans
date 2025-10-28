@@ -33,6 +33,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/wtsi-hgi/backup-plans/db"
+	"github.com/wtsi-hgi/backup-plans/ibackup"
 	"github.com/wtsi-hgi/backup-plans/server"
 )
 
@@ -73,7 +74,12 @@ to maintain password security.
 			return err
 		}
 
-		return server.Start(fmt.Sprintf(":%d", serverPort), d, getUser, reportRoots, adminGroup, args...)
+		client, err := ibackup.Connect(ibackupURL, cert)
+		if err != nil {
+			return fmt.Errorf("failed to connect to ibackup server: %w", err)
+		}
+
+		return server.Start(fmt.Sprintf(":%d", serverPort), d, getUser, reportRoots, adminGroup, client, args...)
 	},
 }
 
@@ -87,6 +93,13 @@ func init() {
 	serverCmd.Flags().StringSliceVarP(&reportRoots, "report", "r", nil, "reporting root, can be supplied more than once")
 	serverCmd.Flags().StringVarP(&planDB, "plan", "p", os.Getenv("BACKUP_MYSQL_URL"),
 		"sql connection string for your plan database")
+	serverCmd.Flags().StringVarP(&ibackupURL, "ibackup", "i", "", "ibackup server url")
+	serverCmd.Flags().StringVarP(&cert, "cert", "c", "", "Path to ibackup server certificate file")
+
+	serverCmd.MarkFlagRequired("plan")    //nolint:errcheck
+	serverCmd.MarkFlagRequired("tree")    //nolint:errcheck
+	serverCmd.MarkFlagRequired("ibackup") //nolint:errcheck
+	serverCmd.MarkFlagRequired("cert")    //nolint:errcheck
 }
 
 func getUser(r *http.Request) string {

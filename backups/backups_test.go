@@ -1,7 +1,6 @@
 package backups
 
 import (
-	"bytes"
 	"os/user"
 	"testing"
 
@@ -9,18 +8,15 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/ibackup"
-	"github.com/wtsi-hgi/backup-plans/internal/directories"
 	internal "github.com/wtsi-hgi/backup-plans/internal/ibackup"
 	"github.com/wtsi-hgi/backup-plans/internal/plandb"
 	"github.com/wtsi-hgi/backup-plans/internal/testirods"
 	"github.com/wtsi-hgi/wrstat-ui/summary"
-	_ "modernc.org/sqlite"
-	"vimagination.zapto.org/tree"
 )
 
 func TestFileInfos(t *testing.T) {
 	Convey("Given a tree of wrstat info you can get all the file infos", t, func() {
-		tr := exampleTree()
+		tr := plandb.ExampleTree()
 
 		var paths []*summary.FileInfo
 
@@ -65,32 +61,6 @@ func TestFileInfos(t *testing.T) {
 			}
 		}
 	})
-}
-
-func exampleTree() tree.Node { //nolint:ireturn,nolintlint
-	dirRoot := directories.NewRoot("/", 12345)
-	humgen := dirRoot.AddDirectory("lustre").SetMeta(99, 98, 1).AddDirectory("scratch123").
-		SetMeta(1, 1, 98765).AddDirectory("humgen").SetMeta(1, 1, 98765)
-
-	humgen.AddDirectory("a").SetMeta(99, 98, 1).AddDirectory("b").SetMeta(1, 1, 98765).
-		AddDirectory("testdir").SetMeta(2, 1, 12349)
-	directories.AddFile(&dirRoot.Directory, "lustre/scratch123/humgen/a/b/1.jpg", 1, 1, 9, 98766)
-	directories.AddFile(&dirRoot.Directory, "lustre/scratch123/humgen/a/b/2.jpg", 1, 2, 8, 98767)
-	directories.AddFile(&dirRoot.Directory, "lustre/scratch123/humgen/a/b/3.txt", 1, 2, 8, 98767)
-	directories.AddFile(&dirRoot.Directory, "lustre/scratch123/humgen/a/b/temp.jpg", 1, 2, 8, 98767)
-	directories.AddFile(&dirRoot.Directory, "lustre/scratch123/humgen/a/b/testdir/test.txt", 2, 1, 6, 12346)
-
-	humgen.AddDirectory("a").AddDirectory("c").SetMeta(2, 1, 12349)
-	directories.AddFile(&dirRoot.Directory, "lustre/scratch123/humgen/a/c/4.txt", 2, 1, 6, 12346)
-
-	var treeDB bytes.Buffer
-
-	So(tree.Serialise(&treeDB, dirRoot), ShouldBeNil)
-
-	tr, err := tree.OpenMem(treeDB.Bytes())
-	So(err, ShouldBeNil)
-
-	return tr
 }
 
 func TestCreateRuleGroups(t *testing.T) {
@@ -159,7 +129,7 @@ func TestBackups(t *testing.T) {
 		So(ibackupClient, ShouldNotBeNil)
 
 		testDB, _ := plandb.PopulateExamplePlanDB(t)
-		tr := exampleTree()
+		tr := plandb.ExampleTree()
 
 		Convey("You can create ibackup sets for all automatic ibackup plans, excluding BackupNone and BackupManual", func() {
 			setInfos, err := Backup(testDB, tr, ibackupClient)

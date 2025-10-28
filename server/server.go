@@ -32,12 +32,13 @@ import (
 	"github.com/wtsi-hgi/backup-plans/backend"
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/frontend"
+	"github.com/wtsi-hgi/ibackup/server"
 )
 
 // Start creates and start a new server after loading the trees given.
 func Start(listen string, d *db.DB, getUser func(*http.Request) string,
-	report []string, adminGroup uint32, initialTrees ...string) error {
-	b, err := backend.New(d, getUser, report)
+	report []string, adminGroup uint32, client *server.Client, initialTrees ...string) error {
+	b, err := backend.New(d, getUser, report, client)
 	if err != nil {
 		return err
 	}

@@ -31,14 +31,16 @@ import (
 	"net/http"
 
 	"github.com/wtsi-hgi/backup-plans/db"
+	"github.com/wtsi-hgi/backup-plans/ibackup"
 	"github.com/wtsi-hgi/backup-plans/ruletree"
 	"vimagination.zapto.org/tree"
 )
 
 type summary struct {
-	Summaries   map[string]*ruletree.DirSummary
-	Rules       map[uint64]*db.Rule
-	Directories map[string][]uint64
+	Summaries    map[string]*ruletree.DirSummary
+	Rules        map[uint64]*db.Rule
+	Directories  map[string][]uint64
+	BackupStatus map[string]*ibackup.SetBackupActivity
 }
 
 // Summary is an HTTP endpoint that produces a backup summary of all the
@@ -49,19 +51,23 @@ func (s *Server) Summary(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) summary(w http.ResponseWriter, _ *http.Request) error { //nolint:funlen,cyclop,gocognit,gocyclo
 	dirSummary := summary{
-		Summaries:   make(map[string]*ruletree.DirSummary, len(s.reportRoots)),
-		Rules:       make(map[uint64]*db.Rule),
-		Directories: make(map[string][]uint64),
+		Summaries:    make(map[string]*ruletree.DirSummary, len(s.reportRoots)),
+		Rules:        make(map[uint64]*db.Rule),
+		Directories:  make(map[string][]uint64),
+		BackupStatus: make(map[string]*ibackup.SetBackupActivity),
 	}
 
+	dirClaims := make(map[string]string)
+
 	s.rulesMu.RLock()
-	defer s.rulesMu.RUnlock()
 
 	for _, root := range s.reportRoots {
 		ds, err := s.rootDir.Summary(root[1:])
 		if errors.Is(err, ruletree.ErrNotFound) || errors.As(err, new(tree.ChildNotFoundError)) {
 			continue
 		} else if err != nil {
+			s.rulesMu.RUnlock()
+
 			return err
 		}
 
@@ -80,6 +86,7 @@ func (s *Server) summary(w http.ResponseWriter, _ *http.Request) error { //nolin
 			if rule.ID > 0 {
 				dir := s.directoryRules[s.dirs[uint64(s.rules[rule.ID].DirID())].Path] //nolint:gosec
 
+				dirClaims[dir.Path] = dir.ClaimedBy
 				if _, ok := dirSummary.Directories[dir.Path]; !ok {
 					var ruleIDs []uint64
 
@@ -93,6 +100,17 @@ func (s *Server) summary(w http.ResponseWriter, _ *http.Request) error { //nolin
 
 			dirSummary.Rules[rule.ID] = s.rules[rule.ID]
 		}
+	}
+
+	s.rulesMu.RUnlock()
+
+	for dir, claimedBy := range dirClaims {
+		sba, err := s.cache.GetBackupActivity("plan::"+dir, claimedBy)
+		if err != nil && err.Error() != "set with that id does not exist" {
+			return err
+		}
+
+		dirSummary.BackupStatus[dir] = sba
 	}
 
 	w.Header().Set("Content-type", "application/json")
