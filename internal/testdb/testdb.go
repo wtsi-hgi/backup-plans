@@ -72,7 +72,7 @@ func GetTestDriverConnection(t *testing.T) string {
 }
 
 func dropTables(uri string) error {
-	db, err := sql.Open("mysql", uri)
+	db, err := sql.Open("mysql", strings.TrimPrefix(uri, "mysql:"))
 	if err != nil {
 		return err
 	}
