@@ -3,6 +3,8 @@
 
 package frontend
 
+// File automatically generated with ./embed.sh
+
 import (
 	_ "embed"
 	"time"
@@ -13,4 +15,9 @@ import (
 //go:embed index.html.gz
 var indexHTML []byte
 
-var Index = httpembed.HandleBuffer("index.html", indexHTML, 40599, time.Unix(1761571797, 0)) //nolint:gochecknoglobals,lll,mnd
+const (
+	uncompressedSize = 40769
+	lastModifiedTime = 1761571797
+)
+
+var Index = httpembed.HandleBuffer("index.html", indexHTML, uncompressedSize, time.Unix(lastModifiedTime, 0)) //nolint:gochecknoglobals,lll
