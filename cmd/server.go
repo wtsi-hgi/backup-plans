@@ -65,7 +65,7 @@ to maintain password security.
 --tree should be generated using the db command.
 --admin specify admin group id to allow users of that group visibility permission
 --report can be supplied multiple times, specifies root to be reported on.
---port server port
+--listen server port to listen on
 `,
 	RunE: func(_ *cobra.Command, args []string) error {
 		d, err := db.Init(planDB)
@@ -81,11 +81,11 @@ func init() {
 	RootCmd.AddCommand(serverCmd)
 
 	// flags specific to this sub-command
-	serverCmd.Flags().Uint16VarP(&serverPort, "port", "p", defaultPort,
+	serverCmd.Flags().Uint16VarP(&serverPort, "listen", "l", defaultPort,
 		"port to start server on")
 	serverCmd.Flags().Uint32VarP(&adminGroup, "admin", "a", 0, "admin group that can see the entire tree")
 	serverCmd.Flags().StringSliceVarP(&reportRoots, "report", "r", nil, "reporting root, can be supplied more than once")
-	backupCmd.Flags().StringVarP(&planDB, "plan", "p", os.Getenv("BACKUP_MYSQL_URL"),
+	serverCmd.Flags().StringVarP(&planDB, "plan", "p", os.Getenv("BACKUP_MYSQL_URL"),
 		"sql connection string for your plan database")
 }
 

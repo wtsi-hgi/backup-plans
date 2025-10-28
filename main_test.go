@@ -80,8 +80,9 @@ func TestMain(t *testing.T) {
 
 		Convey("The backups command works with an explicit sqlite3 plan schema", func() {
 			_, dbPath := plandb.PopulateExamplePlanDB(t)
-			_, err := exec.Command(filepath.Join(tmpDir, app), "backup", "--plan", "sqlite3:"+dbPath, //nolint:gosec,noctx
-				"--tree", "testdata/tree.db", "--ibackup", addr, "--cert", certPath).CombinedOutput()
+			err := exec.Command(filepath.Join(tmpDir, app), "backup", "--plan", dbPath, //nolint:gosec,noctx
+				"--tree", "testdata/tree.db", "--ibackup", addr, "--cert", certPath).Run()
+
 			So(err, ShouldBeNil)
 		})
 
@@ -97,7 +98,7 @@ func TestMain(t *testing.T) {
 
 			out, err := exec.Command( //nolint:gosec,noctx
 				filepath.Join(tmpDir, app), "backup", "--plan",
-				"mysql:"+mysqlConnection, "--tree", "testdata/tree.db",
+				mysqlConnection, "--tree", "testdata/tree.db",
 				"--ibackup", addr, "--cert", certPath).CombinedOutput()
 			So(string(out), ShouldEqual, "ibackup set 'plan::/lustre/scratch123/humgen/a/b/' created for userA with 2 files\n")
 			So(err, ShouldBeNil)

@@ -29,6 +29,7 @@ import (
 	"database/sql"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey" //nolint:revive,staticcheck
@@ -46,7 +47,7 @@ func CreateTestDatabase(t *testing.T) *db.DB {
 
 	os.Setenv("TMPDIR", oldTmp)
 
-	d, err := db.Init("sqlite://" + filepath.Join(t.TempDir(), "db?journal_mode=WAL&_pragma=foreign_keys(1)"))
+	d, err := db.Init("sqlite:" + filepath.Join(t.TempDir(), "db?journal_mode=WAL&_pragma=foreign_keys(1)"))
 	So(err, ShouldBeNil)
 
 	Reset(func() { d.Close() })
@@ -64,14 +65,14 @@ func GetTestDriverConnection(t *testing.T) string {
 
 		So(dropTables(p), ShouldBeNil)
 	} else {
-		uri = "sqlite://" + filepath.Join(t.TempDir(), "db?journal_mode=WAL&_pragma=foreign_keys(1)")
+		uri = "sqlite:" + filepath.Join(t.TempDir(), "db?journal_mode=WAL&_pragma=foreign_keys(1)")
 	}
 
 	return uri
 }
 
 func dropTables(uri string) error {
-	db, err := sql.Open("mysql", uri)
+	db, err := sql.Open("mysql", strings.TrimPrefix(uri, "mysql:"))
 	if err != nil {
 		return err
 	}
