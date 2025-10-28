@@ -2,7 +2,10 @@ package ibackup
 
 import (
 	"errors"
+	"maps"
 	"regexp"
+	"slices"
+	"sync"
 	"time"
 
 	gas "github.com/wtsi-hgi/go-authserver"
@@ -42,7 +45,7 @@ func Backup(client *server.Client, setName, requester string, files []string, fr
 		return nil
 	}
 
-	transformer := getTransformer(files[0])
+	transformer := GetTransformer(files[0])
 	if transformer == "" {
 		return ErrInvalidPath
 	}
@@ -71,7 +74,7 @@ func Backup(client *server.Client, setName, requester string, files []string, fr
 	return client.TriggerDiscovery(got.ID(), false)
 }
 
-func getTransformer(file string) string {
+func GetTransformer(file string) string {
 	if isHumgen.MatchString(file) {
 		return "humgen"
 	}
@@ -118,4 +121,72 @@ func GetBackupActivity(client *server.Client, setName, requester string) (*SetBa
 	}
 
 	return &sba, nil
+}
+
+type setRequester struct {
+	set, requester string
+}
+
+type Cache struct {
+	client   *server.Client
+	duration time.Duration
+
+	mu    sync.RWMutex
+	cache map[setRequester]*SetBackupActivity
+}
+
+func NewCache(client *server.Client, d time.Duration) *Cache {
+	cache := &Cache{
+		client:   client,
+		duration: d,
+		cache:    make(map[setRequester]*SetBackupActivity),
+	}
+
+	go cache.runCache()
+
+	return cache
+}
+
+func (c *Cache) GetBackupActivity(setName, requester string) (*SetBackupActivity, error) {
+	sr := setRequester{set: setName, requester: requester}
+
+	c.mu.RLock()
+	existing, ok := c.cache[sr]
+	c.mu.RUnlock()
+
+	if ok {
+		return existing, nil
+	}
+
+	sba, err := GetBackupActivity(c.client, setName, requester)
+	if err != nil {
+		return nil, err
+	}
+
+	c.mu.Lock()
+	c.cache[sr] = sba
+	c.mu.Unlock()
+
+	return sba, nil
+}
+
+func (c *Cache) runCache() {
+	for {
+		time.Sleep(c.duration)
+
+		c.mu.RLock()
+		keys := slices.Collect(maps.Keys(c.cache))
+		c.mu.RUnlock()
+
+		for _, set := range keys {
+			ba, err := GetBackupActivity(c.client, set.set, set.requester)
+			if err != nil {
+				continue
+			}
+
+			c.mu.Lock()
+			c.cache[set] = ba
+			c.mu.Unlock()
+		}
+	}
 }

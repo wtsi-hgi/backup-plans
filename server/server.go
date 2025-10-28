@@ -37,26 +37,27 @@ import (
 	"github.com/wtsi-hgi/backup-plans/backend"
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/frontend"
-	"github.com/wtsi-hgi/wrstat-ui/server"
+	ib "github.com/wtsi-hgi/ibackup/server"
+	wrs "github.com/wtsi-hgi/wrstat-ui/server"
 )
 
 var dbCheckTime = time.Minute //nolint:gochecknoglobals
 
 // Start creates and start a new server after loading the trees given.
 func Start(listen string, d *db.DB, getUser func(*http.Request) string,
-	report []string, adminGroup uint32, initialTrees ...string) error {
+	report []string, adminGroup uint32, client *ib.Client, initialTrees ...string) error {
 	l, err := net.Listen("tcp", listen) //nolint:noctx
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
 	}
 	defer l.Close()
 
-	return start(l, d, getUser, report, adminGroup, initialTrees...)
+	return start(l, d, getUser, report, adminGroup, client, initialTrees...)
 }
 
 func start(listen net.Listener, d *db.DB, getUser func(*http.Request) string,
-	report []string, adminGroup uint32, initialTrees ...string) error {
-	b, err := backend.New(d, getUser, report)
+	report []string, adminGroup uint32, client *ib.Client, initialTrees ...string) error {
+	b, err := backend.New(d, getUser, report, client)
 	if err != nil {
 		return err
 	}
@@ -132,7 +133,7 @@ func loadDBs(b *backend.Server, trees []string) error {
 // getTreePaths will, for a given dir, return a slice of filepaths to all
 // 'tree.db' files.
 func getTreePaths(path string) ([]string, error) {
-	paths, err := server.FindDBDirs(path, "tree.db")
+	paths, err := wrs.FindDBDirs(path, "tree.db")
 	if err != nil {
 		return nil, err
 	}
