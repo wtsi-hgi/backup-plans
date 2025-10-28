@@ -58,19 +58,16 @@ func InitRO(driver, connection string) (*DBRO, error) {
 func Init(connection string) (*DB, error) {
 	driver := "sqlite"
 
-	pathItems := strings.SplitN(connection, ":", 2) //nolint:mnd
-	strings.Cut(connection, ":")
-	if len(pathItems) > 1 {
-		switch pathItems[0] {
-		case "sqlite", "sqlite3":
-		case "mysql":
-			driver = "mysql"
-		default:
-			return nil, fmt.Errorf("unrecognised db driver: %s", pathItems[0]) //nolint:err113
-		}
+	protocol, uri, _ := strings.Cut(connection, ":")
+	switch protocol {
+	case "sqlite", "sqlite3":
+	case "mysql":
+		driver = "mysql"
+	default:
+		return nil, fmt.Errorf("unrecognised db driver: %s", protocol) //nolint:err113
 	}
 
-	db, err := sql.Open(driver, connection)
+	db, err := sql.Open(driver, uri)
 	if err != nil {
 		return nil, err
 	}
