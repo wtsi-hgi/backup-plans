@@ -34,7 +34,6 @@ import (
 	"github.com/wtsi-hgi/backup-plans/backups"
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/ibackup"
-	_ "modernc.org/sqlite" //
 	"vimagination.zapto.org/tree"
 )
 
