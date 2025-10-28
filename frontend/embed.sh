@@ -36,6 +36,8 @@ cat > frontend.go <<HEREDOC
 
 package frontend
 
+// File automatically generated with ./embed.sh
+
 import (
 	_ "embed"
 	"time"
@@ -46,5 +48,10 @@ import (
 //go:embed index.html.gz
 var indexHTML []byte
 
-var Index = httpembed.HandleBuffer("index.html", indexHTML, $size, time.Unix($time, 0)) //nolint:gochecknoglobals,lll,mnd
+const (
+	uncompressedSize = $size
+	lastModifiedTime = $time
+)
+
+var Index = httpembed.HandleBuffer("index.html", indexHTML, uncompressedSize, time.Unix(lastModifiedTime, 0)) //nolint:gochecknoglobals,lll
 HEREDOC
