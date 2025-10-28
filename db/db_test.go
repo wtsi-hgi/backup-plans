@@ -31,34 +31,29 @@ import (
 	"path/filepath"
 	"testing"
 
-	_ "github.com/go-sql-driver/mysql"
 	. "github.com/smartystreets/goconvey/convey"
-	_ "modernc.org/sqlite"
 )
 
 func createTestDatabase(t *testing.T) *DB {
 	t.Helper()
 
-	var sdriver, uri string
+	var uri string
 
 	if p := os.Getenv("BACKUP_MYSQL_URL"); p != "" { //nolint:nestif
-		sdriver = "mysql"
-
 		So(dropTables(p), ShouldBeNil)
 	} else {
-		sdriver = "sqlite"
 		oldTmp := os.Getenv("TMPDIR")
 
 		if _, err := os.Stat("/dev/shm"); err == nil {
 			os.Setenv("TMPDIR", "/dev/shm")
 		}
 
-		uri = filepath.Join(t.TempDir(), "db?journal_mode=WAL&_pragma=foreign_keys(1)")
+		uri = "sqlite://" + filepath.Join(t.TempDir(), "db?journal_mode=WAL&_pragma=foreign_keys(1)")
 
 		os.Setenv("TMPDIR", oldTmp)
 	}
 
-	d, err := Init(sdriver, uri)
+	d, err := Init(uri)
 	So(err, ShouldBeNil)
 
 	Reset(func() { d.Close() })

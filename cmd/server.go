@@ -43,8 +43,6 @@ var (
 	serverPort  uint16
 	adminGroup  uint32
 	reportRoots []string
-
-	sqlDriver = "mysql"
 )
 
 // serverCmd represents the server command.
@@ -53,9 +51,24 @@ var serverCmd = &cobra.Command{
 	Short: "Start the web server",
 	Long: `Start the web server.
 
+--plan should be a connection string for the plan database.
+
+For sqlite, say:
+  sqlite3:/path/to/plan.db
+
+For mysql, say:
+  mysql:user:password@tcp(host:port)/dbname
+
+It is recommended to use the environment variable "BACKUP_MYSQL_URL" for this
+to maintain password security.
+
+--tree should be generated using the db command.
+--admin specify admin group id to allow users of that group visibility permission
+--report can be supplied multiple times, specifies root to be reported on.
+--port server port
 `,
 	RunE: func(_ *cobra.Command, args []string) error {
-		d, err := db.Init(sqlDriver, os.Getenv("BACKUP_MYSQL_URL"))
+		d, err := db.Init(planDB)
 		if err != nil {
 			return err
 		}
@@ -70,8 +83,10 @@ func init() {
 	// flags specific to this sub-command
 	serverCmd.Flags().Uint16VarP(&serverPort, "port", "p", defaultPort,
 		"port to start server on")
-	serverCmd.Flags().Uint32VarP(&adminGroup, "admin", "a", 0, "admin groups that can see the entire tree")
+	serverCmd.Flags().Uint32VarP(&adminGroup, "admin", "a", 0, "admin group that can see the entire tree")
 	serverCmd.Flags().StringSliceVarP(&reportRoots, "report", "r", nil, "reporting root, can be supplied more than once")
+	backupCmd.Flags().StringVarP(&planDB, "plan", "p", os.Getenv("BACKUP_MYSQL_URL"),
+		"sql connection string for your plan database")
 }
 
 func getUser(r *http.Request) string {
