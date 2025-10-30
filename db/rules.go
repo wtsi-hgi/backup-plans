@@ -43,7 +43,7 @@ type Rule struct {
 	id          int64
 	directoryID int64
 	BackupType  BackupType
-	Metadata    string
+	Metadata    string // requester:name for manual
 	ReviewDate  int64
 	RemoveDate  int64
 	Match       string

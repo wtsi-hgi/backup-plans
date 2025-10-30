@@ -25,7 +25,14 @@
 
 package db
 
-import "database/sql"
+import (
+	"database/sql"
+	"fmt"
+	"strings"
+
+	_ "github.com/go-sql-driver/mysql" //
+	_ "modernc.org/sqlite"             //
+)
 
 type DBRO struct { //nolint:revive
 	db *sql.DB
@@ -46,10 +53,25 @@ func InitRO(driver, connection string) (*DBRO, error) {
 	return &DBRO{db: db}, nil
 }
 
-// Init connects to a rule database as determined by the given driver and
-// connection strings.
-func Init(driver, connection string) (*DB, error) {
-	db, err := sql.Open(driver, connection)
+// Init connects to a rule database given a connection string.
+//
+// Eg:
+//
+//	sqlite:some/path/db.sqlite
+//	mysql:user:password@tcp(host:port)/dbname
+func Init(connection string) (*DB, error) {
+	driver := "sqlite"
+
+	protocol, uri, _ := strings.Cut(connection, ":")
+	switch protocol {
+	case "sqlite", "sqlite3":
+	case "mysql":
+		driver = "mysql"
+	default:
+		return nil, fmt.Errorf("unrecognised db driver: %s", protocol) //nolint:err113
+	}
+
+	db, err := sql.Open(driver, uri)
 	if err != nil {
 		return nil, err
 	}

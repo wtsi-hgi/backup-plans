@@ -25,7 +25,9 @@
 
 package db
 
-import "iter"
+import (
+	"iter"
+)
 
 type scanner interface {
 	Scan(dest ...any) error
