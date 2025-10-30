@@ -22,7 +22,7 @@ import (
 )
 
 func TestReport(t *testing.T) {
-	Convey("", t, func() {
+	Convey("Given a test db, tree, roots and ibackup client, a backup can be made", t, func() {
 		testDB, _ := plandb.PopulateExamplePlanDB(t)
 		testTree := plandb.ExampleTree()
 		path := filepath.Join(t.TempDir(), "testdb")
@@ -57,59 +57,77 @@ func TestReport(t *testing.T) {
 
 		err = client.TriggerDiscovery(exampleSet.ID(), false)
 		So(err, ShouldBeNil)
+		Convey("A summary can be retrieved", func() {
+			code, str := getResponse(server.Summary, "/api/reports")
+			So(code, ShouldEqual, http.StatusOK)
 
-		code, str := getResponse(server.Summary, "/api/reports")
-		So(code, ShouldEqual, http.StatusOK)
+			var gotSummary summary
 
-		var gotSummary summary
+			err = json.NewDecoder(strings.NewReader(str)).Decode(&gotSummary)
+			So(err, ShouldBeNil)
 
-		err = json.NewDecoder(strings.NewReader(str)).Decode(&gotSummary)
-		So(err, ShouldBeNil)
+			rules := slices.Collect(testDB.ReadRules().Iter)
 
-		rules := slices.Collect(testDB.ReadRules().Iter)
-
-		expectedSummary := summary{
-			Summaries: map[string]*ruletree.DirSummary{
-				"/lustre/scratch123/humgen/a/b/": {
-					ClaimedBy: "userA",
-					RuleSummaries: []ruletree.Rule{
-						{
-							ID: 0,
-							Users: ruletree.RuleStats{
-								{Name: users.Username(1), MTime: 98767, Files: 1, Size: 8},
-								{Name: users.Username(2), MTime: 12346, Files: 1, Size: 6},
-							},
-							Groups: ruletree.RuleStats{
-								{Name: users.Group(1), MTime: 12346, Files: 1, Size: 6},
-								{Name: users.Group(2), MTime: 98767, Files: 1, Size: 8},
-							},
-						},
-						{
-							ID: 1,
-							Users: ruletree.RuleStats{
-								{Name: users.Username(1), MTime: 98767, Files: 2, Size: 17},
-							},
-							Groups: ruletree.RuleStats{
-								{Name: users.Group(1), MTime: 98766, Files: 1, Size: 9},
-								{Name: users.Group(2), MTime: 98767, Files: 1, Size: 8},
-							},
-						},
-						{
-							ID: 2,
-							Users: ruletree.RuleStats{
-								{Name: users.Username(1), MTime: 98767, Files: 1, Size: 8},
-							},
-							Groups: ruletree.RuleStats{
-								{Name: users.Group(2), MTime: 98767, Files: 1, Size: 8},
-							},
-						},
-					},
-					Children: map[string]*ruletree.DirSummary{
-						"testdir/": {
-							ClaimedBy: "",
+			Convey("Cointaining the correctly updated backup activity", func() {
+				expectedSummary := summary{
+					Summaries: map[string]*ruletree.DirSummary{
+						"/lustre/scratch123/humgen/a/b/": {
+							ClaimedBy: "userA",
 							RuleSummaries: []ruletree.Rule{
 								{
 									ID: 0,
+									Users: ruletree.RuleStats{
+										{Name: users.Username(1), MTime: 98767, Files: 1, Size: 8},
+										{Name: users.Username(2), MTime: 12346, Files: 1, Size: 6},
+									},
+									Groups: ruletree.RuleStats{
+										{Name: users.Group(1), MTime: 12346, Files: 1, Size: 6},
+										{Name: users.Group(2), MTime: 98767, Files: 1, Size: 8},
+									},
+								},
+								{
+									ID: 1,
+									Users: ruletree.RuleStats{
+										{Name: users.Username(1), MTime: 98767, Files: 2, Size: 17},
+									},
+									Groups: ruletree.RuleStats{
+										{Name: users.Group(1), MTime: 98766, Files: 1, Size: 9},
+										{Name: users.Group(2), MTime: 98767, Files: 1, Size: 8},
+									},
+								},
+								{
+									ID: 2,
+									Users: ruletree.RuleStats{
+										{Name: users.Username(1), MTime: 98767, Files: 1, Size: 8},
+									},
+									Groups: ruletree.RuleStats{
+										{Name: users.Group(2), MTime: 98767, Files: 1, Size: 8},
+									},
+								},
+							},
+							Children: map[string]*ruletree.DirSummary{
+								"testdir/": {
+									ClaimedBy: "",
+									RuleSummaries: []ruletree.Rule{
+										{
+											ID: 0,
+											Users: ruletree.RuleStats{
+												{Name: users.Username(2), MTime: 12346, Files: 1, Size: 6},
+											},
+											Groups: ruletree.RuleStats{
+												{Name: users.Group(1), MTime: 12346, Files: 1, Size: 6},
+											},
+										},
+									},
+									Children: map[string]*ruletree.DirSummary{},
+								},
+							},
+						},
+						"/lustre/scratch123/humgen/a/c/": {
+							ClaimedBy: "userB",
+							RuleSummaries: []ruletree.Rule{
+								{
+									ID: 3,
 									Users: ruletree.RuleStats{
 										{Name: users.Username(2), MTime: 12346, Files: 1, Size: 6},
 									},
@@ -121,53 +139,38 @@ func TestReport(t *testing.T) {
 							Children: map[string]*ruletree.DirSummary{},
 						},
 					},
-				},
-				"/lustre/scratch123/humgen/a/c/": {
-					ClaimedBy: "userB",
-					RuleSummaries: []ruletree.Rule{
-						{
-							ID: 3,
-							Users: ruletree.RuleStats{
-								{Name: users.Username(2), MTime: 12346, Files: 1, Size: 6},
-							},
-							Groups: ruletree.RuleStats{
-								{Name: users.Group(1), MTime: 12346, Files: 1, Size: 6},
-							},
+					Rules: map[uint64]*db.Rule{
+						0: nil,
+						1: copyRule(rules[0]),
+						2: copyRule(rules[1]),
+						3: copyRule(rules[2]),
+					},
+					Directories: map[string][]uint64{
+						"/lustre/scratch123/humgen/a/b/": {1, 2},
+						"/lustre/scratch123/humgen/a/c/": {3},
+					},
+					BackupStatus: map[string]*ibackup.SetBackupActivity{
+						"/lustre/scratch123/humgen/a/b/": nil,
+						"/lustre/scratch123/humgen/a/c/": {
+							Name:      "plan::/lustre/scratch123/humgen/a/c/",
+							Requester: "userB",
 						},
 					},
-					Children: map[string]*ruletree.DirSummary{},
-				},
-			},
-			Rules: map[uint64]*db.Rule{
-				0: nil,
-				1: copyRule(rules[0]),
-				2: copyRule(rules[1]),
-				3: copyRule(rules[2]),
-			},
-			Directories: map[string][]uint64{
-				"/lustre/scratch123/humgen/a/b/": {1, 2},
-				"/lustre/scratch123/humgen/a/c/": {3},
-			},
-			BackupStatus: map[string]*ibackup.SetBackupActivity{
-				"/lustre/scratch123/humgen/a/b/": nil,
-				"/lustre/scratch123/humgen/a/c/": {
-					Name:      "plan::/lustre/scratch123/humgen/a/c/",
-					Requester: "userB",
-				},
-			},
-		}
+				}
 
-		slices.Sort(gotSummary.Directories["/lustre/scratch123/humgen/a/b/"])
+				slices.Sort(gotSummary.Directories["/lustre/scratch123/humgen/a/b/"])
 
-		So(gotSummary.BackupStatus["/lustre/scratch123/humgen/a/c/"].LastSuccess, ShouldHappenAfter, beforeTrigger)
+				So(gotSummary.BackupStatus["/lustre/scratch123/humgen/a/c/"].LastSuccess, ShouldHappenAfter, beforeTrigger)
 
-		gotSummary.BackupStatus["/lustre/scratch123/humgen/a/c/"].LastSuccess = time.Time{}
+				gotSummary.BackupStatus["/lustre/scratch123/humgen/a/c/"].LastSuccess = time.Time{}
 
-		So(gotSummary, ShouldResemble, expectedSummary)
+				So(gotSummary, ShouldResemble, expectedSummary)
+			})
+		})
 	})
 }
 
-// copyRule returns the rule without id's
+// copyRule returns the rule without id's.
 func copyRule(rule *db.Rule) *db.Rule {
 	return &db.Rule{
 		BackupType: rule.BackupType,

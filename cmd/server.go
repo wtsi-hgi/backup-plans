@@ -27,9 +27,12 @@
 package cmd
 
 import (
+	"encoding/base64"
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
+	"unsafe"
 
 	"github.com/spf13/cobra"
 	"github.com/wtsi-hgi/backup-plans/db"
@@ -67,7 +70,22 @@ to maintain password security.
 --admin specify admin group id to allow users of that group visibility permission
 --report can be supplied multiple times, specifies root to be reported on.
 --listen server port to listen on
+
+--ibackup ibackup server url
+	env: IBACKUP_SERVER_URL
+
+--cert ibackup server authentication certificate
+	env: IBACKUP_SERVER_CERT
 `,
+	PreRunE: func(cmd *cobra.Command, _ []string) error {
+		envMap := map[string]string{
+			"BACKUP_MYSQL_URL":    "plan",
+			"IBACKUP_SERVER_URL":  "ibackup",
+			"IBACKUP_SERVER_CERT": "cert",
+		}
+
+		return checkEnvVarFlags(cmd, envMap)
+	},
 	RunE: func(_ *cobra.Command, args []string) error {
 		d, err := db.Init(planDB)
 		if err != nil {
@@ -93,15 +111,24 @@ func init() {
 	serverCmd.Flags().StringSliceVarP(&reportRoots, "report", "r", nil, "reporting root, can be supplied more than once")
 	serverCmd.Flags().StringVarP(&planDB, "plan", "p", os.Getenv("BACKUP_MYSQL_URL"),
 		"sql connection string for your plan database")
-	serverCmd.Flags().StringVarP(&ibackupURL, "ibackup", "i", "", "ibackup server url")
-	serverCmd.Flags().StringVarP(&cert, "cert", "c", "", "Path to ibackup server certificate file")
+	serverCmd.Flags().StringVarP(&ibackupURL, "ibackup", "i", os.Getenv("IBACKUP_SERVER_URL"), "ibackup server url")
+	serverCmd.Flags().StringVarP(&cert, "cert", "c", os.Getenv("IBACKUP_SERVER_CERT"),
+		"Path to ibackup server certificate file")
 
-	serverCmd.MarkFlagRequired("plan")    //nolint:errcheck
-	serverCmd.MarkFlagRequired("tree")    //nolint:errcheck
-	serverCmd.MarkFlagRequired("ibackup") //nolint:errcheck
-	serverCmd.MarkFlagRequired("cert")    //nolint:errcheck
+	serverCmd.MarkFlagRequired("tree") //nolint:errcheck
 }
 
 func getUser(r *http.Request) string {
-	return r.FormValue("user")
+	for _, cookie := range r.Cookies() {
+		if cookie.Name == "nginxauth" {
+			data, err := base64.StdEncoding.DecodeString(cookie.Value)
+			if err != nil {
+				return ""
+			}
+
+			return strings.SplitN(unsafe.String(unsafe.SliceData(data), len(data)), ":", 2)[0] //nolint:mnd
+		}
+	}
+
+	return ""
 }
