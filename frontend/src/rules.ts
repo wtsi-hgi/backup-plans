@@ -14,6 +14,7 @@ const addEditOverlay = (path: string, rule: Rule, load: (path: string) => void) 
 	]),
 		set = button(rule.Match ? "Update" : "Add"),
 		cancel = button({ "type": "button", "click": () => overlay.close() }, "Cancel"),
+		fofn = button({"type": "button", "click": () => console.log("test") }, "Import FOFN"),
 		match = input({ "id": "match", "type": "text", "value": rule.Match, [rule.Match ? "disabled" : "enabled"]: "" }),
 		metadata = input({ "id": "metadata", "type": "text", "value": rule.Metadata }),
 		metadataSection = div({ "id": "metadataInput" }, [
@@ -28,6 +29,7 @@ const addEditOverlay = (path: string, rule: Rule, load: (path: string) => void) 
 				set.toggleAttribute("disabled", true);
 				cancel.toggleAttribute("disabled", true);
 				backupType.toggleAttribute("disabled", true);
+				fofn.toggleAttribute("disabled", true);
 
 				(rule.Match ? updateRule : createRule)(path, backupType.value, rule.Match || match.value || "*", backupType.value === "manualbackup" ? metadata.value : "")
 					.then(() => {
@@ -39,6 +41,7 @@ const addEditOverlay = (path: string, rule: Rule, load: (path: string) => void) 
 						set.removeAttribute("disabled");
 						cancel.removeAttribute("disabled");
 						backupType.removeAttribute("disabled");
+						fofn.removeAttribute("disabled");
 						alert("Error: " + e.message);
 					});
 			}
@@ -47,7 +50,8 @@ const addEditOverlay = (path: string, rule: Rule, load: (path: string) => void) 
 			label({ "for": "backupType" }, "Backup Type"), backupType, br(),
 			metadataSection,
 			set,
-			cancel
+			cancel,
+			fofn
 		])));
 
 	overlay.showModal();

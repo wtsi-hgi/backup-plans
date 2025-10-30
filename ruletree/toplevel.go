@@ -99,6 +99,19 @@ func NewRoot(rules []DirRule) (*RootDir, error) {
 	return r, nil
 }
 
+func (r *RootDir) AddRules(topPath string, dirRules []DirRule) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	for _, rule := range dirRules {
+		if err := r.addRule(rule.Directory, rule.Rule); err != nil {
+			return err
+		}
+	}
+
+	return r.regenRules(topPath)
+}
+
 // AddRule adds the given rule to the given directory and regenerates the rule
 // summaries.
 func (r *RootDir) AddRule(dir *db.Directory, rule *db.Rule) error {

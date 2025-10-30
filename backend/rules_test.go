@@ -26,6 +26,7 @@
 package backend
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -65,42 +66,42 @@ func TestClaimDir(t *testing.T) {
 		So(s.AddTree(treeDBPath), ShouldBeNil)
 
 		Convey("You can claim directories", func() {
-			code, resp := getResponse(s.ClaimDir, "/api/dir/claim?dir=/does/not/exist")
+			code, resp := getResponse(s.ClaimDir, "/api/dir/claim?dir=/does/not/exist", nil)
 			So(code, ShouldEqual, http.StatusForbidden)
 			So(resp, ShouldEqual, "invalid user\n")
 
 			u = root
 
-			code, resp = getResponse(s.ClaimDir, "/api/dir/claim?dir=/does/not/exist")
+			code, resp = getResponse(s.ClaimDir, "/api/dir/claim?dir=/does/not/exist", nil)
 			So(code, ShouldEqual, http.StatusBadRequest)
 			So(resp, ShouldEqual, "invalid dir path\n")
 
-			code, resp = getResponse(s.ClaimDir, "/api/dir/claim?dir=/some/path/MyDir/")
+			code, resp = getResponse(s.ClaimDir, "/api/dir/claim?dir=/some/path/MyDir/", nil)
 			So(code, ShouldEqual, http.StatusOK)
 			So(resp, ShouldEqual, "\""+root+"\"\n")
 
-			code, resp = getResponse(s.ClaimDir, "/api/dir/claim?dir=/some/path/MyDir/")
+			code, resp = getResponse(s.ClaimDir, "/api/dir/claim?dir=/some/path/MyDir/", nil)
 			So(code, ShouldEqual, http.StatusNotAcceptable)
 			So(resp, ShouldEqual, "directory already claimed\n")
 
 			Convey("You can revoke a claim", func() {
 				u = ""
 
-				code, resp := getResponse(s.RevokeDirClaim, "/api/dir/revoke?dir=/does/not/exist")
+				code, resp := getResponse(s.RevokeDirClaim, "/api/dir/revoke?dir=/does/not/exist", nil)
 				So(code, ShouldEqual, http.StatusBadRequest)
 				So(resp, ShouldEqual, "invalid dir path\n")
 
-				code, resp = getResponse(s.RevokeDirClaim, "/api/dir/revoke?dir=/some/path/MyDir/")
+				code, resp = getResponse(s.RevokeDirClaim, "/api/dir/revoke?dir=/some/path/MyDir/", nil)
 				So(code, ShouldEqual, http.StatusForbidden)
 				So(resp, ShouldEqual, "invalid user\n")
 
 				u = root
 
-				code, resp = getResponse(s.RevokeDirClaim, "/api/dir/revoke?dir=/some/path/MyDir/")
+				code, resp = getResponse(s.RevokeDirClaim, "/api/dir/revoke?dir=/some/path/MyDir/", nil)
 				So(code, ShouldEqual, http.StatusOK)
 				So(resp, ShouldEqual, "")
 
-				code, resp = getResponse(s.RevokeDirClaim, "/api/dir/revoke?dir=/some/path/MyDir/")
+				code, resp = getResponse(s.RevokeDirClaim, "/api/dir/revoke?dir=/some/path/MyDir/", nil)
 				So(code, ShouldEqual, http.StatusNotAcceptable)
 				So(resp, ShouldEqual, "directory not claimed\n")
 			})
@@ -110,6 +111,7 @@ func TestClaimDir(t *testing.T) {
 
 				code, resp := getResponse(
 					s.PassDirClaim, "/api/dir/pass?dir=/does/not/exist&passTo="+user.Username,
+					nil,
 				)
 				So(code, ShouldEqual, http.StatusBadRequest)
 				So(resp, ShouldEqual, "invalid dir path\n")
@@ -117,6 +119,7 @@ func TestClaimDir(t *testing.T) {
 				code, resp = getResponse(
 					s.PassDirClaim,
 					"/api/dir/pass?dir=/some/path/MyDir/&passTo="+user.Username,
+					nil,
 				)
 				So(code, ShouldEqual, http.StatusForbidden)
 				So(resp, ShouldEqual, "invalid user\n")
@@ -126,6 +129,7 @@ func TestClaimDir(t *testing.T) {
 				code, resp = getResponse(
 					s.PassDirClaim,
 					"/api/dir/pass?dir=/some/path/MyDir/&passTo=NOT_A_REAL_USER",
+					nil,
 				)
 				So(code, ShouldEqual, http.StatusForbidden)
 				So(resp, ShouldEqual, "invalid user\n")
@@ -133,6 +137,7 @@ func TestClaimDir(t *testing.T) {
 				code, resp = getResponse(
 					s.PassDirClaim,
 					"/api/dir/pass?dir=/some/path/MyDir/&passTo="+user.Username,
+					nil,
 				)
 				So(code, ShouldEqual, http.StatusOK)
 				So(resp, ShouldEqual, "")
@@ -140,6 +145,7 @@ func TestClaimDir(t *testing.T) {
 				code, resp = getResponse(
 					s.PassDirClaim,
 					"/api/dir/pass?dir=/some/path/MyDir/&passTo="+user.Username,
+					nil,
 				)
 				So(code, ShouldEqual, http.StatusForbidden)
 				So(resp, ShouldEqual, "invalid user\n")
@@ -163,6 +169,7 @@ func TestRules(t *testing.T) {
 			code, resp := getResponse(
 				s.CreateRule,
 				"/api/rules/create?dir=/some/path/MyDir/&action=backup&match=*.txt&frequency=7&review=100&remove=200",
+				nil,
 			)
 			So(code, ShouldEqual, http.StatusBadRequest)
 			So(resp, ShouldEqual, "invalid dir path\n")
@@ -170,6 +177,7 @@ func TestRules(t *testing.T) {
 			code, resp = getResponse(
 				s.ClaimDir,
 				"/api/dir/claim?dir=/some/path/MyDir/",
+				nil,
 			)
 			So(code, ShouldEqual, http.StatusOK)
 			So(resp, ShouldEqual, "\""+root+"\"\n")
@@ -177,6 +185,7 @@ func TestRules(t *testing.T) {
 			code, resp = getResponse(
 				s.CreateRule,
 				"/api/rules/create?dir=/some/path/MyDir/&action=backup&match=*.txt&frequency=7&review=100&remove=200",
+				nil,
 			)
 			So(code, ShouldEqual, http.StatusNoContent)
 			So(resp, ShouldEqual, "")
@@ -184,6 +193,7 @@ func TestRules(t *testing.T) {
 			code, resp = getResponse(
 				s.CreateRule,
 				"/api/rules/create?dir=/some/path/MyDir/&action=backup&match=*.txt&frequency=7&review=100&remove=200",
+				nil,
 			)
 			So(code, ShouldEqual, http.StatusBadRequest)
 			So(resp, ShouldEqual, "rule already exists for that match string\n")
@@ -194,6 +204,7 @@ func TestRules(t *testing.T) {
 				code, resp := getResponse(
 					s.RemoveRule,
 					"/api/rules/remove?dir=/some/path/MyDir/&action=backup&match=*.txt",
+					nil,
 				)
 				So(code, ShouldEqual, http.StatusForbidden)
 				So(resp, ShouldEqual, "invalid user\n")
@@ -203,6 +214,7 @@ func TestRules(t *testing.T) {
 				code, resp = getResponse(
 					s.RemoveRule,
 					"/api/rules/remove?dir=/some/path/MyDir/&action=backup&match=*.tsv",
+					nil,
 				)
 				So(code, ShouldEqual, http.StatusBadRequest)
 				So(resp, ShouldEqual, "no matching rule\n")
@@ -210,6 +222,7 @@ func TestRules(t *testing.T) {
 				code, resp = getResponse(
 					s.RemoveRule,
 					"/api/rules/remove?dir=/some/path/MyDir/&action=backup&match=*.txt",
+					nil,
 				)
 				So(code, ShouldEqual, http.StatusNoContent)
 				So(resp, ShouldEqual, "")
@@ -217,6 +230,7 @@ func TestRules(t *testing.T) {
 				code, resp = getResponse(
 					s.RemoveRule,
 					"/api/rules/remove?dir=/some/path/MyDir/&action=backup&match=*.txt",
+					nil,
 				)
 				So(code, ShouldEqual, http.StatusBadRequest)
 				So(resp, ShouldEqual, "no matching rule\n")
@@ -235,11 +249,14 @@ func createTestTree(t *testing.T) string {
 
 	treeDB := directories.NewRoot("/some/path/", time.Now().Unix())
 	treeDB.AddDirectory("MyDir").UID = uid
+	treeDB.AddDirectory("ChildDir").UID = uid
 	directories.AddFile(&treeDB.Directory, "MyDir/a.txt", 0, 2, 3, 4)
 	directories.AddFile(&treeDB.Directory, "MyDir/b.csv", uid, 2, 5, 6)
 	directories.AddFile(&treeDB.Directory, "YourDir/c.tsv", 21, 22, 15, 16)
 	directories.AddFile(&treeDB.Directory, "OtherDir/a.file", 1, 22, 25, 26)
 	directories.AddFile(&treeDB.Directory, "OtherDir/b.file", 1, 2, 35, 36)
+	directories.AddFile(&treeDB.Directory, "ChildDir/a.txt", uid, 2, 35, 36)
+	directories.AddFile(&treeDB.Directory, "ChildDir/Child/a.file", uid, 2, 35, 36)
 
 	treeDBPath := filepath.Join(t.TempDir(), "a.db")
 
@@ -251,10 +268,10 @@ func createTestTree(t *testing.T) string {
 	return treeDBPath
 }
 
-func getResponse(fn http.HandlerFunc, url string) (int, string) {
+func getResponse(fn http.HandlerFunc, url string, body io.Reader) (int, string) {
 	w := httptest.NewRecorder()
 
-	fn(w, httptest.NewRequest(http.MethodGet, url, nil))
+	fn(w, httptest.NewRequest(http.MethodGet, url, body))
 
 	return w.Code, w.Body.String()
 }

@@ -58,7 +58,7 @@ func TestReport(t *testing.T) {
 		err = client.TriggerDiscovery(exampleSet.ID(), false)
 		So(err, ShouldBeNil)
 		Convey("A summary can be retrieved", func() {
-			code, str := getResponse(server.Summary, "/api/reports")
+			code, str := getResponse(server.Summary, "/api/reports", nil)
 			So(code, ShouldEqual, http.StatusOK)
 
 			var gotSummary summary
