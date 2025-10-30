@@ -164,16 +164,7 @@ fieldset {
 	border-radius: 1em;
 }
 
-#report details[open] summary > span {
-	display: none;
-}
-
-#report summary > span {
-	display: inline-block;
-	margin-left: 1em;
-}
-
-#report details > *:not(:first-child) {
+#report details>*:not(:first-child) {
 	margin-left: 2em;
 }
 

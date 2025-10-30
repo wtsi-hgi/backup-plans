@@ -50,7 +50,7 @@ func CreateTestDatabase(t *testing.T) *db.DB {
 	d, err := db.Init("sqlite:" + filepath.Join(t.TempDir(), "db?journal_mode=WAL&_pragma=foreign_keys(1)"))
 	So(err, ShouldBeNil)
 
-	Reset(func() { d.Close() }) //nolint:errcheck
+	Reset(func() { d.Close() })
 
 	return d
 }

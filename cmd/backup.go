@@ -119,7 +119,8 @@ func init() {
 		"Path to tree db file, usually generated using db cmd")
 	backupCmd.Flags().StringVarP(&ibackupURL, "ibackup", "i", os.Getenv("IBACKUP_SERVER_URL"),
 		"ibackup server url")
-	backupCmd.Flags().StringVarP(&cert, "cert", "c", os.Getenv("IBACKUP_SERVER_CERT"), "Path to ibackup server certificate file")
+	backupCmd.Flags().StringVarP(&cert, "cert", "c", os.Getenv("IBACKUP_SERVER_CERT"),
+		"Path to ibackup server certificate file")
 
 	backupCmd.MarkFlagRequired("tree") //nolint:errcheck
 }

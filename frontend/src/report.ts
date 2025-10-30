@@ -1,7 +1,7 @@
 import type { BackupStatus, BackupType, DirectoryWithChildren, Rule, SizeCount, SizeCountTime, Stats } from "./types.js";
 import type { Children } from "./lib/dom.js";
 import { amendNode } from "./lib/dom.js";
-import { a, br, button, details, div, fieldset, h1, h2, input, label, legend, li, span, summary, table, tbody, td, th, thead, tr, ul } from "./lib/html.js";
+import { a, br, button, details, div, fieldset, h1, h2, input, label, legend, li, summary, table, tbody, td, th, thead, tr, ul } from "./lib/html.js";
 import { svg, title, use } from "./lib/svg.js";
 import { action, formatBytes, longAgo, secondsInWeek, setAndReturn } from "./lib/utils.js";
 import { getReportSummary } from "./rpc.js";
@@ -103,7 +103,7 @@ class ParentSummary extends Summary {
 				li("Last Activity: " + (this.lastestMTime ? longAgo(this.lastestMTime) : "--none--"))
 			]),
 			this.table(),
-			table({"class": "summary"}, [
+			table({ "class": "summary" }, [
 				thead(tr([
 					th("Claimed By"),
 					th("Set Name"),
@@ -112,10 +112,10 @@ class ParentSummary extends Summary {
 				])),
 				tbody(this.children.size ? Array.from(this.children.entries()).map(([path, child]) => tr([
 					td(child.claimedBy),
-					td("plan::"+path),
+					td("plan::" + path),
 					td(child.backupStatus ? new Date(child.backupStatus.LastSuccess).toLocaleString() : "-"),
 					td(child.backupStatus?.Failures.toLocaleString() ?? "-")
-				])) : tr(td({"colspan": "4"}, "No Backups")))
+				])) : tr(td({ "colspan": "4" }, "No Backups")))
 			]),
 			this.children.size ? [
 				h2("Rules"),

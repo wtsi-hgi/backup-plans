@@ -131,7 +131,9 @@ func ExampleTree() *directories.Root { //nolint:ireturn,nolintlint
 	return dirRoot
 }
 
-func PopulateBigExamplePlanDB(t *testing.T) (*db.DB, string) {
+func PopulateBigExamplePlanDB(t *testing.T) (*db.DB, string) { //nolint:funlen
+	t.Helper()
+
 	plandb, connectionStr := PopulateExamplePlanDB(t)
 
 	reviewDate := time.Now().Add(24 * time.Hour).UTC().Truncate(1 * time.Second).Unix() //nolint:mnd
@@ -170,11 +172,12 @@ func PopulateBigExamplePlanDB(t *testing.T) (*db.DB, string) {
 	}
 	dirB := dirs[1]
 
-	plandb.CreateDirectory(dirA)
+	plandb.CreateDirectory(dirA) //nolint:errcheck
 
 	for _, rule := range testdataA {
 		So(plandb.CreateDirectoryRule(dirA, rule), ShouldBeNil)
 	}
+
 	for _, rule := range testdataB {
 		So(plandb.CreateDirectoryRule(dirB, rule), ShouldBeNil)
 	}
@@ -185,13 +188,13 @@ func PopulateBigExamplePlanDB(t *testing.T) (*db.DB, string) {
 func ExampleTreeBig() *directories.Root {
 	tree := ExampleTree()
 
-	directories.AddFile(&tree.Directory, "scratch123/humgen/a/b/1.cram", 1, 1, 9, 98766)
-	directories.AddFile(&tree.Directory, "scratch123/humgen/a/b/newdir/testcram.cram", 1, 1, 9, 98766)
-	directories.AddFile(&tree.Directory, "scratch123/humgen/a/b/newdir/test.txt", 1, 1, 9, 98766)
-	directories.AddFile(&tree.Directory, "scratch123/humgen/a/c/2.cram", 1, 1, 9, 98766)
-	directories.AddFile(&tree.Directory, "scratch123/humgen/a/c/newdir/2.cram", 1, 1, 9, 98766)
-	directories.AddFile(&tree.Directory, "scratch123/humgen/a/c/newdir/tmp.txt", 1, 1, 9, 98766)
-	directories.AddFile(&tree.Directory, "scratch123/humgen/a/d/tmp.txt", 1, 1, 9, 98766)
+	directories.AddFile(&tree.Directory, "scratch123/humgen/a/b/1.cram", 1, 1, 9, 98766)               //nolint:mnd
+	directories.AddFile(&tree.Directory, "scratch123/humgen/a/b/newdir/testcram.cram", 1, 1, 9, 98766) //nolint:mnd
+	directories.AddFile(&tree.Directory, "scratch123/humgen/a/b/newdir/test.txt", 1, 1, 9, 98766)      //nolint:mnd
+	directories.AddFile(&tree.Directory, "scratch123/humgen/a/c/2.cram", 1, 1, 9, 98766)               //nolint:mnd
+	directories.AddFile(&tree.Directory, "scratch123/humgen/a/c/newdir/2.cram", 1, 1, 9, 98766)        //nolint:mnd
+	directories.AddFile(&tree.Directory, "scratch123/humgen/a/c/newdir/tmp.txt", 1, 1, 9, 98766)       //nolint:mnd
+	directories.AddFile(&tree.Directory, "scratch123/humgen/a/d/tmp.txt", 1, 1, 9, 98766)              //nolint:mnd
 
 	return tree
 }

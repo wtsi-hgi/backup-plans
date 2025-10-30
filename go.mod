@@ -14,10 +14,10 @@ require (
 	github.com/wtsi-hgi/go-authserver v1.5.1
 	github.com/wtsi-hgi/ibackup v1.11.0
 	github.com/wtsi-hgi/wrstat-ui v1.8.9
-	go.etcd.io/bbolt v1.4.0
-	golang.org/x/sys v0.35.0
-	modernc.org/sqlite v1.38.2
-	vimagination.zapto.org/byteio v1.2.1
+	go.etcd.io/bbolt v1.4.3
+	golang.org/x/sys v0.37.0
+	modernc.org/sqlite v1.39.1
+	vimagination.zapto.org/byteio v1.2.2
 	vimagination.zapto.org/httpbuffer v1.1.3
 	vimagination.zapto.org/httpembed v1.4.1
 	vimagination.zapto.org/tree v1.3.3

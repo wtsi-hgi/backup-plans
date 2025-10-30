@@ -74,6 +74,8 @@ func Backup(client *server.Client, setName, requester string, files []string, fr
 	return client.TriggerDiscovery(got.ID(), false)
 }
 
+// GetTransformer returns the named transformer for the path given, returning
+// empty string when a transformer cannot be automatically determined.
 func GetTransformer(file string) string {
 	if isHumgen.MatchString(file) {
 		return "humgen"
