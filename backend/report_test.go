@@ -15,6 +15,7 @@ import (
 	"github.com/wtsi-hgi/backup-plans/ibackup"
 	ib "github.com/wtsi-hgi/backup-plans/internal/ibackup"
 	"github.com/wtsi-hgi/backup-plans/internal/plandb"
+	"github.com/wtsi-hgi/backup-plans/internal/testirods"
 	"github.com/wtsi-hgi/backup-plans/ruletree"
 	"github.com/wtsi-hgi/backup-plans/users"
 	"github.com/wtsi-hgi/ibackup/set"
@@ -32,6 +33,8 @@ func TestReport(t *testing.T) {
 		So(err, ShouldBeNil)
 		err = file.Close()
 		So(err, ShouldBeNil)
+
+		So(testirods.AddPseudoIRODsToolsToPathIfRequired(t), ShouldBeNil)
 
 		client := ib.NewClient(t)
 		roots := []string{

@@ -34,6 +34,7 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/wtsi-hgi/backup-plans/internal/ibackup"
 	"github.com/wtsi-hgi/backup-plans/internal/testdb"
+	"github.com/wtsi-hgi/backup-plans/internal/testirods"
 	"github.com/wtsi-hgi/backup-plans/users"
 )
 
@@ -43,6 +44,8 @@ func TestTree(t *testing.T) {
 
 		user, err := user.Current()
 		So(err, ShouldBeNil)
+
+		So(testirods.AddPseudoIRODsToolsToPathIfRequired(t), ShouldBeNil)
 
 		s, err := New(testdb.CreateTestDatabase(t), u.getUser, nil, ibackup.NewClient(t))
 		So(err, ShouldBeNil)

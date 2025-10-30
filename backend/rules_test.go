@@ -38,6 +38,7 @@ import (
 	"github.com/wtsi-hgi/backup-plans/internal/directories"
 	"github.com/wtsi-hgi/backup-plans/internal/ibackup"
 	"github.com/wtsi-hgi/backup-plans/internal/testdb"
+	"github.com/wtsi-hgi/backup-plans/internal/testirods"
 	"github.com/wtsi-hgi/backup-plans/users"
 	"vimagination.zapto.org/tree"
 )
@@ -56,6 +57,8 @@ func TestClaimDir(t *testing.T) {
 
 		user, err := user.Current()
 		So(err, ShouldBeNil)
+
+		So(testirods.AddPseudoIRODsToolsToPathIfRequired(t), ShouldBeNil)
 
 		s, err := New(testdb.CreateTestDatabase(t), u.getUser, nil, ibackup.NewClient(t))
 		So(err, ShouldBeNil)
@@ -151,6 +154,8 @@ func TestClaimDir(t *testing.T) {
 func TestRules(t *testing.T) {
 	Convey("With a configured backend", t, func() {
 		u := userHandler(root)
+
+		So(testirods.AddPseudoIRODsToolsToPathIfRequired(t), ShouldBeNil)
 
 		s, err := New(testdb.CreateTestDatabase(t), u.getUser, nil, ibackup.NewClient(t))
 		So(err, ShouldBeNil)
