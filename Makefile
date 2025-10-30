@@ -2,8 +2,6 @@ export GOPATH := $(shell go env GOPATH)
 
 default: install
 
-export CGO_ENABLED = 0
-
 build:
 	go build -tags netgo
 
@@ -15,7 +13,6 @@ install:
 test:
 	@go test -tags netgo --count 1 -p 1 ./...
 
-race: CGO_ENABLED = 1
 race:
 	go test -tags netgo -race --count 1 -p 1 ./...
 

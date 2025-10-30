@@ -59,7 +59,7 @@ For sqlite, say:
 For mysql, say:
   mysql:user:password@tcp(host:port)/dbname
 
-It is recommended to use the environment variable "BACKUP_MYSQL_URL" for this
+It is recommended to use the environment variable "BACKUP_PLANS_CONNECTION" for this
 to maintain password security.
 
 --tree should be generated using the db command.
@@ -85,7 +85,7 @@ func init() {
 		"port to start server on")
 	serverCmd.Flags().Uint32VarP(&adminGroup, "admin", "a", 0, "admin group that can see the entire tree")
 	serverCmd.Flags().StringSliceVarP(&reportRoots, "report", "r", nil, "reporting root, can be supplied more than once")
-	serverCmd.Flags().StringVarP(&planDB, "plan", "p", os.Getenv("BACKUP_MYSQL_URL"),
+	serverCmd.Flags().StringVarP(&planDB, "plan", "p", os.Getenv("BACKUP_PLANS_CONNECTION"),
 		"sql connection string for your plan database")
 }
 

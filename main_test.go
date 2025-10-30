@@ -24,8 +24,8 @@ func TestMain(t *testing.T) {
 		defer cleanup()
 	}
 
-	mysqlConnection := os.Getenv("BACKUP_PLANS_TEST_MYSQL")
-	os.Unsetenv("BACKUP_PLANS_TEST_MYSQL")
+	mysqlConnection := os.Getenv("BACKUP_PLANS_CONNECTION_TEST")
+	os.Unsetenv("BACKUP_PLANS_CONNECTION_TEST")
 
 	if err := testirods.AddPseudoIRODsToolsToPathIfRequired(t); err != nil {
 		t.Fatal(err)
@@ -87,13 +87,13 @@ func TestMain(t *testing.T) {
 		})
 
 		if mysqlConnection == "" {
-			SkipConvey("Skipping mysql tests as BACKUP_PLANS_TEST_MYSQL not set", func() {})
+			SkipConvey("Skipping mysql tests as BACKUP_PLANS_CONNECTION_TEST not set", func() {})
 
 			return
 		}
 
 		Convey("The backups command works with a mysql plan database", func() {
-			os.Setenv("BACKUP_PLANS_TEST_MYSQL", mysqlConnection)
+			os.Setenv("BACKUP_PLANS_CONNECTION_TEST", mysqlConnection)
 			plandb.PopulateExamplePlanDB(t)
 
 			out, err := exec.Command( //nolint:gosec,noctx
@@ -114,7 +114,7 @@ func buildSelf() (string, func()) {
 		return "", nil
 	}
 
-	if err := exec.Command("go", "build", "-o", tmpDir).Run(); err != nil { //nolint:noctx,noctx
+	if err := exec.Command("go", "build", "-o", tmpDir).Run(); err != nil { //nolint:noctx
 		failMainTest(err.Error())
 
 		return "", nil

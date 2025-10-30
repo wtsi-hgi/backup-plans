@@ -60,10 +60,10 @@ func GetTestDriverConnection(t *testing.T) string {
 
 	var uri string
 
-	if p := os.Getenv("BACKUP_PLANS_TEST_MYSQL"); p != "" {
+	if p := os.Getenv("BACKUP_PLANS_CONNECTION_TEST"); strings.HasPrefix(p, "mysql:") {
 		uri = p
 
-		So(dropTables(p), ShouldBeNil)
+		So(dropTables(p[6:]), ShouldBeNil)
 	} else {
 		uri = "sqlite:" + filepath.Join(t.TempDir(), "db?journal_mode=WAL&_pragma=foreign_keys(1)")
 	}
@@ -72,7 +72,7 @@ func GetTestDriverConnection(t *testing.T) string {
 }
 
 func dropTables(uri string) error {
-	db, err := sql.Open("mysql", strings.TrimPrefix(uri, "mysql:"))
+	db, err := sql.Open("mysql", uri)
 	if err != nil {
 		return err
 	}

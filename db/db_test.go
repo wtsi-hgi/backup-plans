@@ -29,6 +29,7 @@ import (
 	"database/sql"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
@@ -39,8 +40,10 @@ func createTestDatabase(t *testing.T) *DB {
 
 	var uri string
 
-	if p := os.Getenv("BACKUP_MYSQL_URL"); p != "" { //nolint:nestif
-		So(dropTables(p), ShouldBeNil)
+	if p := os.Getenv("BACKUP_PLANS_CONNECTION_TEST"); strings.HasPrefix(p, "mysql:") { //nolint:nestif
+		uri = p
+
+		So(dropTables(p[6:]), ShouldBeNil)
 	} else {
 		oldTmp := os.Getenv("TMPDIR")
 

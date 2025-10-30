@@ -53,8 +53,12 @@ func InitRO(driver, connection string) (*DBRO, error) {
 	return &DBRO{db: db}, nil
 }
 
-// Init connects to a rule database as determined by the given driver and
-// connection strings.
+// Init connects to a rule database given a connection string.
+//
+// Eg:
+//
+//	sqlite:some/path/db.sqlite
+//	mysql:user:password@tcp(host:port)/dbname
 func Init(connection string) (*DB, error) {
 	driver := "sqlite"
 
