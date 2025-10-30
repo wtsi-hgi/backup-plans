@@ -26,6 +26,7 @@
 package plandb
 
 import (
+	"slices"
 	"testing"
 	"time"
 
@@ -33,7 +34,6 @@ import (
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/internal/directories"
 	"github.com/wtsi-hgi/backup-plans/internal/testdb"
-	"vimagination.zapto.org/tree"
 )
 
 const defaultFrequency = 7
@@ -112,21 +112,86 @@ func PopulateExamplePlanDB(t *testing.T) (*db.DB, string) { //nolint:funlen
 	return testDB, connectionStr
 }
 
-func ExampleTree() tree.Node { //nolint:ireturn,nolintlint
-	dirRoot := directories.NewRoot("/lustre/", 12345)
-	humgen := dirRoot.SetMeta(99, 98, 1).AddDirectory("scratch123").
-		SetMeta(1, 1, 98765).AddDirectory("humgen").SetMeta(1, 1, 98765)
+func ExampleTree() *directories.Root { //nolint:ireturn,nolintlint
+	dirRoot := directories.NewRoot("/lustre/", 12345)                //nolint:mnd
+	humgen := dirRoot.SetMeta(99, 98, 1).AddDirectory("scratch123"). //nolint:mnd
+										SetMeta(1, 1, 98765).AddDirectory("humgen").SetMeta(1, 1, 98765) //nolint:mnd
 
-	humgen.AddDirectory("a").SetMeta(99, 98, 1).AddDirectory("b").SetMeta(1, 1, 98765).
-		AddDirectory("testdir").SetMeta(2, 1, 12349)
-	directories.AddFile(&dirRoot.Directory, "scratch123/humgen/a/b/1.jpg", 1, 1, 9, 98766)
-	directories.AddFile(&dirRoot.Directory, "scratch123/humgen/a/b/2.jpg", 1, 2, 8, 98767)
-	directories.AddFile(&dirRoot.Directory, "scratch123/humgen/a/b/3.txt", 1, 2, 8, 98767)
-	directories.AddFile(&dirRoot.Directory, "scratch123/humgen/a/b/temp.jpg", 1, 2, 8, 98767)
-	directories.AddFile(&dirRoot.Directory, "scratch123/humgen/a/b/testdir/test.txt", 2, 1, 6, 12346)
+	humgen.AddDirectory("a").SetMeta(99, 98, 1).AddDirectory("b").SetMeta(1, 1, 98765). //nolint:mnd
+												AddDirectory("testdir").SetMeta(2, 1, 12349) //nolint:mnd
+	directories.AddFile(&dirRoot.Directory, "scratch123/humgen/a/b/1.jpg", 1, 1, 9, 98766)            //nolint:mnd
+	directories.AddFile(&dirRoot.Directory, "scratch123/humgen/a/b/2.jpg", 1, 2, 8, 98767)            //nolint:mnd
+	directories.AddFile(&dirRoot.Directory, "scratch123/humgen/a/b/3.txt", 1, 2, 8, 98767)            //nolint:mnd
+	directories.AddFile(&dirRoot.Directory, "scratch123/humgen/a/b/temp.jpg", 1, 2, 8, 98767)         //nolint:mnd
+	directories.AddFile(&dirRoot.Directory, "scratch123/humgen/a/b/testdir/test.txt", 2, 1, 6, 12346) //nolint:mnd
 
-	humgen.AddDirectory("a").AddDirectory("c").SetMeta(2, 1, 12349)
-	directories.AddFile(&dirRoot.Directory, "scratch123/humgen/a/c/4.txt", 2, 1, 6, 12346)
+	humgen.AddDirectory("a").AddDirectory("c").SetMeta(2, 1, 12349)                        //nolint:mnd
+	directories.AddFile(&dirRoot.Directory, "scratch123/humgen/a/c/4.txt", 2, 1, 6, 12346) //nolint:mnd
 
 	return dirRoot
+}
+
+func PopulateBigExamplePlanDB(t *testing.T) (*db.DB, string) {
+	plandb, connectionStr := PopulateExamplePlanDB(t)
+
+	reviewDate := time.Now().Add(24 * time.Hour).UTC().Truncate(1 * time.Second).Unix() //nolint:mnd
+	removeDate := time.Now().Add(48 * time.Hour).UTC().Truncate(1 * time.Second).Unix() //nolint:mnd
+
+	testdataA := []*db.Rule{
+		{
+			BackupType: db.BackupIBackup,
+			Match:      "*.cram",
+			Frequency:  defaultFrequency,
+			ReviewDate: reviewDate,
+			RemoveDate: removeDate,
+		},
+		{
+			BackupType: db.BackupNone,
+			Match:      "*.txt",
+			Frequency:  defaultFrequency,
+			ReviewDate: reviewDate,
+			RemoveDate: removeDate,
+		},
+	}
+	testdataB := []*db.Rule{
+		{
+			BackupType: db.BackupIBackup,
+			Match:      "*.cram",
+			Frequency:  defaultFrequency,
+			ReviewDate: reviewDate,
+			RemoveDate: removeDate,
+		},
+	}
+
+	dirs := slices.Collect(plandb.ReadDirectories().Iter)
+	dirA := &db.Directory{
+		Path:      "/lustre/scratch123/humgen/a/c/newdir/",
+		ClaimedBy: "userC",
+	}
+	dirB := dirs[1]
+
+	plandb.CreateDirectory(dirA)
+
+	for _, rule := range testdataA {
+		So(plandb.CreateDirectoryRule(dirA, rule), ShouldBeNil)
+	}
+	for _, rule := range testdataB {
+		So(plandb.CreateDirectoryRule(dirB, rule), ShouldBeNil)
+	}
+
+	return plandb, connectionStr
+}
+
+func ExampleTreeBig() *directories.Root {
+	tree := ExampleTree()
+
+	directories.AddFile(&tree.Directory, "scratch123/humgen/a/b/1.cram", 1, 1, 9, 98766)
+	directories.AddFile(&tree.Directory, "scratch123/humgen/a/b/newdir/testcram.cram", 1, 1, 9, 98766)
+	directories.AddFile(&tree.Directory, "scratch123/humgen/a/b/newdir/test.txt", 1, 1, 9, 98766)
+	directories.AddFile(&tree.Directory, "scratch123/humgen/a/c/2.cram", 1, 1, 9, 98766)
+	directories.AddFile(&tree.Directory, "scratch123/humgen/a/c/newdir/2.cram", 1, 1, 9, 98766)
+	directories.AddFile(&tree.Directory, "scratch123/humgen/a/c/newdir/tmp.txt", 1, 1, 9, 98766)
+	directories.AddFile(&tree.Directory, "scratch123/humgen/a/d/tmp.txt", 1, 1, 9, 98766)
+
+	return tree
 }

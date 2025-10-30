@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	. "github.com/smartystreets/goconvey/convey"
+	. "github.com/smartystreets/goconvey/convey" //nolint:staticcheck,revive
 	"github.com/wtsi-hgi/backup-plans/ibackup"
 	gas "github.com/wtsi-hgi/go-authserver"
 	"github.com/wtsi-hgi/ibackup/baton"
@@ -57,6 +57,8 @@ func NewTestIbackupServer(t *testing.T) (*server.Server, string, string, func() 
 }
 
 func NewClient(t *testing.T) *server.Client {
+	t.Helper()
+
 	_, addr, certPath, dfn, err := NewTestIbackupServer(t)
 	So(err, ShouldBeNil)
 

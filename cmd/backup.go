@@ -27,6 +27,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -61,9 +62,23 @@ It is recommended to use the environment variable "BACKUP_PLANS_CONNECTION" for 
 to maintain password security.
 
 --tree should be generated using the db command.
-`,
 
-	RunE: func(_ *cobra.Command, args []string) error { //nolint:revive
+--ibackup ibackup server url
+	env: IBACKUP_SERVER_URL
+
+--cert ibackup server authentication certificate
+	env: IBACKUP_SERVER_CERT
+`,
+	PreRunE: func(cmd *cobra.Command, _ []string) error {
+		envMap := map[string]string{
+			"BACKUP_MYSQL_URL":    "plan",
+			"IBACKUP_SERVER_URL":  "ibackup",
+			"IBACKUP_SERVER_CERT": "cert",
+		}
+
+		return checkEnvVarFlags(cmd, envMap)
+	},
+	RunE: func(_ *cobra.Command, _ []string) error {
 		client, err := ibackup.Connect(ibackupURL, cert)
 		if err != nil {
 			return fmt.Errorf("failed to connect to ibackup server: %w", err)
@@ -102,12 +117,21 @@ func init() {
 		"sql connection string for your plan database")
 	backupCmd.Flags().StringVarP(&treeDB, "tree", "t", "",
 		"Path to tree db file, usually generated using db cmd")
-	backupCmd.Flags().StringVarP(&ibackupURL, "ibackup", "i", "",
+	backupCmd.Flags().StringVarP(&ibackupURL, "ibackup", "i", os.Getenv("IBACKUP_SERVER_URL"),
 		"ibackup server url")
-	backupCmd.Flags().StringVarP(&cert, "cert", "c", "", "Path to ibackup server certificate file")
+	backupCmd.Flags().StringVarP(&cert, "cert", "c", os.Getenv("IBACKUP_SERVER_CERT"), "Path to ibackup server certificate file")
 
-	backupCmd.MarkFlagRequired("plan")    //nolint:errcheck
-	backupCmd.MarkFlagRequired("tree")    //nolint:errcheck
-	backupCmd.MarkFlagRequired("ibackup") //nolint:errcheck
-	backupCmd.MarkFlagRequired("cert")    //nolint:errcheck
+	backupCmd.MarkFlagRequired("tree") //nolint:errcheck
+}
+
+func checkEnvVarFlags(cmd *cobra.Command, envMap map[string]string) error {
+	for env := range envMap {
+		if v, err := cmd.Flags().GetString(envMap[env]); err != nil {
+			return errors.New("error in envMap") //nolint:err113
+		} else if v == "" {
+			return fmt.Errorf("--%s must be set when env variable '%s' is not", envMap[env], env) //nolint:err113
+		}
+	}
+
+	return nil
 }

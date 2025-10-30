@@ -71,10 +71,13 @@ func (s *Server) summary(w http.ResponseWriter, _ *http.Request) error { //nolin
 			return err
 		}
 
-		dirRules, ok := s.directoryRules[root]
-		if ok {
-			ds.ClaimedBy = dirRules.ClaimedBy
+		// repeat this for each child
+		for child, data := range ds.Children {
+			claimedBy := s.getClaimed(root + child)
+			data.ClaimedBy = claimedBy
 		}
+
+		ds.ClaimedBy = s.getClaimed(root)
 
 		dirSummary.Summaries[root] = ds
 
@@ -116,4 +119,13 @@ func (s *Server) summary(w http.ResponseWriter, _ *http.Request) error { //nolin
 	w.Header().Set("Content-type", "application/json")
 
 	return json.NewEncoder(w).Encode(dirSummary)
+}
+
+func (s *Server) getClaimed(root string) string {
+	dirRules, ok := s.directoryRules[root]
+	if ok {
+		return dirRules.ClaimedBy
+	}
+
+	return ""
 }

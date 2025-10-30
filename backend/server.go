@@ -57,7 +57,8 @@ type Server struct {
 }
 
 // New creates a new Backend API server.
-func New(db *db.DB, getUser func(r *http.Request) string, reportRoots []string, ibackupclient *server.Client) (*Server, error) {
+func New(db *db.DB, getUser func(r *http.Request) string, reportRoots []string,
+	ibackupclient *server.Client) (*Server, error) {
 	s := &Server{
 		getUser:     getUser,
 		rulesDB:     db,
