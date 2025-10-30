@@ -429,7 +429,7 @@ func getRoot(db *tree.MemTree) (*tree.MemTree, string, error) {
 	)
 
 	db.Children()(func(path string, node tree.Node) bool {
-		rootPath = path
+		rootPath = strings.Clone(path)
 		treeRoot = node.(*tree.MemTree) //nolint:errcheck,forcetypeassert
 
 		return false

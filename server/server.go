@@ -26,16 +26,35 @@
 package server
 
 import (
+	"log"
 	"log/slog"
+	"net"
 	"net/http"
+	"os"
+	"slices"
+	"time"
 
 	"github.com/wtsi-hgi/backup-plans/backend"
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/frontend"
+	"github.com/wtsi-hgi/wrstat-ui/server"
 )
+
+var dbCheckTime = time.Minute //nolint:gochecknoglobals
 
 // Start creates and start a new server after loading the trees given.
 func Start(listen string, d *db.DB, getUser func(*http.Request) string,
+	report []string, adminGroup uint32, initialTrees ...string) error {
+	l, err := net.Listen("tcp", listen) //nolint:noctx
+	if err != nil {
+		log.Fatalf("Failed to listen: %v", err)
+	}
+	defer l.Close()
+
+	return start(l, d, getUser, report, adminGroup, initialTrees...)
+}
+
+func start(listen net.Listener, d *db.DB, getUser func(*http.Request) string,
 	report []string, adminGroup uint32, initialTrees ...string) error {
 	b, err := backend.New(d, getUser, report)
 	if err != nil {
@@ -44,16 +63,15 @@ func Start(listen string, d *db.DB, getUser func(*http.Request) string,
 
 	b.SetAdminGroup(adminGroup)
 
-	for _, db := range initialTrees {
-		slog.Info("Loading", "db", db)
-
-		if err := b.AddTree(db); err != nil {
-			return err
-		}
+	err = loadTrees(initialTrees, b)
+	if err != nil {
+		return err
 	}
 
-	slog.Info("Serving")
+	return addHandlesAndListen(b, listen)
+}
 
+func addHandlesAndListen(b *backend.Server, listen net.Listener) error {
 	http.Handle("/api/whoami", http.HandlerFunc(b.WhoAmI))
 	http.Handle("/api/tree", http.HandlerFunc(b.Tree))
 	http.Handle("/api/dir/claim", http.HandlerFunc(b.ClaimDir))
@@ -65,5 +83,95 @@ func Start(listen string, d *db.DB, getUser func(*http.Request) string,
 	http.Handle("/api/report/summary", http.HandlerFunc(b.Summary))
 	http.Handle("/", frontend.Index)
 
-	return http.ListenAndServe(listen, nil) //nolint:gosec
+	return http.Serve(listen, nil) //nolint:gosec
+}
+
+func loadTrees(initialTrees []string, b *backend.Server) error {
+	if len(initialTrees) != 1 {
+		return loadDBs(b, initialTrees)
+	}
+
+	path := initialTrees[0]
+
+	stat, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+
+	if !stat.IsDir() {
+		return loadDBs(b, initialTrees)
+	}
+
+	treePaths, err := getTreePaths(path)
+	if err != nil {
+		return err
+	}
+
+	if err := loadDBs(b, treePaths); err != nil {
+		return err
+	}
+
+	go timerLoop(path, b, treePaths)
+
+	return nil
+}
+
+func loadDBs(b *backend.Server, trees []string) error {
+	for _, db := range trees {
+		err := b.AddTree(db)
+		if err != nil {
+			slog.Error("Error loading db", "db", err)
+
+			continue
+		}
+	}
+
+	return nil
+}
+
+// getTreePaths will, for a given dir, return a slice of filepaths to all
+// 'tree.db' files.
+func getTreePaths(path string) ([]string, error) {
+	paths, err := server.FindDBDirs(path, "tree.db")
+	if err != nil {
+		return nil, err
+	}
+
+	trees := make([]string, 0, len(paths))
+
+	for _, db := range paths {
+		trees = append(trees, db+"/tree.db")
+	}
+
+	return trees, nil
+}
+
+// timerLoop will, given a path to a directory, check for and load all new trees
+// in the directory.
+func timerLoop(path string, b *backend.Server, treePaths []string) { //nolint:gocognit
+	for {
+		time.Sleep(dbCheckTime)
+
+		newPaths, err := getTreePaths(path)
+		if err != nil {
+			slog.Error("Error getting tree paths", "Error", err)
+
+			continue
+		}
+
+		for _, path := range newPaths {
+			if slices.Contains(treePaths, path) {
+				continue
+			}
+
+			err = b.AddTree(path)
+			if err != nil {
+				slog.Error("Error loading db", "db", path, "Error", err)
+
+				continue
+			}
+
+			treePaths = append(treePaths, path)
+		}
+	}
 }
