@@ -27,7 +27,6 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
 	"os"
 
@@ -123,12 +122,13 @@ func init() {
 		"Path to ibackup server certificate file")
 
 	backupCmd.MarkFlagRequired("tree") //nolint:errcheck
+	backupCmd.MarkFlagRequired("plan") //nolint:errcheck
 }
 
 func checkEnvVarFlags(cmd *cobra.Command, envMap map[string]string) error {
 	for env := range envMap {
 		if v, err := cmd.Flags().GetString(envMap[env]); err != nil {
-			return errors.New("error in envMap") //nolint:err113
+			return fmt.Errorf("failed to get flag %s: %w", envMap[env], err)
 		} else if v == "" {
 			return fmt.Errorf("--%s must be set when env variable '%s' is not", envMap[env], env) //nolint:err113
 		}

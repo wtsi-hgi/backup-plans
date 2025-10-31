@@ -32,7 +32,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"unsafe"
 
 	"github.com/spf13/cobra"
 	"github.com/wtsi-hgi/backup-plans/db"
@@ -126,7 +125,9 @@ func getUser(r *http.Request) string {
 				return ""
 			}
 
-			return strings.SplitN(unsafe.String(unsafe.SliceData(data), len(data)), ":", 2)[0] //nolint:mnd
+			user, _, _ := strings.Cut(string(data), ":")
+
+			return user
 		}
 	}
 

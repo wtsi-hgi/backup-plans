@@ -180,15 +180,23 @@ func (c *Cache) runCache() {
 		keys := slices.Collect(maps.Keys(c.cache))
 		c.mu.RUnlock()
 
+		updates := make(map[setRequester]*SetBackupActivity)
+
 		for _, set := range keys {
 			ba, err := GetBackupActivity(c.client, set.set, set.requester)
 			if err != nil {
 				continue
 			}
 
-			c.mu.Lock()
-			c.cache[set] = ba
-			c.mu.Unlock()
+			updates[set] = ba
 		}
+
+		c.mu.Lock()
+
+		for set, ba := range updates {
+			c.cache[set] = ba
+		}
+
+		c.mu.Unlock()
 	}
 }
