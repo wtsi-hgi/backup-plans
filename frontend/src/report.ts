@@ -1,4 +1,4 @@
-import type { BackupType, DirectoryWithChildren, Rule, SizeCount, SizeCountTime, Stats } from "./types.js";
+import type { BackupStatus, BackupType, DirectoryWithChildren, Rule, SizeCount, SizeCountTime, Stats } from "./types.js";
 import type { Children } from "./lib/dom.js";
 import { amendNode } from "./lib/dom.js";
 import { a, br, button, details, div, fieldset, h1, h2, input, label, legend, li, summary, table, tbody, td, th, thead, tr, ul } from "./lib/html.js";
@@ -14,9 +14,11 @@ class Summary {
 	path: string;
 	lastestMTime = 0;
 	count = 0n;
+	backupStatus?: BackupStatus;
 
-	constructor(path: string) {
+	constructor(path: string, backupStatus?: BackupStatus) {
 		this.path = path;
+		this.backupStatus = backupStatus;
 	}
 
 	add(action: BackupType, rule: Stats) {
@@ -60,17 +62,10 @@ class Summary {
 }
 
 class ParentSummary extends Summary {
-	claimedBy: string;
 	children = new Map<string, ChildSummary>();
 
-	constructor(path: string, claimedBy: string) {
-		super(path)
-
-		this.claimedBy = claimedBy;
-	}
-
-	addChild(child: string, rule: Rule, stats: Stats) {
-		const c = this.children.get(child) ?? setAndReturn(this.children, child, new ChildSummary(child));
+	addChild(child: string, rule: Rule, stats: Stats, claimedBy: string, backupStatus: BackupStatus) {
+		const c = this.children.get(child) ?? setAndReturn(this.children, child, new ChildSummary(child, claimedBy, backupStatus));
 
 		c.addRule(rule.Match, rule.BackupType, stats);
 	}
@@ -103,14 +98,25 @@ class ParentSummary extends Summary {
 				]))
 			])),
 			ul([
-				this.claimedBy ? li("Requester: " + this.claimedBy) : [],
+				this.backupStatus ? li("Requester: " + this.backupStatus.Requester) : [],
 				this.actions[BackupIBackup]?.mtime ? li("Last Activity in Backed-up Set: " + longAgo(this.actions[BackupIBackup]?.mtime ?? 0)) : [],
-				li("Last Activity: " + (this.lastestMTime ? longAgo(this.lastestMTime) : "--none--")),
-				this.claimedBy ? li("Last Backup: unknown") : [],
-				this.claimedBy ? li("Backup name: plan::" + this.path) : [],
-				this.claimedBy ? li("Failures: 0 ") : []
+				li("Last Activity: " + (this.lastestMTime ? longAgo(this.lastestMTime) : "--none--"))
 			]),
 			this.table(),
+			table({ "class": "summary" }, [
+				thead(tr([
+					th("Claimed By"),
+					th("Set Name"),
+					th("Last Backup"),
+					th("Failures")
+				])),
+				tbody(this.children.size ? Array.from(this.children.entries()).map(([path, child]) => tr([
+					td(child.claimedBy),
+					td("plan::" + path),
+					td(child.backupStatus ? new Date(child.backupStatus.LastSuccess).toLocaleString() : "-"),
+					td(child.backupStatus?.Failures.toLocaleString() ?? "-")
+				])) : tr(td({ "colspan": "4" }, "No Backups")))
+			]),
 			this.children.size ? [
 				h2("Rules"),
 				Array.from(this.children.entries()).map(([path, child]) => details([
@@ -124,6 +130,13 @@ class ParentSummary extends Summary {
 
 class ChildSummary extends Summary {
 	rules = new Map<string, SizeCount & { action: BackupType }>();
+	claimedBy: string;
+
+	constructor(path: string, claimedBy: string, backupStatus?: BackupStatus) {
+		super(path, backupStatus);
+
+		this.claimedBy = claimedBy;
+	}
 
 	addRule(match: string, action: BackupType, rule: Stats) {
 		const r = this.rules.get(match) ?? setAndReturn(this.rules, match, { size: 0n, count: 0n, action });
@@ -213,7 +226,7 @@ getReportSummary().then(data => {
 		sortBackupSize = input({ "id": "sortBackupSize", "name": "sort", "type": "radio" });
 
 	for (const [dir, summary] of Object.entries(data.Summaries)) {
-		const dirSummary = new ParentSummary(dir, summary.ClaimedBy);
+		const dirSummary = new ParentSummary(dir, data.BackupStatus[dir]);
 
 		for (const rule of summary.RuleSummaries) {
 			const ruleType = data.Rules[rule.ID]?.BackupType ?? -1;
@@ -227,7 +240,7 @@ getReportSummary().then(data => {
 		for (const [child, ids] of Object.entries(data.Directories).filter(d => d[0].startsWith(dir))) {
 			for (const id of ids) {
 				for (const stats of summary.RuleSummaries.find(v => v.ID === id)?.Users ?? []) {
-					dirSummary.addChild(child, data.Rules[id], stats);
+					dirSummary.addChild(child, data.Rules[id], stats, child === dir ? summary.ClaimedBy : summary.Children[child.substring(dir.length)]?.ClaimedBy ?? "", data.BackupStatus[child]);
 				}
 			}
 		}

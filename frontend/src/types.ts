@@ -14,6 +14,7 @@ export type RuleSummary = {
 
 export type DirSummary = {
 	RuleSummaries: RuleSummary[];
+	ClaimedBy: string;
 	Children: Record<string, DirSummary>;
 };
 
@@ -78,4 +79,12 @@ export type ReportSummary = {
 	Summaries: Record<string, ClaimedDir>;
 	Rules: Record<number, Rule>;
 	Directories: Record<string, number[]>;
+	BackupStatus: Record<string, BackupStatus>;
+};
+
+export type BackupStatus = {
+	LastSuccess: string;
+	Name: string;
+	Requester: string;
+	Failures: number;
 };

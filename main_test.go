@@ -14,16 +14,27 @@ import (
 	"github.com/wtsi-hgi/backup-plans/internal/testirods"
 )
 
-const (
-	app = "backup-plans"
-)
+const app = "backup-plans"
 
-func TestMain(t *testing.T) {
-	tmpDir, cleanup := buildSelf()
+var appExe string //nolint:gochecknoglobals
+
+func TestMain(m *testing.M) {
+	tmpDir, cleanup, err := buildSelf()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
 	if cleanup != nil {
 		defer cleanup()
 	}
 
+	appExe = filepath.Join(tmpDir, app)
+
+	m.Run()
+}
+
+func TestCommands(t *testing.T) {
 	mysqlConnection := os.Getenv("BACKUP_PLANS_CONNECTION_TEST")
 	os.Unsetenv("BACKUP_PLANS_CONNECTION_TEST")
 
@@ -32,7 +43,7 @@ func TestMain(t *testing.T) {
 	}
 
 	Convey("Given an ibackup test server", t, func() {
-		So(tmpDir, ShouldNotBeEmpty)
+		So(appExe, ShouldNotBeEmpty)
 
 		_, addr, certPath, dfn, err := ibackup_test.NewTestIbackupServer(t)
 		So(err, ShouldBeNil)
@@ -40,15 +51,15 @@ func TestMain(t *testing.T) {
 		Reset(func() { So(dfn(), ShouldBeNil) })
 
 		Convey("The backups command returns an error about required flags with no args", func() {
-			out, err := exec.Command(filepath.Join(tmpDir, app), "backup").CombinedOutput() //nolint:gosec,noctx
+			out, err := exec.Command(appExe, "backup").CombinedOutput() //nolint:noctx
 			So(err, ShouldNotBeNil)
-			So(string(out), ShouldContainSubstring, "required flag(s) \"cert\", \"ibackup\", \"plan\", \"tree\" not set")
+			So(string(out), ShouldContainSubstring, "must be set when env")
 		})
 
 		Convey("The backups command results in a correct ibackup set being created given correct args", func() {
 			_, dbPath := plandb.PopulateExamplePlanDB(t)
 
-			out, err := exec.Command(filepath.Join(tmpDir, app), "backup", "--plan", dbPath, //nolint:gosec,noctx
+			out, err := exec.Command(appExe, "backup", "--plan", dbPath, //nolint:noctx
 				"--tree", "testdata/tree.db", "--ibackup", addr, "--cert", certPath).CombinedOutput()
 
 			So(string(out), ShouldEqual, "ibackup set 'plan::/lustre/scratch123/humgen/a/b/' created for userA with 2 files\n")
@@ -73,14 +84,14 @@ func TestMain(t *testing.T) {
 
 		Convey("The backups command fails with an invalid plan schema", func() {
 			_, dbPath := plandb.PopulateExamplePlanDB(t)
-			_, err := exec.Command(filepath.Join(tmpDir, app), "backup", "--plan", "bad:"+dbPath, //nolint:gosec,noctx
+			_, err := exec.Command(appExe, "backup", "--plan", "bad:"+dbPath, //nolint:noctx
 				"--tree", "testdata/tree.db", "--ibackup", addr, "--cert", certPath).CombinedOutput()
 			So(err, ShouldNotBeNil)
 		})
 
 		Convey("The backups command works with an explicit sqlite3 plan schema", func() {
 			_, dbPath := plandb.PopulateExamplePlanDB(t)
-			err := exec.Command(filepath.Join(tmpDir, app), "backup", "--plan", dbPath, //nolint:gosec,noctx
+			err := exec.Command(appExe, "backup", "--plan", dbPath, //nolint:noctx
 				"--tree", "testdata/tree.db", "--ibackup", addr, "--cert", certPath).Run()
 
 			So(err, ShouldBeNil)
@@ -96,8 +107,8 @@ func TestMain(t *testing.T) {
 			os.Setenv("BACKUP_PLANS_CONNECTION_TEST", mysqlConnection)
 			plandb.PopulateExamplePlanDB(t)
 
-			out, err := exec.Command( //nolint:gosec,noctx
-				filepath.Join(tmpDir, app), "backup", "--plan",
+			out, err := exec.Command( //nolint:noctx
+				appExe, "backup", "--plan",
 				mysqlConnection, "--tree", "testdata/tree.db",
 				"--ibackup", addr, "--cert", certPath).CombinedOutput()
 			So(string(out), ShouldEqual, "ibackup set 'plan::/lustre/scratch123/humgen/a/b/' created for userA with 2 files\n")
@@ -106,23 +117,15 @@ func TestMain(t *testing.T) {
 	})
 }
 
-func buildSelf() (string, func()) {
+func buildSelf() (string, func(), error) {
 	tmpDir, err := os.MkdirTemp("", "backup-plans-test")
 	if err != nil {
-		failMainTest(err.Error())
-
-		return "", nil
+		return "", nil, err
 	}
 
-	if err := exec.Command("go", "build", "-o", tmpDir).Run(); err != nil { //nolint:noctx
-		failMainTest(err.Error())
-
-		return "", nil
+	if err := exec.Command("go", "build", "-tags", "dev", "-o", tmpDir).Run(); err != nil { //nolint:noctx
+		return "", nil, err
 	}
 
-	return tmpDir, func() { os.Remove(app) }
-}
-
-func failMainTest(err string) {
-	fmt.Println(err) //nolint:forbidigo
+	return tmpDir, func() { os.Remove(app) }, nil
 }

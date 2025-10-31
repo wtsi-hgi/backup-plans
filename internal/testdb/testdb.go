@@ -32,7 +32,7 @@ import (
 	"strings"
 	"testing"
 
-	. "github.com/smartystreets/goconvey/convey" //nolint:revive,staticcheck
+	. "github.com/smartystreets/goconvey/convey" //nolint:revive,stylecheck,staticcheck
 	"github.com/wtsi-hgi/backup-plans/db"
 )
 

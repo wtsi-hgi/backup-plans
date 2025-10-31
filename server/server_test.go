@@ -72,7 +72,7 @@ func TestSeverDBUpdate(t *testing.T) {
 			dbCheckTime = time.Second
 
 			go func() {
-				errCh <- start(l, tdb, func(*http.Request) string { return u.Username }, nil, 0, tmp)
+				errCh <- start(l, tdb, func(*http.Request) string { return u.Username }, nil, 0, nil, tmp)
 			}()
 
 			baseURL := fmt.Sprintf("http://127.0.0.1:%d/", l.Addr().(*net.TCPAddr).Port) //nolint:errcheck,forcetypeassert

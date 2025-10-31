@@ -318,7 +318,7 @@ func (t *topLevelDir) Summary(path string) (*DirSummary, error) {
 	return child.Summary(rest)
 }
 
-func (t *topLevelDir) getChild(path string) (summariser, string, error) { //nolint:ireturn
+func (t *topLevelDir) getChild(path string) (summariser, string, error) { //nolint:ireturn,nolintlint
 	pos := strings.IndexByte(path, '/')
 
 	child := t.children[path[:pos+1]]
