@@ -172,8 +172,19 @@ func (s *Server) claimDir(w http.ResponseWriter, r *http.Request) error { //noli
 		return ErrCannotClaimDirectory
 	}
 
+	err = s.claimDirectory(dir, user)
+	if err != nil {
+		return err
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	return json.NewEncoder(w).Encode(user)
+}
+
+func (s *Server) claimDirectory(fileDir, user string) error {
 	directory := &db.Directory{
-		Path:      dir,
+		Path:      fileDir,
 		ClaimedBy: user,
 	}
 
@@ -181,16 +192,14 @@ func (s *Server) claimDir(w http.ResponseWriter, r *http.Request) error { //noli
 		return err
 	}
 
-	s.directoryRules[dir] = &ruletree.DirRules{
+	s.directoryRules[fileDir] = &ruletree.DirRules{
 		Directory: directory,
 		Rules:     make(map[string]*db.Rule),
 	}
 
 	s.dirs[uint64(directory.ID())] = directory //nolint:gosec
 
-	w.Header().Set("Content-Type", "application/json")
-
-	return json.NewEncoder(w).Encode(user)
+	return nil
 }
 
 func (s *Server) canClaim(dir string, uid uint32, groups []uint32) bool {
@@ -342,6 +351,17 @@ func (s *Server) createRule(w http.ResponseWriter, r *http.Request) error { //no
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+
+	return nil
+}
+
+func (s *Server) addRuleToDir(directory *ruletree.DirRules, rule *db.Rule) error {
+	if err := s.rulesDB.CreateDirectoryRule(directory.Directory, rule); err != nil {
+		return err
+	}
+
+	directory.Rules[rule.Match] = rule
+	s.rules[uint64(rule.ID())] = rule //nolint:gosec
 
 	return nil
 }
