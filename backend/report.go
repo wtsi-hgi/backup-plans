@@ -29,6 +29,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/ibackup"
@@ -71,11 +72,33 @@ func (s *Server) summary(w http.ResponseWriter, _ *http.Request) error { //nolin
 			return err
 		}
 
-		// repeat this for each child
-		for child, data := range ds.Children {
-			claimedBy := s.getClaimed(root + child)
-			data.ClaimedBy = claimedBy
+		clear(ds.Children)
+
+		for _, dir := range s.dirs {
+			if strings.HasPrefix(dir.Path, root) && dir.Path != root {
+				child, err := s.rootDir.Summary(dir.Path[1:])
+				if err != nil {
+					continue
+				}
+
+				clear(child.Children)
+
+				child.ClaimedBy = s.getClaimed(dir.Path)
+				ds.Children[dir.Path] = child
+			}
 		}
+
+		// for each directory with rules{
+		// 	if dir has prefix root {
+		// 		add to children
+		// 	}
+		// }
+
+		// repeat this for each child
+		// for child, data := range ds.Children {
+		// 	claimedBy := s.getClaimed(root + child)
+		// 	data.ClaimedBy = claimedBy
+		// }
 
 		ds.ClaimedBy = s.getClaimed(root)
 

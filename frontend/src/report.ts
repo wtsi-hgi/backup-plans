@@ -1,4 +1,4 @@
-import type { BackupStatus, BackupType, DirectoryWithChildren, Rule, SizeCount, SizeCountTime, Stats } from "./types.js";
+import type { BackupStatus, BackupType, ClaimedDir, DirectoryWithChildren, Rule, SizeCount, SizeCountTime, Stats } from "./types.js";
 import type { Children } from "./lib/dom.js";
 import { amendNode } from "./lib/dom.js";
 import { a, br, button, details, div, fieldset, h1, h2, input, label, legend, li, summary, table, tbody, td, th, thead, tr, ul } from "./lib/html.js";
@@ -67,7 +67,9 @@ class ParentSummary extends Summary {
 	addChild(child: string, rule: Rule, stats: Stats, claimedBy: string, backupStatus: BackupStatus) {
 		const c = this.children.get(child) ?? setAndReturn(this.children, child, new ChildSummary(child, claimedBy, backupStatus));
 
-		c.addRule(rule.Match, rule.BackupType, stats);
+		if (rule) {
+			c.addRule(rule.Match, rule.BackupType, stats);
+		}
 	}
 
 	section() {
@@ -148,18 +150,31 @@ class ChildSummary extends Summary {
 	}
 
 	section() {
-		return [
-			this.table(),
-			table({ "class": "summary" }, [
-				thead(tr([th("Match"), th("Action"), th("Files"), th("Size")])),
-				tbody(Array.from(this.rules.entries()).map(([match, rule]) => tr([
-					td(match),
-					td(action(rule.action)),
-					td(rule.count.toLocaleString()),
-					td({ "title": rule.size.toLocaleString() }, formatBytes(rule.size))
-				])))
-			])
-		];
+		const tables: HTMLElement[] = [];
+		tables.push(this.table());
+
+		const validRules = Array.from(this.rules.entries())
+				.filter(([_, rule]) => rule && rule.action !== -1);
+		
+		// Only show extra table if there are rules to show
+		if (validRules.length === 0) {
+			return tables;
+		}
+
+		const ruleTable = table({ "class": "summary" }, [
+			thead(tr([th("Match"), th("Action"), th("Files"), th("Size")])),
+			tbody(validRules.map(([match, rule]) => rule ? tr([
+				td(match),
+				td(action(rule.action)),
+				td(rule.count.toLocaleString()),
+				td({ "title": rule.size.toLocaleString() }, formatBytes(rule.size))
+			]) : []))
+		])
+
+		tables.push(ruleTable);
+
+		return tables;
+
 	}
 }
 
@@ -237,10 +252,12 @@ getReportSummary().then(data => {
 			}
 		}
 
-		for (const [child, ids] of Object.entries(data.Directories).filter(d => d[0].startsWith(dir))) {
-			for (const id of ids) {
+		for (const [child, childSummary] of [[dir, summary] as [string, ClaimedDir]].concat(Array.from(Object.entries(summary.Children)))) {
+			const rules = data.Directories[child] ?? [0];
+
+			for (const id of rules) {
 				for (const stats of summary.RuleSummaries.find(v => v.ID === id)?.Users ?? []) {
-					dirSummary.addChild(child, data.Rules[id], stats, child === dir ? summary.ClaimedBy : summary.Children[child.substring(dir.length)]?.ClaimedBy ?? "", data.BackupStatus[child]);
+					dirSummary.addChild(child, data.Rules[id] ?? {BackupType: -1, Match: ""}, stats, child === dir ? summary.ClaimedBy : childSummary.ClaimedBy ?? "", data.BackupStatus[child]);
 				}
 			}
 		}
@@ -268,7 +285,6 @@ getReportSummary().then(data => {
 	])
 
 	children[0].firstChild?.firstChild?.firstChild?.appendChild(button({ "click": download }, "Download Report"))
-
 	initFilterSort(base, children.slice(3) as HTMLFieldSetElement[], [filterProject, filterAll, filterR, filterA, filterG, filterB, sortName, sortWarnSize, sortNoBackupSize, sortBackupSize]);
 	amendNode(base, children);
 });

@@ -71,7 +71,7 @@ export type DirectoryWithChildren = Directory & {
 	canClaim: boolean;
 };
 
-type ClaimedDir = DirSummary & {
+export type ClaimedDir = DirSummary & {
 	ClaimedBy: string;
 };
 
