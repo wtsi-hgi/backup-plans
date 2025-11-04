@@ -18,6 +18,8 @@ import (
 func NewTestIbackupServer(t *testing.T) (*server.Server, string, string, func() error, error) { //nolint:funlen
 	t.Helper()
 
+	t.Setenv("XDG_STATE_HOME", t.TempDir())
+
 	handler, err := baton.GetBatonHandler()
 	if err != nil {
 		return nil, "", "", nil, err
