@@ -156,7 +156,7 @@ class ChildSummary extends Summary {
 
 		const validRules = Array.from(this.rules.entries())
 				.filter(([_, rule]) => rule && rule.action !== -1);
-		
+
 		// Only show extra table if there are rules to show
 		if (validRules.length === 0) {
 			return tables;

@@ -187,7 +187,6 @@ func PopulateBigExamplePlanDB(t *testing.T) (*db.DB, string) { //nolint:funlen
 	}
 
 	So(plandb.CreateDirectory(dirA), ShouldBeNil)
-	// plandb.CreateDirectory(dirB)
 	So(plandb.CreateDirectory(dirC), ShouldBeNil)
 
 	for _, rule := range testdataA {

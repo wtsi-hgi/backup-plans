@@ -17,7 +17,7 @@ var indexHTML []byte
 
 const (
 	uncompressedSize = 41203
-	lastModifiedTime = 1762254140
+	lastModifiedTime = 1762255876
 )
 
 var Index = httpembed.HandleBuffer("index.html", indexHTML, uncompressedSize, time.Unix(lastModifiedTime, 0)) //nolint:gochecknoglobals,lll
