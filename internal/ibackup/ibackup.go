@@ -65,6 +65,8 @@ func NewClient(t *testing.T) *server.Client {
 	_, addr, certPath, dfn, err := NewTestIbackupServer(t)
 	So(err, ShouldBeNil)
 
+	time.Sleep(time.Second >> 1)
+
 	Reset(func() { So(dfn(), ShouldBeNil) })
 
 	client, err := ibackup.Connect(addr, certPath)
