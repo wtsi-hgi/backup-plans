@@ -34,6 +34,7 @@ import (
 	"github.com/wtsi-hgi/backup-plans/backups"
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/ibackup"
+	"golang.org/x/sys/unix"
 	"vimagination.zapto.org/tree"
 )
 
@@ -89,11 +90,11 @@ to maintain password security.
 		}
 		defer planDB.Close()
 
-		treeNode, err := tree.OpenFile(treeDB)
+		treeNode, dfn, err := openTree(treeDB)
 		if err != nil {
 			return fmt.Errorf("\n failed to open tree db: %w", err)
 		}
-		defer treeNode.Close()
+		defer dfn()
 
 		setInfos, err := backups.Backup(planDB, treeNode, client)
 		if err != nil {
@@ -134,4 +135,39 @@ func checkEnvVarFlags(cmd *cobra.Command, envMap map[string]string) error {
 	}
 
 	return nil
+}
+
+func openTree(path string) (tree.Node, func(), error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	stat, err := f.Stat()
+	if err != nil {
+		f.Close()
+
+		return nil, nil, err
+	}
+
+	data, err := unix.Mmap(int(f.Fd()), 0, int(stat.Size()), unix.PROT_READ, unix.MAP_SHARED)
+	if err != nil {
+		f.Close()
+
+		return nil, nil, err
+	}
+
+	fn := func() {
+		unix.Munmap(data) //nolint:errcheck
+		f.Close()
+	}
+
+	db, err := tree.OpenMem(data)
+	if err != nil {
+		fn()
+
+		return nil, nil, fmt.Errorf("error opening tree: %w", err)
+	}
+
+	return db, fn, nil
 }
