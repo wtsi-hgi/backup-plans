@@ -98,14 +98,14 @@ to maintain password security.
 
 		setInfos, err := backups.Backup(planDB, treeNode, client)
 		if err != nil {
-			return fmt.Errorf("\n failed to back up files: %w", err)
+			err = fmt.Errorf("\n failed to back up files: %w", err)
 		}
 
 		for _, setIn := range setInfos {
 			cliPrintf("ibackup set '%s' created for %s with %v files\n", setIn.BackupSetName, setIn.Requestor, setIn.FileCount)
 		}
 
-		return nil
+		return err
 	},
 }
 
