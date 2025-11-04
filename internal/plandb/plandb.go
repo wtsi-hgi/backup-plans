@@ -118,7 +118,8 @@ func ExampleTree() *directories.Root { //nolint:ireturn,nolintlint
 										SetMeta(1, 1, 98765).AddDirectory("humgen").SetMeta(1, 1, 98765) //nolint:mnd
 
 	humgen.AddDirectory("a").SetMeta(99, 98, 1).AddDirectory("b").SetMeta(1, 1, 98765). //nolint:mnd
-												AddDirectory("testdir").SetMeta(2, 1, 12349) //nolint:mnd
+												AddDirectory("testdir").SetMeta(2, 1, 12349).     //nolint:mnd
+												AddDirectory("testdirchild").SetMeta(2, 1, 12349) //nolint:mnd
 	directories.AddFile(&dirRoot.Directory, "scratch123/humgen/a/b/1.jpg", 1, 1, 9, 98766)            //nolint:mnd
 	directories.AddFile(&dirRoot.Directory, "scratch123/humgen/a/b/2.jpg", 1, 2, 8, 98767)            //nolint:mnd
 	directories.AddFile(&dirRoot.Directory, "scratch123/humgen/a/b/3.txt", 1, 2, 8, 98767)            //nolint:mnd
@@ -164,15 +165,29 @@ func PopulateBigExamplePlanDB(t *testing.T) (*db.DB, string) { //nolint:funlen
 			RemoveDate: removeDate,
 		},
 	}
+	testdataC := []*db.Rule{
+		{
+			BackupType: db.BackupIBackup,
+			Match:      "*.cram",
+			Frequency:  defaultFrequency,
+			ReviewDate: reviewDate,
+			RemoveDate: removeDate,
+		},
+	}
 
 	dirs := slices.Collect(plandb.ReadDirectories().Iter)
 	dirA := &db.Directory{
-		Path:      "/lustre/scratch123/humgen/a/c/newdir/",
+		Path:      "/lustre/scratch123/humgen/a/b/newdir/",
 		ClaimedBy: "userC",
 	}
 	dirB := dirs[1]
+	dirC := &db.Directory{
+		Path:      "/lustre/scratch123/humgen/a/b/newdir/testextradir/",
+		ClaimedBy: "userD",
+	}
 
-	plandb.CreateDirectory(dirA) //nolint:errcheck
+	So(plandb.CreateDirectory(dirA), ShouldBeNil)
+	So(plandb.CreateDirectory(dirC), ShouldBeNil)
 
 	for _, rule := range testdataA {
 		So(plandb.CreateDirectoryRule(dirA, rule), ShouldBeNil)
@@ -182,19 +197,25 @@ func PopulateBigExamplePlanDB(t *testing.T) (*db.DB, string) { //nolint:funlen
 		So(plandb.CreateDirectoryRule(dirB, rule), ShouldBeNil)
 	}
 
+	for _, rule := range testdataC {
+		So(plandb.CreateDirectoryRule(dirC, rule), ShouldBeNil)
+	}
+
 	return plandb, connectionStr
 }
 
 func ExampleTreeBig() *directories.Root {
 	tree := ExampleTree()
 
-	directories.AddFile(&tree.Directory, "scratch123/humgen/a/b/1.cram", 1, 1, 9, 98766)               //nolint:mnd
-	directories.AddFile(&tree.Directory, "scratch123/humgen/a/b/newdir/testcram.cram", 1, 1, 9, 98766) //nolint:mnd
-	directories.AddFile(&tree.Directory, "scratch123/humgen/a/b/newdir/test.txt", 1, 1, 9, 98766)      //nolint:mnd
-	directories.AddFile(&tree.Directory, "scratch123/humgen/a/c/2.cram", 1, 1, 9, 98766)               //nolint:mnd
-	directories.AddFile(&tree.Directory, "scratch123/humgen/a/c/newdir/2.cram", 1, 1, 9, 98766)        //nolint:mnd
-	directories.AddFile(&tree.Directory, "scratch123/humgen/a/c/newdir/tmp.txt", 1, 1, 9, 98766)       //nolint:mnd
-	directories.AddFile(&tree.Directory, "scratch123/humgen/a/d/tmp.txt", 1, 1, 9, 98766)              //nolint:mnd
+	directories.AddFile(&tree.Directory, "scratch123/humgen/a/b/1.cram", 1, 1, 9, 98766)                       //nolint:mnd
+	directories.AddFile(&tree.Directory, "scratch123/humgen/a/b/newdir/testcram.cram", 1, 1, 9, 98766)         //nolint:mnd
+	directories.AddFile(&tree.Directory, "scratch123/humgen/a/b/newdir/test.txt", 1, 1, 9, 98766)              //nolint:mnd
+	directories.AddFile(&tree.Directory, "scratch123/humgen/a/c/2.cram", 1, 1, 9, 98766)                       //nolint:mnd
+	directories.AddFile(&tree.Directory, "scratch123/humgen/a/c/newdir/2.cram", 1, 1, 9, 98766)                //nolint:mnd
+	directories.AddFile(&tree.Directory, "scratch123/humgen/a/c/newdir/tmp.txt", 1, 1, 9, 98766)               //nolint:mnd
+	directories.AddFile(&tree.Directory, "scratch123/humgen/a/d/tmp.txt", 1, 1, 9, 98766)                      //nolint:mnd
+	directories.AddFile(&tree.Directory, "scratch123/humgen/a/b/newdir/testextradir/test.txt", 2, 1, 6, 12346) //nolint:mnd
+	directories.AddFile(&tree.Directory, "scratch123/humgen/a/c/newdir/testextradir/test.txt", 2, 1, 6, 12346) //nolint:mnd
 
 	return tree
 }
