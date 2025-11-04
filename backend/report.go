@@ -29,6 +29,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/wtsi-hgi/backup-plans/db"
@@ -88,18 +89,6 @@ func (s *Server) summary(w http.ResponseWriter, _ *http.Request) error { //nolin
 			}
 		}
 
-		// for each directory with rules{
-		// 	if dir has prefix root {
-		// 		add to children
-		// 	}
-		// }
-
-		// repeat this for each child
-		// for child, data := range ds.Children {
-		// 	claimedBy := s.getClaimed(root + child)
-		// 	data.ClaimedBy = claimedBy
-		// }
-
 		ds.ClaimedBy = s.getClaimed(root)
 
 		dirSummary.Summaries[root] = ds
@@ -119,6 +108,8 @@ func (s *Server) summary(w http.ResponseWriter, _ *http.Request) error { //nolin
 					for _, r := range dir.Rules {
 						ruleIDs = append(ruleIDs, uint64(r.ID())) //nolint:gosec
 					}
+
+					slices.Sort(ruleIDs)
 
 					dirSummary.Directories[dir.Path] = ruleIDs
 				}

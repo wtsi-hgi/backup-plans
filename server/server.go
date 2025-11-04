@@ -108,6 +108,8 @@ func loadTrees(initialTrees []string, b *backend.Server) error {
 
 	if !stat.IsDir() {
 		loadDBs(b, initialTrees)
+
+		return nil
 	}
 
 	treePaths, err := getTreePaths(path)

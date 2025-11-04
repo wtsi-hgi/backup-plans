@@ -206,12 +206,12 @@ func TestReport(t *testing.T) {
 						6: copyRule(rules[5]),
 					},
 					Directories: map[string][]uint64{
-						"/lustre/scratch123/humgen/a/b/": {1, 2},
+						"/lustre/scratch123/humgen/a/b/":        {1, 2},
 						"/lustre/scratch123/humgen/a/b/newdir/": {4, 5},
-						"/lustre/scratch123/humgen/a/c/": {3, 6},
+						"/lustre/scratch123/humgen/a/c/":        {3, 6},
 					},
 					BackupStatus: map[string]*ibackup.SetBackupActivity{
-						"/lustre/scratch123/humgen/a/b/": nil,
+						"/lustre/scratch123/humgen/a/b/":        nil,
 						"/lustre/scratch123/humgen/a/b/newdir/": nil,
 						"/lustre/scratch123/humgen/a/c/": {
 							Name:      "plan::/lustre/scratch123/humgen/a/c/",
@@ -225,7 +225,7 @@ func TestReport(t *testing.T) {
 				So(gotSummary.BackupStatus["/lustre/scratch123/humgen/a/c/"].LastSuccess, ShouldHappenAfter, beforeTrigger)
 
 				gotSummary.BackupStatus["/lustre/scratch123/humgen/a/c/"].LastSuccess = time.Time{}
-				
+
 				So(gotSummary, ShouldResemble, expectedSummary)
 			})
 		})

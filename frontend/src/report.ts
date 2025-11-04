@@ -151,6 +151,7 @@ class ChildSummary extends Summary {
 
 	section() {
 		const tables: HTMLElement[] = [];
+
 		tables.push(this.table());
 
 		const validRules = Array.from(this.rules.entries())
@@ -174,7 +175,6 @@ class ChildSummary extends Summary {
 		tables.push(ruleTable);
 
 		return tables;
-
 	}
 }
 
