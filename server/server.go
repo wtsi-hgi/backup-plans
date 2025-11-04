@@ -84,12 +84,14 @@ func addHandlesAndListen(b *backend.Server, listen net.Listener) error {
 	http.Handle("/api/report/summary", http.HandlerFunc(b.Summary))
 	http.Handle("/", frontend.Index)
 
+	slog.Info("Serving...")
+
 	return http.Serve(listen, nil) //nolint:gosec
 }
 
 func loadTrees(initialTrees []string, b *backend.Server) error {
 	if len(initialTrees) != 1 {
-		return loadDBs(b, initialTrees)
+		loadDBs(b, initialTrees)
 	}
 
 	path := initialTrees[0]
@@ -100,7 +102,7 @@ func loadTrees(initialTrees []string, b *backend.Server) error {
 	}
 
 	if !stat.IsDir() {
-		return loadDBs(b, initialTrees)
+		loadDBs(b, initialTrees)
 	}
 
 	treePaths, err := getTreePaths(path)
@@ -108,26 +110,25 @@ func loadTrees(initialTrees []string, b *backend.Server) error {
 		return err
 	}
 
-	if err := loadDBs(b, treePaths); err != nil {
-		return err
-	}
+	loadDBs(b, treePaths)
 
 	go timerLoop(path, b, treePaths)
 
 	return nil
 }
 
-func loadDBs(b *backend.Server, trees []string) error {
+func loadDBs(b *backend.Server, trees []string) {
 	for _, db := range trees {
-		err := b.AddTree(db)
-		if err != nil {
-			slog.Error("Error loading db", "db", err)
-
-			continue
-		}
+		loadDB(b, db)
 	}
+}
 
-	return nil
+func loadDB(b *backend.Server, db string) {
+	slog.Info("Loading Tree", "db", db)
+
+	if err := b.AddTree(db); err != nil {
+		slog.Error("Error loading db", "db", err)
+	}
 }
 
 // getTreePaths will, for a given dir, return a slice of filepaths to all
@@ -165,12 +166,7 @@ func timerLoop(path string, b *backend.Server, treePaths []string) { //nolint:go
 				continue
 			}
 
-			err = b.AddTree(path)
-			if err != nil {
-				slog.Error("Error loading db", "db", path, "Error", err)
-
-				continue
-			}
+			loadDB(b, path)
 
 			treePaths = append(treePaths, path)
 		}
