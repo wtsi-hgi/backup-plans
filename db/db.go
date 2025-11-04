@@ -91,7 +91,7 @@ func (d *DB) initTables() error {
 	for n, table := range tables {
 		var exists int
 
-		if err := d.db.QueryRow(tableCheck, tableNames[n]).Scan(&exists); err != nil {
+		if err := d.db.QueryRow(tableCheck, tableNames[n]).Scan(&exists); err != nil { //nolint:noctx
 			return err
 		}
 
