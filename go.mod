@@ -13,7 +13,7 @@ require (
 	github.com/ugorji/go/codec v1.3.0
 	github.com/wtsi-hgi/go-authserver v1.5.1
 	github.com/wtsi-hgi/ibackup v1.11.0
-	github.com/wtsi-hgi/wrstat-ui v1.8.10
+	github.com/wtsi-hgi/wrstat-ui v1.8.11
 	go.etcd.io/bbolt v1.4.3
 	golang.org/x/sys v0.37.0
 	modernc.org/sqlite v1.39.1
