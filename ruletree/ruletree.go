@@ -190,7 +190,7 @@ func (r *rulesDir) getRulePos(ruleID int64) int {
 	newRule := Rule{ID: uint64(ruleID)} //nolint:gosec
 
 	pos, ok := slices.BinarySearchFunc(r.rules, newRule, func(a, b Rule) int {
-		return int(a.ID - b.ID) //nolint:gosec
+		return int(a.ID) - int(b.ID) //nolint:gosec
 	})
 	if !ok {
 		r.rules = slices.Insert(r.rules, pos, newRule)
