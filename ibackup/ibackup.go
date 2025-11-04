@@ -161,13 +161,14 @@ func (c *Cache) GetBackupActivity(setName, requester string) (*SetBackupActivity
 	}
 
 	sba, err := GetBackupActivity(c.client, setName, requester)
-	if err != nil {
-		return nil, err
-	}
 
 	c.mu.Lock()
 	c.cache[sr] = sba
 	c.mu.Unlock()
+
+	if err != nil {
+		return nil, err
+	}
 
 	return sba, nil
 }
