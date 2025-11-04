@@ -26,6 +26,7 @@
 package server
 
 import (
+	"errors"
 	"log"
 	"log/slog"
 	"net"
@@ -42,6 +43,8 @@ import (
 )
 
 var dbCheckTime = time.Minute //nolint:gochecknoglobals
+
+var ErrNoTrees = errors.New("no tree dbs specified")
 
 // Start creates and start a new server after loading the trees given.
 func Start(listen string, d *db.DB, getUser func(*http.Request) string,
@@ -92,6 +95,8 @@ func addHandlesAndListen(b *backend.Server, listen net.Listener) error {
 func loadTrees(initialTrees []string, b *backend.Server) error {
 	if len(initialTrees) != 1 {
 		loadDBs(b, initialTrees)
+	} else if len(initialTrees) == 0 {
+		return ErrNoTrees
 	}
 
 	path := initialTrees[0]
@@ -127,7 +132,7 @@ func loadDB(b *backend.Server, db string) {
 	slog.Info("Loading Tree", "db", db)
 
 	if err := b.AddTree(db); err != nil {
-		slog.Error("Error loading db", "db", err)
+		slog.Error("Error loading db", "db", db, "err", err)
 	}
 }
 
