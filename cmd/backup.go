@@ -138,19 +138,12 @@ func checkEnvVarFlags(cmd *cobra.Command, envMap map[string]string) error {
 }
 
 func openTree(path string) (tree.Node, func(), error) {
-	f, err := os.Open(path)
+	f, size, err := openAndSize(path)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	stat, err := f.Stat()
-	if err != nil {
-		f.Close()
-
-		return nil, nil, err
-	}
-
-	data, err := unix.Mmap(int(f.Fd()), 0, int(stat.Size()), unix.PROT_READ, unix.MAP_SHARED)
+	data, err := unix.Mmap(int(f.Fd()), 0, size, unix.PROT_READ, unix.MAP_SHARED)
 	if err != nil {
 		f.Close()
 
@@ -170,4 +163,20 @@ func openTree(path string) (tree.Node, func(), error) {
 	}
 
 	return db, fn, nil
+}
+
+func openAndSize(path string) (*os.File, int, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	stat, err := f.Stat()
+	if err != nil {
+		f.Close()
+
+		return nil, 0, err
+	}
+
+	return f, int(stat.Size()), nil
 }
