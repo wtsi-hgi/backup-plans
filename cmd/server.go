@@ -78,9 +78,9 @@ to maintain password security.
 `,
 	PreRunE: func(cmd *cobra.Command, _ []string) error {
 		envMap := map[string]string{
-			"BACKUP_MYSQL_URL":    "plan",
-			"IBACKUP_SERVER_URL":  "ibackup",
-			"IBACKUP_SERVER_CERT": "cert",
+			"BACKUP_PLANS_CONNECTION": "plan",
+			"IBACKUP_SERVER_URL":      "ibackup",
+			"IBACKUP_SERVER_CERT":     "cert",
 		}
 
 		return checkEnvVarFlags(cmd, envMap)

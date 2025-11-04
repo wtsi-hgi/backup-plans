@@ -1,6 +1,7 @@
 package backups
 
 import (
+	"errors"
 	"path/filepath"
 	"strings"
 
@@ -84,13 +85,17 @@ func addFofnsToIBackup(client *server.Client, setFofns map[int64][]string,
 	dirs map[int64]*db.Directory) ([]SetInfo, error) {
 	backupSetInfos := make([]SetInfo, 0, len(setFofns))
 
+	var errs error
+
 	for dirID, fofns := range setFofns {
 		setInfo := dirs[dirID]
 		backupSetName := setNamePrefix + setInfo.Path
 
 		err := ibackup.Backup(client, backupSetName, setInfo.ClaimedBy, fofns, defaultFrequency)
 		if err != nil {
-			return nil, err
+			errs = errors.Join(errs, err)
+
+			continue
 		}
 
 		backupSetInfos = append(backupSetInfos, SetInfo{

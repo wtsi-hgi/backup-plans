@@ -381,7 +381,7 @@ func getRuleDetails(r *http.Request) (*db.Rule, error) { //nolint:funlen,gocyclo
 	rule.Match = r.FormValue("match")
 	if rule.Match == "" {
 		rule.Match = "*"
-	} else if strings.Contains(rule.Match, "/") {
+	} else if !validMatch(rule.Match) {
 		return nil, ErrInvalidMatch
 	}
 
@@ -395,6 +395,20 @@ func getRuleDetails(r *http.Request) (*db.Rule, error) { //nolint:funlen,gocyclo
 	}
 
 	return rule, nil
+}
+
+func validMatch(match string) bool {
+	for _, c := range match {
+		if c == '*' {
+			return true
+		}
+
+		if c == '/' {
+			return false
+		}
+	}
+
+	return true
 }
 
 // UpdateRule allows the claimant of a directory to update a rule for that

@@ -54,12 +54,21 @@ var tables = [...]string{
 		");",
 }
 
+var tableNames = [...]string{"directories", "rules"}
+
 const (
 	autoIncrement   = "/*! AUTO_INCREMENT -- */ AUTOINCREMENT\n/*! */"
 	virtStart       = "/*! UNHEX(SHA2(*/"
 	virtEnd         = "/*!, 0))*/"
 	hashColumnStart = "/*! VARBINARY(32) -- */ TEXT\n/* */GENERATED ALWAYS AS (" + virtStart
 	hashColumnEnd   = virtEnd + ") VIRTUAL /*! INVISIBLE */"
+
+	tableCheck = "SELECT " +
+		"COUNT(1) " +
+		"FROM /*! `information_schema`.`tables` -- */ `sqlite_master`\n/*! */ " +
+		"WHERE " +
+		"/*! `table_schema` = DATABASE() -- */ `type` = 'table'\n/*! */ AND " +
+		"/*! `table_name` -- */ `name`\n/*! */ = ?;"
 
 	createDirectory = "INSERT INTO `directories` (`directory`, `claimedBy`, `created`, `modified`) VALUES (?, ?, ?, ?);"
 	createRule      = "INSERT INTO `rules` " +

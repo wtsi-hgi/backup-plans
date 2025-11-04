@@ -34,6 +34,7 @@ import (
 	"github.com/wtsi-hgi/backup-plans/backups"
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/ibackup"
+	"golang.org/x/sys/unix"
 	"vimagination.zapto.org/tree"
 )
 
@@ -70,9 +71,9 @@ to maintain password security.
 `,
 	PreRunE: func(cmd *cobra.Command, _ []string) error {
 		envMap := map[string]string{
-			"BACKUP_MYSQL_URL":    "plan",
-			"IBACKUP_SERVER_URL":  "ibackup",
-			"IBACKUP_SERVER_CERT": "cert",
+			"BACKUP_PLANS_CONNECTION": "plan",
+			"IBACKUP_SERVER_URL":      "ibackup",
+			"IBACKUP_SERVER_CERT":     "cert",
 		}
 
 		return checkEnvVarFlags(cmd, envMap)
@@ -89,22 +90,22 @@ to maintain password security.
 		}
 		defer planDB.Close()
 
-		treeNode, err := tree.OpenFile(treeDB)
+		treeNode, dfn, err := openTree(treeDB)
 		if err != nil {
 			return fmt.Errorf("\n failed to open tree db: %w", err)
 		}
-		defer treeNode.Close()
+		defer dfn()
 
 		setInfos, err := backups.Backup(planDB, treeNode, client)
 		if err != nil {
-			return fmt.Errorf("\n failed to back up files: %w", err)
+			err = fmt.Errorf("\n failed to back up files: %w", err)
 		}
 
 		for _, setIn := range setInfos {
 			cliPrintf("ibackup set '%s' created for %s with %v files\n", setIn.BackupSetName, setIn.Requestor, setIn.FileCount)
 		}
 
-		return nil
+		return err
 	},
 }
 
@@ -122,7 +123,6 @@ func init() {
 		"Path to ibackup server certificate file")
 
 	backupCmd.MarkFlagRequired("tree") //nolint:errcheck
-	backupCmd.MarkFlagRequired("plan") //nolint:errcheck
 }
 
 func checkEnvVarFlags(cmd *cobra.Command, envMap map[string]string) error {
@@ -135,4 +135,48 @@ func checkEnvVarFlags(cmd *cobra.Command, envMap map[string]string) error {
 	}
 
 	return nil
+}
+
+func openTree(path string) (*tree.MemTree, func(), error) {
+	f, size, err := openAndSize(path)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	data, err := unix.Mmap(int(f.Fd()), 0, size, unix.PROT_READ, unix.MAP_SHARED)
+	if err != nil {
+		f.Close()
+
+		return nil, nil, err
+	}
+
+	fn := func() {
+		unix.Munmap(data) //nolint:errcheck
+		f.Close()
+	}
+
+	db, err := tree.OpenMem(data)
+	if err != nil {
+		fn()
+
+		return nil, nil, fmt.Errorf("error opening tree: %w", err)
+	}
+
+	return db, fn, nil
+}
+
+func openAndSize(path string) (*os.File, int, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	stat, err := f.Stat()
+	if err != nil {
+		f.Close()
+
+		return nil, 0, err
+	}
+
+	return f, int(stat.Size()), nil
 }

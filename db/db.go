@@ -88,7 +88,17 @@ func Init(connection string) (*DB, error) {
 }
 
 func (d *DB) initTables() error {
-	for _, table := range tables {
+	for n, table := range tables {
+		var exists int
+
+		if err := d.db.QueryRow(tableCheck, tableNames[n]).Scan(&exists); err != nil { //nolint:noctx
+			return err
+		}
+
+		if exists != 0 {
+			continue
+		}
+
 		if _, err := d.db.Exec(table); err != nil { //nolint:noctx
 			return err
 		}
