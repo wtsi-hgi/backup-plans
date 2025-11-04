@@ -150,7 +150,7 @@ func getTreePaths(path string) ([]string, error) {
 
 // timerLoop will, given a path to a directory, check for and load all new trees
 // in the directory.
-func timerLoop(path string, b *backend.Server, treePaths []string) { //nolint:gocognit
+func timerLoop(path string, b *backend.Server, treePaths []string) {
 	for {
 		time.Sleep(dbCheckTime)
 
