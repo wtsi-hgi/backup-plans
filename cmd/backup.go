@@ -137,7 +137,7 @@ func checkEnvVarFlags(cmd *cobra.Command, envMap map[string]string) error {
 	return nil
 }
 
-func openTree(path string) (tree.Node, func(), error) {
+func openTree(path string) (*tree.MemTree, func(), error) {
 	f, size, err := openAndSize(path)
 	if err != nil {
 		return nil, nil, err
