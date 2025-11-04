@@ -4,6 +4,7 @@ import (
 	"io"
 	"path/filepath"
 	"testing"
+	"time"
 
 	. "github.com/smartystreets/goconvey/convey" //nolint:staticcheck,revive
 	"github.com/wtsi-hgi/backup-plans/ibackup"
@@ -52,6 +53,8 @@ func NewTestIbackupServer(t *testing.T) (*server.Server, string, string, func() 
 	}
 
 	addr, dfn, err := gas.StartTestServer(s, certPath, keyPath)
+
+	time.Sleep(time.Second >> 1)
 
 	return s, addr, certPath, dfn, err
 }
