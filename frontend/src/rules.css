@@ -155,3 +155,64 @@ details.rule-section>summary:not(:has(button:hover)):hover::marker {
 select:has(option:checked[value="manualbackup"])~#metadataInput {
 	display: unset;
 }
+
+.fofn {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.fofn:after {
+	content: "Browse";
+	text-align: center;
+	display: inline-block;
+}
+
+button, .fofn:after, select {
+  background-color: #dce3eb; /* Light grey-blue background */
+  color: #222; /* Dark text */
+  padding: 3px 7px;
+  border: 1px solid #b0b8c1; /* Soft border for definition */
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+  margin: 3px;
+}
+
+button:hover, .fofn:hover:after, select:hover {
+  background-color: #c9d3de; /* Slightly darker on hover */
+  border-color: #a1aab4;
+}
+
+button:active, .fofn:active:after, select:active {
+  background-color: #b8c4d0;
+}
+
+button:disabled, .fofn:disabled:after, select:disabled {
+  background-color: #f0f0f0;
+  color: #888;
+  border-color: #ddd;
+  cursor: not-allowed;
+}
+
+.valid {
+    display: grid;
+    grid-template-columns: 1fr 1ch 1fr; 
+    column-gap: 0.5em; 
+    align-items: start;
+    padding: 2px 0;
+}
+
+.header-row {
+    border-bottom: 1px solid #ccc;
+	align-items: start;
+	font-weight: bold;
+}
+
+.c3-container {
+	display: flex;
+	flex-direction: column;
+	align-items: start;
+	gap: 2px;
+}

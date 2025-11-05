@@ -99,6 +99,10 @@ func (s *Server) summary(w http.ResponseWriter, _ *http.Request) error { //nolin
 			}
 
 			if rule.ID > 0 {
+				// check if rule backup
+				// if s.rules[rule.ID].BackupType == db.BackupNone {
+				// 	continue
+				// }
 				dir := s.directoryRules[s.dirs[uint64(s.rules[rule.ID].DirID())].Path] //nolint:gosec
 
 				dirClaims[dir.Path] = dir.ClaimedBy

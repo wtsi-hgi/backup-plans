@@ -28,6 +28,7 @@ package backend
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"path/filepath"
@@ -38,6 +39,13 @@ import (
 	"github.com/wtsi-hgi/backup-plans/ruletree"
 	"github.com/wtsi-hgi/backup-plans/users"
 )
+
+const maxFiles = 100
+
+var ErrTooManyFiles = Error{
+	Code: http.StatusBadRequest,
+	Err:  errors.New("too many files in FOFN"), //nolint:err113
+}
 
 // Summary is an HTTP endpoint that produces a backup summary of all the
 // directories that were passed as reporting roots to the New function.
@@ -56,6 +64,10 @@ func (s *Server) fofn(_ http.ResponseWriter, r *http.Request) error {
 	err = json.NewDecoder(r.Body).Decode(&files)
 	if err != nil {
 		return Error{Err: err, Code: http.StatusBadRequest}
+	}
+
+	if len(files) > maxFiles {
+		return ErrTooManyFiles
 	}
 
 	dir, err := getDir(r)

@@ -115,7 +115,13 @@ class ParentSummary extends Summary {
 				tbody(this.children.size ? Array.from(this.children.entries()).map(([path, child]) => tr([
 					td(child.claimedBy),
 					td("plan::" + path),
-					td(child.backupStatus ? new Date(child.backupStatus.LastSuccess).toLocaleString() : "-"),
+					td(
+						child.backupStatus 
+						// If status exists but is equal to zero time (ibackup broken) show pending
+						? new Date(child.backupStatus.LastSuccess).getTime() === new Date(1, 11, 31, 23, 58, 45).getTime()
+							? "Pending"
+							: new Date(child.backupStatus.LastSuccess).toLocaleString()
+						: "-"),
 					td(child.backupStatus?.Failures.toLocaleString() ?? "-")
 				])) : tr(td({ "colspan": "4" }, "No Backups")))
 			]),
@@ -164,12 +170,12 @@ class ChildSummary extends Summary {
 
 		const ruleTable = table({ "class": "summary" }, [
 			thead(tr([th("Match"), th("Action"), th("Files"), th("Size")])),
-			tbody(validRules.map(([match, rule]) => rule ? tr([
+			tbody(validRules.map(([match, rule]) => tr([
 				td(match),
 				td(action(rule.action)),
 				td(rule.count.toLocaleString()),
 				td({ "title": rule.size.toLocaleString() }, formatBytes(rule.size))
-			]) : []))
+			])))
 		])
 
 		tables.push(ruleTable);
