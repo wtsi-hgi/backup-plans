@@ -468,19 +468,23 @@ func (s *Server) updateRule(w http.ResponseWriter, r *http.Request) error { //no
 		return ErrNoRule
 	}
 
-	existingRule.BackupType = rule.BackupType
-	existingRule.Frequency = rule.Frequency
-	existingRule.Metadata = rule.Metadata
-	existingRule.RemoveDate = rule.RemoveDate
-	existingRule.ReviewDate = rule.ReviewDate
-
-	if err := s.rulesDB.UpdateRule(existingRule); err != nil {
+	if err := s.updateRuleTo(existingRule, rule); err != nil {
 		return err
 	}
 
 	w.WriteHeader(http.StatusNoContent)
 
 	return nil
+}
+
+func (s *Server) updateRuleTo(existingRule, rule *db.Rule) error {
+	existingRule.BackupType = rule.BackupType
+	existingRule.Frequency = rule.Frequency
+	existingRule.Metadata = rule.Metadata
+	existingRule.RemoveDate = rule.RemoveDate
+	existingRule.ReviewDate = rule.ReviewDate
+
+	return s.rulesDB.UpdateRule(existingRule)
 }
 
 // RemoveRule allows the claimant of a directory to remove a rule from that

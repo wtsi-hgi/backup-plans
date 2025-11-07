@@ -174,8 +174,8 @@ func TestFrontend(t *testing.T) {
 		err = client.TriggerDiscovery(exampleSet2.ID(), false)
 		So(err, ShouldBeNil)
 
-		_, dbPath := plandb.PopulateBigExamplePlanDB(t)
-		treeDB := plandb.ExampleTreeBig()
+		_, dbPath := plandb.FofnTestDB(t)
+		treeDB := plandb.FofnTestTree()
 
 		treePath := filepath.Join(t.TempDir(), "tree.db")
 

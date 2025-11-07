@@ -138,13 +138,6 @@ func (s *Server) validateClaimAndRule(user, dir, file string, uid uint32, groups
 		if got.ClaimedBy != user {
 			return ErrDirectoryClaimed
 		}
-
-		if got := got.Rules[filepath.Base(file)]; got != nil {
-			return Error{
-				Code: http.StatusNotAcceptable,
-				Err:  fmt.Errorf("rule already exists: %s", file), //nolint:err113
-			}
-		}
 	} else if !s.canClaim(dir, uid, groups) {
 		return ErrCannotClaimDirectory
 	}
@@ -173,17 +166,55 @@ func (s *Server) createRulesToAdd(user string, rule db.Rule, files []string) ([]
 		newRule := rule
 		newRule.Match = filepath.Base(file)
 
-		if err := s.addRuleToDir(dirRules, &newRule); err != nil {
-			return nil, err
-		}
+		if existingRule, ok := dirRules.Rules[newRule.Match]; ok {
+			if err := s.updateRuleTo(existingRule, &newRule); err != nil {
+				return nil, err
+			}
+		} else {
+			if err := s.addRuleToDir(dirRules, &newRule); err != nil {
+				return nil, err
+			}
 
-		// build rules slice
-		add := ruletree.DirRule{
-			Directory: dirRules.Directory,
-			Rule:      &newRule,
+			// build rules slice
+			add := ruletree.DirRule{
+				Directory: dirRules.Directory,
+				Rule:      &newRule,
+			}
+
+			rulesToAdd = append(rulesToAdd, add)
 		}
-		rulesToAdd = append(rulesToAdd, add)
 	}
 
 	return rulesToAdd, nil
 }
+
+// func (s *Server) RemoveRules(w http.ResponseWriter, r *http.Request) {
+// 	handle(w, r, s.removeRule)
+// }
+
+// func (s *Server) removeRules(w http.ResponseWriter, r *http.Request) error { //nolint:funlen
+// 	var files []string
+
+// 	err := json.NewDecoder(r.Body).Decode(&files)
+// 	if err != nil {
+// 		return Error{Err: err, Code: http.StatusBadRequest}
+// 	}
+
+// 	user := s.getUser(r)
+
+// 	var dirRules map[*db.Directory][]*db.Rule
+
+// 	for _, file := range files {
+// 		dir := filepath.Dir(file) + "/"
+// 		directory, ok := s.directoryRules[dir]
+// 		if !ok {
+// 			continue
+// 		}
+
+// 		if directory.ClaimedBy == user {
+
+// 		}
+// 	}
+
+// 	return nil
+// }

@@ -184,8 +184,8 @@ require (
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
 	nanomsg.org/go-mangos v1.4.0 // indirect
-	vimagination.zapto.org/httpencoding v1.1.2 // indirect
-	vimagination.zapto.org/httpwrap v1.0.1 // indirect
+	vimagination.zapto.org/httpencoding v1.1.3 // indirect
+	vimagination.zapto.org/httpwrap v1.0.2 // indirect
 	vimagination.zapto.org/javascript v1.5.3 // indirect
 	vimagination.zapto.org/jspacker v1.0.0 // indirect
 	vimagination.zapto.org/memfs v1.0.0 // indirect

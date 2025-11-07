@@ -63,7 +63,7 @@ type RootDir struct {
 	stateMachine   group.StateMachine[db.Rule]
 
 	mu      sync.RWMutex
-	closers map[string]func()
+	closers map[string]func() //mountpoint:
 }
 
 // DirRule is a combined Directory reference and Rule reference.
@@ -151,6 +151,15 @@ func (r *RootDir) RemoveRule(dir *db.Directory, rule *db.Rule) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
+	err := r.removeRule(dir, rule)
+	if err != nil {
+		return err
+	}
+
+	return r.regenRules(dir.Path)
+}
+
+func (r *RootDir) removeRule(dir *db.Directory, rule *db.Rule) error {
 	existingDir, ok := r.directoryRules[dir.Path]
 	if !ok {
 		return ErrNotFound
@@ -162,8 +171,21 @@ func (r *RootDir) RemoveRule(dir *db.Directory, rule *db.Rule) error {
 
 	delete(existingDir.Rules, rule.Match)
 
-	return r.regenRules(dir.Path)
+	return nil
 }
+
+// func (r *RootDir) RemoveRules(dirRules map[*db.Directory][]*db.Rule) error {
+// 	// call regen rules on the most parent path
+// 	// for each dir, check if it is a prefix of the stored most parent path
+// 	// if it is, then update the most parent path
+
+// 	// something todo with checking the dir is not a mount point?
+
+// 	for dir,rules := range dirRules {
+// 		if r.GetOwner(dir) ==
+// 	}
+// 	return nil
+// }
 
 func (r *RootDir) regenRules(dir string) error {
 	t := &r.topLevelDir

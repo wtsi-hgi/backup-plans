@@ -122,17 +122,9 @@ func TestFofn(t *testing.T) {
 			)
 			So(resp, ShouldEqual, "")
 			So(code, ShouldEqual, http.StatusNoContent)
-
-			code, resp = getResponse(
-				s.Fofn,
-				"/test?action=backup&frequency=7&review=0&remove=0&dir=/some/path/MyDir/",
-				strings.NewReader(`["/some/path/MyDir/a.txt"]`),
-			)
-			So(code, ShouldEqual, http.StatusNotAcceptable)
-			So(resp, ShouldEqual, "rule already exists: /some/path/MyDir/a.txt\n")
 		})
 
-		Convey("You can upload a fofn", func() {
+		Convey("You can upload a fofn to add rules..", func() {
 			u = userHandler(user.Username)
 			_, resp := getResponse(
 				s.Fofn,
@@ -141,25 +133,48 @@ func TestFofn(t *testing.T) {
 			)
 			So(resp, ShouldEqual, "")
 
-			code, resp := getResponse(
+			_, resp = getResponse(
 				s.Fofn,
 				"/test?action=backup&frequency=7&review=0&remove=0&dir=/some/path/ChildDir/",
 				strings.NewReader(`["/some/path/ChildDir/a.txt","/some/path/ChildDir/Child/a.file"]`),
 			)
 			So(resp, ShouldEqual, "")
-			So(code, ShouldEqual, http.StatusNoContent)
 
-			Convey("And the corresponding rules are generated", func() {
-				re := regexp.MustCompile("[0-9]{5,}")
+			// Check tree correctly updates
+			re := regexp.MustCompile("[0-9]{5,}")
 
-				code, resp := getResponse(s.Tree, "/?dir=/some/path/MyDir/", nil)
+			code, resp := getResponse(s.Tree, "/?dir=/some/path/ChildDir/", nil)
+			So(code, ShouldEqual, http.StatusOK)
+			So(re.ReplaceAllString(resp, "0"), ShouldEqual, "{\"RuleSummaries\":[{\"ID\":4,\"Users\":[{\"Name\":\""+user.Username+"\",\"MTime\":36,\"Files\":1,\"Size\":35}],\"Groups\":[{\"Name\":\"bin\",\"MTime\":36,\"Files\":1,\"Size\":35}]},{\"ID\":5,\"Users\":[{\"Name\":\""+user.Username+"\",\"MTime\":36,\"Files\":1,\"Size\":35}],\"Groups\":[{\"Name\":\"bin\",\"MTime\":36,\"Files\":1,\"Size\":35}]}],\"Children\":{\"Child/\":{\"ClaimedBy\":\"\",\"RuleSummaries\":[{\"ID\":4,\"Users\":[{\"Name\":\""+user.Username+"\",\"MTime\":36,\"Files\":1,\"Size\":35}],\"Groups\":[{\"Name\":\"bin\",\"MTime\":36,\"Files\":1,\"Size\":35}]}],\"Children\":{}}},\"ClaimedBy\":\""+user.Username+"\",\"Rules\":{\"/some/path/ChildDir/\":{\"5\":{\"BackupType\":1,\"Metadata\":\"\",\"ReviewDate\":0,\"RemoveDate\":0,\"Match\":\"a.txt\",\"Frequency\":7,\"Created\":0,\"Modified\":0}},\"/some/path/ChildDir/Child/\":{\"4\":{\"BackupType\":1,\"Metadata\":\"\",\"ReviewDate\":0,\"RemoveDate\":0,\"Match\":\"a.file\",\"Frequency\":7,\"Created\":0,\"Modified\":0}}},\"Unauthorised\":[],\"CanClaim\":true}\n") //nolint:lll
+
+			Convey("You can upload a fofn to update rules: ", func() {
+				_, resp = getResponse(
+					s.Fofn,
+					"/test?action=backup&frequency=1&review=0&remove=0&dir=/some/path/MyDir/",
+					strings.NewReader(`["/some/path/MyDir/a.txt"]`),
+				)
+				So(resp, ShouldEqual, "")
+
+				// Check tree correctly updates
+				code, resp = getResponse(s.Tree, "/?dir=/some/path/MyDir/", nil)
 				So(code, ShouldEqual, http.StatusOK)
-				So(re.ReplaceAllString(resp, "0"), ShouldEqual, `{"RuleSummaries":[{"ID":1,"Users":[{"Name":"root","MTime":4,"Files":1,"Size":3}],"Groups":[{"Name":"bin","MTime":4,"Files":1,"Size":3}]},{"ID":2,"Users":[{"Name":"`+user.Username+`","MTime":6,"Files":1,"Size":5}],"Groups":[{"Name":"bin","MTime":6,"Files":1,"Size":5}]}],"Children":{},"ClaimedBy":"`+user.Username+`","Rules":{"/some/path/MyDir/":{"1":{"BackupType":1,"Metadata":"","ReviewDate":0,"RemoveDate":0,"Match":"a.txt","Frequency":7,"Created":0,"Modified":0},"2":{"BackupType":1,"Metadata":"","ReviewDate":0,"RemoveDate":0,"Match":"b.csv","Frequency":7,"Created":0,"Modified":0},"3":{"BackupType":1,"Metadata":"","ReviewDate":0,"RemoveDate":0,"Match":"c.txt","Frequency":7,"Created":0,"Modified":0}}},"Unauthorised":[],"CanClaim":true}`+"\n") //nolint:lll
-
-				code, resp = getResponse(s.Tree, "/?dir=/some/path/ChildDir/", nil)
-				So(code, ShouldEqual, http.StatusOK)
-				So(re.ReplaceAllString(resp, "0"), ShouldEqual, "{\"RuleSummaries\":[{\"ID\":4,\"Users\":[{\"Name\":\""+user.Username+"\",\"MTime\":36,\"Files\":1,\"Size\":35}],\"Groups\":[{\"Name\":\"bin\",\"MTime\":36,\"Files\":1,\"Size\":35}]},{\"ID\":5,\"Users\":[{\"Name\":\""+user.Username+"\",\"MTime\":36,\"Files\":1,\"Size\":35}],\"Groups\":[{\"Name\":\"bin\",\"MTime\":36,\"Files\":1,\"Size\":35}]}],\"Children\":{\"Child/\":{\"ClaimedBy\":\"\",\"RuleSummaries\":[{\"ID\":4,\"Users\":[{\"Name\":\""+user.Username+"\",\"MTime\":36,\"Files\":1,\"Size\":35}],\"Groups\":[{\"Name\":\"bin\",\"MTime\":36,\"Files\":1,\"Size\":35}]}],\"Children\":{}}},\"ClaimedBy\":\""+user.Username+"\",\"Rules\":{\"/some/path/ChildDir/\":{\"5\":{\"BackupType\":1,\"Metadata\":\"\",\"ReviewDate\":0,\"RemoveDate\":0,\"Match\":\"a.txt\",\"Frequency\":7,\"Created\":0,\"Modified\":0}},\"/some/path/ChildDir/Child/\":{\"4\":{\"BackupType\":1,\"Metadata\":\"\",\"ReviewDate\":0,\"RemoveDate\":0,\"Match\":\"a.file\",\"Frequency\":7,\"Created\":0,\"Modified\":0}}},\"Unauthorised\":[],\"CanClaim\":true}\n") //nolint:lll
+				So(re.ReplaceAllString(resp, "0"), ShouldEqual, `{"RuleSummaries":[{"ID":1,"Users":[{"Name":"root","MTime":4,"Files":1,"Size":3}],"Groups":[{"Name":"bin","MTime":4,"Files":1,"Size":3}]},{"ID":2,"Users":[{"Name":"`+user.Username+`","MTime":6,"Files":1,"Size":5}],"Groups":[{"Name":"bin","MTime":6,"Files":1,"Size":5}]}],"Children":{},"ClaimedBy":"`+user.Username+`","Rules":{"/some/path/MyDir/":{"1":{"BackupType":1,"Metadata":"","ReviewDate":0,"RemoveDate":0,"Match":"a.txt","Frequency":1,"Created":0,"Modified":0},"2":{"BackupType":1,"Metadata":"","ReviewDate":0,"RemoveDate":0,"Match":"b.csv","Frequency":7,"Created":0,"Modified":0},"3":{"BackupType":1,"Metadata":"","ReviewDate":0,"RemoveDate":0,"Match":"c.txt","Frequency":7,"Created":0,"Modified":0}}},"Unauthorised":[],"CanClaim":true}`+"\n") //nolint:lll
 			})
+
+			// Convey("And delete them ", func() {
+			// 	code, resp = getResponse(
+			// 		s.FofnDelete,
+			// 		"/test?dir=/some/path/MyDir/",
+			// 		strings.NewReader(`["/some/path/MyDir/a.txt"]`),
+			// 	)
+			// 	So(resp, ShouldEqual, "")
+			// 	So(code, ShouldEqual, http.StatusOK)
+
+			// 	// Check tree correctly updates
+			// 	code, resp := getResponse(s.Tree, "/?dir=/some/path/MyDir/", nil)
+			// 	So(code, ShouldEqual, http.StatusOK)
+			// 	So(re.ReplaceAllString(resp, "0"), ShouldEqual, "test") // TODO: fill in tree string
+			// })
 		})
 	})
 }

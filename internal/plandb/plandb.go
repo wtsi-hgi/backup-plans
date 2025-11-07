@@ -217,5 +217,49 @@ func ExampleTreeBig() *directories.Root {
 	directories.AddFile(&tree.Directory, "scratch123/humgen/a/b/newdir/testextradir/test.txt", 2, 1, 6, 12346) //nolint:mnd
 	directories.AddFile(&tree.Directory, "scratch123/humgen/a/c/newdir/testextradir/test.txt", 2, 1, 6, 12346) //nolint:mnd
 
+	tree.AddDirectory("scratch123").AddDirectory("humgen").AddDirectory("a").AddDirectory("d").SetMeta(0, 0, 0)
+
 	return tree
+}
+
+func FofnTestDB(t *testing.T) (*db.DB, string) { //nolint:ireturn,nolintlint
+	t.Helper()
+
+	testDB, connectionStr := CreateTestDatabase(t)
+
+	// dirA := &db.Directory{
+	// 	Path: "/lustre/scratch123/humgen/a/b/",
+	// }
+	// dirB := &db.Directory{
+	// 	Path: "/lustre/scratch123/humgen/a/c/",
+	// }
+	// dirC := &db.Directory{
+	// 	Path: "/lustre/scratch123/humgen/testdir",
+	// }
+
+	// So(testDB.CreateDirectory(dirA), ShouldBeNil)
+	// So(testDB.CreateDirectory(dirB), ShouldBeNil)
+	// So(testDB.CreateDirectory(dirC), ShouldBeNil)
+
+	return testDB, connectionStr
+}
+
+func FofnTestTree() *directories.Root {
+	dirRoot := directories.NewRoot("/lustre/", 12345)                //nolint:mnd
+	humgen := dirRoot.SetMeta(99, 98, 1).AddDirectory("scratch123"). //nolint:mnd
+										SetMeta(1, 1, 98765).AddDirectory("humgen").SetMeta(1, 1, 98765) //nolint:mnd
+
+	humgen.AddDirectory("a").SetMeta(0, 98, 1).AddDirectory("b").SetMeta(0, 1, 98765). //nolint:mnd
+												AddDirectory("testdir").SetMeta(0, 1, 12349).     //nolint:mnd
+												AddDirectory("testdirchild").SetMeta(0, 1, 12349) //nolint:mnd
+	directories.AddFile(&dirRoot.Directory, "scratch123/humgen/a/b/1.jpg", 1, 1, 9, 98766)            //nolint:mnd
+	directories.AddFile(&dirRoot.Directory, "scratch123/humgen/a/b/2.jpg", 1, 2, 8, 98767)            //nolint:mnd
+	directories.AddFile(&dirRoot.Directory, "scratch123/humgen/a/b/3.txt", 1, 2, 8, 98767)            //nolint:mnd
+	directories.AddFile(&dirRoot.Directory, "scratch123/humgen/a/b/temp.jpg", 1, 2, 8, 98767)         //nolint:mnd
+	directories.AddFile(&dirRoot.Directory, "scratch123/humgen/a/b/testdir/test.txt", 2, 1, 6, 12346) //nolint:mnd
+
+	humgen.AddDirectory("a").AddDirectory("c").SetMeta(0, 1, 12349)                        //nolint:mnd
+	directories.AddFile(&dirRoot.Directory, "scratch123/humgen/a/c/4.txt", 2, 1, 6, 12346) //nolint:mnd
+
+	return dirRoot
 }

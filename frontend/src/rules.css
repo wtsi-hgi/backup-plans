@@ -216,3 +216,11 @@ button:disabled, .fofn:disabled:after, select:disabled {
 	align-items: start;
 	gap: 2px;
 }
+
+.overwrite {
+	color: red;
+}
+
+.claim {
+	color: green;
+}
