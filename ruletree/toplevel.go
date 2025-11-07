@@ -174,19 +174,6 @@ func (r *RootDir) removeRule(dir *db.Directory, rule *db.Rule) error {
 	return nil
 }
 
-// func (r *RootDir) RemoveRules(dirRules map[*db.Directory][]*db.Rule) error {
-// 	// call regen rules on the most parent path
-// 	// for each dir, check if it is a prefix of the stored most parent path
-// 	// if it is, then update the most parent path
-
-// 	// something todo with checking the dir is not a mount point?
-
-// 	for dir,rules := range dirRules {
-// 		if r.GetOwner(dir) ==
-// 	}
-// 	return nil
-// }
-
 func (r *RootDir) regenRules(dir string) error {
 	t := &r.topLevelDir
 	pos := 1

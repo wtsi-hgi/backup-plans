@@ -1,13 +1,14 @@
 import type { DirectoryWithChildren, Rule } from "./types.js"
 import { clearNode } from "./lib/dom.js";
-import { br, button, dialog, div, form, h2, html, input, label, option, p, select, span, table, tbody, td, th, thead, tr } from './lib/html.js';
-import { linearGradient, svg, title, use } from './lib/svg.js';
-import { action, confirm, formatBytes, setAndReturn, stringSort } from "./lib/utils.js";
+import { br, button, dialog, div, form, h2, h3, input, label, option, p, select, span, table, tbody, td, th, thead, tr } from './lib/html.js';
+import { svg, title, use } from './lib/svg.js';
+import { action, confirm, formatBytes, setAndReturn } from "./lib/utils.js";
 import { createRule, getTree, removeRule, updateRule, uploadFOFN, user } from "./rpc.js";
 import { BackupIBackup, BackupManual, BackupNone } from "./types.js"
 
 const addEditOverlay = (path: string, rule: Rule, load: (path: string) => void) => {
-	let validTable: fofnTable | null = null;
+	let validTable: FofnTable | null = null;
+
 	const backupType = select({ "id": "backupType" }, [
 		option({ "value": "backup", [rule.BackupType === BackupIBackup ? "selected" : "unselected"]: "" }, "Backup"),
 		option({ "value": "manualbackup", [rule.BackupType === BackupManual ? "selected" : "unselected"]: "" }, "Manual Backup"),
@@ -18,18 +19,25 @@ const addEditOverlay = (path: string, rule: Rule, load: (path: string) => void) 
 		fofn = input({"id": "fofn", "type": "file", "style": "display: none", "change": () => {
 			const fr = new FileReader();
 			
-			match.toggleAttribute("hidden", true);
+			match.remove();
+			matchLabel.remove();
+			or.remove();
 			evalFOFN(fr, fofnSection, path).then(vt => validTable = vt)
 
 			fr.readAsText(fofn.files![0]);
 		}}),
 		match = input({ "id": "match", "type": "text", "value": rule.Match, [rule.Match ? "disabled" : "enabled"]: "" }),
 		matchLabel = label({ "for": "match" }, "Match"),
+		or = div({"style": "text-align: center"}, "or"),
+		fofnLabel = label({"for": "fofn", "class": "fofn"}, "Upload FOFN"),
 		metadata = input({ "id": "metadata", "type": "text", "value": rule.Metadata }),
 		metadataSection = div({ "id": "metadataInput" }, [
 			label({ "for": "metadata" }, "Metadata"),
 			metadata,
 			br(),
+		]),
+		matchFofnSection = div({ "id": "matchfofn"}, [
+			matchLabel, match,or, fofnLabel, button({"type": "button", "click": () => fofn.click()}, "Browse"), fofn, br(),
 		]),
 		fofnSection = div(),
 		overlay = document.body.appendChild(dialog({ "id": "addEdit", "closedby": "any", "close": () => overlay.remove() }, form({
@@ -43,20 +51,20 @@ const addEditOverlay = (path: string, rule: Rule, load: (path: string) => void) 
 				fofn.toggleAttribute("disabled", true);
 
 				if (validTable) {
-					uploadFOFN(path, backupType.value, metadata.value, validTable.files) // TODO: i dont think path is right here
+					uploadFOFN(path, backupType.value, metadata.value, validTable.files)
 					.then(() => {
 						load(path);
 						overlay.remove();
 					})
 					.catch((e: Error) => {
-					overlay.setAttribute("closedby", "any");
-					
-					set.removeAttribute("disabled");
-					cancel.removeAttribute("disabled");
-					backupType.removeAttribute("disabled");
-					fofn.removeAttribute("disabled");
-					alert("Error: " + e.message);
+						overlay.setAttribute("closedby", "any");
+						set.removeAttribute("disabled");
+						cancel.removeAttribute("disabled");
+						backupType.removeAttribute("disabled");
+						fofn.removeAttribute("disabled");
+						alert("Error: " + e.message);
 					});
+
 					return;
 				}
 
@@ -75,8 +83,7 @@ const addEditOverlay = (path: string, rule: Rule, load: (path: string) => void) 
 				});
 			}
 		}, [
-			matchLabel, match, br(),
-			label({"for": "fofn", "class": "fofn"}, "FOFN"), fofn, br(),
+			matchFofnSection,
 			label({ "for": "backupType" }, "Backup Type"), backupType, br(),
 			metadataSection,
 			fofnSection,
@@ -132,28 +139,21 @@ export default Object.assign(base, {
 	}
 });
 
-function evalFOFN(fr: FileReader, fofnSection : HTMLElement, dir : string): Promise<fofnTable> {
+function evalFOFN(fr: FileReader, fofnSection : HTMLElement, dir : string): Promise<FofnTable> {
 	return new Promise((resolve, reject) => {
 		fr.onload = () => {
 			if (fr.result === null) {
 				reject(new Error("FOFN file is empty"));
+
 				return;
 			}
 
-			// Initialise HTML elements
-			const title = document.createElement('h2');
-			title.textContent = 'Uploading FOFN files:';
-			const validLines = document.createDocumentFragment();
-			const invalidLines = document.createDocumentFragment();
-			const invalidHeader = document.createElement('h3');
-			invalidHeader.textContent = 'Invalid filepaths:';
-
-			const validTable = new fofnTable(validLines, 'To Claim:', 'Rules:');
-			const invalidTable = new fofnTable(invalidLines, 'Reason:', 'Lines:');
+			const validTable = new FofnTable();
+			const invalidTable = new FofnTable();
 
 			// Parse lines
 			const lines = (fr.result as string).trim().split('\n');
-			let count = 0; // Track total valid files
+
 			const seen = new Set<string>(); // Track duplicates
 
 			const fofn = new Map<string, string[]>();
@@ -162,54 +162,58 @@ function evalFOFN(fr: FileReader, fofnSection : HTMLElement, dir : string): Prom
 				// Filter out comments
 				if (line.includes('#')) {
 					const index = line.indexOf('#');
+
 					line = line.substring(0, index).trim();
-				};
+				}
 
 				// Filter empty lines
 				if (line === "") {
 					continue;
-				};
+				}
 
 				// Check errors
 				if (seen.has(line)) {
 					invalidTable.addLine("Duplicate ", line);
+
 					continue;
-				};
+				}
+
 				seen.add(line);
 
 				// Filter out wildcards
 				if (line.includes('*')) {
 					invalidTable.addLine("Filename cannot contain * ", line);
+					
 					continue;
-				};
+				}
 
 				// Check dir exists within current dir
 				if (!line.startsWith(dir)) {
 					invalidTable.addLine("Outside of current dir ", line);
+
 					continue;
 				}
 
 				const dirToClaim = line.substring(0, line.lastIndexOf("/") + 1);
+
 				(fofn.get(dirToClaim) ?? setAndReturn(fofn, dirToClaim, [])).push(line.substring(line.lastIndexOf("/")+1));
 			}
-
-
 
 			const ps: Promise<void>[] = [];
 			for (const [dir, rules] of fofn.entries()) {
 				ps.push(getTree(dir).then(data => {
 					let toClaim = false;
-					if (data.ClaimedBy == user) {
-						
-					} else if (data.CanClaim) {
-						toClaim = true;
-					} else {
-						invalidTable.addLine("Cannot claim directory ", dir)
-						return
-					}
-					const s = new Set<string>(Array.from(Object.values(data.Rules[dir] ?? [])).map(r => r.Match));
+					if (data.ClaimedBy !== user) {
+						if (data.CanClaim) {
+							toClaim = true;
+						} else {
+							invalidTable.addLine("Cannot claim directory ", dir);
 
-					console.log(s)
+							return
+						}
+					}
+					
+					const s = new Set<string>(Array.from(Object.values(data.Rules[dir] ?? [])).map(r => r.Match));
 
 					for (const filename of rules) {
 						validTable.addLine(dir, filename, toClaim, s.has(filename));
@@ -222,129 +226,68 @@ function evalFOFN(fr: FileReader, fofnSection : HTMLElement, dir : string): Prom
 			}
 
 			Promise.all(ps).then(() => {
-				if (validTable.fileCount > 100) {
-					// Enforce file limit	
-					const p = document.createElement("p");
-					p.style.color = 'red';
-					p.textContent = 'Number of files cannot exceed 100.';	
-
-					clearNode(fofnSection, p);
+				if (validTable.files.length > 100) {
+					clearNode(fofnSection, div({"class": "tooManyFiles"}, 'Number of files cannot exceed 100.'));
 					reject();
 
-					return
+					return;
 				}
-				clearNode(fofnSection, [title, validLines, invalidHeader, invalidLines])
-				resolve(validTable);
-			})
 
-		};
+				const title = h2({"style": "float: left"}, 'Rules from FOFN:');
+				const invalidHeader = h3('Invalid filepaths:');
+
+				const key = div({"id": "fofnKey"}, [
+					div("Will claim directory"),
+					div("Will overwrite rule")
+				]);
+
+				clearNode(fofnSection, [title, key, validTable.createTable("Directory", "Match"), invalidHeader, invalidTable.createTable("Reason", "Line")]);
+				resolve(validTable);
+			});
+		}
 	})
 };
 
-interface RowData {
-    element: HTMLParagraphElement;
-	valuesContainer: HTMLDivElement;
-    values: string[];
+type value = {
+	value: string;
+	overwrite: boolean;
 }
 
-class fofnTable {
-	fragment: DocumentFragment;
-	existsMap: Map<string, RowData>;
-	files: string[];
-	fileCount = 0;
+type rowData = {
+	values: value[];
+	claim: boolean;
+}
 
-	constructor(fragment: DocumentFragment, keyHeader: string, valHeader: string) {
-		this.fragment = fragment;
-		this.existsMap = new Map();
-		this.files = [];
+class FofnTable {
+	files: string[] = [];
+	rows = new Map<string, rowData>();
 
-		const header = p();
-		header.classList.add('valid', 'header-row');
-		header.append(span(keyHeader),span(),span(valHeader));
-		this.fragment.appendChild(header);
-	}
+	createTable(keyHeader: string, valueHeader: string): HTMLTableElement {
+		const rows: HTMLElement[] = [];
 
-	addLine(key: string, value: string, toClaim: boolean = false, overwrite: boolean = false) {
-		this.fileCount++;
-
-		if (this.existsMap.has(key)) {
-			const rowData = this.existsMap.get(key)!;
-			rowData.values.push(value);
-			const val = span(value);
-			if (overwrite) {
-				val.classList.add('overwrite')
-			}
-			rowData.valuesContainer.appendChild(val);
-			this.files.push(key + value);
-
-            return;
+		for (const [key, z] of this.rows.entries()) {
+			rows.push(tr([
+				td({"class": z.claim ? "claim" : ""}, key),
+				td(z.values.map(v => div({"class": v.overwrite ? "overwrite" : ""}, v.value)))
+			]));
 		}
 
+		return table({}, [
+			thead(tr([
+				th(keyHeader),
+				th(valueHeader)
+			])),
+			tbody(rows)
+		])
+	}
+
+	addLine(key: string, value: string, claim: boolean = false, overwrite: boolean = false) {
+		const row = this.rows.get(key) ?? setAndReturn(this.rows, key, {values: [], claim: false});
 		
-		const keyCol = span(key);
-		if (toClaim) {
-			keyCol.classList.add('claim');
-		}
-		const rightColumn = span(value);
-		if (overwrite) {
-			rightColumn.classList.add('overwrite')
-		}
-		const seperator = span(':');
-		const rightColContainer = div();
-		rightColContainer.classList.add('c3-container');
-		rightColContainer.appendChild(rightColumn);
+		row.values.push({value, overwrite});
+		row.claim ||= claim;
 
-		const row = p();
-		row.append(keyCol, seperator, rightColContainer);
-		row.classList.add('valid');
-
-		this.existsMap.set(key,{
-			element: row,
-			valuesContainer: rightColContainer,
-			values: [value]
-		});
-
-		this.files.push(key + value);
-		this.fragment.appendChild(row);
+		this.files.push(key+value);
+		
 	}
 }
-
-// interface RowData {
-// 	row: HTMLTableRowElement;
-// 	valuesCell: HTMLTableCellElement;
-// 	values: string[];
-// }
-
-// class FofnTable {
-// 	table: HTMLTableElement;
-// 	files: string[];
-// 	rows: Map<string, RowData>;
-	
-// 	constructor(fragment: DocumentFragment, keyHeader: string, valueHeader: string) {
-// 		this.table = this.createTable(keyHeader, valueHeader);
-// 		fragment.appendChild(this.table);
-// 	}
-
-// 	createTable(keyHeader : string, valueHeader : string): HTMLTableElement {
-// 		return table({}, [
-// 			thead(tr([
-// 				th(keyHeader),
-// 				td(),
-// 				th(valueHeader)
-// 			])),
-// 			tbody([
-// 				tr([
-// 					td(), // keys?
-// 					td(':'),
-// 					td() // values?
-// 				])
-// 			])
-// 		])
-// 	}
-
-// 	addLine(key: string, value: string, claim: boolean = false, overwrite: boolean = false) {
-// 		if (this.rows.has(key)) {
-
-// 		}
-
-// 	}

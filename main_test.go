@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"os/signal"
 	"path/filepath"
 	"testing"
 
@@ -13,8 +12,6 @@ import (
 	ibackup_test "github.com/wtsi-hgi/backup-plans/internal/ibackup"
 	"github.com/wtsi-hgi/backup-plans/internal/plandb"
 	"github.com/wtsi-hgi/backup-plans/internal/testirods"
-	"github.com/wtsi-hgi/ibackup/set"
-	"vimagination.zapto.org/tree"
 )
 
 const app = "backup-plans"
@@ -131,95 +128,4 @@ func buildSelf() (string, func(), error) {
 	}
 
 	return tmpDir, func() { os.Remove(app) }, nil
-}
-
-func TestFrontend(t *testing.T) {
-	frontendPort := os.Getenv("BACKUP_PLANS_TEST_FRONTEND")
-	if frontendPort == "" {
-		SkipConvey("Frontend", t, func() {})
-
-		return
-	}
-
-	Convey("Frontend", t, func() {
-		_, addr, certPath, dfn, err := ibackup_test.NewTestIbackupServer(t)
-		So(err, ShouldBeNil)
-
-		Reset(func() { dfn() })
-
-		client, err := ibackup.Connect(addr, certPath)
-		So(err, ShouldBeNil)
-
-		exampleSet := &set.Set{
-			Name:        "plan::/lustre/scratch123/humgen/a/c/",
-			Requester:   "userB",
-			Transformer: "humgen",
-		}
-
-		err = client.AddOrUpdateSet(exampleSet)
-		So(err, ShouldBeNil)
-
-		exampleSet2 := &set.Set{
-			Name:        "plan::/lustre/scratch123/humgen/a/c/newdir/",
-			Requester:   "userC",
-			Transformer: "humgen",
-		}
-
-		err = client.AddOrUpdateSet(exampleSet2)
-		So(err, ShouldBeNil)
-
-		err = client.TriggerDiscovery(exampleSet.ID(), false)
-		So(err, ShouldBeNil)
-
-		err = client.TriggerDiscovery(exampleSet2.ID(), false)
-		So(err, ShouldBeNil)
-
-		_, dbPath := plandb.FofnTestDB(t)
-		treeDB := plandb.FofnTestTree()
-
-		treePath := filepath.Join(t.TempDir(), "tree.db")
-
-		f, err := os.Create(treePath)
-		So(err, ShouldBeNil)
-
-		err = tree.Serialise(f, treeDB)
-		So(err, ShouldBeNil)
-
-		err = f.Close()
-		So(err, ShouldBeNil)
-
-		cwd, err := os.Getwd()
-		So(err, ShouldBeNil)
-
-		cmd := exec.Command( //nolint:noctx
-			appExe, "server", "--plan",
-			dbPath, "--ibackup", addr, "--cert", certPath,
-			"--report", "/lustre/scratch123/humgen/a/b/",
-			"--report", "/lustre/scratch123/humgen/a/c/",
-			"--report", "/lustre/scratch123/humgen/a/d/",
-			"--listen", frontendPort, treePath)
-
-		cmd.Dir = filepath.Join(cwd, "frontend")
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-
-		So(cmd.Start(), ShouldBeNil)
-
-		c := make(chan os.Signal, 1)
-		d := make(chan struct{}, 1)
-
-		signal.Notify(c, os.Interrupt)
-
-		go func() {
-			select {
-			case <-d:
-			case <-c:
-				cmd.Process.Kill() //
-			}
-		}()
-
-		So(cmd.Wait(), ShouldBeNil)
-
-		close(d)
-	})
 }

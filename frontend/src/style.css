@@ -319,6 +319,20 @@ use {
 		--action-ibackup-text: #fff;
 		--action-manual-bg: #ffee58;
 		--action-manual-text: #000;
+
+		--claimcolour: #080;
+		--overwritecolour: #e00;
+
+		--button-border: #b0b8c1;
+		--button-background: #dce3eb;
+		--button-background-hover: #c9d3de;
+		--button-border-hover: #a1aab4;
+		--button-background-active: #b8c4d0;
+		--button-background-disabled: #f0f0f0;
+		--button-border-disabled: #ddd;
+		--button-colour-disabled: #888;
+
+		--button-colour-addEdit: #222;
 	}
 }
 
@@ -367,5 +381,19 @@ use {
 		--action-ibackup-text: #000;
 		--action-manual-bg: #ffee58;
 		--action-manual-text: #000;
+
+		--claimcolour: #0d0;
+		--overwritecolour: #f00;
+
+		--button-border: #b0b8c1;
+		--button-background: #dce3eb;
+		--button-background-hover: #c9d3de;
+		--button-border-hover: #a1aab4;
+		--button-background-active: #b8c4d0;
+		--button-background-disabled: #f0f0f0;
+		--button-border-disabled: #ddd;
+		--button-colour-disabled: #888;
+
+		--button-colour-addEdit: #222;
 	}
 }

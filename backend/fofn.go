@@ -116,13 +116,6 @@ func (s *Server) validateFofn(user, dir string, files []string) error {
 
 		prev = file
 
-		if !strings.HasPrefix(file, dir) {
-			return Error{
-				Code: http.StatusBadRequest,
-				Err:  fmt.Errorf("invalid filepath: %s", file), //nolint:err113
-			}
-		}
-
 		if err := s.validateClaimAndRule(user, dir, file, uid, groups); err != nil {
 			return err
 		}
@@ -134,11 +127,22 @@ func (s *Server) validateFofn(user, dir string, files []string) error {
 func (s *Server) validateClaimAndRule(user, dir, file string, uid uint32, groups []uint32) error {
 	fileDir := filepath.Dir(file) + "/"
 
+	if !strings.HasPrefix(file, dir) {
+		return Error{
+			Code: http.StatusBadRequest,
+			Err:  fmt.Errorf("invalid filepath: %s", file), //nolint:err113
+		}
+	}
+
+	if strings.Contains(file, "*") {
+		return ErrInvalidMatch
+	}
+
 	if got := s.directoryRules[fileDir]; got != nil { //nolint:nestif
 		if got.ClaimedBy != user {
 			return ErrDirectoryClaimed
 		}
-	} else if !s.canClaim(dir, uid, groups) {
+	} else if !s.canClaim(fileDir, uid, groups) {
 		return ErrCannotClaimDirectory
 	}
 
@@ -150,71 +154,62 @@ func (s *Server) createRulesToAdd(user string, rule db.Rule, files []string) ([]
 
 	// add rules
 	for _, file := range files {
-		// claim dir add
-		fileDir := filepath.Dir(file) + "/"
-		dirRules := s.directoryRules[fileDir]
-
-		if dirRules == nil {
-			if err := s.claimDirectory(fileDir, user); err != nil {
-				return nil, err
-			}
-
-			dirRules = s.directoryRules[fileDir]
+		// claim dir
+		dirRules, err := s.claimAndCreateDirRules(file, user)
+		if err != nil {
+			return nil, err
 		}
 
 		// add rule
-		newRule := rule
-		newRule.Match = filepath.Base(file)
+		add, err := s.createRuleToAdd(file, rule, dirRules)
+		if err != nil {
+			return nil, err
+		}
 
-		if existingRule, ok := dirRules.Rules[newRule.Match]; ok {
-			if err := s.updateRuleTo(existingRule, &newRule); err != nil {
-				return nil, err
-			}
-		} else {
-			if err := s.addRuleToDir(dirRules, &newRule); err != nil {
-				return nil, err
-			}
-
-			// build rules slice
-			add := ruletree.DirRule{
-				Directory: dirRules.Directory,
-				Rule:      &newRule,
-			}
-
-			rulesToAdd = append(rulesToAdd, add)
+		if add != nil {
+			rulesToAdd = append(rulesToAdd, *add)
 		}
 	}
 
 	return rulesToAdd, nil
 }
 
-// func (s *Server) RemoveRules(w http.ResponseWriter, r *http.Request) {
-// 	handle(w, r, s.removeRule)
-// }
+func (s *Server) claimAndCreateDirRules(file, user string) (*ruletree.DirRules, error) {
+	fileDir := filepath.Dir(file) + "/"
+	dirRules := s.directoryRules[fileDir]
 
-// func (s *Server) removeRules(w http.ResponseWriter, r *http.Request) error { //nolint:funlen
-// 	var files []string
+	if dirRules == nil {
+		if err := s.claimDirectory(fileDir, user); err != nil {
+			return nil, err
+		}
 
-// 	err := json.NewDecoder(r.Body).Decode(&files)
-// 	if err != nil {
-// 		return Error{Err: err, Code: http.StatusBadRequest}
-// 	}
+		dirRules = s.directoryRules[fileDir]
+	}
 
-// 	user := s.getUser(r)
+	return dirRules, nil
+}
 
-// 	var dirRules map[*db.Directory][]*db.Rule
+func (s *Server) createRuleToAdd(file string, rule db.Rule, dirRules *ruletree.DirRules) (*ruletree.DirRule, error) {
+	newRule := rule
+	newRule.Match = filepath.Base(file)
 
-// 	for _, file := range files {
-// 		dir := filepath.Dir(file) + "/"
-// 		directory, ok := s.directoryRules[dir]
-// 		if !ok {
-// 			continue
-// 		}
+	if existingRule, ok := dirRules.Rules[newRule.Match]; ok {
+		if err := s.updateRuleTo(existingRule, &newRule); err != nil {
+			return nil, err
+		}
 
-// 		if directory.ClaimedBy == user {
+		return nil, nil //nolint:nilnil
+	}
 
-// 		}
-// 	}
+	if err := s.addRuleToDir(dirRules, &newRule); err != nil {
+		return nil, err
+	}
 
-// 	return nil
-// }
+	// build rules slice
+	add := ruletree.DirRule{
+		Directory: dirRules.Directory,
+		Rule:      &newRule,
+	}
+
+	return &add, nil
+}

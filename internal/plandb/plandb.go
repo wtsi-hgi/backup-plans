@@ -227,39 +227,19 @@ func FofnTestDB(t *testing.T) (*db.DB, string) { //nolint:ireturn,nolintlint
 
 	testDB, connectionStr := CreateTestDatabase(t)
 
-	// dirA := &db.Directory{
-	// 	Path: "/lustre/scratch123/humgen/a/b/",
-	// }
-	// dirB := &db.Directory{
-	// 	Path: "/lustre/scratch123/humgen/a/c/",
-	// }
-	// dirC := &db.Directory{
-	// 	Path: "/lustre/scratch123/humgen/testdir",
-	// }
-
-	// So(testDB.CreateDirectory(dirA), ShouldBeNil)
-	// So(testDB.CreateDirectory(dirB), ShouldBeNil)
-	// So(testDB.CreateDirectory(dirC), ShouldBeNil)
-
 	return testDB, connectionStr
 }
 
 func FofnTestTree() *directories.Root {
-	dirRoot := directories.NewRoot("/lustre/", 12345)                //nolint:mnd
+	dirRoot := ExampleTree()
 	humgen := dirRoot.SetMeta(99, 98, 1).AddDirectory("scratch123"). //nolint:mnd
 										SetMeta(1, 1, 98765).AddDirectory("humgen").SetMeta(1, 1, 98765) //nolint:mnd
 
 	humgen.AddDirectory("a").SetMeta(0, 98, 1).AddDirectory("b").SetMeta(0, 1, 98765). //nolint:mnd
 												AddDirectory("testdir").SetMeta(0, 1, 12349).     //nolint:mnd
 												AddDirectory("testdirchild").SetMeta(0, 1, 12349) //nolint:mnd
-	directories.AddFile(&dirRoot.Directory, "scratch123/humgen/a/b/1.jpg", 1, 1, 9, 98766)            //nolint:mnd
-	directories.AddFile(&dirRoot.Directory, "scratch123/humgen/a/b/2.jpg", 1, 2, 8, 98767)            //nolint:mnd
-	directories.AddFile(&dirRoot.Directory, "scratch123/humgen/a/b/3.txt", 1, 2, 8, 98767)            //nolint:mnd
-	directories.AddFile(&dirRoot.Directory, "scratch123/humgen/a/b/temp.jpg", 1, 2, 8, 98767)         //nolint:mnd
-	directories.AddFile(&dirRoot.Directory, "scratch123/humgen/a/b/testdir/test.txt", 2, 1, 6, 12346) //nolint:mnd
 
-	humgen.AddDirectory("a").AddDirectory("c").SetMeta(0, 1, 12349)                        //nolint:mnd
-	directories.AddFile(&dirRoot.Directory, "scratch123/humgen/a/c/4.txt", 2, 1, 6, 12346) //nolint:mnd
+	humgen.AddDirectory("a").AddDirectory("c").SetMeta(0, 1, 12349) //nolint:mnd
 
 	return dirRoot
 }

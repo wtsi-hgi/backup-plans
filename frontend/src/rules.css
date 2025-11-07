@@ -156,71 +156,108 @@ select:has(option:checked[value="manualbackup"])~#metadataInput {
 	display: unset;
 }
 
-.fofn {
-	display: inline-flex;
-	align-items: center;
-	gap: 6px;
+#addEdit span + label {
+	width: auto;
 }
 
-.fofn:after {
-	content: "Browse";
-	text-align: center;
-	display: inline-block;
+#addEdit select {
+	margin: 3px 0;
 }
 
-button, .fofn:after, select {
-  background-color: #dce3eb; /* Light grey-blue background */
-  color: #222; /* Dark text */
+#addEdit button, #addEdit select {
+  background-color: var(--button-background);
+  color: var(--button-colour-addEdit);
   padding: 3px 7px;
-  border: 1px solid #b0b8c1; /* Soft border for definition */
+  border: 1px solid var(--button-border);
   border-radius: 6px;
   cursor: pointer;
   font-size: 16px;
-  transition: background-color 0.3s ease, border-color 0.3s ease;
-  margin: 3px;
 }
 
-button:hover, .fofn:hover:after, select:hover {
-  background-color: #c9d3de; /* Slightly darker on hover */
-  border-color: #a1aab4;
+#addEdit button {
+	margin-right: 3px;
 }
 
-button:active, .fofn:active:after, select:active {
-  background-color: #b8c4d0;
+#addEdit button:hover, #addEdit select:hover {
+  background-color: var(--button-background-hover);
+  border-color: var(--button-border-hover);
+}
+
+#addEdit button:active, .fofn:active:after, select:active {
+  background-color: var(--button-background-active);
 }
 
 button:disabled, .fofn:disabled:after, select:disabled {
-  background-color: #f0f0f0;
-  color: #888;
-  border-color: #ddd;
+  background-color: var(--button-background-disabled);
+  color: var(--button-colour-disabled);
+  border-color: var(--button-border-disabled);
   cursor: not-allowed;
 }
 
-.valid {
-    display: grid;
-    grid-template-columns: 1fr 1ch 1fr; 
-    column-gap: 0.5em; 
-    align-items: start;
-    padding: 2px 0;
-}
-
-.header-row {
-    border-bottom: 1px solid #ccc;
-	align-items: start;
-	font-weight: bold;
-}
-
-.c3-container {
-	display: flex;
-	flex-direction: column;
-	align-items: start;
-	gap: 2px;
-}
-
 .overwrite {
-	color: red;
+	color: var(--overwritecolour);
 }
 
 .claim {
-	color: green;
+	color: var(--claimcolour);
+}
+
+.matchFofn {
+    display: inline-flex;
+}
+
+#addEdit {
+	background: var(--background);
+	color: var(--color);
+}
+
+#addEdit td {
+	vertical-align: top;
+	width: 50%;
+	padding-top: 1em;
+}
+
+#addEdit td:first-child, #addEdit th:first-child {
+	border-right: 1px solid var(--subtleBorder);
+}
+
+#addEdit table {
+	width: 100%;
+	border-collapse: separate;
+	border-spacing: 0;
+}
+
+#addEdit thead th {
+	border-bottom: 1px solid var(--subtleBorder); 
+	text-align: left;
+}
+
+#addEdit th:last-child, #addEdit td:last-child {
+	padding-left: 1em;
+}
+
+.tooManyFiles {
+	color: var(--overwritecolour);
+}
+
+#fofnKey div {
+	text-align: right;
+}
+
+#fofnKey div:after {
+	content: "";
+	display: inline-block;
+	width: 0.8em;
+	height: 0.8em;
+	border: 1px solid currentColor;
+	margin-left: 0.5em;
+	margin-bottom: -0.1em;
+}
+
+#fofnKey div:first-child:after {
+	background-color: var(--claimcolour);
+}
+
+#fofnKey div:last-child:after {
+	background-color: var(--overwritecolour);
 }
