@@ -118,7 +118,7 @@ class ParentSummary extends Summary {
 					td(
 						child.backupStatus 
 						// If status exists but is equal to zero time (ibackup broken) show pending
-						? new Date(child.backupStatus.LastSuccess).getTime() === new Date(1, 11, 31, 23, 58, 45).getTime()
+						? +new Date(child.backupStatus.LastSuccess) <= 0
 							? "Pending"
 							: new Date(child.backupStatus.LastSuccess).toLocaleString()
 						: "-"),
