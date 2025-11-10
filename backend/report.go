@@ -99,10 +99,6 @@ func (s *Server) summary(w http.ResponseWriter, _ *http.Request) error { //nolin
 			}
 
 			if rule.ID > 0 {
-				// check if rule backup
-				// if s.rules[rule.ID].BackupType == db.BackupNone {
-				// 	continue
-				// }
 				dir := s.directoryRules[s.dirs[uint64(s.rules[rule.ID].DirID())].Path] //nolint:gosec
 
 				dirClaims[dir.Path] = dir.ClaimedBy
@@ -110,7 +106,8 @@ func (s *Server) summary(w http.ResponseWriter, _ *http.Request) error { //nolin
 					var ruleIDs []uint64
 
 					for _, r := range dir.Rules {
-						ruleIDs = append(ruleIDs, uint64(r.ID())) //nolint:gosec
+						ruleIDs = append(ruleIDs, uint64(r.ID()))                  //nolint:gosec
+						dirSummary.Rules[uint64(r.ID())] = s.rules[uint64(r.ID())] //nolint:gosec
 					}
 
 					slices.Sort(ruleIDs)
@@ -118,8 +115,6 @@ func (s *Server) summary(w http.ResponseWriter, _ *http.Request) error { //nolin
 					dirSummary.Directories[dir.Path] = ruleIDs
 				}
 			}
-
-			dirSummary.Rules[rule.ID] = s.rules[rule.ID]
 		}
 	}
 
