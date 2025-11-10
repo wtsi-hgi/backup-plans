@@ -79,7 +79,7 @@ class ParentSummary extends Summary {
 			lastBackupActivity = Math.max(now - backupTime),
 			dt = lastBackupActivity - lastActivity,
 			childrenWithBackups = Array.from(this.children.entries())
-				.filter(([path, _]) => summaryData.Directories[path]?.some(rid => summaryData.Rules[rid].BackupType !== BackupNone));
+				.filter(([path]) => summaryData.Directories[path]?.some(rid => summaryData.Rules[rid].BackupType !== BackupNone));
 
 		return fieldset({
 			"data-status": ((this.actions[BackupNone]?.count ?? 0n) !== this.count) ? dt < secondsInWeek ? "g" : dt < secondsInWeek * 3 ? "a" : "r" : "b",

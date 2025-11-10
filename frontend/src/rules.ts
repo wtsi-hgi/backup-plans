@@ -6,7 +6,7 @@ import { action, confirm, formatBytes, setAndReturn } from "./lib/utils.js";
 import { createRule, getTree, removeRule, updateRule, uploadFOFN, user } from "./rpc.js";
 import { BackupIBackup, BackupManual, BackupNone } from "./types.js"
 
-const addEditOverlay = (path: string, rule: Rule, load: (path: string) => void) => {
+const addEditOverlay = (path: string, rule: Rule, load: (path: string) => void, isFOFN = false) => {
 	let validTable: FofnTable | null = null;
 
 	const backupType = select({ "id": "backupType" }, [
@@ -20,16 +20,13 @@ const addEditOverlay = (path: string, rule: Rule, load: (path: string) => void) 
 			const fr = new FileReader();
 			
 			match.remove();
-			matchLabel.remove();
 			or.remove();
 			evalFOFN(fr, fofnSection, path).then(vt => validTable = vt)
 
 			fr.readAsText(fofn.files![0]);
 		}}),
 		match = input({ "id": "match", "type": "text", "value": rule.Match, [rule.Match ? "disabled" : "enabled"]: "" }),
-		matchLabel = label({ "for": "match" }, "Match"),
 		or = div({"style": "text-align: center"}, "or"),
-		fofnLabel = label({"for": "fofn", "class": "fofn"}, "Upload FOFN"),
 		metadata = input({ "id": "metadata", "type": "text", "value": rule.Metadata }),
 		metadataSection = div({ "id": "metadataInput" }, [
 			label({ "for": "metadata" }, "Metadata"),
@@ -37,7 +34,15 @@ const addEditOverlay = (path: string, rule: Rule, load: (path: string) => void) 
 			br(),
 		]),
 		matchFofnSection = div({ "id": "matchfofn"}, [
-			matchLabel, match,or, fofnLabel, button({"type": "button", "click": () => fofn.click()}, "Browse"), fofn, br(),
+			isFOFN ? [
+				label({"for": "fofn", "class": "fofn"}, "Upload FOFN"),
+				button({"type": "button", "click": () => fofn.click()}, "Browse"),
+				fofn
+			] : [
+				label({ "for": "match" }, "Match"),
+				match
+			],
+			br()
 		]),
 		fofnSection = div(),
 		overlay = document.body.appendChild(dialog({ "id": "addEdit", "closedby": "any", "close": () => overlay.remove() }, form({
@@ -103,15 +108,25 @@ const addEditOverlay = (path: string, rule: Rule, load: (path: string) => void) 
 			"Frequency": 7
 		}, load),
 	}, "Add Rule"),
+	addFOFN = (path: string, load: (path: string) => void) => button({
+		"click": () => addEditOverlay(path, {
+			"BackupType": BackupIBackup,
+			"Metadata": "",
+			"ReviewDate": 0,
+			"RemoveDate": 0,
+			"Match": "",
+			"Frequency": 7
+		}, load, true),
+	}, "Add FOFN"),
 	base = div();
 
 export default Object.assign(base, {
 	"update": (path: string, data: DirectoryWithChildren, load: (path: string) => void) => {
 		clearNode(base, [
 			data.claimedBy ? h2("Rules on this directory") : [],
-			data.claimedBy && data.claimedBy == user && !data.rules[path]?.length ? addRule(path, load) : [],
+			data.claimedBy && data.claimedBy == user && !data.rules[path]?.length ? [addRule(path, load), addFOFN(path, load)] : [],
 			data.claimedBy && data.rules[path]?.length ? table({ "id": "rules", "class": "summary" }, [
-				thead(tr([th("Match"), th("Action"), th("Files"), th("Size"), data.claimedBy === user ? td(addRule(path, load)) : []])),
+				thead(tr([th("Match"), th("Action"), th("Files"), th("Size"), data.claimedBy === user ? td([addRule(path, load), addFOFN(path, load)]) : []])),
 				tbody(Object.values(data.rules[path] ?? []).map(rule => tr([
 					td(rule.Match),
 					td(action(rule.BackupType)),

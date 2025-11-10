@@ -174,8 +174,8 @@ select:has(option:checked[value="manualbackup"])~#metadataInput {
   font-size: 16px;
 }
 
-#addEdit button {
-	margin-right: 3px;
+button + button {
+	margin-left: 3px;
 }
 
 #addEdit button:hover, #addEdit select:hover {
@@ -200,10 +200,6 @@ button:disabled, .fofn:disabled:after, select:disabled {
 
 .claim {
 	color: var(--claimcolour);
-}
-
-.matchFofn {
-    display: inline-flex;
 }
 
 #addEdit {
