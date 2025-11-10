@@ -1,6 +1,6 @@
 import type { DirectoryWithChildren, Rule } from "./types.js"
 import { clearNode } from "./lib/dom.js";
-import { br, button, dialog, div, form, h2, h3, input, label, option, p, select, span, table, tbody, td, th, thead, tr } from './lib/html.js';
+import { br, button, dialog, div, form, h2, h3, input, label, option, p, select, span, table, tbody, td, textarea, th, thead, tr } from './lib/html.js';
 import { svg, title, use } from './lib/svg.js';
 import { action, confirm, formatBytes, setAndReturn } from "./lib/utils.js";
 import { createRule, getTree, removeRule, updateRule, uploadFOFN, user } from "./rpc.js";
@@ -18,15 +18,12 @@ const addEditOverlay = (path: string, rule: Rule, load: (path: string) => void, 
 		cancel = button({ "type": "button", "click": () => overlay.close() }, "Cancel"),
 		fofn = input({"id": "fofn", "type": "file", "style": "display: none", "change": () => {
 			const fr = new FileReader();
-			
-			match.remove();
-			or.remove();
-			evalFOFN(fr, fofnSection, path).then(vt => validTable = vt)
+
+			evalFOFN(fr, fofnSection, path).then(vt => validTable = vt);
 
 			fr.readAsText(fofn.files![0]);
 		}}),
 		match = input({ "id": "match", "type": "text", "value": rule.Match, [rule.Match ? "disabled" : "enabled"]: "" }),
-		or = div({"style": "text-align: center"}, "or"),
 		metadata = input({ "id": "metadata", "type": "text", "value": rule.Metadata }),
 		metadataSection = div({ "id": "metadataInput" }, [
 			label({ "for": "metadata" }, "Metadata"),
@@ -35,9 +32,28 @@ const addEditOverlay = (path: string, rule: Rule, load: (path: string) => void, 
 		]),
 		matchFofnSection = div({ "id": "matchfofn"}, [
 			isFOFN ? [
-				label({"for": "fofn", "class": "fofn"}, "Upload FOFN"),
-				button({"type": "button", "click": () => fofn.click()}, "Browse"),
-				fofn
+				label({"for": "fofn"}, "Add FOFN"),
+				button({"type": "button", "click": () => fofn.click()}, "Upload file"),
+				fofn,
+				" or ",
+				button({"type": "button", "click": () => {
+					const contents = textarea(),
+					pasteOverlay = document.body.appendChild(dialog(
+						{ "closedby": "any", "id": "fofnPaste", "close": () => pasteOverlay.remove()},
+						[
+							contents,
+							br(),
+							button({"type": "button", "click": () => {
+								new Promise<FofnTable>((resolve, reject) => parseFofn(contents.value, path, fofnSection, resolve, reject))
+								.then(vt => validTable = vt)
+								.finally(() => pasteOverlay.close())
+							}}, "Add"),
+							button({"type": "button", "click": () => pasteOverlay.close()}, "Cancel")
+						]
+					));
+					
+					pasteOverlay.showModal();
+				}}, "Paste as plain text"),
 			] : [
 				label({ "for": "match" }, "Match"),
 				match
@@ -55,8 +71,8 @@ const addEditOverlay = (path: string, rule: Rule, load: (path: string) => void, 
 				backupType.toggleAttribute("disabled", true);
 				fofn.toggleAttribute("disabled", true);
 
-				if (validTable) {
-					uploadFOFN(path, backupType.value, metadata.value, validTable.files)
+				if (isFOFN) {
+					(validTable ? uploadFOFN(path, backupType.value, metadata.value, validTable.files) : Promise.reject({"message": "No FOFN selected"}))
 					.then(() => {
 						load(path);
 						overlay.remove();
@@ -163,104 +179,108 @@ function evalFOFN(fr: FileReader, fofnSection : HTMLElement, dir : string): Prom
 				return;
 			}
 
-			const validTable = new FofnTable();
-			const invalidTable = new FofnTable();
-
-			// Parse lines
-			const lines = (fr.result as string).trim().split('\n');
-
-			const seen = new Set<string>(); // Track duplicates
-
-			const fofn = new Map<string, string[]>();
-
-			for (let line of lines) {
-				// Filter out comments
-				if (line.includes('#')) {
-					const index = line.indexOf('#');
-
-					line = line.substring(0, index).trim();
-				}
-
-				// Filter empty lines
-				if (line === "") {
-					continue;
-				}
-
-				// Check errors
-				if (seen.has(line)) {
-					invalidTable.addLine("Duplicate ", line);
-
-					continue;
-				}
-
-				seen.add(line);
-
-				// Filter out wildcards
-				if (line.includes('*')) {
-					invalidTable.addLine("Filename cannot contain * ", line);
-					
-					continue;
-				}
-
-				// Check dir exists within current dir
-				if (!line.startsWith(dir)) {
-					invalidTable.addLine("Outside of current dir ", line);
-
-					continue;
-				}
-
-				const dirToClaim = line.substring(0, line.lastIndexOf("/") + 1);
-
-				(fofn.get(dirToClaim) ?? setAndReturn(fofn, dirToClaim, [])).push(line.substring(line.lastIndexOf("/")+1));
-			}
-
-			const ps: Promise<void>[] = [];
-			for (const [dir, rules] of fofn.entries()) {
-				ps.push(getTree(dir).then(data => {
-					let toClaim = false;
-					if (data.ClaimedBy !== user) {
-						if (data.CanClaim) {
-							toClaim = true;
-						} else {
-							invalidTable.addLine("Cannot claim directory ", dir);
-
-							return
-						}
-					}
-					
-					const s = new Set<string>(Array.from(Object.values(data.Rules[dir] ?? [])).map(r => r.Match));
-
-					for (const filename of rules) {
-						validTable.addLine(dir, filename, toClaim, s.has(filename));
-					}
-				}).catch(() => {
-					for (const filename of rules) {
-						invalidTable.addLine("Unable to access directory ", dir+filename);
-					}
-				}))
-			}
-
-			Promise.all(ps).then(() => {
-				if (validTable.files.length > 100) {
-					clearNode(fofnSection, div({"class": "tooManyFiles"}, 'Number of files cannot exceed 100.'));
-					reject();
-
-					return;
-				}
-
-				const title = h2({"style": "float: left"}, 'Rules from FOFN:');
-				const invalidHeader = h3('Invalid filepaths:');
-
-				const key = div({"id": "fofnKey"}, [
-					div("Will claim directory"),
-					div("Will overwrite rule")
-				]);
-
-				clearNode(fofnSection, [title, key, validTable.createTable("Directory", "Match"), invalidHeader, invalidTable.createTable("Reason", "Line")]);
-				resolve(validTable);
-			});
+			return parseFofn(fr.result as string, dir, fofnSection, resolve, reject)
 		}
-	})
+	});
+}
+
+function parseFofn(result: string, dir: string, fofnSection: HTMLElement, resolve: (v: FofnTable) => void, reject: () => void) {
+	const validTable = new FofnTable();
+	const invalidTable = new FofnTable();
+
+	// Parse lines
+	const lines = result.trim().split('\n');
+
+	const seen = new Set<string>(); // Track duplicates
+
+	const fofn = new Map<string, string[]>();
+
+	for (let line of lines) {
+		// Filter out comments
+		if (line.includes('#')) {
+			const index = line.indexOf('#');
+
+			line = line.substring(0, index).trim();
+		}
+
+		// Filter empty lines
+		if (line === "") {
+			continue;
+		}
+
+		// Check errors
+		if (seen.has(line)) {
+			invalidTable.addLine("Duplicate ", line);
+
+			continue;
+		}
+
+		seen.add(line);
+
+		// Filter out wildcards
+		if (line.includes('*')) {
+			invalidTable.addLine("Filename cannot contain * ", line);
+			
+			continue;
+		}
+
+		// Check dir exists within current dir
+		if (!line.startsWith(dir)) {
+			invalidTable.addLine("Outside of current dir ", line);
+
+			continue;
+		}
+
+		const dirToClaim = line.substring(0, line.lastIndexOf("/") + 1);
+
+		(fofn.get(dirToClaim) ?? setAndReturn(fofn, dirToClaim, [])).push(line.substring(line.lastIndexOf("/")+1));
+	}
+
+	const ps: Promise<void>[] = [];
+	for (const [dir, rules] of fofn.entries()) {
+		ps.push(getTree(dir).then(data => {
+			let toClaim = false;
+			if (data.ClaimedBy !== user) {
+				if (data.CanClaim) {
+					toClaim = true;
+				} else {
+					invalidTable.addLine("Cannot claim directory ", dir);
+
+					return
+				}
+			}
+			
+			const s = new Set<string>(Array.from(Object.values(data.Rules[dir] ?? [])).map(r => r.Match));
+
+			for (const filename of rules) {
+				validTable.addLine(dir, filename, toClaim, s.has(filename));
+			}
+		}).catch(() => {
+			for (const filename of rules) {
+				invalidTable.addLine("Unable to access directory ", dir+filename);
+			}
+		}))
+	}
+
+	Promise.all(ps).then(() => {
+		if (validTable.files.length > 100) {
+			clearNode(fofnSection, div({"class": "tooManyFiles"}, 'Number of files cannot exceed 100.'));
+			reject();
+
+			return;
+		}
+
+		const title = h2({"style": "float: left"}, 'Rules from FOFN:');
+		const invalidHeader = h3('Invalid filepaths:');
+
+		const key = div({"id": "fofnKey"}, [
+			div("Will claim directory"),
+			div("Will overwrite rule")
+		]);
+
+		clearNode(fofnSection, [title, key, validTable.createTable("Directory", "Match"), invalidHeader, invalidTable.createTable("Reason", "Line")]);
+		resolve(validTable);
+	});
 };
 
 type value = {

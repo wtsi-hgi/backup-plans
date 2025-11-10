@@ -164,7 +164,7 @@ select:has(option:checked[value="manualbackup"])~#metadataInput {
 	margin: 3px 0;
 }
 
-#addEdit button, #addEdit select {
+#addEdit button, #fofnPaste button, #addEdit select {
   background-color: var(--button-background);
   color: var(--button-colour-addEdit);
   padding: 3px 7px;
@@ -183,11 +183,11 @@ button + button {
   border-color: var(--button-border-hover);
 }
 
-#addEdit button:active, .fofn:active:after, select:active {
+#addEdit button:active, #fofnPaste button:active, select:active {
   background-color: var(--button-background-active);
 }
 
-button:disabled, .fofn:disabled:after, select:disabled {
+button:disabled, select:disabled {
   background-color: var(--button-background-disabled);
   color: var(--button-colour-disabled);
   border-color: var(--button-border-disabled);
@@ -256,4 +256,20 @@ button:disabled, .fofn:disabled:after, select:disabled {
 
 #fofnKey div:last-child:after {
 	background-color: var(--overwritecolour);
+}
+
+#fofnPaste {
+	background-color: var(--background);
+}
+
+#fofnPaste textarea {
+	height: 200px;
+	background-color: var(--background);
+	color: var(--colour);
+	border: 3px solid var(--subtleBorder);
+}
+
+dialog {
+	border-radius: 0.7em;
+	border-color: var(--subtleBorder);
 }
