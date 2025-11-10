@@ -63,7 +63,7 @@ type RootDir struct {
 	stateMachine   group.StateMachine[db.Rule]
 
 	mu      sync.RWMutex
-	closers map[string]func() //mountpoint:
+	closers map[string]func()
 }
 
 // DirRule is a combined Directory reference and Rule reference.
@@ -99,6 +99,7 @@ func NewRoot(rules []DirRule) (*RootDir, error) {
 	return r, nil
 }
 
+// AddRules adds the given rules and regenerates the tree from the top path.
 func (r *RootDir) AddRules(topPath string, dirRules []DirRule) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()

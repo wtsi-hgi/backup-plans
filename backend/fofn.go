@@ -47,8 +47,8 @@ var ErrTooManyFiles = Error{
 	Err:  errors.New("too many files in FOFN"), //nolint:err113
 }
 
-// Summary is an HTTP endpoint that produces a backup summary of all the
-// directories that were passed as reporting roots to the New function.
+// Fofn takes a FOFN in the request body and adds a corresponding rule for each
+// valid path.
 func (s *Server) Fofn(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.fofn)
 }
