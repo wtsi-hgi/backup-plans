@@ -197,7 +197,6 @@ func TestReport(t *testing.T) {
 						},
 					},
 					Rules: map[uint64]*db.Rule{
-						0: nil,
 						1: copyRule(rules[0]),
 						2: copyRule(rules[1]),
 						3: copyRule(rules[2]),

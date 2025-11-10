@@ -101,7 +101,7 @@ func TestClaimDir(t *testing.T) {
 				u = root
 
 				code, resp = getResponse(s.RevokeDirClaim, "/api/dir/revoke?dir=/some/path/MyDir/", nil)
-				So(code, ShouldEqual, http.StatusOK)
+				So(code, ShouldEqual, http.StatusNoContent)
 				So(resp, ShouldEqual, "")
 
 				code, resp = getResponse(s.RevokeDirClaim, "/api/dir/revoke?dir=/some/path/MyDir/", nil)
@@ -143,7 +143,7 @@ func TestClaimDir(t *testing.T) {
 					"/api/dir/pass?dir=/some/path/MyDir/&passTo="+user.Username,
 					nil,
 				)
-				So(code, ShouldEqual, http.StatusOK)
+				So(code, ShouldEqual, http.StatusNoContent)
 				So(resp, ShouldEqual, "")
 
 				code, resp = getResponse(

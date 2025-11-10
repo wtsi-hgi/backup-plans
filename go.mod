@@ -18,7 +18,7 @@ require (
 	golang.org/x/sys v0.37.0
 	modernc.org/sqlite v1.39.1
 	vimagination.zapto.org/byteio v1.2.2
-	vimagination.zapto.org/httpbuffer v1.1.3
+	vimagination.zapto.org/httpbuffer v1.1.4
 	vimagination.zapto.org/httpembed v1.4.1
 	vimagination.zapto.org/tree v1.3.3
 	vimagination.zapto.org/tsserver v1.0.16

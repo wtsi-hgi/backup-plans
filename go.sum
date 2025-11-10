@@ -672,8 +672,8 @@ nanomsg.org/go-mangos v1.4.0/go.mod h1:MOor8xUIgwsRMPpLr9xQxe7bT7rciibScOqVyztNx
 nullprogram.com/x/optparse v1.0.0/go.mod h1:KdyPE+Igbe0jQUrVfMqDMeJQIJZEuyV7pjYmp6pbG50=
 vimagination.zapto.org/byteio v1.2.2 h1:S1VLYvH/i+BMrskxo0Nwa50y3f46UNzTp8KHu+1WswI=
 vimagination.zapto.org/byteio v1.2.2/go.mod h1:PvkDI/R/f6NXQWabWbOzaRxxeK7hdOTKGcgS8hBIiWw=
-vimagination.zapto.org/httpbuffer v1.1.3 h1:zoyRmKA8RqxrAXUOvWh6VctE8iAWkHC3Wsgs9AVYIoQ=
-vimagination.zapto.org/httpbuffer v1.1.3/go.mod h1:9fqSQiOj7vkizDrNDI8Ws6By82rDlSeW/Muesf29Eeo=
+vimagination.zapto.org/httpbuffer v1.1.4 h1:f4IAM1Rim14j4Luve70mAtm6iWupMoMun68Ez91+9jE=
+vimagination.zapto.org/httpbuffer v1.1.4/go.mod h1:9fqSQiOj7vkizDrNDI8Ws6By82rDlSeW/Muesf29Eeo=
 vimagination.zapto.org/httpembed v1.4.1 h1:dmZ3fcYxzMmLC4Lpw8GKM3nQTK4u70VCntpbfadg2Hw=
 vimagination.zapto.org/httpembed v1.4.1/go.mod h1:hCiEAdA0eabVFCiupL8E0/ZkS974ZBbjSxG01O1Ipdg=
 vimagination.zapto.org/httpencoding v1.1.3 h1:dKEht8jZzsKwy8PJuecPfTh+OT4SsJpcdBKR7+NTXcA=
