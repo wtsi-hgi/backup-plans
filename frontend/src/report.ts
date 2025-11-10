@@ -1,11 +1,11 @@
-import type { BackupStatus, BackupType, ClaimedDir, DirectoryWithChildren, Rule, SizeCount, SizeCountTime, Stats } from "./types.js";
+import type { BackupStatus, BackupType, ClaimedDir, DirectoryWithChildren, ReportSummary, Rule, SizeCount, SizeCountTime, Stats } from "./types.js";
 import type { Children } from "./lib/dom.js";
 import { amendNode } from "./lib/dom.js";
 import { a, br, button, details, div, fieldset, h1, h2, input, label, legend, li, summary, table, tbody, td, th, thead, tr, ul } from "./lib/html.js";
 import { svg, title, use } from "./lib/svg.js";
 import { action, formatBytes, longAgo, secondsInWeek, setAndReturn } from "./lib/utils.js";
 import { getReportSummary } from "./rpc.js";
-import { BackupIBackup, BackupNone } from "./types.js";
+import { BackupIBackup, BackupNone, BackupWarn } from "./types.js";
 import { render } from "./disktree.js";
 
 
@@ -77,13 +77,15 @@ class ParentSummary extends Summary {
 			backupTime = this.actions[BackupIBackup]?.mtime ?? 0,
 			lastActivity = Math.max(now - this.lastestMTime, 0),
 			lastBackupActivity = Math.max(now - backupTime),
-			dt = lastBackupActivity - lastActivity;
+			dt = lastBackupActivity - lastActivity,
+			childrenWithBackups = Array.from(this.children.entries())
+				.filter(([path, _]) => summaryData.Directories[path]?.some(rid => summaryData.Rules[rid].BackupType !== BackupNone));
 
 		return fieldset({
 			"data-status": ((this.actions[BackupNone]?.count ?? 0n) !== this.count) ? dt < secondsInWeek ? "g" : dt < secondsInWeek * 3 ? "a" : "r" : "b",
-			"data-warn-size": (this.actions[-1]?.size ?? 0) + "",
-			"data-nobackup-size": (this.actions[0]?.size ?? 0) + "",
-			"data-backup-size": (this.actions[2]?.size ?? 0) + "",
+			"data-warn-size": (this.actions[BackupWarn]?.size ?? 0) + "",
+			"data-nobackup-size": (this.actions[BackupNone]?.size ?? 0) + "",
+			"data-backup-size": (this.actions[BackupIBackup]?.size ?? 0) + "",
 			"data-name": this.path
 		}, [
 			legend(h1([
@@ -112,7 +114,8 @@ class ParentSummary extends Summary {
 					th("Last Backup"),
 					th("Failures")
 				])),
-				tbody(this.children.size ? Array.from(this.children.entries()).map(([path, child]) => tr([
+				tbody(childrenWithBackups.length ? childrenWithBackups
+				.map(([path, child]) => tr([
 					td(child.claimedBy),
 					td("plan::" + path),
 					td(
@@ -228,9 +231,11 @@ const base = div({ "id": "report" }),
 	};
 
 let now = 0,
-	load: (path: string) => Promise<DirectoryWithChildren>;
+	load: (path: string) => Promise<DirectoryWithChildren>,
+	summaryData: ReportSummary;
 
 getReportSummary().then(data => {
+	summaryData = data;
 	now = +new Date();
 
 	const children: Children = ["", "", ""],
