@@ -38,5 +38,5 @@ export const getTree = (dir: string) => getURL<Tree>("api/tree", { dir }),
 	updateRule = (dir: string, action: string, match: string, metadata: string) => getURL<void>("api/rules/update", { dir, action, match, "review": 1, "remove": 1, "frequency": 7, metadata }),
 	removeRule = (dir: string, match: string) => getURL<void>("api/rules/remove", { dir, match }),
 	getReportSummary = () => getURL<ReportSummary>("api/report/summary"),
-	uploadFOFN = (dir: string, action: string, metadata: string, files: string[]) => getURL<void>("/api/uploadfofn",{ dir, action, "review": 1, "remove": 1, "frequency": 7, metadata }, JSON.stringify(files)),
+	uploadFOFN = (dir: string, action: string, metadata: string, files: string[]) => getURL<void>("api/uploadfofn",{ dir, action, "review": 1, "remove": 1, "frequency": 7, metadata }, JSON.stringify(files)),
 	user = await getURL<string>("api/whoami");
