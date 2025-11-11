@@ -44,10 +44,7 @@ type Rule struct {
 	directoryID int64
 	BackupType  BackupType
 	Metadata    string // requester:name for manual
-	ReviewDate  int64
-	RemoveDate  int64
 	Match       string
-	Frequency   uint
 
 	Created, Modified int64
 }
@@ -86,10 +83,7 @@ func (d *DB) CreateDirectoryRule(dir *Directory, rule *Rule) error {
 		dir.id,
 		rule.BackupType,
 		rule.Metadata,
-		rule.ReviewDate,
-		rule.RemoveDate,
 		rule.Match,
-		rule.Frequency,
 		rule.Created,
 		rule.Modified,
 	)
@@ -119,10 +113,7 @@ func scanRule(scanner scanner) (*Rule, error) {
 		&rule.directoryID,
 		&rule.BackupType,
 		&rule.Metadata,
-		&rule.ReviewDate,
-		&rule.RemoveDate,
 		&rule.Match,
-		&rule.Frequency,
 		&rule.Created,
 		&rule.Modified,
 	); err != nil {
@@ -140,10 +131,7 @@ func (d *DB) UpdateRule(rule *Rule) error {
 		updateRule,
 		rule.BackupType,
 		rule.Metadata,
-		rule.ReviewDate,
-		rule.RemoveDate,
 		rule.Match,
-		rule.Frequency,
 		rule.Modified,
 		rule.id,
 	)

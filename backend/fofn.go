@@ -74,14 +74,19 @@ func (s *Server) fofn(_ http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
+	dirDetails, err := getDirDetails(r)
+	if err != nil {
+		return err
+	}
+
 	user := s.getUser(r)
 
 	slices.Sort(files)
 
-	return s.validateAndApplyFofn(user, dir, files, *rule)
+	return s.validateAndApplyFofn(user, dir, dirDetails, files, *rule)
 }
 
-func (s *Server) validateAndApplyFofn(user, dir string, files []string, rule db.Rule) error {
+func (s *Server) validateAndApplyFofn(user, dir string, dirDetails dirDetails, files []string, rule db.Rule) error {
 	s.rulesMu.Lock()
 	defer s.rulesMu.Unlock()
 
@@ -89,7 +94,7 @@ func (s *Server) validateAndApplyFofn(user, dir string, files []string, rule db.
 		return err
 	}
 
-	rulesToAdd, err := s.createRulesToAdd(user, rule, files)
+	rulesToAdd, err := s.createRulesToAdd(user, rule, files, dirDetails)
 	if err != nil {
 		return err
 	}
@@ -157,13 +162,15 @@ func splitDir(file string) (string, string) {
 	return file[:i+1], file[i+1:]
 }
 
-func (s *Server) createRulesToAdd(user string, rule db.Rule, files []string) ([]ruletree.DirRule, error) {
+func (s *Server) createRulesToAdd(user string, rule db.Rule, files []string, dirDetails dirDetails) ([]ruletree.DirRule, error) {
 	rulesToAdd := make([]ruletree.DirRule, 0, len(files))
+
+	detailsSet := make(map[*ruletree.DirRules]struct{})
 
 	// add rules
 	for _, file := range files {
 		// claim dir
-		dirRules, err := s.claimAndCreateDirRules(file, user)
+		dirRules, err := s.claimAndCreateDirRules(file, user, dirDetails, detailsSet)
 		if err != nil {
 			return nil, err
 		}
@@ -182,16 +189,19 @@ func (s *Server) createRulesToAdd(user string, rule db.Rule, files []string) ([]
 	return rulesToAdd, nil
 }
 
-func (s *Server) claimAndCreateDirRules(file, user string) (*ruletree.DirRules, error) {
+func (s *Server) claimAndCreateDirRules(file, user string, dirDetails dirDetails, detailsSet map[*ruletree.DirRules]struct{}) (*ruletree.DirRules, error) {
+	// fileDir := filepath.Dir(file) + "/"
 	fileDir, _ := splitDir(file)
 	dirRules := s.directoryRules[fileDir]
 
 	if dirRules == nil {
-		if err := s.claimDirectory(fileDir, user); err != nil {
+		if err := s.claimDirectory(fileDir, user, dirDetails); err != nil {
 			return nil, err
 		}
 
 		dirRules = s.directoryRules[fileDir]
+	} else if _, ok := detailsSet[dirRules]; !ok {
+		detailsSet[dirRules] = struct{}{}
 	}
 
 	return dirRules, nil

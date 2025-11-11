@@ -73,8 +73,8 @@ func TestFofn(t *testing.T) {
 				"/test?action=backup&frequency=7&review=0&remove=0&dir=/some/path/MyDir/",
 				strings.NewReader(`[]`),
 			)
-			So(code, ShouldEqual, http.StatusForbidden)
 			So(resp, ShouldEqual, "invalid user\n")
+			So(code, ShouldEqual, http.StatusForbidden)
 
 			u = userHandler(user.Username)
 
@@ -148,7 +148,7 @@ func TestFofn(t *testing.T) {
 
 			code, resp := getResponse(s.Tree, "/?dir=/some/path/ChildDir/", nil)
 			So(code, ShouldEqual, http.StatusOK)
-			So(re.ReplaceAllString(resp, "0"), ShouldEqual, "{\"RuleSummaries\":[{\"ID\":4,\"Users\":[{\"Name\":\""+user.Username+"\",\"MTime\":36,\"Files\":1,\"Size\":35}],\"Groups\":[{\"Name\":\"bin\",\"MTime\":36,\"Files\":1,\"Size\":35}]},{\"ID\":5,\"Users\":[{\"Name\":\""+user.Username+"\",\"MTime\":36,\"Files\":1,\"Size\":35}],\"Groups\":[{\"Name\":\"bin\",\"MTime\":36,\"Files\":1,\"Size\":35}]}],\"Children\":{\"Child/\":{\"ClaimedBy\":\"\",\"RuleSummaries\":[{\"ID\":4,\"Users\":[{\"Name\":\""+user.Username+"\",\"MTime\":36,\"Files\":1,\"Size\":35}],\"Groups\":[{\"Name\":\"bin\",\"MTime\":36,\"Files\":1,\"Size\":35}]}],\"Children\":{}}},\"ClaimedBy\":\""+user.Username+"\",\"Rules\":{\"/some/path/ChildDir/\":{\"5\":{\"BackupType\":1,\"Metadata\":\"\",\"ReviewDate\":0,\"RemoveDate\":0,\"Match\":\"a.txt\",\"Frequency\":7,\"Created\":0,\"Modified\":0}},\"/some/path/ChildDir/Child/\":{\"4\":{\"BackupType\":1,\"Metadata\":\"\",\"ReviewDate\":0,\"RemoveDate\":0,\"Match\":\"a.file\",\"Frequency\":7,\"Created\":0,\"Modified\":0}}},\"Unauthorised\":[],\"CanClaim\":true}\n") //nolint:lll
+			So(re.ReplaceAllString(resp, "0"), ShouldEqual, "{\"RuleSummaries\":[{\"ID\":4,\"Users\":[{\"Name\":\""+user.Username+"\",\"MTime\":36,\"Files\":1,\"Size\":35}],\"Groups\":[{\"Name\":\"bin\",\"MTime\":36,\"Files\":1,\"Size\":35}]},{\"ID\":5,\"Users\":[{\"Name\":\""+user.Username+"\",\"MTime\":36,\"Files\":1,\"Size\":35}],\"Groups\":[{\"Name\":\"bin\",\"MTime\":36,\"Files\":1,\"Size\":35}]}],\"Children\":{\"Child/\":{\"ClaimedBy\":\"\",\"RuleSummaries\":[{\"ID\":4,\"Users\":[{\"Name\":\""+user.Username+"\",\"MTime\":36,\"Files\":1,\"Size\":35}],\"Groups\":[{\"Name\":\"bin\",\"MTime\":36,\"Files\":1,\"Size\":35}]}],\"Children\":{}}},\"ClaimedBy\":\""+user.Username+"\",\"Rules\":{\"/some/path/ChildDir/\":{\"5\":{\"BackupType\":1,\"Metadata\":\"\",\"Match\":\"a.txt\",\"Created\":0,\"Modified\":0}},\"/some/path/ChildDir/Child/\":{\"4\":{\"BackupType\":1,\"Metadata\":\"\",\"Match\":\"a.file\",\"Created\":0,\"Modified\":0}}},\"Unauthorised\":[],\"CanClaim\":true,\"Frequency\":7,\"Review\":0,\"Remove\":0}\n") //nolint:lll
 
 			Convey("You can upload a fofn to update rules: ", func() {
 				_, resp = getResponse(
@@ -161,7 +161,7 @@ func TestFofn(t *testing.T) {
 				// Check tree correctly updates
 				code, resp = getResponse(s.Tree, "/?dir=/some/path/MyDir/", nil)
 				So(code, ShouldEqual, http.StatusOK)
-				So(re.ReplaceAllString(resp, "0"), ShouldEqual, `{"RuleSummaries":[{"ID":1,"Users":[{"Name":"root","MTime":4,"Files":1,"Size":3}],"Groups":[{"Name":"bin","MTime":4,"Files":1,"Size":3}]},{"ID":2,"Users":[{"Name":"`+user.Username+`","MTime":6,"Files":1,"Size":5}],"Groups":[{"Name":"bin","MTime":6,"Files":1,"Size":5}]}],"Children":{},"ClaimedBy":"`+user.Username+`","Rules":{"/some/path/MyDir/":{"1":{"BackupType":1,"Metadata":"","ReviewDate":0,"RemoveDate":0,"Match":"a.txt","Frequency":1,"Created":0,"Modified":0},"2":{"BackupType":1,"Metadata":"","ReviewDate":0,"RemoveDate":0,"Match":"b.csv","Frequency":7,"Created":0,"Modified":0},"3":{"BackupType":1,"Metadata":"","ReviewDate":0,"RemoveDate":0,"Match":"c.txt","Frequency":7,"Created":0,"Modified":0}}},"Unauthorised":[],"CanClaim":true}`+"\n") //nolint:lll
+				So(re.ReplaceAllString(resp, "0"), ShouldEqual, `{"RuleSummaries":[{"ID":1,"Users":[{"Name":"root","MTime":4,"Files":1,"Size":3}],"Groups":[{"Name":"bin","MTime":4,"Files":1,"Size":3}]},{"ID":2,"Users":[{"Name":"`+user.Username+`","MTime":6,"Files":1,"Size":5}],"Groups":[{"Name":"bin","MTime":6,"Files":1,"Size":5}]}],"Children":{},"ClaimedBy":"`+user.Username+`","Rules":{"/some/path/MyDir/":{"1":{"BackupType":1,"Metadata":"","Match":"a.txt","Created":0,"Modified":0},"2":{"BackupType":1,"Metadata":"","Match":"b.csv","Created":0,"Modified":0},"3":{"BackupType":1,"Metadata":"","Match":"c.txt","Created":0,"Modified":0}}},"Unauthorised":[],"CanClaim":true,"Frequency":7,"Review":0,"Remove":0}`+"\n") //nolint:lll
 			})
 		})
 	})

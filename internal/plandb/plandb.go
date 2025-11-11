@@ -67,42 +67,39 @@ func PopulateExamplePlanDB(t *testing.T) (*db.DB, string) { //nolint:funlen
 
 	userA := "userA"
 	userB := "userB"
+	reviewDate := time.Now().Add(24 * time.Hour).UTC().Truncate(1 * time.Second).Unix() //nolint:mnd
+	removeDate := time.Now().Add(48 * time.Hour).UTC().Truncate(1 * time.Second).Unix() //nolint:mndß
 
 	dirA := &db.Directory{
-		Path:      "/lustre/scratch123/humgen/a/b/",
-		ClaimedBy: userA,
+		Path:       "/lustre/scratch123/humgen/a/b/",
+		ClaimedBy:  userA,
+		Frequency:  defaultFrequency,
+		ReviewDate: reviewDate,
+		RemoveDate: removeDate,
 	}
 	dirB := &db.Directory{
-		Path:      "/lustre/scratch123/humgen/a/c/",
-		ClaimedBy: userB,
+		Path:       "/lustre/scratch123/humgen/a/c/",
+		ClaimedBy:  userB,
+		Frequency:  defaultFrequency,
+		ReviewDate: reviewDate,
+		RemoveDate: removeDate,
 	}
 
 	So(testDB.CreateDirectory(dirA), ShouldBeNil)
 	So(testDB.CreateDirectory(dirB), ShouldBeNil)
 
-	reviewDate := time.Now().Add(24 * time.Hour).UTC().Truncate(1 * time.Second).Unix() //nolint:mnd
-	removeDate := time.Now().Add(48 * time.Hour).UTC().Truncate(1 * time.Second).Unix() //nolint:mnd
-
 	ruleA := &db.Rule{
 		BackupType: db.BackupIBackup,
 		Match:      "*.jpg",
-		Frequency:  defaultFrequency,
-		ReviewDate: reviewDate,
-		RemoveDate: removeDate,
 	}
 	ruleB := &db.Rule{
 		BackupType: db.BackupNone,
 		Match:      "temp.jpg",
-		Frequency:  defaultFrequency,
-		ReviewDate: reviewDate,
-		RemoveDate: removeDate,
 	}
 	ruleC := &db.Rule{
 		BackupType: db.BackupManual,
 		Match:      "*.txt",
 		Metadata:   "manualSetName",
-		ReviewDate: reviewDate,
-		RemoveDate: removeDate,
 	}
 
 	So(testDB.CreateDirectoryRule(dirA, ruleA), ShouldBeNil)
@@ -144,46 +141,40 @@ func PopulateBigExamplePlanDB(t *testing.T) (*db.DB, string) { //nolint:funlen
 		{
 			BackupType: db.BackupIBackup,
 			Match:      "*.cram",
-			Frequency:  defaultFrequency,
-			ReviewDate: reviewDate,
-			RemoveDate: removeDate,
 		},
 		{
 			BackupType: db.BackupNone,
 			Match:      "*.txt",
-			Frequency:  defaultFrequency,
-			ReviewDate: reviewDate,
-			RemoveDate: removeDate,
 		},
 	}
 	testdataB := []*db.Rule{
 		{
 			BackupType: db.BackupIBackup,
 			Match:      "*.cram",
-			Frequency:  defaultFrequency,
-			ReviewDate: reviewDate,
-			RemoveDate: removeDate,
 		},
 	}
 	testdataC := []*db.Rule{
 		{
 			BackupType: db.BackupIBackup,
 			Match:      "*.cram",
-			Frequency:  defaultFrequency,
-			ReviewDate: reviewDate,
-			RemoveDate: removeDate,
 		},
 	}
 
 	dirs := slices.Collect(plandb.ReadDirectories().Iter)
 	dirA := &db.Directory{
-		Path:      "/lustre/scratch123/humgen/a/b/newdir/",
-		ClaimedBy: "userC",
+		Path:       "/lustre/scratch123/humgen/a/b/newdir/",
+		ClaimedBy:  "userC",
+		ReviewDate: reviewDate,
+		RemoveDate: removeDate,
+		Frequency:  defaultFrequency,
 	}
 	dirB := dirs[1]
 	dirC := &db.Directory{
-		Path:      "/lustre/scratch123/humgen/a/b/newdir/testextradir/",
-		ClaimedBy: "userD",
+		Path:       "/lustre/scratch123/humgen/a/b/newdir/testextradir/",
+		ClaimedBy:  "userD",
+		ReviewDate: reviewDate,
+		RemoveDate: removeDate,
+		Frequency:  defaultFrequency,
 	}
 
 	So(plandb.CreateDirectory(dirA), ShouldBeNil)
