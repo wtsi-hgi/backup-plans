@@ -1,4 +1,4 @@
-import type { ReportSummary, Tree } from './types.js';
+import type { ReportSummary, Tree, UserGroups } from './types.js';
 
 const getURL = <T>(url: string, params: Record<string, unknown> = {}, body?: string) => {
 	return new Promise<T>((successFn, errorFn) => {
@@ -38,8 +38,13 @@ export const getTree = (dir: string) => getURL<Tree>("api/tree", { dir }),
 	updateRule = (dir: string, action: string, match: string, metadata: string) => getURL<void>("api/rules/update", { dir, action, match, metadata }),
 	removeRule = (dir: string, match: string) => getURL<void>("api/rules/remove", { dir, match }),
 	getReportSummary = () => getURL<ReportSummary>("api/report/summary"),
+<<<<<<< HEAD
 	uploadFOFN = (dir: string, action: string, metadata: string, files: string[]) => getURL<void>("api/uploadfofn", { dir, action, metadata }, JSON.stringify(files)),
 	setDirDetails = (dir: string, frequency: number, review: number, remove: number) => getURL<void>("api/dir/setdetails", { dir, frequency, review, remove }),
 	setExists = (dir: string, metadata: string) => getURL<boolean>("api/setExists", { dir, metadata }),
 	getDirectories = (paths: string[]) => getURL<boolean[]>("api/getDirectories", {}, JSON.stringify(paths)),
+||||||| parent of 68b0e9f (WIP)
+=======
+	getUserGroups = () => getURL<UserGroups>("api/usergroups"),
+>>>>>>> 68b0e9f (WIP)
 	user = await getURL<string>("api/whoami");

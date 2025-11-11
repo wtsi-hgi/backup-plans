@@ -47,6 +47,7 @@ var (
 	serverPort  uint16
 	adminGroup  uint32
 	reportRoots []string
+	owners      string
 )
 
 // serverCmd represents the server command.
@@ -104,7 +105,7 @@ to maintain password security.
 			slog.Warn("ibackup connection errors", "errs", err)
 		}
 
-		return server.Start(fmt.Sprintf(":%d", serverPort), d, getUser, reportRoots, adminGroup, client, args...)
+		return server.Start(fmt.Sprintf(":%d", serverPort), d, getUser, reportRoots, adminGroup, client, owners, args...)
 	},
 }
 
@@ -119,6 +120,7 @@ func init() {
 	serverCmd.Flags().StringVarP(&planDB, "plan", "p", os.Getenv("BACKUP_PLANS_CONNECTION"),
 		"sql connection string for your plan database")
 	serverCmd.Flags().StringVarP(&configPath, "config", "c", "", "ibackup config")
+	serverCmd.Flags().StringVarP(&owners, "owners", "o", owners, "path to owners CSV file")
 
 	serverCmd.MarkFlagRequired("tree")   //nolint:errcheck
 	serverCmd.MarkFlagRequired("config") //nolint:errcheck

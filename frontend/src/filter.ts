@@ -1,4 +1,4 @@
-import type { DirectoryWithChildren } from './types.js';
+import type { DirectoryWithChildren, UserGroups } from './types.js';
 import { br, button, details, div, input, option, select, summary } from './lib/html.js';
 
 const userOpts: HTMLOptionElement[] = [],
@@ -73,14 +73,14 @@ export default Object.assign(base, {
 	"update": (path: string, _: DirectoryWithChildren, load: (path: string) => void) => {
 		loadFiltered = () => load(path);
 	},
-	"init": (users: string[], groups: string[]) => {
-		for (const user of users) {
+	"init": (data: UserGroups) => {
+		for (const user of data.Users) {
 			if (user.trim()) {
 				userOpts.push(option(user))
 			}
 		}
 
-		for (const group of groups) {
+		for (const group of data.Groups) {
 			if (group.trim()) {
 				groupOpts.push(option(group))
 			}
