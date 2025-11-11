@@ -154,6 +154,38 @@ func TestClaimDir(t *testing.T) {
 				So(code, ShouldEqual, http.StatusForbidden)
 				So(resp, ShouldEqual, "invalid user\n")
 			})
+
+			Convey("You can set directory details", func() {
+				u = ""
+
+				code, resp := getResponse(
+					s.SetDirDetails,
+					"/api/dir/setDirDetails?dir=/some/path/MyDir/&frequency=10&review=10&remove=15",
+					nil,
+				)
+
+				So(code, ShouldEqual, http.StatusForbidden)
+				So(resp, ShouldEqual, "invalid user\n")
+
+				u = "root"
+
+				code, resp = getResponse(
+					s.SetDirDetails,
+					"/api/dir/setDirDetails?dir=/some/path/MyDir/&frequency=10&review=10&remove=15",
+					nil,
+				)
+
+				So(code, ShouldEqual, http.StatusNoContent)
+				So(resp, ShouldEqual, "")
+
+				code, resp = getResponse(
+					s.Tree,
+					"/api/tree?dir=/some/path/MyDir/",
+					nil,
+				)
+				So(code, ShouldEqual, http.StatusOK)
+				So(resp, ShouldContainSubstring, "\"Frequency\":10,\"Review\":10,\"Remove\":15")
+			})
 		})
 	})
 }
