@@ -188,10 +188,10 @@ button + button {
 }
 
 button:disabled, select:disabled {
-  background-color: var(--button-background-disabled);
-  color: var(--button-colour-disabled);
-  border-color: var(--button-border-disabled);
-  cursor: not-allowed;
+  background-color: var(--button-background-disabled) !important;
+  color: var(--button-colour-disabled) !important;
+  border-color: var(--button-border-disabled) !important;
+  cursor: not-allowed !important;
 }
 
 .overwrite {
