@@ -37,8 +37,11 @@ func TestDirs(t *testing.T) {
 
 		Convey("You can add directories to the database", func() {
 			dirA := &Directory{
-				Path:      "/some/path/",
-				ClaimedBy: "me",
+				Path:       "/some/path/",
+				ClaimedBy:  "me",
+				Frequency:  7,
+				ReviewDate: 1,
+				RemoveDate: 2,
 			}
 			dirB := &Directory{
 				Path:      "/some/other/path/",

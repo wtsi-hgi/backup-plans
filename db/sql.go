@@ -32,6 +32,9 @@ var tables = [...]string{
 		"`directory` TEXT NOT NULL, " +
 		"`directoryHash` " + hashColumnStart + "`directory`" + hashColumnEnd + ", " +
 		"`claimedBy` TEXT NOT NULL, " +
+		"`frequency` INTEGER NOT NULL, " +
+		"`reviewDate` BIGINT NOT NULL, " +
+		"`removeDate` BIGINT NOT NULL, " +
 		"`created` BIGINT NOT NULL, " +
 		"`modified` BIGINT NOT NULL, " +
 		"UNIQUE(`directoryHash`)" +
@@ -42,11 +45,8 @@ var tables = [...]string{
 		"`directoryID` INTEGER NOT NULL, " +
 		"`type` INTEGER NOT NULL, " +
 		"`metadata` TEXT NOT NULL, " +
-		"`reviewDate` BIGINT NOT NULL, " +
-		"`removeDate` BIGINT NOT NULL, " +
 		"`match` TEXT NOT NULL, " +
 		"`matchHash` " + hashColumnStart + "`match`" + hashColumnEnd + ", " +
-		"`frequency` INTEGER NOT NULL, " +
 		"`created` BIGINT NOT NULL, " +
 		"`modified` BIGINT NOT NULL, " +
 		"UNIQUE(`directoryID`, `matchHash`), " +
@@ -70,33 +70,27 @@ const (
 		"/*! `table_schema` = DATABASE() -- */ `type` = 'table'\n/*! */ AND " +
 		"/*! `table_name` -- */ `name`\n/*! */ = ?;"
 
-	createDirectory = "INSERT INTO `directories` (`directory`, `claimedBy`, `created`, `modified`) VALUES (?, ?, ?, ?);"
+	createDirectory = "INSERT INTO `directories` (`directory`, `claimedBy`, `frequency`, `reviewDate`, `removeDate`, `created`, `modified`) VALUES (?, ?, ?, ?, ?, ?, ?);"
 	createRule      = "INSERT INTO `rules` " +
-		"(`directoryID`, `type`, `metadata`, `reviewDate`, `removeDate`, `match`, `frequency`, `created`, `modified`) " +
-		"VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);"
+		"(`directoryID`, `type`, `metadata`, `match`, `created`, `modified`) " +
+		"VALUES (?, ?, ?, ?, ?, ?);"
 
-	selectAllDirectories = "SELECT `id`, `directory`, `claimedBy`, `created`, `modified` FROM `directories`;"
+	selectAllDirectories = "SELECT `id`, `directory`, `claimedBy`, `frequency`, `reviewDate`, `removeDate`, `created`, `modified` FROM `directories`;"
 	selectAllRules       = "SELECT " +
 		"`id`, " +
 		"`directoryID`, " +
 		"`type`, " +
 		"`metadata`, " +
-		"`reviewDate`, " +
-		"`removeDate`, " +
 		"`match`, " +
-		"`frequency`, " +
 		"`created`, " +
 		"`modified` " +
 		"FROM `rules`;"
 
-	updateDirectory = "UPDATE `directories` SET `claimedBy` = ?, `modified` = ? WHERE `id` = ?;"
+	updateDirectory = "UPDATE `directories` SET `claimedBy` = ?, `modified` = ?, `frequency` = ?, `reviewDate` = ?, `removeDate` = ? WHERE `id` = ?;"
 	updateRule      = "UPDATE `rules` SET " +
 		"`type` = ?, " +
 		"`metadata` = ?, " +
-		"`reviewDate` = ?, " +
-		"`removeDate` = ?, " +
 		"`match` = ?, " +
-		"`frequency` = ?, " +
 		"`modified` = ? " +
 		"WHERE `id` = ?;"
 

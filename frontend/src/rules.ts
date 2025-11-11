@@ -293,7 +293,8 @@ function parseFofn(result: string, dir: string, fofnSection: HTMLElement, resolv
 				title,
 				validTable.files.length > 0 ? [key, validTable.createTable("Directory", "Match")] : p("No valid filepaths found."),
 				invalidTable.files.length > 0 ? [invalidHeader, invalidTable.createTable("Reason", "Line")] : []
-			]);
+			]
+		);
 		resolve(validTable);
 	});
 };
