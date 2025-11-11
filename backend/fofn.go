@@ -31,7 +31,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"path/filepath"
 	"slices"
 	"strings"
 
@@ -125,17 +124,13 @@ func (s *Server) validateFofn(user, dir string, files []string) error {
 }
 
 func (s *Server) validateClaimAndRule(user, dir, file string, uid uint32, groups []uint32) error {
-	fileDir := filepath.Dir(file) + "/"
+	fileDir, _ := splitDir(file)
 
 	if !strings.HasPrefix(file, dir) {
 		return Error{
 			Code: http.StatusBadRequest,
 			Err:  fmt.Errorf("invalid filepath: %s", file), //nolint:err113
 		}
-	}
-
-	if strings.Contains(file, "*") {
-		return ErrInvalidMatch
 	}
 
 	if got := s.directoryRules[fileDir]; got != nil { //nolint:nestif
@@ -147,6 +142,19 @@ func (s *Server) validateClaimAndRule(user, dir, file string, uid uint32, groups
 	}
 
 	return nil
+}
+
+// splitDir splits a file path into directory and match.
+// It splits at the last '/' before any '*' character.
+func splitDir(file string) (string, string) {
+	i := strings.Index(file, "*")
+	if i == -1 {
+		i = len(file)
+	}
+
+	i = strings.LastIndex(file[:i], "/")
+
+	return file[:i+1], file[i+1:]
 }
 
 func (s *Server) createRulesToAdd(user string, rule db.Rule, files []string) ([]ruletree.DirRule, error) {
@@ -175,7 +183,7 @@ func (s *Server) createRulesToAdd(user string, rule db.Rule, files []string) ([]
 }
 
 func (s *Server) claimAndCreateDirRules(file, user string) (*ruletree.DirRules, error) {
-	fileDir := filepath.Dir(file) + "/"
+	fileDir, _ := splitDir(file)
 	dirRules := s.directoryRules[fileDir]
 
 	if dirRules == nil {
@@ -191,7 +199,7 @@ func (s *Server) claimAndCreateDirRules(file, user string) (*ruletree.DirRules, 
 
 func (s *Server) createRuleToAdd(file string, rule db.Rule, dirRules *ruletree.DirRules) (*ruletree.DirRule, error) {
 	newRule := rule
-	newRule.Match = filepath.Base(file)
+	_, newRule.Match = splitDir(file)
 
 	if existingRule, ok := dirRules.Rules[newRule.Match]; ok {
 		if err := s.updateRuleTo(existingRule, &newRule); err != nil {

@@ -231,13 +231,6 @@ function parseFofn(result: string, dir: string, fofnSection: HTMLElement, resolv
 
 		seen.add(line);
 
-		// Filter out wildcards
-		if (line.includes('*')) {
-			invalidTable.addLine("Filename cannot contain * ", line);
-
-			continue;
-		}
-
 		// Check dir exists within current dir
 		if (!line.startsWith(dir)) {
 			invalidTable.addLine("Outside of current dir ", line);
@@ -245,9 +238,11 @@ function parseFofn(result: string, dir: string, fofnSection: HTMLElement, resolv
 			continue;
 		}
 
-		const dirToClaim = line.substring(0, line.lastIndexOf("/") + 1);
+		const wci = line.indexOf("*"),
+		      si = line.substring(0, wci < 0 ? line.length : wci).lastIndexOf("/") + 1,
+		      dirToClaim = line.substring(0, si);
 
-		(fofn.get(dirToClaim) ?? setAndReturn(fofn, dirToClaim, [])).push(line.substring(line.lastIndexOf("/") + 1));
+		(fofn.get(dirToClaim) ?? setAndReturn(fofn, dirToClaim, [])).push(line.substring(si));
 	}
 
 	const ps: Promise<void>[] = [];

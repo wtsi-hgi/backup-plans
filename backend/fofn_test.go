@@ -125,14 +125,6 @@ func TestFofn(t *testing.T) {
 			)
 			So(resp, ShouldEqual, "")
 			So(code, ShouldEqual, http.StatusNoContent)
-
-			code, resp = getResponse(
-				s.Fofn,
-				"/test?action=backup&&frequency=7&review=0&remove=0&dir=/some/path/MyDir/",
-				strings.NewReader(`["/some/path/MyDir/*a.txt"]`),
-			)
-			So(resp, ShouldEqual, "invalid match string\n")
-			So(code, ShouldEqual, http.StatusBadRequest)
 		})
 
 		Convey("You can upload a fofn to add rules..", func() {
