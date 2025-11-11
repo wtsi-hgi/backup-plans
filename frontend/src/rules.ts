@@ -278,7 +278,13 @@ function parseFofn(result: string, dir: string, fofnSection: HTMLElement, resolv
 			div("Will overwrite rule")
 		]);
 
-		clearNode(fofnSection, [title, key, validTable.createTable("Directory", "Match"), invalidHeader, invalidTable.createTable("Reason", "Line")]);
+		clearNode(
+			fofnSection,
+			[
+				title, key,
+				validTable.files.length > 0 ? [key, validTable.createTable("Directory", "Match")] : p("No valid filepaths found."), 
+				invalidTable.files.length > 0 ? [invalidHeader, invalidTable.createTable("Reason", "Line")] : []
+			]);
 		resolve(validTable);
 	});
 };
