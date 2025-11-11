@@ -88,7 +88,12 @@ var (
 	}
 )
 
-const defaultFrequency = 7
+const (
+	defaultFrequency = 7
+	frequencyLimit   = 100000
+	month            = 3600 * 24 * 30
+	twoyears         = time.Hour * 24 * 365 * 2
+)
 
 func (s *Server) loadRules() ([]ruletree.DirRule, error) { //nolint:funlen
 	s.directoryRules = make(map[string]*ruletree.DirRules)
@@ -175,10 +180,14 @@ func (s *Server) claimDir(w http.ResponseWriter, r *http.Request) error { //noli
 		return ErrCannotClaimDirectory
 	}
 
-	todayAdd2Years := time.Now().Add(time.Hour * 24 * 365 * 2).Unix()
-	todayAdd2YearsAnd1Month := todayAdd2Years + 3600*24*30
+	reviewDate := time.Now().Add(twoyears).Unix() // 2 years from now
+	removeDate := reviewDate + month              // 1 month after review
 
-	err = s.claimDirectory(dir, user, dirDetails{Frequency: defaultFrequency, Review: todayAdd2Years, Remove: todayAdd2YearsAnd1Month})
+	err = s.claimDirectory(
+		dir,
+		user,
+		dirDetails{Frequency: defaultFrequency, Review: reviewDate, Remove: removeDate},
+	)
 	if err != nil {
 		return err
 	}
@@ -314,7 +323,7 @@ func (s *Server) setDirDetails(_ http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	dirDetails, err := getDirDetails(r)
+	dDetails, err := getDirDetails(r)
 	if err != nil {
 		return err
 	}
@@ -333,9 +342,9 @@ func (s *Server) setDirDetails(_ http.ResponseWriter, r *http.Request) error {
 		return ErrInvalidUser
 	}
 
-	directory.Frequency = dirDetails.Frequency
-	directory.ReviewDate = dirDetails.Review
-	directory.RemoveDate = dirDetails.Remove
+	directory.Frequency = dDetails.Frequency
+	directory.ReviewDate = dDetails.Review
+	directory.RemoveDate = dDetails.Remove
 
 	return s.rulesDB.UpdateDirectory(directory.Directory)
 }
@@ -356,7 +365,7 @@ func getDirDetails(r *http.Request) (dirDetails, error) {
 		return dirDetails{}, Error{Err: err, Code: http.StatusBadRequest}
 	}
 
-	if frequency > 100000 {
+	if frequency > frequencyLimit {
 		return dirDetails{}, ErrInvalidFrequency
 	}
 

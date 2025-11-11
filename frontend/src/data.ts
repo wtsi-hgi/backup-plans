@@ -64,6 +64,9 @@ export default (path: string) => getTree(path)
 			"Rules": {},
 			"Unauthorised": [""],
 			"CanClaim": false,
+			"Frequency": 0,
+			"ReviewDate": 0,
+			"RemoveDate": 0
 		} as Tree;
 	})
 	.then(data => {
@@ -78,7 +81,10 @@ export default (path: string) => getTree(path)
 			"rules": { [path]: [] },
 			"children": {},
 			"unauthorised": data.Unauthorised.includes(""),
-			"canClaim": data.CanClaim
+			"canClaim": data.CanClaim,
+			"Frequency": data.Frequency,
+			"ReviewDate": data.ReviewDate,
+			"RemoveDate": data.RemoveDate
 		},
 			rules = Object.entries(data.Rules)
 				.map(([dir, rules]) => Object.entries(rules).map(([id, rule]) => Object.assign(rule, { id, dir })))
@@ -89,10 +95,7 @@ export default (path: string) => getTree(path)
 		rules[0] = {
 			"BackupType": BackupWarn,
 			"Metadata": "",
-			"ReviewDate": 0,
-			"RemoveDate": 0,
 			"Match": "*",
-			"Frequency": 0,
 			"dir": ""
 		};
 

@@ -1,4 +1,4 @@
-import type { DirectoryWithChildren, Rule } from "./types.js"
+import type { BackupType, dirDetails, DirectoryWithChildren, Rule } from "./types.js"
 import { clearNode } from "./lib/dom.js";
 import { br, button, dialog, div, form, h2, h3, input, label, option, p, select, span, table, tbody, td, textarea, th, thead, tr } from './lib/html.js';
 import { svg, title, use } from './lib/svg.js';
@@ -6,94 +6,142 @@ import { action, confirm, formatBytes, setAndReturn } from "./lib/utils.js";
 import { createRule, getTree, removeRule, updateRule, uploadFOFN, user } from "./rpc.js";
 import { BackupIBackup, BackupManual, BackupNone } from "./types.js"
 
-const addEditOverlay = (path: string, rule: Rule, load: (path: string) => void, isFOFN = false) => {
-	let validTable: FofnTable | null = null;
+const createStuff = (backupType: BackupType, md: string, setText: string, closeFn: () => void) => {
+	const metadata = input({ "id": "metadata", "type": "text", "value": md });
 
-	const backupType = select({ "id": "backupType" }, [
-		option({ "value": "backup", [rule.BackupType === BackupIBackup ? "selected" : "unselected"]: "" }, "Backup"),
-		option({ "value": "manualbackup", [rule.BackupType === BackupManual ? "selected" : "unselected"]: "" }, "Manual Backup"),
-		option({ "value": "nobackup", [rule.BackupType === BackupNone ? "selected" : "unselected"]: "" }, "No Backup")
-	]),
-		set = button({ "value": "set" }, rule.Match ? "Update" : "Add"),
-		cancel = button({ "type": "button", "click": () => overlay.close() }, "Cancel"),
-		fofn = input({
-			"id": "fofn", "type": "file", "style": "display: none", "change": () => {
-				const fr = new FileReader();
-
-				evalFOFN(fr, fofnSection, path).then(vt => validTable = vt);
-
-				fr.readAsText(fofn.files![0]);
-			}
-		}),
-		match = input({ "id": "match", "type": "text", "value": rule.Match, [rule.Match ? "disabled" : "enabled"]: "" }),
-		metadata = input({ "id": "metadata", "type": "text", "value": rule.Metadata }),
-		metadataSection = div({ "id": "metadataInput" }, [
+	return [
+		select({ "id": "backupType" }, [
+			option({ "value": "backup", [backupType === BackupIBackup ? "selected" : "unselected"]: "" }, "Backup"),
+			option({ "value": "manualbackup", [backupType === BackupManual ? "selected" : "unselected"]: "" }, "Manual Backup"),
+			option({ "value": "nobackup", [backupType === BackupNone ? "selected" : "unselected"]: "" }, "No Backup")
+		]),
+		button({ "value": "set" }, setText),
+		button({ "type": "button", "click": closeFn }, "Cancel"),
+		metadata,
+		div({ "id": "metadataInput" }, [
 			label({ "for": "metadata" }, "Metadata"),
 			metadata,
 			br(),
-		]),
-		fofnButton = button({ "type": "button", "click": () => fofn.click() }, "Upload file"),
-		fofnPaste = button({
-			"type": "button", "click": () => {
-				const contents = textarea(),
-					pasteOverlay = document.body.appendChild(dialog(
-						{ "closedby": "any", "id": "fofnPaste", "close": () => pasteOverlay.remove() },
-						[
-							contents,
-							br(),
-							button({
-								"type": "button", "click": () => {
-									new Promise<FofnTable>((resolve, reject) => parseFofn(contents.value, path, fofnSection, resolve, reject))
-										.then(vt => validTable = vt)
-										.finally(() => pasteOverlay.close())
-								}
-							}, "Add"),
-							button({ "type": "button", "click": () => pasteOverlay.close() }, "Cancel")
-						]
-					));
+		])
+	] as const;
+},
+	addEditOverlay = (path: string, rule: Rule, load: (path: string) => void, isFOFN = false) => {
+		const [backupType, set, cancel, metadata, metadataSection] = createStuff(rule.BackupType, rule.Metadata, rule.Match ? "Update" : "Add", () => overlay.close()),
+			match = input({ "id": "match", "type": "text", "value": rule.Match, [rule.Match ? "disabled" : "enabled"]: "" }),
+			disableInputs = () => {
+				if (!rule.Match) {
+					set.toggleAttribute("disabled", true);
+				}
 
-				pasteOverlay.showModal();
-			}
-		}, "Paste as plain text"),
-		matchFofnSection = div({ "id": "matchfofn" }, [
-			isFOFN ? [
+				overlay.setAttribute("closedby", "none");
+				set.toggleAttribute("disabled", true);
+				cancel.toggleAttribute("disabled", true);
+				backupType.toggleAttribute("disabled", true);
+			},
+			enableInputs = () => {
+				if (!rule.Match) {
+					set.removeAttribute("disabled");
+				}
+
+				overlay.setAttribute("closedby", "any");
+				set.removeAttribute("disabled");
+				cancel.removeAttribute("disabled");
+				backupType.removeAttribute("disabled");
+			},
+			overlay = document.body.appendChild(dialog({ "id": "addEdit", "closedby": "any", "close": () => overlay.remove() }, form({
+				"submit": (e: SubmitEvent) => {
+					e.preventDefault();
+
+					disableInputs();
+
+					(rule.Match ? updateRule : createRule)(path, backupType.value, rule.Match || match.value || "*", backupType.value === "manualbackup" ? metadata.value : "")
+						.then(() => {
+							load(path);
+							overlay.remove();
+						})
+						.catch((e: Error) => {
+							enableInputs();
+							alert("Error: " + e.message);
+						});
+				}
+			}, [
+				label({ "for": "match" }, "Match"), match, br(),
+				label({ "for": "backupType" }, "Backup Type"), backupType, br(),
+				metadataSection,
+				set,
+				cancel,
+			])));
+
+		overlay.showModal();
+	},
+	addFofnOverlay = (path: string, dirDetails: dirDetails, load: (path: string) => void) => {
+		let validTable: FofnTable | null = null;
+
+		const [backupType, set, cancel, metadata, metadataSection] = createStuff(BackupIBackup, "", "Add", () => overlay.close()),
+			fofn = input({
+				"id": "fofn", "type": "file", "style": "display: none", "change": () => {
+					const fr = new FileReader();
+
+					evalFOFN(fr, fofnSection, path).then(vt => validTable = vt);
+
+					fr.readAsText(fofn.files![0]);
+				}
+			}),
+			fofnButton = button({ "type": "button", "click": () => fofn.click() }, "Upload file"),
+			fofnPaste = button({
+				"type": "button", "click": () => {
+					const contents = textarea(),
+						pasteOverlay = document.body.appendChild(dialog(
+							{ "closedby": "any", "id": "fofnPaste", "close": () => pasteOverlay.remove() },
+							[
+								contents,
+								br(),
+								button({
+									"type": "button", "click": () => {
+										new Promise<FofnTable>((resolve, reject) => parseFofn(contents.value, path, fofnSection, resolve, reject))
+											.then(vt => validTable = vt)
+											.finally(() => pasteOverlay.close())
+									}
+								}, "Add"),
+								button({ "type": "button", "click": () => pasteOverlay.close() }, "Cancel")
+							]
+						));
+
+					pasteOverlay.showModal();
+				}
+			}, "Paste as plain text"),
+			matchFofnSection = div({ "id": "matchfofn" }, [
 				label({ "for": "fofn" }, "Add FOFN"),
 				fofnButton,
 				fofn,
 				" or ",
 				fofnPaste
-			] : [
-				label({ "for": "match" }, "Match"),
-				match
-			],
-			br()
-		]),
-		fofnSection = div(),
-		disableInputs = () => {
-			overlay.setAttribute("closedby", "none");
-			set.toggleAttribute("disabled", true);
-			cancel.toggleAttribute("disabled", true);
-			backupType.toggleAttribute("disabled", true);
-			fofnButton.toggleAttribute("disabled", true);
-			fofnPaste.toggleAttribute("disabled", true);
-			fofn.toggleAttribute("disabled", true);
-		},
-		enableInputs = () => {
-			overlay.setAttribute("closedby", "any");
-			set.removeAttribute("disabled");
-			cancel.removeAttribute("disabled");
-			backupType.removeAttribute("disabled");
-			fofnButton.removeAttribute("disabled");
-			fofnPaste.removeAttribute("disabled");
-			fofn.removeAttribute("disabled");
-		},
-		overlay = document.body.appendChild(dialog({ "id": "addEdit", "closedby": "any", "close": () => overlay.remove() }, form({
-			"submit": (e: SubmitEvent) => {
-				e.preventDefault();
+			]),
+			fofnSection = div(),
+			disableInputs = () => {
+				overlay.setAttribute("closedby", "none");
+				set.toggleAttribute("disabled", true);
+				cancel.toggleAttribute("disabled", true);
+				backupType.toggleAttribute("disabled", true);
+				fofnButton.toggleAttribute("disabled", true);
+				fofnPaste.toggleAttribute("disabled", true);
+				fofn.toggleAttribute("disabled", true);
+			},
+			enableInputs = () => {
+				overlay.setAttribute("closedby", "any");
+				set.removeAttribute("disabled");
+				cancel.removeAttribute("disabled");
+				backupType.removeAttribute("disabled");
+				fofnButton.removeAttribute("disabled");
+				fofnPaste.removeAttribute("disabled");
+				fofn.removeAttribute("disabled");
+			},
+			overlay = document.body.appendChild(dialog({ "id": "addEdit", "closedby": "any", "close": () => overlay.remove() }, form({
+				"submit": (e: SubmitEvent) => {
+					e.preventDefault();
 
-				disableInputs();
+					disableInputs();
 
-				if (isFOFN) {
 					(validTable ? uploadFOFN(path, backupType.value, metadata.value, validTable.files) : Promise.reject({ "message": "No FOFN selected" }))
 						.then(() => {
 							load(path);
@@ -103,51 +151,63 @@ const addEditOverlay = (path: string, rule: Rule, load: (path: string) => void, 
 							enableInputs();
 							alert("Error: " + e.message);
 						});
-
-					return;
 				}
+			}, [
+				matchFofnSection,
+				label({ "for": "backupType" }, "Backup Type"), backupType, br(),
+				metadataSection,
+				fofnSection,
+				set,
+				cancel,
+			])));
 
-				(rule.Match ? updateRule : createRule)(path, backupType.value, rule.Match || match.value || "*", backupType.value === "manualbackup" ? metadata.value : "")
-					.then(() => {
-						load(path);
-						overlay.remove();
-					})
-					.catch((e: Error) => {
-						enableInputs();
-						alert("Error: " + e.message);
-					});
-			}
-		}, [
-			matchFofnSection,
-			label({ "for": "backupType" }, "Backup Type"), backupType, br(),
-			metadataSection,
-			fofnSection,
-			set,
-			cancel,
-		])));
+		overlay.showModal();
+	},
+	addConfirmOverlay = (path: string, rule: Rule, load: (path: string) => void) => {
+		const confirm = button({ "value": "confirm" }, "Confirm"),
+			cancel = button({ "type": "button", "click": () => overlay.close() }, "Cancel"),
+			overlay = document.body.appendChild(dialog({ "id": "addEdit", "closedby": "any", "close": () => overlay.remove() }, form({
+				"submit": (e: SubmitEvent) => {
+					e.preventDefault();
+					removeRule(path, rule.Match)
+						.then(() => {
+							load(path);
+							overlay.remove();
+						});
+				}
+			}, [
+				div([
+					h2(`Are you sure you wish to remove this rule?`),
+					p(` Path: ${path}`),
+					p(` Match: ${rule.Match}`)
+				]),
 
-	overlay.showModal();
-},
+				div({ "style": "display: flex; justify-content: center; gap: 0.5rem; margin-top: 0.5rem;" }, [confirm, cancel])
+			])));
+
+		overlay.showModal();
+	},
 	addRule = (path: string, load: (path: string) => void) => button({
 		"click": () => addEditOverlay(path, {
 			"BackupType": BackupIBackup,
 			"Metadata": "",
-			"ReviewDate": 0,
-			"RemoveDate": 0,
-			"Match": "",
-			"Frequency": 7
+			"Match": ""
 		}, load),
 	}, "Add Rule"),
 	addFOFN = (path: string, load: (path: string) => void) => button({
-		"click": () => addEditOverlay(path, {
-			"BackupType": BackupIBackup,
-			"Metadata": "",
+		"click": () => addFofnOverlay(path, {
+			"Frequency": 7,
 			"ReviewDate": 0,
-			"RemoveDate": 0,
-			"Match": "",
-			"Frequency": 7
-		}, load, true),
+			"RemoveDate": 0
+		}, load),
 	}, "Add FOFN"),
+	setDirDetails = (path: string, load: (path: string) => void) => button({
+		"click": () => dirDetailOverlay(path, {
+			"Frequency": 7,
+			"ReviewDate": 0,
+			"RemoveDate": 0
+		}, load),
+	}, "Set Directory Details"),
 	base = div();
 
 export default Object.assign(base, {
