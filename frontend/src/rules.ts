@@ -14,15 +14,17 @@ const addEditOverlay = (path: string, rule: Rule, load: (path: string) => void, 
 		option({ "value": "manualbackup", [rule.BackupType === BackupManual ? "selected" : "unselected"]: "" }, "Manual Backup"),
 		option({ "value": "nobackup", [rule.BackupType === BackupNone ? "selected" : "unselected"]: "" }, "No Backup")
 	]),
-		set = button({"value": "set"}, rule.Match ? "Update" : "Add"),
+		set = button({ "value": "set" }, rule.Match ? "Update" : "Add"),
 		cancel = button({ "type": "button", "click": () => overlay.close() }, "Cancel"),
-		fofn = input({"id": "fofn", "type": "file", "style": "display: none", "change": () => {
-			const fr = new FileReader();
+		fofn = input({
+			"id": "fofn", "type": "file", "style": "display: none", "change": () => {
+				const fr = new FileReader();
 
-			evalFOFN(fr, fofnSection, path).then(vt => validTable = vt);
+				evalFOFN(fr, fofnSection, path).then(vt => validTable = vt);
 
-			fr.readAsText(fofn.files![0]);
-		}}),
+				fr.readAsText(fofn.files![0]);
+			}
+		}),
 		match = input({ "id": "match", "type": "text", "value": rule.Match, [rule.Match ? "disabled" : "enabled"]: "" }),
 		metadata = input({ "id": "metadata", "type": "text", "value": rule.Metadata }),
 		metadataSection = div({ "id": "metadataInput" }, [
@@ -30,30 +32,36 @@ const addEditOverlay = (path: string, rule: Rule, load: (path: string) => void, 
 			metadata,
 			br(),
 		]),
-		matchFofnSection = div({ "id": "matchfofn"}, [
-			isFOFN ? [
-				label({"for": "fofn"}, "Add FOFN"),
-				button({"type": "button", "click": () => fofn.click()}, "Upload file"),
-				fofn,
-				" or ",
-				button({"type": "button", "click": () => {
-					const contents = textarea(),
+		fofnButton = button({ "type": "button", "click": () => fofn.click() }, "Upload file"),
+		fofnPaste = button({
+			"type": "button", "click": () => {
+				const contents = textarea(),
 					pasteOverlay = document.body.appendChild(dialog(
-						{ "closedby": "any", "id": "fofnPaste", "close": () => pasteOverlay.remove()},
+						{ "closedby": "any", "id": "fofnPaste", "close": () => pasteOverlay.remove() },
 						[
 							contents,
 							br(),
-							button({"type": "button", "click": () => {
-								new Promise<FofnTable>((resolve, reject) => parseFofn(contents.value, path, fofnSection, resolve, reject))
-								.then(vt => validTable = vt)
-								.finally(() => pasteOverlay.close())
-							}}, "Add"),
-							button({"type": "button", "click": () => pasteOverlay.close()}, "Cancel")
+							button({
+								"type": "button", "click": () => {
+									new Promise<FofnTable>((resolve, reject) => parseFofn(contents.value, path, fofnSection, resolve, reject))
+										.then(vt => validTable = vt)
+										.finally(() => pasteOverlay.close())
+								}
+							}, "Add"),
+							button({ "type": "button", "click": () => pasteOverlay.close() }, "Cancel")
 						]
 					));
-					
-					pasteOverlay.showModal();
-				}}, "Paste as plain text"),
+
+				pasteOverlay.showModal();
+			}
+		}, "Paste as plain text"),
+		matchFofnSection = div({ "id": "matchfofn" }, [
+			isFOFN ? [
+				label({ "for": "fofn" }, "Add FOFN"),
+				fofnButton,
+				fofn,
+				" or ",
+				fofnPaste
 			] : [
 				label({ "for": "match" }, "Match"),
 				match
@@ -61,47 +69,53 @@ const addEditOverlay = (path: string, rule: Rule, load: (path: string) => void, 
 			br()
 		]),
 		fofnSection = div(),
+		disableInputs = () => {
+			overlay.setAttribute("closedby", "none");
+			set.toggleAttribute("disabled", true);
+			cancel.toggleAttribute("disabled", true);
+			backupType.toggleAttribute("disabled", true);
+			fofnButton.toggleAttribute("disabled", true);
+			fofnPaste.toggleAttribute("disabled", true);
+			fofn.toggleAttribute("disabled", true);
+		},
+		enableInputs = () => {
+			overlay.setAttribute("closedby", "any");
+			set.removeAttribute("disabled");
+			cancel.removeAttribute("disabled");
+			backupType.removeAttribute("disabled");
+			fofnButton.removeAttribute("disabled");
+			fofnPaste.removeAttribute("disabled");
+			fofn.removeAttribute("disabled");
+		},
 		overlay = document.body.appendChild(dialog({ "id": "addEdit", "closedby": "any", "close": () => overlay.remove() }, form({
 			"submit": (e: SubmitEvent) => {
 				e.preventDefault();
 
-				overlay.setAttribute("closedby", "none");
-				set.toggleAttribute("disabled", true);
-				cancel.toggleAttribute("disabled", true);
-				backupType.toggleAttribute("disabled", true);
-				fofn.toggleAttribute("disabled", true);
+				disableInputs();
 
 				if (isFOFN) {
-					(validTable ? uploadFOFN(path, backupType.value, metadata.value, validTable.files) : Promise.reject({"message": "No FOFN selected"}))
-					.then(() => {
-						load(path);
-						overlay.remove();
-					})
-					.catch((e: Error) => {
-						overlay.setAttribute("closedby", "any");
-						set.removeAttribute("disabled");
-						cancel.removeAttribute("disabled");
-						backupType.removeAttribute("disabled");
-						fofn.removeAttribute("disabled");
-						alert("Error: " + e.message);
-					});
+					(validTable ? uploadFOFN(path, backupType.value, metadata.value, validTable.files) : Promise.reject({ "message": "No FOFN selected" }))
+						.then(() => {
+							load(path);
+							overlay.remove();
+						})
+						.catch((e: Error) => {
+							enableInputs();
+							alert("Error: " + e.message);
+						});
 
 					return;
 				}
 
 				(rule.Match ? updateRule : createRule)(path, backupType.value, rule.Match || match.value || "*", backupType.value === "manualbackup" ? metadata.value : "")
-				.then(() => {
-					load(path);
-					overlay.remove();
-				})
-				.catch((e: Error) => {
-					overlay.setAttribute("closedby", "any");
-					set.removeAttribute("disabled");
-					cancel.removeAttribute("disabled");
-					backupType.removeAttribute("disabled");
-					fofn.removeAttribute("disabled");
-					alert("Error: " + e.message);
-				});
+					.then(() => {
+						load(path);
+						overlay.remove();
+					})
+					.catch((e: Error) => {
+						enableInputs();
+						alert("Error: " + e.message);
+					});
 			}
 		}, [
 			matchFofnSection,
@@ -170,7 +184,7 @@ export default Object.assign(base, {
 	}
 });
 
-function evalFOFN(fr: FileReader, fofnSection : HTMLElement, dir : string): Promise<FofnTable> {
+function evalFOFN(fr: FileReader, fofnSection: HTMLElement, dir: string): Promise<FofnTable> {
 	return new Promise((resolve, reject) => {
 		fr.onload = () => {
 			if (fr.result === null) {
@@ -220,7 +234,7 @@ function parseFofn(result: string, dir: string, fofnSection: HTMLElement, resolv
 		// Filter out wildcards
 		if (line.includes('*')) {
 			invalidTable.addLine("Filename cannot contain * ", line);
-			
+
 			continue;
 		}
 
@@ -233,7 +247,7 @@ function parseFofn(result: string, dir: string, fofnSection: HTMLElement, resolv
 
 		const dirToClaim = line.substring(0, line.lastIndexOf("/") + 1);
 
-		(fofn.get(dirToClaim) ?? setAndReturn(fofn, dirToClaim, [])).push(line.substring(line.lastIndexOf("/")+1));
+		(fofn.get(dirToClaim) ?? setAndReturn(fofn, dirToClaim, [])).push(line.substring(line.lastIndexOf("/") + 1));
 	}
 
 	const ps: Promise<void>[] = [];
@@ -249,7 +263,7 @@ function parseFofn(result: string, dir: string, fofnSection: HTMLElement, resolv
 					return
 				}
 			}
-			
+
 			const s = new Set<string>(Array.from(Object.values(data.Rules[dir] ?? [])).map(r => r.Match));
 
 			for (const filename of rules) {
@@ -257,23 +271,23 @@ function parseFofn(result: string, dir: string, fofnSection: HTMLElement, resolv
 			}
 		}).catch(() => {
 			for (const filename of rules) {
-				invalidTable.addLine("Unable to access directory ", dir+filename);
+				invalidTable.addLine("Unable to access directory ", dir + filename);
 			}
 		}))
 	}
 
 	Promise.all(ps).then(() => {
 		if (validTable.files.length > 100) {
-			clearNode(fofnSection, div({"class": "tooManyFiles"}, 'Number of files cannot exceed 100.'));
+			clearNode(fofnSection, div({ "class": "tooManyFiles" }, 'Number of files cannot exceed 100.'));
 			reject();
 
 			return;
 		}
 
-		const title = h2({"style": "float: left"}, 'Rules from FOFN:');
+		const title = h2({ "style": "float: left" }, 'Rules from FOFN:');
 		const invalidHeader = h3('Invalid filepaths:');
 
-		const key = div({"id": "fofnKey"}, [
+		const key = div({ "id": "fofnKey" }, [
 			div("Will claim directory"),
 			div("Will overwrite rule")
 		]);
@@ -281,8 +295,8 @@ function parseFofn(result: string, dir: string, fofnSection: HTMLElement, resolv
 		clearNode(
 			fofnSection,
 			[
-				title, key,
-				validTable.files.length > 0 ? [key, validTable.createTable("Directory", "Match")] : p("No valid filepaths found."), 
+				title,
+				validTable.files.length > 0 ? [key, validTable.createTable("Directory", "Match")] : p("No valid filepaths found."),
 				invalidTable.files.length > 0 ? [invalidHeader, invalidTable.createTable("Reason", "Line")] : []
 			]);
 		resolve(validTable);
@@ -308,8 +322,8 @@ class FofnTable {
 
 		for (const [key, z] of this.rows.entries()) {
 			rows.push(tr([
-				td({"class": z.claim ? "claim" : ""}, key),
-				td(z.values.map(v => div({"class": v.overwrite ? "overwrite" : ""}, v.value)))
+				td({ "class": z.claim ? "claim" : "" }, key),
+				td(z.values.map(v => div({ "class": v.overwrite ? "overwrite" : "" }, v.value)))
 			]));
 		}
 
@@ -323,12 +337,12 @@ class FofnTable {
 	}
 
 	addLine(key: string, value: string, claim: boolean = false, overwrite: boolean = false) {
-		const row = this.rows.get(key) ?? setAndReturn(this.rows, key, {values: [], claim: false});
-		
-		row.values.push({value, overwrite});
+		const row = this.rows.get(key) ?? setAndReturn(this.rows, key, { values: [], claim: false });
+
+		row.values.push({ value, overwrite });
 		row.claim ||= claim;
 
-		this.files.push(key+value);
-		
+		this.files.push(key + value);
+
 	}
 }
