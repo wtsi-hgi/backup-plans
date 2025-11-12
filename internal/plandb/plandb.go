@@ -68,7 +68,7 @@ func PopulateExamplePlanDB(t *testing.T) (*db.DB, string) { //nolint:funlen
 	userA := "userA"
 	userB := "userB"
 	reviewDate := time.Now().Add(24 * time.Hour).UTC().Truncate(1 * time.Second).Unix() //nolint:mnd
-	removeDate := time.Now().Add(48 * time.Hour).UTC().Truncate(1 * time.Second).Unix() //nolint:mndß
+	removeDate := time.Now().Add(48 * time.Hour).UTC().Truncate(1 * time.Second).Unix() //nolint:mnd
 
 	dirA := &db.Directory{
 		Path:       "/lustre/scratch123/humgen/a/b/",

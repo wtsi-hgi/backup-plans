@@ -90,7 +90,7 @@ func TestClaimDir(t *testing.T) {
 			Convey("You can revoke a claim", func() {
 				u = ""
 
-				code, resp := getResponse(s.RevokeDirClaim, "/api/dir/revoke?dir=/does/not/exist", nil)
+				code, resp = getResponse(s.RevokeDirClaim, "/api/dir/revoke?dir=/does/not/exist", nil)
 				So(code, ShouldEqual, http.StatusBadRequest)
 				So(resp, ShouldEqual, "invalid dir path\n")
 
@@ -158,7 +158,7 @@ func TestClaimDir(t *testing.T) {
 			Convey("You can set directory details", func() {
 				u = ""
 
-				code, resp := getResponse(
+				code, resp = getResponse(
 					s.SetDirDetails,
 					"/api/dir/setDirDetails?dir=/some/path/MyDir/&frequency=10&review=10&remove=15",
 					nil,
@@ -184,7 +184,36 @@ func TestClaimDir(t *testing.T) {
 					nil,
 				)
 				So(code, ShouldEqual, http.StatusOK)
-				So(resp, ShouldContainSubstring, "\"Frequency\":10,\"Review\":10,\"Remove\":15")
+				So(resp, ShouldContainSubstring, "\"Frequency\":10,\"ReviewDate\":10,\"RemoveDate\":15")
+			})
+
+			Convey("You cannot set invalid directory details", func() {
+				code, resp = getResponse(
+					s.SetDirDetails,
+					"/api/dir/setDirDetails?dir=/some/path/MyDir/&frequency=-1&review=10&remove=15",
+					nil,
+				)
+
+				So(code, ShouldEqual, http.StatusBadRequest)
+				So(resp, ShouldEqual, "strconv.ParseUint: parsing \"-1\": invalid syntax\n")
+
+				code, resp = getResponse(
+					s.SetDirDetails,
+					"/api/dir/setDirDetails?dir=/some/path/MyDir/&frequency=10&review=-1&remove=15",
+					nil,
+				)
+
+				So(code, ShouldEqual, http.StatusBadRequest)
+				So(resp, ShouldEqual, "")
+
+				code, resp = getResponse(
+					s.SetDirDetails,
+					"/api/dir/setDirDetails?dir=/some/path/MyDir/&frequency=10&review=10&remove=-1",
+					nil,
+				)
+
+				So(code, ShouldEqual, http.StatusBadRequest)
+				So(resp, ShouldEqual, "")
 			})
 		})
 	})

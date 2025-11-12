@@ -59,7 +59,8 @@ func (d *DB) CreateDirectory(dir *Directory) error {
 	dir.Created = time.Now().Unix()
 	dir.Modified = dir.Created
 
-	res, err := tx.Exec(createDirectory, dir.Path, dir.ClaimedBy, dir.Frequency, dir.ReviewDate, dir.RemoveDate, dir.Created, dir.Modified) //nolint:noctx
+	res, err := tx.Exec(createDirectory, dir.Path, dir.ClaimedBy, dir.Frequency, //nolint:noctx
+		dir.ReviewDate, dir.RemoveDate, dir.Created, dir.Modified)
 	if err != nil {
 		return err
 	}

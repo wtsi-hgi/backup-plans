@@ -14,7 +14,13 @@ import (
 	gas "github.com/wtsi-hgi/go-authserver"
 	"github.com/wtsi-hgi/ibackup/server"
 	"github.com/wtsi-hgi/ibackup/set"
+	"github.com/wtsi-hgi/ibackup/transfer"
 	"go.etcd.io/bbolt"
+)
+
+var (
+	twoyears         = time.Now().Add(time.Hour * 24 * 365 * 2) //nolint:gochecknoglobals
+	twoYearsAddMonth = twoyears.Add(time.Hour * 24 * 30)        //nolint:gochecknoglobals
 )
 
 func TestIbackup(t *testing.T) {
@@ -39,14 +45,14 @@ func TestIbackup(t *testing.T) {
 
 			setName := "mySet"
 
-			runTestBackups(client, setName, u.Username, []string{}, 0)
+			runTestBackups(client, setName, u.Username, []string{}, 0, 0, 0)
 
 			sets, err = client.GetSets(u.Username)
 			So(err, ShouldBeNil)
 			So(sets, ShouldBeNil)
 
 			runTestBackups(client, setName, u.Username,
-				[]string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}, 0)
+				[]string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}, 0, 0, 0)
 
 			sets, err = client.GetSets(u.Username)
 			So(err, ShouldBeNil)
@@ -54,8 +60,11 @@ func TestIbackup(t *testing.T) {
 
 			before := time.Now()
 
+			review := twoyears.Unix()
+			remove := twoYearsAddMonth.Unix()
+
 			runTestBackups(client, setName, u.Username,
-				[]string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}, 1)
+				[]string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}, 1, review, remove)
 
 			sets, err = client.GetSets(u.Username)
 			So(err, ShouldBeNil)
@@ -64,12 +73,17 @@ func TestIbackup(t *testing.T) {
 					Name:        setName,
 					Requester:   u.Username,
 					Transformer: "humgen",
-					Metadata:    map[string]string{},
-					NumFiles:    1,
-					Missing:     1,
-					Status:      set.Complete,
+					Metadata: map[string]string{
+						transfer.MetaKeyReview:  ibackup.TimeToMeta(review),
+						transfer.MetaKeyRemoval: ibackup.TimeToMeta(remove),
+					},
+					NumFiles: 1,
+					Missing:  1,
+					Status:   set.Complete,
 				},
 			})
+			So(sets[0].Metadata[transfer.MetaKeyReview], ShouldNotBeBlank)
+			So(sets[0].Metadata[transfer.MetaKeyRemoval], ShouldNotBeBlank)
 
 			sba, err := ibackup.GetBackupActivity(client, setName, u.Username)
 			So(err, ShouldBeNil)
@@ -84,7 +98,7 @@ func TestIbackup(t *testing.T) {
 
 				So(setSet(s, got), ShouldBeNil)
 				runTestBackups(client, setName, u.Username,
-					[]string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}, 1)
+					[]string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}, 1, 0, 0)
 
 				got, err = client.GetSetByName(u.Username, setName)
 				So(err, ShouldBeNil)
@@ -96,7 +110,7 @@ func TestIbackup(t *testing.T) {
 				So(setSet(s, got), ShouldBeNil)
 
 				runTestBackups(client, setName, u.Username,
-					[]string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}, 1)
+					[]string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}, 1, review, remove)
 
 				got, err = client.GetSetByName(u.Username, setName)
 				So(err, ShouldBeNil)
@@ -224,7 +238,8 @@ func setSet(s *server.Server, got *set.Set) error {
 	})
 }
 
-func runTestBackups(client *server.Client, setname, requester string, files []string, frequency int) {
-	err := ibackup.Backup(client, setname, requester, files, frequency)
+func runTestBackups(client *server.Client, setname, requester string, files []string,
+	frequency int, review, remove int64) {
+	err := ibackup.Backup(client, setname, requester, files, frequency, review, remove)
 	So(err, ShouldBeNil)
 }

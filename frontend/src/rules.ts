@@ -1,9 +1,9 @@
 import type { BackupType, dirDetails, DirectoryWithChildren, Rule } from "./types.js"
 import { clearNode } from "./lib/dom.js";
-import { br, button, dialog, div, form, h2, h3, input, label, option, p, select, span, table, tbody, td, textarea, th, thead, tr } from './lib/html.js';
+import { br, button, dialog, div, form, h2, h3, input, label, option, p, select, table, tbody, td, textarea, th, thead, time, tr } from './lib/html.js';
 import { svg, title, use } from './lib/svg.js';
 import { action, confirm, formatBytes, setAndReturn } from "./lib/utils.js";
-import { createRule, getTree, removeRule, updateRule, uploadFOFN, user } from "./rpc.js";
+import { createRule, getTree, removeRule, setDirDetails, updateRule, uploadFOFN, user } from "./rpc.js";
 import { BackupIBackup, BackupManual, BackupNone } from "./types.js"
 
 const createStuff = (backupType: BackupType, md: string, setText: string, closeFn: () => void) => {
@@ -187,6 +187,61 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 
 		overlay.showModal();
 	},
+	dirDetailOverlay = (path: string, dirDetails: dirDetails, load: (path: string) => void) => {
+		const frequency = input({ "id": "frequency", "type": "number", "value": dirDetails.Frequency + "" }),
+			review = input({ "id": "review", "type": "date", "value": new Date(dirDetails.ReviewDate * 1000).toISOString().substring(0, 10) }),
+			remove = input({ "id": "remove", "type": "date", "value": new Date(dirDetails.RemoveDate * 1000).toISOString().substring(0, 10) }),
+			set = button({ "value": "set" }, "Set"),
+			cancel = button({ "type": "button", "click": () => overlay.close() }, "Cancel"),
+			disableInputs = () => {
+				overlay.setAttribute("closedby", "none");
+				set.toggleAttribute("disabled", true);
+				cancel.toggleAttribute("disabled", true);
+				frequency.toggleAttribute("disabled", true);
+				review.toggleAttribute("disabled", true);
+				remove.toggleAttribute("disabled", true);
+			},
+			enableInputs = () => {
+				overlay.setAttribute("closedby", "any");
+				set.removeAttribute("disabled");
+				cancel.removeAttribute("disabled");
+				frequency.removeAttribute("disabled");
+				review.removeAttribute("disabled");
+				remove.removeAttribute("disabled");
+			},
+			overlay = document.body.appendChild(dialog({ "id": "addEdit", "closedby": "any", "close": () => overlay.remove() }, form({
+				"submit": (e: SubmitEvent) => {
+					e.preventDefault();
+					if (review.valueAsDate === null || remove.valueAsDate === null || review.valueAsDate < new Date(Date.now()) || remove.valueAsDate < review.valueAsDate) {
+						alert("Please provide valid dates for review and removal.");
+						return;
+					}
+					if (frequency.valueAsNumber < 0 || frequency.valueAsNumber > 100000) {
+						alert("Please provide a valid frequency (0-100000).");
+						return;
+					}
+					disableInputs();
+
+					setDirDetails(path, frequency.valueAsNumber, + review.valueAsDate / 1000, + remove.valueAsDate / 1000)
+						.then(() => {
+							load(path);
+							overlay.remove();
+						})
+						.catch((e: Error) => {
+							enableInputs();
+							alert("Error: " + e.message);
+						});
+				}
+			}, [
+				label({ "for": "frequency" }, "Frequency (days)"), frequency, br(),
+				label({ "for": "review" }, "Review Date"), review, br(),
+				label({ "for": "remove" }, "Remove Date"), remove, br(),
+				set,
+				cancel,
+			])));
+
+		overlay.showModal();
+	},
 	addRule = (path: string, load: (path: string) => void) => button({
 		"click": () => addEditOverlay(path, {
 			"BackupType": BackupIBackup,
@@ -201,22 +256,19 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 			"RemoveDate": 0
 		}, load),
 	}, "Add FOFN"),
-	setDirDetails = (path: string, load: (path: string) => void) => button({
-		"click": () => dirDetailOverlay(path, {
-			"Frequency": 7,
-			"ReviewDate": 0,
-			"RemoveDate": 0
-		}, load),
+	addDirDetails = (path: string, load: (path: string) => void, dirDetails: dirDetails) => button({
+		"click": () => dirDetailOverlay(path, dirDetails, load),
 	}, "Set Directory Details"),
 	base = div();
 
 export default Object.assign(base, {
 	"update": (path: string, data: DirectoryWithChildren, load: (path: string) => void) => {
+		console.log(data)
 		clearNode(base, [
 			data.claimedBy ? h2("Rules on this directory") : [],
-			data.claimedBy && data.claimedBy == user && !data.rules[path]?.length ? [addRule(path, load), addFOFN(path, load)] : [],
+			data.claimedBy && data.claimedBy == user && !data.rules[path]?.length ? [addRule(path, load), addFOFN(path, load), addDirDetails(path, load, data)] : [],
 			data.claimedBy && data.rules[path]?.length ? table({ "id": "rules", "class": "summary" }, [
-				thead(tr([th("Match"), th("Action"), th("Files"), th("Size"), data.claimedBy === user ? td([addRule(path, load), addFOFN(path, load)]) : []])),
+				thead(tr([th("Match"), th("Action"), th("Files"), th("Size"), data.claimedBy === user ? td([addRule(path, load), addFOFN(path, load), addDirDetails(path, load, data)]) : []])),
 				tbody(Object.values(data.rules[path] ?? []).map(rule => tr([
 					td(rule.Match),
 					td(action(rule.BackupType)),

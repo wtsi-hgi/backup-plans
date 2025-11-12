@@ -180,13 +180,10 @@ func (s *Server) claimDir(w http.ResponseWriter, r *http.Request) error { //noli
 		return ErrCannotClaimDirectory
 	}
 
-	reviewDate := time.Now().Add(twoyears).Unix() // 2 years from now
-	removeDate := reviewDate + month              // 1 month after review
-
 	err = s.claimDirectory(
 		dir,
 		user,
-		dirDetails{Frequency: defaultFrequency, Review: reviewDate, Remove: removeDate},
+		defaultDirDetails(),
 	)
 	if err != nil {
 		return err
@@ -197,13 +194,22 @@ func (s *Server) claimDir(w http.ResponseWriter, r *http.Request) error { //noli
 	return json.NewEncoder(w).Encode(user)
 }
 
+func defaultDirDetails() dirDetails {
+	reviewDate := time.Now().Add(twoyears).Unix()
+
+	return dirDetails{Frequency: defaultFrequency,
+		ReviewDate: reviewDate,
+		RemoveDate: reviewDate + month,
+	}
+}
+
 func (s *Server) claimDirectory(fileDir, user string, dirdetails dirDetails) error {
 	directory := &db.Directory{
 		Path:       fileDir,
 		ClaimedBy:  user,
 		Frequency:  dirdetails.Frequency,
-		ReviewDate: dirdetails.Review,
-		RemoveDate: dirdetails.Remove,
+		ReviewDate: dirdetails.ReviewDate,
+		RemoveDate: dirdetails.RemoveDate,
 	}
 
 	if err := s.rulesDB.CreateDirectory(directory); err != nil {
@@ -343,16 +349,16 @@ func (s *Server) setDirDetails(_ http.ResponseWriter, r *http.Request) error {
 	}
 
 	directory.Frequency = dDetails.Frequency
-	directory.ReviewDate = dDetails.Review
-	directory.RemoveDate = dDetails.Remove
+	directory.ReviewDate = dDetails.ReviewDate
+	directory.RemoveDate = dDetails.RemoveDate
 
 	return s.rulesDB.UpdateDirectory(directory.Directory)
 }
 
 type dirDetails struct {
-	Frequency uint
-	Review    int64
-	Remove    int64
+	Frequency  uint
+	ReviewDate int64
+	RemoveDate int64
 }
 
 func getDirDetails(r *http.Request) (dirDetails, error) {
@@ -379,7 +385,7 @@ func getDirDetails(r *http.Request) (dirDetails, error) {
 		return dirDetails{}, Error{Err: err, Code: http.StatusBadRequest}
 	}
 
-	return dirDetails{Frequency: uint(frequency), Review: review, Remove: remove}, nil
+	return dirDetails{Frequency: uint(frequency), ReviewDate: review, RemoveDate: remove}, nil
 }
 
 // CreateRule allows the claimant of a directory to add a rule to that

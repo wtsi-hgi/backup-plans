@@ -72,24 +72,29 @@ func (s *Server) fofn(_ http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	dirDetails, err := getDirDetails(r)
-	if err != nil {
-		return err
-	}
-
 	user := s.getUser(r)
 
 	slices.Sort(files)
 
-	return s.validateAndApplyFofn(user, dir, dirDetails, files, *rule)
+	return s.validateAndApplyFofn(user, dir, files, *rule)
 }
 
-func (s *Server) validateAndApplyFofn(user, dir string, dirDetails dirDetails, files []string, rule db.Rule) error {
+func (s *Server) validateAndApplyFofn(user, dir string, files []string, rule db.Rule) error {
 	s.rulesMu.Lock()
 	defer s.rulesMu.Unlock()
 
 	if err := s.validateFofn(user, dir, files); err != nil {
 		return err
+	}
+
+	var dirDetails dirDetails
+
+	if dr, ok := s.directoryRules[dir]; ok {
+		dirDetails.Frequency = dr.Frequency
+		dirDetails.ReviewDate = dr.ReviewDate
+		dirDetails.RemoveDate = dr.RemoveDate
+	} else {
+		dirDetails = defaultDirDetails()
 	}
 
 	rulesToAdd, err := s.createRulesToAdd(user, rule, files, dirDetails)
@@ -207,8 +212,8 @@ func (s *Server) claimAndCreateDirRules(file, user string, dirDetails dirDetails
 		detailsSet[dirRules] = struct{}{}
 
 		dirRules.Frequency = dirDetails.Frequency
-		dirRules.ReviewDate = dirDetails.Review
-		dirRules.RemoveDate = dirDetails.Remove
+		dirRules.ReviewDate = dirDetails.ReviewDate
+		dirRules.RemoveDate = dirDetails.RemoveDate
 
 		if err := s.rulesDB.UpdateDirectory(dirRules.Directory); err != nil {
 			return nil, err
