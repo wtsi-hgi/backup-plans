@@ -114,9 +114,9 @@ func (s *Server) tree(w http.ResponseWriter, r *http.Request) error { //nolint:f
 		t.Rules[dir] = thisDir
 
 		t.dirDetails = dirDetails{
-			Frequency: dirRules.Frequency,
-			Review:    dirRules.ReviewDate,
-			Remove:    dirRules.RemoveDate,
+			Frequency:  dirRules.Frequency,
+			ReviewDate: dirRules.ReviewDate,
+			RemoveDate: dirRules.RemoveDate,
 		}
 
 		for _, rule := range dirRules.Rules {

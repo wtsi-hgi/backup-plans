@@ -77,7 +77,7 @@ func TestTree(t *testing.T) {
 				"\"Groups\":["+
 				"{\"Name\":\""+users.Group(2)+"\",\"MTime\":6,\"Files\":2,\"Size\":8}]}"+
 				"],\"Children\":{},\"ClaimedBy\":\"\",\"Rules\":{},\"Unauthorised\":[],\"CanClaim\":true,"+
-				"\"Frequency\":0,\"Review\":0,\"Remove\":0}\n")
+				"\"Frequency\":0,\"ReviewDate\":0,\"RemoveDate\":0}\n")
 
 			code, _ = getResponse(
 				s.ClaimDir,
@@ -115,7 +115,7 @@ func TestTree(t *testing.T) {
 				"\"/some/path/MyDir/\":{\"1\":{\"BackupType\":1,\"Metadata\":\"\","+
 				"\"Match\":\"*.txt\",\"Created\":0,\"Modified\":0}}},"+
 				"\"Unauthorised\":[],\"CanClaim\":true,"+
-				"\"Frequency\":7,\"Review\":0,\"Remove\":0}\n")
+				"\"Frequency\":7,\"ReviewDate\":0,\"RemoveDate\":0}\n")
 		})
 	})
 }

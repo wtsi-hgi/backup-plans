@@ -70,13 +70,30 @@ const (
 		"/*! `table_schema` = DATABASE() -- */ `type` = 'table'\n/*! */ AND " +
 		"/*! `table_name` -- */ `name`\n/*! */ = ?;"
 
-	createDirectory = "INSERT INTO `directories` (`directory`, `claimedBy`, `frequency`, `reviewDate`, `removeDate`, `created`, `modified`) VALUES (?, ?, ?, ?, ?, ?, ?);"
-	createRule      = "INSERT INTO `rules` " +
+	createDirectory = "INSERT INTO `directories` (" +
+		"`directory`, " +
+		"`claimedBy`, " +
+		"`frequency`, " +
+		"`reviewDate`, " +
+		"`removeDate`, " +
+		"`created`, " +
+		"`modified`" +
+		") VALUES (?, ?, ?, ?, ?, ?, ?);"
+	createRule = "INSERT INTO `rules` " +
 		"(`directoryID`, `type`, `metadata`, `match`, `created`, `modified`) " +
 		"VALUES (?, ?, ?, ?, ?, ?);"
 
-	selectAllDirectories = "SELECT `id`, `directory`, `claimedBy`, `frequency`, `reviewDate`, `removeDate`, `created`, `modified` FROM `directories`;"
-	selectAllRules       = "SELECT " +
+	selectAllDirectories = "SELECT " +
+		"`id`, " +
+		"`directory`, " +
+		"`claimedBy`, " +
+		"`frequency`, " +
+		"`reviewDate`, " +
+		"`removeDate`, " +
+		"`created`, " +
+		"`modified` " +
+		"FROM `directories`;"
+	selectAllRules = "SELECT " +
 		"`id`, " +
 		"`directoryID`, " +
 		"`type`, " +
@@ -86,8 +103,14 @@ const (
 		"`modified` " +
 		"FROM `rules`;"
 
-	updateDirectory = "UPDATE `directories` SET `claimedBy` = ?, `modified` = ?, `frequency` = ?, `reviewDate` = ?, `removeDate` = ? WHERE `id` = ?;"
-	updateRule      = "UPDATE `rules` SET " +
+	updateDirectory = "UPDATE `directories` SET " +
+		"`claimedBy` = ?, " +
+		"`modified` = ?, " +
+		"`frequency` = ?, " +
+		"`reviewDate` = ?, " +
+		"`removeDate` = ? " +
+		"WHERE `id` = ?;"
+	updateRule = "UPDATE `rules` SET " +
 		"`type` = ?, " +
 		"`metadata` = ?, " +
 		"`match` = ?, " +
