@@ -323,7 +323,7 @@ func (s *Server) SetDirDetails(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.setDirDetails)
 }
 
-func (s *Server) setDirDetails(_ http.ResponseWriter, r *http.Request) error {
+func (s *Server) setDirDetails(_ http.ResponseWriter, r *http.Request) error { //nolint:funlen
 	dir, err := getDir(r)
 	if err != nil {
 		return err
@@ -334,6 +334,10 @@ func (s *Server) setDirDetails(_ http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
+	if err = validateDirDetails(dDetails); err != nil {
+		return err
+	}
+
 	user := s.getUser(r)
 
 	s.rulesMu.Lock()
@@ -341,7 +345,7 @@ func (s *Server) setDirDetails(_ http.ResponseWriter, r *http.Request) error {
 
 	directory, ok := s.directoryRules[dir]
 	if !ok {
-		return ErrInvalidDir
+		return ErrDirectoryNotClaimed
 	}
 
 	if directory.ClaimedBy != user {
@@ -353,6 +357,25 @@ func (s *Server) setDirDetails(_ http.ResponseWriter, r *http.Request) error {
 	directory.RemoveDate = dDetails.RemoveDate
 
 	return s.rulesDB.UpdateDirectory(directory.Directory)
+}
+
+func validateDirDetails(d dirDetails) error {
+	if d.Frequency > frequencyLimit {
+		return ErrInvalidFrequency
+	}
+
+	remove := d.RemoveDate
+	review := d.ReviewDate
+
+	if remove < review {
+		return ErrInvalidTime
+	}
+
+	if review < time.Now().Unix() {
+		return ErrInvalidTime
+	}
+
+	return nil
 }
 
 type dirDetails struct {
@@ -456,7 +479,7 @@ func (s *Server) addRuleToDir(directory *ruletree.DirRules, rule *db.Rule) error
 	return nil
 }
 
-func getRuleDetails(r *http.Request) (*db.Rule, error) { //nolint:funlen,gocyclo,cyclop
+func getRuleDetails(r *http.Request) (*db.Rule, error) {
 	rule := new(db.Rule)
 
 	var requireMetadata bool
