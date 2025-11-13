@@ -217,5 +217,29 @@ func ExampleTreeBig() *directories.Root {
 	directories.AddFile(&tree.Directory, "scratch123/humgen/a/b/newdir/testextradir/test.txt", 2, 1, 6, 12346) //nolint:mnd
 	directories.AddFile(&tree.Directory, "scratch123/humgen/a/c/newdir/testextradir/test.txt", 2, 1, 6, 12346) //nolint:mnd
 
+	tree.AddDirectory("scratch123").AddDirectory("humgen").AddDirectory("a").AddDirectory("d").SetMeta(0, 0, 0)
+
 	return tree
+}
+
+func FofnTestDB(t *testing.T) (*db.DB, string) { //nolint:ireturn,nolintlint
+	t.Helper()
+
+	testDB, connectionStr := CreateTestDatabase(t)
+
+	return testDB, connectionStr
+}
+
+func FofnTestTree() *directories.Root {
+	dirRoot := ExampleTree()
+	humgen := dirRoot.SetMeta(99, 98, 1).AddDirectory("scratch123"). //nolint:mnd
+										SetMeta(1, 1, 98765).AddDirectory("humgen").SetMeta(1, 1, 98765) //nolint:mnd
+
+	humgen.AddDirectory("a").SetMeta(0, 98, 1).AddDirectory("b").SetMeta(0, 1, 98765). //nolint:mnd
+												AddDirectory("testdir").SetMeta(0, 1, 12349).     //nolint:mnd
+												AddDirectory("testdirchild").SetMeta(0, 1, 12349) //nolint:mnd
+
+	humgen.AddDirectory("a").AddDirectory("c").SetMeta(0, 1, 12349) //nolint:mnd
+
+	return dirRoot
 }

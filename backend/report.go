@@ -106,7 +106,8 @@ func (s *Server) summary(w http.ResponseWriter, _ *http.Request) error { //nolin
 					var ruleIDs []uint64
 
 					for _, r := range dir.Rules {
-						ruleIDs = append(ruleIDs, uint64(r.ID())) //nolint:gosec
+						ruleIDs = append(ruleIDs, uint64(r.ID()))                  //nolint:gosec
+						dirSummary.Rules[uint64(r.ID())] = s.rules[uint64(r.ID())] //nolint:gosec
 					}
 
 					slices.Sort(ruleIDs)
@@ -114,8 +115,6 @@ func (s *Server) summary(w http.ResponseWriter, _ *http.Request) error { //nolin
 					dirSummary.Directories[dir.Path] = ruleIDs
 				}
 			}
-
-			dirSummary.Rules[rule.ID] = s.rules[rule.ID]
 		}
 	}
 

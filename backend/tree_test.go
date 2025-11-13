@@ -58,6 +58,7 @@ func TestTree(t *testing.T) {
 			code, resp := getResponse(
 				s.Tree,
 				"/api/tree?dir=/some/path/MyDir/",
+				nil,
 			)
 			So(code, ShouldEqual, http.StatusUnauthorized)
 			So(resp, ShouldEqual, "not authorised to see this directory\n")
@@ -67,6 +68,7 @@ func TestTree(t *testing.T) {
 			code, resp = getResponse(
 				s.Tree,
 				"/api/tree?dir=/some/path/MyDir/",
+				nil,
 			)
 			So(code, ShouldEqual, http.StatusOK)
 			So(resp, ShouldEqual, "{\"RuleSummaries\":[{\"ID\":0,\"Users\":["+
@@ -76,18 +78,24 @@ func TestTree(t *testing.T) {
 				"{\"Name\":\""+users.Group(2)+"\",\"MTime\":6,\"Files\":2,\"Size\":8}]}"+
 				"],\"Children\":{},\"ClaimedBy\":\"\",\"Rules\":{},\"Unauthorised\":[],\"CanClaim\":true}\n")
 
-			code, _ = getResponse(s.ClaimDir, "/api/dir/claim?dir=/some/path/MyDir/")
+			code, _ = getResponse(
+				s.ClaimDir,
+				"/api/dir/claim?dir=/some/path/MyDir/",
+				nil,
+			)
 			So(code, ShouldEqual, http.StatusOK)
 
 			code, _ = getResponse(
 				s.CreateRule,
 				"/api/rules/create?dir=/some/path/MyDir/&action=backup&match=*.txt&frequency=7&review=100&remove=200",
+				nil,
 			)
 			So(code, ShouldEqual, http.StatusNoContent)
 
 			code, resp = getResponse(
 				s.Tree,
 				"/api/tree?dir=/some/path/MyDir/",
+				nil,
 			)
 			So(code, ShouldEqual, http.StatusOK)
 

@@ -99,6 +99,20 @@ func NewRoot(rules []DirRule) (*RootDir, error) {
 	return r, nil
 }
 
+// AddRules adds the given rules and regenerates the tree from the top path.
+func (r *RootDir) AddRules(topPath string, dirRules []DirRule) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	for _, rule := range dirRules {
+		if err := r.addRule(rule.Directory, rule.Rule); err != nil {
+			return err
+		}
+	}
+
+	return r.regenRules(topPath)
+}
+
 // AddRule adds the given rule to the given directory and regenerates the rule
 // summaries.
 func (r *RootDir) AddRule(dir *db.Directory, rule *db.Rule) error {
@@ -138,6 +152,15 @@ func (r *RootDir) RemoveRule(dir *db.Directory, rule *db.Rule) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
+	err := r.removeRule(dir, rule)
+	if err != nil {
+		return err
+	}
+
+	return r.regenRules(dir.Path)
+}
+
+func (r *RootDir) removeRule(dir *db.Directory, rule *db.Rule) error {
 	existingDir, ok := r.directoryRules[dir.Path]
 	if !ok {
 		return ErrNotFound
@@ -149,7 +172,7 @@ func (r *RootDir) RemoveRule(dir *db.Directory, rule *db.Rule) error {
 
 	delete(existingDir.Rules, rule.Match)
 
-	return r.regenRules(dir.Path)
+	return nil
 }
 
 func (r *RootDir) regenRules(dir string) error {

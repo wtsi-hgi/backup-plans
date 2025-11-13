@@ -61,7 +61,7 @@ func TestReport(t *testing.T) {
 		err = client.TriggerDiscovery(exampleSet.ID(), false)
 		So(err, ShouldBeNil)
 		Convey("A summary can be retrieved", func() {
-			code, str := getResponse(server.Summary, "/api/reports")
+			code, str := getResponse(server.Summary, "/api/reports", nil)
 			So(code, ShouldEqual, http.StatusOK)
 
 			var gotSummary summary
@@ -197,7 +197,6 @@ func TestReport(t *testing.T) {
 						},
 					},
 					Rules: map[uint64]*db.Rule{
-						0: nil,
 						1: copyRule(rules[0]),
 						2: copyRule(rules[1]),
 						3: copyRule(rules[2]),
