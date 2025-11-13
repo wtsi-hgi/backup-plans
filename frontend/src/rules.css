@@ -207,6 +207,10 @@ select:disabled {
 	color: var(--overwritecolour);
 }
 
+.overwriteDirDetail {
+	color: var(--dirDetailscolour);
+}
+
 .claim {
 	color: var(--claimcolour);
 }
@@ -277,6 +281,10 @@ select:disabled {
 
 #fofnKey div:first-child:after {
 	background-color: var(--claimcolour);
+}
+
+#fofnKey div:nth-child(2):after {
+	background-color: var(--dirDetailscolour);
 }
 
 #fofnKey div:last-child:after {

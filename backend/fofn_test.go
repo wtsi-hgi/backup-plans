@@ -218,7 +218,7 @@ func TestFofn(t *testing.T) {
 			So(resp, ShouldContainSubstring, "\"Frequency\":50,\"ReviewDate\":"+now+",\"RemoveDate\":"+future)
 			So(code, ShouldEqual, http.StatusOK)
 
-			Convey("You can upload a fofn to add rules to child dirs, inheriting details", func() {
+			Convey("You can upload a fofn to add rules to child dirs, inheriting directory details", func() {
 				code, resp = getResponse(
 					s.Fofn,
 					"/test?action=backup&dir=/some/path/MyDir/",
@@ -233,8 +233,7 @@ func TestFofn(t *testing.T) {
 					nil,
 				)
 
-				// TODO: Should the child dir inherit the parent's details, if they were set prior to fofn upload?
-				So(resp, ShouldContainSubstring, "\"Frequency\":50,\"ReviewDate\":"+now+",\"RemoveDate\":"+future)
+				So(resp, ShouldContainSubstring, "\"Frequency\":10,\"ReviewDate\":"+now+",\"RemoveDate\":"+future)
 				So(code, ShouldEqual, http.StatusOK)
 
 				code, resp = getResponse(
