@@ -169,10 +169,16 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 			overlay = document.body.appendChild(dialog({ "id": "addEdit", "closedby": "any", "close": () => overlay.remove() }, form({
 				"submit": (e: SubmitEvent) => {
 					e.preventDefault();
+					confirm.toggleAttribute("disabled", true);
+					cancel.toggleAttribute("disabled", true);
+
 					removeRule(path, rule.Match)
 						.then(() => {
 							load(path);
 							overlay.remove();
+						}).catch(() => {
+							confirm.removeAttribute("disabled");
+							cancel.removeAttribute("disabled");
 						});
 				}
 			}, [
