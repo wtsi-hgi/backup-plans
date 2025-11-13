@@ -1,6 +1,6 @@
-import type { BackupType, dirDetails, DirectoryWithChildren, Rule } from "./types.js"
+import type { BackupType, dirDetails, DirectoryWithChildren, Rule, RuleStats } from "./types.js"
 import { clearNode } from "./lib/dom.js";
-import { br, button, dialog, div, form, h2, h3, input, label, option, p, select, table, tbody, td, textarea, th, thead, time, tr } from './lib/html.js';
+import { br, button, details, dialog, div, form, h2, h3, input, label, option, p, select, table, tbody, td, textarea, th, thead, time, tr } from './lib/html.js';
 import { svg, title, use } from './lib/svg.js';
 import { action, confirm, formatBytes, setAndReturn } from "./lib/utils.js";
 import { createRule, getTree, removeRule, setDirDetails, updateRule, uploadFOFN, user } from "./rpc.js";
@@ -82,7 +82,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 				"id": "fofn", "type": "file", "style": "display: none", "change": () => {
 					const fr = new FileReader();
 
-					evalFOFN(fr, fofnSection, path).then(vt => validTable = vt);
+					evalFOFN(fr, fofnSection, dirDetails, path).then(vt => validTable = vt);
 
 					fr.readAsText(fofn.files![0]);
 				}
@@ -98,7 +98,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 								br(),
 								button({
 									"type": "button", "click": () => {
-										new Promise<FofnTable>((resolve, reject) => parseFofn(contents.value, path, fofnSection, resolve, reject))
+										new Promise<FofnTable>((resolve, reject) => parseFofn(contents.value, path, dirDetails, fofnSection, resolve, reject))
 											.then(vt => validTable = vt)
 											.finally(() => pasteOverlay.close())
 									}
@@ -249,12 +249,8 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 			"Match": ""
 		}, load),
 	}, "Add Rule"),
-	addFOFN = (path: string, load: (path: string) => void) => button({
-		"click": () => addFofnOverlay(path, {
-			"Frequency": 7,
-			"ReviewDate": 0,
-			"RemoveDate": 0
-		}, load),
+	addFOFN = (path: string, load: (path: string) => void, dirDetails: dirDetails) => button({
+		"click": () => addFofnOverlay(path, dirDetails, load),
 	}, "Add FOFN"),
 	addDirDetails = (path: string, load: (path: string) => void, dirDetails: dirDetails) => button({
 		"click": () => dirDetailOverlay(path, dirDetails, load),
@@ -263,12 +259,11 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 
 export default Object.assign(base, {
 	"update": (path: string, data: DirectoryWithChildren, load: (path: string) => void) => {
-		console.log(data)
 		clearNode(base, [
 			data.claimedBy ? h2("Rules on this directory") : [],
-			data.claimedBy && data.claimedBy == user && !data.rules[path]?.length ? [addRule(path, load), addFOFN(path, load), addDirDetails(path, load, data)] : [],
+			data.claimedBy && data.claimedBy == user && !data.rules[path]?.length ? [addRule(path, load), addFOFN(path, load, data), addDirDetails(path, load, data)] : [],
 			data.claimedBy && data.rules[path]?.length ? table({ "id": "rules", "class": "summary" }, [
-				thead(tr([th("Match"), th("Action"), th("Files"), th("Size"), data.claimedBy === user ? td([addRule(path, load), addFOFN(path, load), addDirDetails(path, load, data)]) : []])),
+				thead(tr([th("Match"), th("Action"), th("Files"), th("Size"), data.claimedBy === user ? td([addRule(path, load), addFOFN(path, load, data), addDirDetails(path, load, data)]) : []])),
 				tbody(Object.values(data.rules[path] ?? []).map(rule => tr([
 					td(rule.Match),
 					td(action(rule.BackupType)),
@@ -296,7 +291,7 @@ export default Object.assign(base, {
 	}
 });
 
-function evalFOFN(fr: FileReader, fofnSection: HTMLElement, dir: string): Promise<FofnTable> {
+function evalFOFN(fr: FileReader, fofnSection: HTMLElement, parentDirDetails: dirDetails, dir: string): Promise<FofnTable> {
 	return new Promise((resolve, reject) => {
 		fr.onload = () => {
 			if (fr.result === null) {
@@ -305,12 +300,12 @@ function evalFOFN(fr: FileReader, fofnSection: HTMLElement, dir: string): Promis
 				return;
 			}
 
-			return parseFofn(fr.result as string, dir, fofnSection, resolve, reject)
+			return parseFofn(fr.result as string, dir, parentDirDetails, fofnSection, resolve, reject)
 		}
 	});
 }
 
-function parseFofn(result: string, dir: string, fofnSection: HTMLElement, resolve: (v: FofnTable) => void, reject: () => void) {
+function parseFofn(result: string, dir: string, parentDirDetails: dirDetails, fofnSection: HTMLElement, resolve: (v: FofnTable) => void, reject: () => void) {
 	const validTable = new FofnTable();
 	const invalidTable = new FofnTable();
 
@@ -358,6 +353,7 @@ function parseFofn(result: string, dir: string, fofnSection: HTMLElement, resolv
 	}
 
 	const ps: Promise<void>[] = [];
+
 	for (const [dir, rules] of fofn.entries()) {
 		ps.push(getTree(dir).then(data => {
 			let toClaim = false;
@@ -374,7 +370,22 @@ function parseFofn(result: string, dir: string, fofnSection: HTMLElement, resolv
 			const s = new Set<string>(Array.from(Object.values(data.Rules[dir] ?? [])).map(r => r.Match));
 
 			for (const filename of rules) {
-				validTable.addLine(dir, filename, toClaim, s.has(filename));
+				const diffs: string[] = [];
+
+				if (parentDirDetails.Frequency !== data.Frequency) {
+					diffs.push(`Frequency: \n Old: ${data.Frequency} \n New: ${parentDirDetails.Frequency} \n`);
+				}
+				if (parentDirDetails.ReviewDate !== data.ReviewDate) {
+					diffs.push(`Review Date: \n Old: ${new Date(data.ReviewDate * 1000).toLocaleDateString()} \n New: ${new Date(parentDirDetails.ReviewDate * 1000).toLocaleDateString()} \n`);
+				}
+				if (parentDirDetails.RemoveDate !== data.RemoveDate) {
+					diffs.push(`Remove Date: \n Old: ${new Date(data.RemoveDate * 1000).toLocaleDateString()} \n New: ${new Date(parentDirDetails.RemoveDate * 1000).toLocaleDateString()} \n`);
+				}
+
+				const overwriteDirDetails = diffs.length > 0;
+				const dirDetailText = diffs.join("");
+
+				validTable.addLine(dir, filename, toClaim, s.has(filename), overwriteDirDetails, dirDetailText);
 			}
 		}).catch(() => {
 			for (const filename of rules) {
@@ -396,6 +407,7 @@ function parseFofn(result: string, dir: string, fofnSection: HTMLElement, resolv
 
 		const key = div({ "id": "fofnKey" }, [
 			div("Will claim directory"),
+			div("Will overwrite directory detail(s)"),
 			div("Will overwrite rule")
 		]);
 
@@ -419,6 +431,8 @@ type value = {
 type rowData = {
 	values: value[];
 	claim: boolean;
+	overwriteDirDetail: boolean;
+	dirDetailText: string;
 }
 
 class FofnTable {
@@ -429,12 +443,22 @@ class FofnTable {
 		const rows: HTMLElement[] = [];
 
 		for (const [key, z] of this.rows.entries()) {
+			const keyAttributes: Record<string, string> = {};
+			const classes: string[] = [];
+
+			if (z.claim) classes.push("claim");
+			if (z.overwriteDirDetail) {
+				classes.push("overwriteDirDetail")
+				keyAttributes["title"] = z.dirDetailText;
+			}
+
+			keyAttributes["class"] = classes.join(" ");
+
 			rows.push(tr([
-				td({ "class": z.claim ? "claim" : "" }, key),
+				td(keyAttributes, key),
 				td(z.values.map(v => div({ "class": v.overwrite ? "overwrite" : "" }, v.value)))
 			]));
 		}
-
 		return table({}, [
 			thead(tr([
 				th(keyHeader),
@@ -444,13 +468,13 @@ class FofnTable {
 		])
 	}
 
-	addLine(key: string, value: string, claim: boolean = false, overwrite: boolean = false) {
-		const row = this.rows.get(key) ?? setAndReturn(this.rows, key, { values: [], claim: false });
+	addLine(key: string, value: string, claim: boolean = false, overwrite: boolean = false, overwriteDirDetail: boolean = false, dirDetailText: string = "") {
+		const row = this.rows.get(key) ?? setAndReturn(this.rows, key, { values: [], claim: false, overwriteDirDetail: false, dirDetailText });
 
 		row.values.push({ value, overwrite });
 		row.claim ||= claim;
+		row.overwriteDirDetail ||= overwriteDirDetail;
 
 		this.files.push(key + value);
-
 	}
 }

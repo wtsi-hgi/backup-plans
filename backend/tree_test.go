@@ -76,8 +76,11 @@ func TestTree(t *testing.T) {
 				"{\"Name\":\""+user.Username+"\",\"MTime\":6,\"Files\":1,\"Size\":5}],"+
 				"\"Groups\":["+
 				"{\"Name\":\""+users.Group(2)+"\",\"MTime\":6,\"Files\":2,\"Size\":8}]}"+
-				"],\"Children\":{},\"ClaimedBy\":\"\",\"Rules\":{},\"Unauthorised\":[],\"CanClaim\":true,"+
-				"\"Frequency\":0,\"ReviewDate\":0,\"RemoveDate\":0}\n")
+				"],\"Children\":{\"ChildToClaim/\":{\"ClaimedBy\":\"\",\"RuleSummaries\""+
+				":[{\"ID\":0,\"Users\":[],\"Groups\":[]}],\"Children\":{}},\"ChildToNotClaim/\""+
+				":{\"ClaimedBy\":\"\",\"RuleSummaries\":[{\"ID\":0,\"Users\":[],\"Groups\":[]}],\""+
+				"Children\":{}}},\"ClaimedBy\":\"\",\"Rules\":{},\"Unauthorised\":[],\"CanClaim\""+
+				":true,\"Frequency\":0,\"ReviewDate\":0,\"RemoveDate\":0}\n")
 
 			code, _ = getResponse(
 				s.ClaimDir,
@@ -111,7 +114,9 @@ func TestTree(t *testing.T) {
 				"{\"Name\":\"root\",\"MTime\":4,\"Files\":1,\"Size\":3}"+
 				"],\"Groups\":["+
 				"{\"Name\":\""+users.Group(2)+"\",\"MTime\":4,\"Files\":1,\"Size\":3}]}"+
-				"],\"Children\":{},\"ClaimedBy\":\"root\",\"Rules\":{"+
+				"],\"Children\":{\"ChildToClaim/\":{\"ClaimedBy\":\"\",\"RuleSummaries\":"+
+				"[],\"Children\":{}},\"ChildToNotClaim/\""+
+				":{\"ClaimedBy\":\"\",\"RuleSummaries\":[],\"Children\":{}}},\"ClaimedBy\":\"root\",\"Rules\":{"+
 				"\"/some/path/MyDir/\":{\"1\":{\"BackupType\":1,\"Metadata\":\"\","+
 				"\"Match\":\"*.txt\",\"Created\":0,\"Modified\":0}}},"+
 				"\"Unauthorised\":[],\"CanClaim\":true,"+

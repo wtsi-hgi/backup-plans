@@ -209,6 +209,7 @@ func ExampleTreeBig() *directories.Root {
 	directories.AddFile(&tree.Directory, "scratch123/humgen/a/c/newdir/testextradir/test.txt", 2, 1, 6, 12346) //nolint:mnd
 
 	tree.AddDirectory("scratch123").AddDirectory("humgen").AddDirectory("a").AddDirectory("d").SetMeta(0, 0, 0)
+	tree.AddDirectory("scratch123").AddDirectory("humgen").AddDirectory("a").SetMeta(0, 0, 0)
 
 	return tree
 }
