@@ -58,16 +58,12 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 						.then(valid => {
 							if (!valid) {
 								enableInputs();
-								console.log("verifymetadata is false, exiting");
 
 								return;
 							}
 
-							console.log("DEBUG: verifymetadata is true, valid, adding rule");
-
 							return (rule.Match ? updateRule : createRule)(path, backupType.value, rule.Match || match.value || "*", backupType.value === "manualbackup" ? metadata.value : "")
 								.then(() => {
-									console.log("DEBUG: loading path??")
 									load(path);
 									overlay.remove();
 								});
@@ -155,10 +151,19 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 
 					disableInputs();
 
-					(validTable ? uploadFOFN(path, backupType.value, metadata.value, validTable.files) : Promise.reject({ "message": "No FOFN selected" }))
-						.then(() => {
-							load(path);
-							overlay.remove();
+					verifyMetadata(metadata.value)
+						.then(valid => {
+							if (!valid) {
+								enableInputs();
+
+								return;
+							}
+
+							return (validTable ? uploadFOFN(path, backupType.value, metadata.value, validTable.files) : Promise.reject({ "message": "No FOFN selected" }))
+								.then(() => {
+									load(path);
+									overlay.remove();
+								});
 						})
 						.catch((e: Error) => {
 							enableInputs();
@@ -312,13 +317,8 @@ export default Object.assign(base, {
 
 // verifyMetadata will return true if the metadata setName is valid and exists
 function verifyMetadata(metadata: string): Promise<Boolean> {
-	if (metadata === "") {
-		console.log("metadata is empty, returning false");
+	if (metadata === "") return Promise.reject({ "message": "Metadata cannot be empty" });
 
-		return Promise.reject({ "message": "Metadata cannot be empty" });
-	}
-
-	console.log("DEBUG: Calling setExists with user:", user, "and metadata:", metadata);
 	return setExists(metadata);
 }
 
