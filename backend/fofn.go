@@ -63,7 +63,9 @@ func (s *Server) fofn(_ http.ResponseWriter, r *http.Request) error {
 	err = json.NewDecoder(r.Body).Decode(&files)
 	if err != nil {
 		return Error{Err: err, Code: http.StatusBadRequest}
-	} else if len(files) > maxFiles {
+	}
+
+	if len(files) > maxFiles {
 		return ErrTooManyFiles
 	}
 
@@ -169,7 +171,7 @@ func (s *Server) createRulesToAdd(user string, rule db.Rule, files []string,
 	dirDetails dirDetails) ([]ruletree.DirRule, error) {
 	rulesToAdd := make([]ruletree.DirRule, 0, len(files))
 
-	detailsSet := make(map[*ruletree.DirRules]struct{})
+	detailsSet := make(map[*ruletree.DirRules]bool)
 
 	// add rules
 	for _, file := range files {
@@ -194,7 +196,7 @@ func (s *Server) createRulesToAdd(user string, rule db.Rule, files []string,
 }
 
 func (s *Server) claimAndCreateDirRules(file, user string, dirDetails dirDetails,
-	detailsSet map[*ruletree.DirRules]struct{}) (*ruletree.DirRules, error) {
+	detailsSet map[*ruletree.DirRules]bool) (*ruletree.DirRules, error) {
 	fileDir, _ := splitDir(file)
 	dirRules := s.directoryRules[fileDir]
 
@@ -208,8 +210,8 @@ func (s *Server) claimAndCreateDirRules(file, user string, dirDetails dirDetails
 		return dirRules, nil
 	}
 
-	if _, ok := detailsSet[dirRules]; !ok {
-		detailsSet[dirRules] = struct{}{}
+	if !detailsSet[dirRules] {
+		detailsSet[dirRules] = true
 
 		dirRules.Frequency = dirDetails.Frequency
 		dirRules.ReviewDate = dirDetails.ReviewDate
