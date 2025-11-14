@@ -1,3 +1,4 @@
+import type { Children } from "./dom.js";
 import { button, dialog, div } from "./html.js";
 
 const byteSizes = ["B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB", "RiB", "QiB"],
@@ -36,7 +37,7 @@ export const formatBytes = (size: bigint) => {
 
 		return weeks + " weeks";
 	},
-	confirm = (msg: string, doAction: () => Promise<void>) => {
+	confirm = (msg: Children, doAction: () => Promise<void>) => {
 		const remove = button({
 			"click": () => {
 				overlay.setAttribute("closedby", "none");

@@ -236,10 +236,7 @@ func copyRule(rule *db.Rule) *db.Rule {
 	return &db.Rule{
 		BackupType: rule.BackupType,
 		Metadata:   rule.Metadata,
-		ReviewDate: rule.ReviewDate,
-		RemoveDate: rule.RemoveDate,
 		Match:      rule.Match,
-		Frequency:  rule.Frequency,
 		Created:    rule.Created,
 		Modified:   rule.Modified,
 	}

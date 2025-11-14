@@ -20,7 +20,7 @@ export type DirSummary = {
 
 export type Rules = Record<string, Record<number, Rule>>;
 
-export type Tree = DirSummary & {
+export type Tree = DirSummary & dirDetails & {
 	ClaimedBy: string;
 	Rules: Rules;
 	Unauthorised: string[];
@@ -40,10 +40,13 @@ export const [BackupNone, BackupIBackup, BackupManual] = Array.from({ "length": 
 export type Rule = {
 	BackupType: BackupType;
 	Metadata: string;
+	Match: string;
+};
+
+export type dirDetails = {
+	Frequency: number;
 	ReviewDate: number;
 	RemoveDate: number;
-	Match: string;
-	Frequency: number;
 };
 
 export type SizeCount = {
@@ -65,7 +68,7 @@ export type Directory = SizeCountTime & {
 	unauthorised: boolean;
 };
 
-export type DirectoryWithChildren = Directory & {
+export type DirectoryWithChildren = Directory & dirDetails & {
 	children: Record<string, Directory>;
 	claimedBy: string;
 	canClaim: boolean;

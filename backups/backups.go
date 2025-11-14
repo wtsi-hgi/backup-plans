@@ -16,8 +16,7 @@ import (
 type ruleGroup = group.PathGroup[db.Rule]
 
 const (
-	setNamePrefix    = "plan::"
-	defaultFrequency = 7
+	setNamePrefix = "plan::"
 )
 
 func createRuleGroups(planDB *db.DB, dirs map[int64]*db.Directory) ([]ruleGroup, map[string]struct{}) {
@@ -91,7 +90,8 @@ func addFofnsToIBackup(client *server.Client, setFofns map[int64][]string,
 		setInfo := dirs[dirID]
 		backupSetName := setNamePrefix + setInfo.Path
 
-		err := ibackup.Backup(client, backupSetName, setInfo.ClaimedBy, fofns, defaultFrequency)
+		err := ibackup.Backup(client, backupSetName, setInfo.ClaimedBy, fofns,
+			int(setInfo.Frequency), setInfo.ReviewDate, setInfo.RemoveDate) //nolint:gosec
 		if err != nil {
 			errs = errors.Join(errs, err)
 

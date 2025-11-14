@@ -29,9 +29,12 @@ import "time"
 
 // Directory represents a claimed directory that may be given rules.
 type Directory struct {
-	id        int64
-	Path      string
-	ClaimedBy string
+	id         int64
+	Path       string
+	ClaimedBy  string
+	ReviewDate int64
+	RemoveDate int64
+	Frequency  uint
 
 	Created, Modified int64
 }
@@ -56,7 +59,8 @@ func (d *DB) CreateDirectory(dir *Directory) error {
 	dir.Created = time.Now().Unix()
 	dir.Modified = dir.Created
 
-	res, err := tx.Exec(createDirectory, dir.Path, dir.ClaimedBy, dir.Created, dir.Modified) //nolint:noctx
+	res, err := tx.Exec(createDirectory, dir.Path, dir.ClaimedBy, dir.Frequency, //nolint:noctx
+		dir.ReviewDate, dir.RemoveDate, dir.Created, dir.Modified)
 	if err != nil {
 		return err
 	}
@@ -80,6 +84,9 @@ func scanDirectory(scanner scanner) (*Directory, error) {
 		&dir.id,
 		&dir.Path,
 		&dir.ClaimedBy,
+		&dir.Frequency,
+		&dir.ReviewDate,
+		&dir.RemoveDate,
 		&dir.Created,
 		&dir.Modified,
 	); err != nil {
@@ -93,7 +100,7 @@ func scanDirectory(scanner scanner) (*Directory, error) {
 func (d *DB) UpdateDirectory(dir *Directory) error {
 	dir.Modified = time.Now().Unix()
 
-	return d.exec(updateDirectory, dir.ClaimedBy, dir.Modified, dir.id)
+	return d.exec(updateDirectory, dir.ClaimedBy, dir.Modified, dir.Frequency, dir.ReviewDate, dir.RemoveDate, dir.id)
 }
 
 // RemoveDirectory will remove the given Directory from the database.

@@ -59,6 +59,7 @@ type treeDB struct {
 	Rules        map[string]map[uint64]*db.Rule
 	Unauthorised []string
 	CanClaim     bool
+	dirDetails
 }
 
 // Tree is an HTTP endpoint that returns data about a given directory and its
@@ -111,6 +112,12 @@ func (s *Server) tree(w http.ResponseWriter, r *http.Request) error { //nolint:f
 		t.ClaimedBy = dirRules.ClaimedBy
 		thisDir := make(map[uint64]*db.Rule)
 		t.Rules[dir] = thisDir
+
+		t.dirDetails = dirDetails{
+			Frequency:  dirRules.Frequency,
+			ReviewDate: dirRules.ReviewDate,
+			RemoveDate: dirRules.RemoveDate,
+		}
 
 		for _, rule := range dirRules.Rules {
 			thisDir[uint64(rule.ID())] = rule //nolint:gosec

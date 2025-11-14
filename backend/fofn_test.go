@@ -30,8 +30,10 @@ import (
 	"net/http"
 	"os/user"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/wtsi-hgi/backup-plans/internal/ibackup"
@@ -60,27 +62,27 @@ func TestFofn(t *testing.T) {
 			So(code, ShouldEqual, http.StatusBadRequest)
 			So(resp, ShouldEqual, "invalid action\n")
 
-			code, resp = getResponse(s.Fofn, "/test?action=backup&frequency=7&review=0&remove=0", strings.NewReader("["))
+			code, resp = getResponse(s.Fofn, "/test?action=backup", strings.NewReader("["))
 			So(code, ShouldEqual, http.StatusBadRequest)
 			So(resp, ShouldEqual, "unexpected EOF\n")
 
-			code, resp = getResponse(s.Fofn, "/test?action=backup&frequency=7&review=0&remove=0", strings.NewReader("[]"))
+			code, resp = getResponse(s.Fofn, "/test?action=backup", strings.NewReader("[]"))
 			So(code, ShouldEqual, http.StatusBadRequest)
 			So(resp, ShouldEqual, "invalid dir path\n")
 
 			code, resp = getResponse(
 				s.Fofn,
-				"/test?action=backup&frequency=7&review=0&remove=0&dir=/some/path/MyDir/",
+				"/test?action=backup&dir=/some/path/MyDir/",
 				strings.NewReader(`[]`),
 			)
-			So(code, ShouldEqual, http.StatusForbidden)
 			So(resp, ShouldEqual, "invalid user\n")
+			So(code, ShouldEqual, http.StatusForbidden)
 
 			u = userHandler(user.Username)
 
 			code, resp = getResponse(
 				s.Fofn,
-				"/test?action=backup&frequency=7&review=0&remove=0&dir=/some/path/MyDir/",
+				"/test?action=backup&dir=/some/path/MyDir/",
 				strings.NewReader(`["/some/path/MyDir/a.txt","/some/path/MyDir/a.txt"]`),
 			)
 			So(code, ShouldEqual, http.StatusBadRequest)
@@ -88,7 +90,7 @@ func TestFofn(t *testing.T) {
 
 			code, resp = getResponse(
 				s.Fofn,
-				"/test?action=backup&frequency=7&review=0&remove=0&dir=/some/path/MyDir/",
+				"/test?action=backup&dir=/some/path/MyDir/",
 				strings.NewReader(`["/some/pa/MyDir/a.txt","/some/path/MyDir/a.txt"]`),
 			)
 			So(code, ShouldEqual, http.StatusBadRequest)
@@ -102,7 +104,7 @@ func TestFofn(t *testing.T) {
 
 			code, resp = getResponse(
 				s.Fofn,
-				"/test?action=backup&frequency=7&review=0&remove=0&dir=/some/path/MyDir/",
+				"/test?action=backup&dir=/some/path/MyDir/",
 				strings.NewReader(`["/some/path/MyDir/a.txt"]`),
 			)
 			So(code, ShouldEqual, http.StatusNotAcceptable)
@@ -112,7 +114,7 @@ func TestFofn(t *testing.T) {
 
 			code, resp = getResponse(
 				s.Fofn,
-				"/test?action=backup&frequency=7&review=0&remove=0&dir=/some/path/YourDir/",
+				"/test?action=backup&dir=/some/path/YourDir/",
 				strings.NewReader(`["/some/path/YourDir/a.txt"]`),
 			)
 			So(code, ShouldEqual, http.StatusNotAcceptable)
@@ -120,48 +122,129 @@ func TestFofn(t *testing.T) {
 
 			code, resp = getResponse(
 				s.CreateRule,
-				"/test?action=backup&&match=a.txt&frequency=7&review=0&remove=0&dir=/some/path/MyDir/",
+				"/test?action=backup&&match=a.txt&dir=/some/path/MyDir/",
 				nil,
 			)
 			So(resp, ShouldEqual, "")
 			So(code, ShouldEqual, http.StatusNoContent)
 		})
 
-		Convey("You can upload a fofn to add rules..", func() {
+		Convey("You can upload a fofn to add rules", func() {
 			u = userHandler(user.Username)
-			_, resp := getResponse(
+			code, resp := getResponse(
 				s.Fofn,
-				"/test?action=backup&frequency=7&review=0&remove=0&dir=/some/path/MyDir/",
+				"/test?action=backup&dir=/some/path/MyDir/",
 				strings.NewReader(`["/some/path/MyDir/a.txt","/some/path/MyDir/b.csv","/some/path/MyDir/c.txt"]`),
 			)
 			So(resp, ShouldEqual, "")
+			So(code, ShouldEqual, http.StatusNoContent)
 
-			_, resp = getResponse(
+			code, resp = getResponse(
 				s.Fofn,
-				"/test?action=backup&frequency=7&review=0&remove=0&dir=/some/path/ChildDir/",
+				"/test?action=backup&dir=/some/path/ChildDir/",
 				strings.NewReader(`["/some/path/ChildDir/a.txt","/some/path/ChildDir/Child/a.file"]`),
 			)
 			So(resp, ShouldEqual, "")
+			So(code, ShouldEqual, http.StatusNoContent)
 
 			// Check tree correctly updates
 			re := regexp.MustCompile("[0-9]{5,}")
 
-			code, resp := getResponse(s.Tree, "/?dir=/some/path/ChildDir/", nil)
+			code, resp = getResponse(s.Tree, "/?dir=/some/path/ChildDir/", nil)
 			So(code, ShouldEqual, http.StatusOK)
-			So(re.ReplaceAllString(resp, "0"), ShouldEqual, "{\"RuleSummaries\":[{\"ID\":4,\"Users\":[{\"Name\":\""+user.Username+"\",\"MTime\":36,\"Files\":1,\"Size\":35}],\"Groups\":[{\"Name\":\"bin\",\"MTime\":36,\"Files\":1,\"Size\":35}]},{\"ID\":5,\"Users\":[{\"Name\":\""+user.Username+"\",\"MTime\":36,\"Files\":1,\"Size\":35}],\"Groups\":[{\"Name\":\"bin\",\"MTime\":36,\"Files\":1,\"Size\":35}]}],\"Children\":{\"Child/\":{\"ClaimedBy\":\"\",\"RuleSummaries\":[{\"ID\":4,\"Users\":[{\"Name\":\""+user.Username+"\",\"MTime\":36,\"Files\":1,\"Size\":35}],\"Groups\":[{\"Name\":\"bin\",\"MTime\":36,\"Files\":1,\"Size\":35}]}],\"Children\":{}}},\"ClaimedBy\":\""+user.Username+"\",\"Rules\":{\"/some/path/ChildDir/\":{\"5\":{\"BackupType\":1,\"Metadata\":\"\",\"ReviewDate\":0,\"RemoveDate\":0,\"Match\":\"a.txt\",\"Frequency\":7,\"Created\":0,\"Modified\":0}},\"/some/path/ChildDir/Child/\":{\"4\":{\"BackupType\":1,\"Metadata\":\"\",\"ReviewDate\":0,\"RemoveDate\":0,\"Match\":\"a.file\",\"Frequency\":7,\"Created\":0,\"Modified\":0}}},\"Unauthorised\":[],\"CanClaim\":true}\n") //nolint:lll
+			So(re.ReplaceAllString(resp, "0"), ShouldEqual, "{\"RuleSummaries\":[{\"ID\":4,\"Users\":[{\"Name\":\""+user.Username+"\",\"MTime\":36,\"Files\":1,\"Size\":35}],\"Groups\":[{\"Name\":\"bin\",\"MTime\":36,\"Files\":1,\"Size\":35}]},{\"ID\":5,\"Users\":[{\"Name\":\""+user.Username+"\",\"MTime\":36,\"Files\":1,\"Size\":35}],\"Groups\":[{\"Name\":\"bin\",\"MTime\":36,\"Files\":1,\"Size\":35}]}],\"Children\":{\"Child/\":{\"ClaimedBy\":\"\",\"RuleSummaries\":[{\"ID\":4,\"Users\":[{\"Name\":\""+user.Username+"\",\"MTime\":36,\"Files\":1,\"Size\":35}],\"Groups\":[{\"Name\":\"bin\",\"MTime\":36,\"Files\":1,\"Size\":35}]}],\"Children\":{}}},\"ClaimedBy\":\""+user.Username+"\",\"Rules\":{\"/some/path/ChildDir/\":{\"5\":{\"BackupType\":1,\"Metadata\":\"\",\"Match\":\"a.txt\",\"Created\":0,\"Modified\":0}},\"/some/path/ChildDir/Child/\":{\"4\":{\"BackupType\":1,\"Metadata\":\"\",\"Match\":\"a.file\",\"Created\":0,\"Modified\":0}}},\"Unauthorised\":[],\"CanClaim\":true,\"Frequency\":7,\"ReviewDate\":0,\"RemoveDate\":0}\n") //nolint:lll
 
 			Convey("You can upload a fofn to update rules: ", func() {
-				_, resp = getResponse(
+				code, resp = getResponse(
 					s.Fofn,
-					"/test?action=backup&frequency=1&review=0&remove=0&dir=/some/path/MyDir/",
+					"/test?action=backup&dir=/some/path/MyDir/",
 					strings.NewReader(`["/some/path/MyDir/a.txt"]`),
 				)
 				So(resp, ShouldEqual, "")
+				So(code, ShouldEqual, http.StatusNoContent)
 
 				// Check tree correctly updates
 				code, resp = getResponse(s.Tree, "/?dir=/some/path/MyDir/", nil)
 				So(code, ShouldEqual, http.StatusOK)
-				So(re.ReplaceAllString(resp, "0"), ShouldEqual, `{"RuleSummaries":[{"ID":1,"Users":[{"Name":"root","MTime":4,"Files":1,"Size":3}],"Groups":[{"Name":"bin","MTime":4,"Files":1,"Size":3}]},{"ID":2,"Users":[{"Name":"`+user.Username+`","MTime":6,"Files":1,"Size":5}],"Groups":[{"Name":"bin","MTime":6,"Files":1,"Size":5}]}],"Children":{},"ClaimedBy":"`+user.Username+`","Rules":{"/some/path/MyDir/":{"1":{"BackupType":1,"Metadata":"","ReviewDate":0,"RemoveDate":0,"Match":"a.txt","Frequency":1,"Created":0,"Modified":0},"2":{"BackupType":1,"Metadata":"","ReviewDate":0,"RemoveDate":0,"Match":"b.csv","Frequency":7,"Created":0,"Modified":0},"3":{"BackupType":1,"Metadata":"","ReviewDate":0,"RemoveDate":0,"Match":"c.txt","Frequency":7,"Created":0,"Modified":0}}},"Unauthorised":[],"CanClaim":true}`+"\n") //nolint:lll
+				So(re.ReplaceAllString(resp, "0"), ShouldEqual, `{"RuleSummaries":[{"ID":1,"Users":[{"Name":"root","MTime":4,"Files":1,"Size":3}],"Groups":[{"Name":"bin","MTime":4,"Files":1,"Size":3}]},{"ID":2,"Users":[{"Name":"`+user.Username+`","MTime":6,"Files":1,"Size":5}],"Groups":[{"Name":"bin","MTime":6,"Files":1,"Size":5}]}],"Children":{"ChildToClaim/":{"ClaimedBy":"","RuleSummaries":[],"Children":{}},"ChildToNotClaim/":{"ClaimedBy":"","RuleSummaries":[],"Children":{}}},"ClaimedBy":"`+user.Username+`","Rules":{"/some/path/MyDir/":{"1":{"BackupType":1,"Metadata":"","Match":"a.txt","Created":0,"Modified":0},"2":{"BackupType":1,"Metadata":"","Match":"b.csv","Created":0,"Modified":0},"3":{"BackupType":1,"Metadata":"","Match":"c.txt","Created":0,"Modified":0}}},"Unauthorised":[],"CanClaim":true,"Frequency":7,"ReviewDate":0,"RemoveDate":0}`+"\n") //nolint:lll
+			})
+		})
+
+		Convey("Given a parent dir with set dir details", func() {
+			u = "root"
+
+			now := strconv.FormatInt(time.Now().Unix(), 10)
+			future := strconv.FormatInt(time.Now().AddDate(0, 1, 0).Unix(), 10)
+
+			code, resp := getResponse(s.ClaimDir, "/test?dir=/some/path/MyDir/", nil)
+			So(code, ShouldEqual, http.StatusOK)
+			So(resp, ShouldEqual, "\"root\"\n")
+
+			code, resp = getResponse(s.ClaimDir, "/test?dir=/some/path/MyDir/ChildToClaim/", nil)
+			So(code, ShouldEqual, http.StatusOK)
+			So(resp, ShouldEqual, "\"root\"\n")
+
+			code, resp = getResponse(
+				s.SetDirDetails,
+				"/api/dir/setDirDetails?dir=/some/path/MyDir/&frequency=10&review="+now+"&remove="+future,
+				nil,
+			)
+
+			So(resp, ShouldEqual, "")
+			So(code, ShouldEqual, http.StatusNoContent)
+
+			code, resp = getResponse(
+				s.Tree,
+				"/api/tree?dir=/some/path/MyDir/",
+				nil,
+			)
+			So(resp, ShouldContainSubstring, "\"Frequency\":10,\"ReviewDate\":"+now+",\"RemoveDate\":"+future)
+			So(code, ShouldEqual, http.StatusOK)
+
+			code, resp = getResponse(
+				s.SetDirDetails,
+				"/api/dir/setDirDetails?dir=/some/path/MyDir/ChildToClaim/&frequency=50&review="+now+"&remove="+future,
+				nil,
+			)
+
+			So(resp, ShouldEqual, "")
+			So(code, ShouldEqual, http.StatusNoContent)
+
+			code, resp = getResponse(
+				s.Tree,
+				"/api/tree?dir=/some/path/MyDir/ChildToClaim/",
+				nil,
+			)
+			So(resp, ShouldContainSubstring, "\"Frequency\":50,\"ReviewDate\":"+now+",\"RemoveDate\":"+future)
+			So(code, ShouldEqual, http.StatusOK)
+
+			Convey("You can upload a fofn to add rules to child dirs, inheriting directory details", func() {
+				code, resp = getResponse(
+					s.Fofn,
+					"/test?action=backup&dir=/some/path/MyDir/",
+					strings.NewReader(`["/some/path/MyDir/ChildToClaim/file1.txt","/some/path/MyDir/ChildToNotClaim/file2.txt"]`),
+				)
+				So(resp, ShouldEqual, "")
+				So(code, ShouldEqual, http.StatusNoContent)
+
+				code, resp = getResponse(
+					s.Tree,
+					"/api/tree?dir=/some/path/MyDir/ChildToClaim/",
+					nil,
+				)
+
+				So(resp, ShouldContainSubstring, "\"Frequency\":10,\"ReviewDate\":"+now+",\"RemoveDate\":"+future)
+				So(code, ShouldEqual, http.StatusOK)
+
+				code, resp = getResponse(
+					s.Tree,
+					"/api/tree?dir=/some/path/MyDir/ChildToNotClaim/",
+					nil,
+				)
+
+				So(resp, ShouldContainSubstring, "\"Frequency\":10,\"ReviewDate\":"+now+",\"RemoveDate\":"+future)
+				So(resp, ShouldContainSubstring, "\"ClaimedBy\":\"root\"")
+				So(code, ShouldEqual, http.StatusOK)
 			})
 		})
 	})

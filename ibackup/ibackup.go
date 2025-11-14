@@ -11,6 +11,7 @@ import (
 	gas "github.com/wtsi-hgi/go-authserver"
 	"github.com/wtsi-hgi/ibackup/server"
 	"github.com/wtsi-hgi/ibackup/set"
+	"github.com/wtsi-hgi/ibackup/transfer"
 )
 
 var (
@@ -40,7 +41,8 @@ func Connect(url, cert string) (*server.Client, error) {
 // Backup creates a new set called setName for the requester if frequency > 0
 // and it has been longer than the frequency since the last discovery for that
 // set.
-func Backup(client *server.Client, setName, requester string, files []string, frequency int) error { //nolint:gocyclo
+func Backup(client *server.Client, setName, requester string, files []string,
+	frequency int, review, remove int64) error {
 	if len(files) == 0 || frequency == 0 {
 		return nil
 	}
@@ -50,20 +52,11 @@ func Backup(client *server.Client, setName, requester string, files []string, fr
 		return ErrInvalidPath
 	}
 
-	got, err := client.GetSetByName(requester, setName)
-	if errors.Is(err, server.ErrBadSet) { //nolint:gocritic,nestif
-		got = &set.Set{
-			Name: setName, Requester: requester,
-			Transformer: transformer, Metadata: map[string]string{},
-			Failed: 0,
-		}
-
-		if err = client.AddOrUpdateSet(got); err != nil {
-			return err
-		}
-	} else if err != nil {
+	got, err := createOrUpdateSet(client, setName, requester, transformer,
+		frequency, TimeToMeta(review), TimeToMeta(remove))
+	if err != nil {
 		return err
-	} else if got.LastDiscovery.Add(time.Hour*24*time.Duration(frequency-1) + time.Hour*12).After(time.Now()) {
+	} else if got == nil {
 		return nil
 	}
 
@@ -72,6 +65,54 @@ func Backup(client *server.Client, setName, requester string, files []string, fr
 	}
 
 	return client.TriggerDiscovery(got.ID(), false)
+}
+
+func createOrUpdateSet(client *server.Client, setName, requester, transformer string,
+	frequency int, reviewDate, removeDate string) (*set.Set, error) {
+	got, err := client.GetSetByName(requester, setName)
+	if errors.Is(err, server.ErrBadSet) {
+		return createSet(client, setName, requester, transformer, reviewDate, removeDate)
+	} else if err != nil {
+		return nil, err
+	}
+
+	return updateSet(client, got, frequency, reviewDate, removeDate)
+}
+
+func createSet(client *server.Client, setName, requester, transformer,
+	reviewDate, removeDate string) (*set.Set, error) {
+	got := &set.Set{
+		Name:        setName,
+		Requester:   requester,
+		Transformer: transformer,
+		Metadata: map[string]string{
+			transfer.MetaKeyReview:  reviewDate,
+			transfer.MetaKeyRemoval: removeDate,
+		},
+		Failed: 0,
+	}
+
+	if err := client.AddOrUpdateSet(got); err != nil {
+		return nil, err
+	}
+
+	return got, nil
+}
+
+func updateSet(client *server.Client, got *set.Set,
+	frequency int, reviewDate, removeDate string) (*set.Set, error) {
+	if got.LastDiscovery.Add(time.Hour*24*time.Duration(frequency-1) + time.Hour*12).After(time.Now()) { //nolint:nestif
+		return nil, nil //nolint:nilnil
+	} else if got.Metadata[transfer.MetaKeyReview] != reviewDate || got.Metadata[transfer.MetaKeyRemoval] != removeDate {
+		got.Metadata[transfer.MetaKeyReview] = reviewDate
+		got.Metadata[transfer.MetaKeyRemoval] = removeDate
+
+		if err := client.AddOrUpdateSet(got); err != nil {
+			return nil, err
+		}
+	}
+
+	return got, nil
 }
 
 // GetTransformer returns the named transformer for the path given, returning
@@ -200,4 +241,13 @@ func (c *Cache) runCache() {
 
 		c.mu.Unlock()
 	}
+}
+
+// TimeToMeta converts a time to a string suitable for storing as metadata, in
+// a way that ObjectInfo.ModTime() will understand and be able to convert back
+// again.
+func TimeToMeta(t int64) string {
+	b, _ := time.Unix(t, 0).UTC().Truncate(time.Second).MarshalText() //nolint:errcheck
+
+	return string(b)
 }

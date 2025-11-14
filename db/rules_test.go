@@ -27,7 +27,6 @@ package db
 
 import (
 	"testing"
-	"time"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
@@ -49,29 +48,17 @@ func TestRules(t *testing.T) {
 		So(db.CreateDirectory(dirB), ShouldBeNil)
 
 		Convey("You can add rules to a directory", func() {
-			reviewDate := time.Now().Add(24 * time.Hour).UTC().Truncate(1 * time.Second).Unix()
-			removeDate := time.Now().Add(48 * time.Hour).UTC().Truncate(1 * time.Second).Unix()
-
 			ruleA := &Rule{
 				BackupType: BackupIBackup,
 				Match:      "*.jpg",
-				Frequency:  7,
-				ReviewDate: reviewDate,
-				RemoveDate: removeDate,
 			}
 			ruleB := &Rule{
 				BackupType: BackupManual,
 				Match:      "*.log",
-				Frequency:  1,
-				ReviewDate: reviewDate,
-				RemoveDate: removeDate,
 			}
 			ruleC := &Rule{
 				BackupType: BackupNone,
 				Match:      "*.jpg",
-				Frequency:  7,
-				ReviewDate: reviewDate,
-				RemoveDate: removeDate,
 			}
 
 			So(db.CreateDirectoryRule(dirA, ruleA), ShouldBeNil)
@@ -84,7 +71,7 @@ func TestRules(t *testing.T) {
 			})
 
 			Convey("…and update them", func() {
-				ruleA.Frequency = 14
+				ruleA.BackupType = BackupManual
 
 				So(db.UpdateRule(ruleA), ShouldBeNil)
 				So(collectIter(t, db.ReadRules()), ShouldResemble, []*Rule{ruleA, ruleB, ruleC})

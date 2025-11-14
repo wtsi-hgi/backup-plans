@@ -156,7 +156,7 @@ select:has(option:checked[value="manualbackup"])~#metadataInput {
 	display: unset;
 }
 
-#addEdit span + label {
+#addEdit span+label {
 	width: auto;
 }
 
@@ -164,38 +164,51 @@ select:has(option:checked[value="manualbackup"])~#metadataInput {
 	margin: 3px 0;
 }
 
-#addEdit button, #fofnPaste button, #addEdit select {
-  background-color: var(--button-background);
-  color: var(--button-colour-addEdit);
-  padding: 3px 7px;
-  border: 1px solid var(--button-border);
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 16px;
+#addEdit button,
+#fofnPaste button,
+#actionButton button,
+#addEdit select {
+	background-color: var(--button-background);
+	color: var(--button-colour-addEdit);
+	padding: 3px 7px;
+	border: 1px solid var(--button-border);
+	border-radius: 6px;
+	cursor: pointer;
+	font-size: 16px;
 }
 
-button + button {
+button+button {
 	margin-left: 3px;
 }
 
-#addEdit button:hover, #addEdit select:hover {
-  background-color: var(--button-background-hover);
-  border-color: var(--button-border-hover);
+#addEdit button:hover,
+#addEdit select:hover,
+#actionButton button:hover {
+	background-color: var(--button-background-hover);
+	border-color: var(--button-border-hover);
 }
 
-#addEdit button:active, #fofnPaste button:active, select:active {
-  background-color: var(--button-background-active);
+#addEdit button:active,
+#fofnPaste button:active,
+select:active,
+#actionButton button:active {
+	background-color: var(--button-background-active);
 }
 
-button:disabled, select:disabled {
-  background-color: var(--button-background-disabled) !important;
-  color: var(--button-colour-disabled) !important;
-  border-color: var(--button-border-disabled) !important;
-  cursor: not-allowed !important;
+button:disabled,
+select:disabled {
+	background-color: var(--button-background-disabled) !important;
+	color: var(--button-colour-disabled) !important;
+	border-color: var(--button-border-disabled) !important;
+	cursor: not-allowed !important;
 }
 
 .overwrite {
 	color: var(--overwritecolour);
+}
+
+.overwriteDirDetail {
+	color: var(--dirDetailscolour);
 }
 
 .claim {
@@ -213,7 +226,8 @@ button:disabled, select:disabled {
 	padding-top: 1em;
 }
 
-#addEdit td:first-child, #addEdit th:first-child {
+#addEdit td:first-child,
+#addEdit th:first-child {
 	border-right: 1px solid var(--subtleBorder);
 }
 
@@ -224,11 +238,12 @@ button:disabled, select:disabled {
 }
 
 #addEdit thead th {
-	border-bottom: 1px solid var(--subtleBorder); 
+	border-bottom: 1px solid var(--subtleBorder);
 	text-align: left;
 }
 
-#addEdit th:last-child, #addEdit td:last-child {
+#addEdit th:last-child,
+#addEdit td:last-child {
 	padding-left: 1em;
 }
 
@@ -252,6 +267,10 @@ button:disabled, select:disabled {
 
 #fofnKey div:first-child:after {
 	background-color: var(--claimcolour);
+}
+
+#fofnKey div:nth-child(2):after {
+	background-color: var(--dirDetailscolour);
 }
 
 #fofnKey div:last-child:after {

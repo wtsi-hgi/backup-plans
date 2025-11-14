@@ -32,6 +32,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/ruletree"
@@ -85,6 +86,13 @@ var (
 		Code: http.StatusBadRequest,
 		Err:  errors.New("no matching rule"), //nolint:err113
 	}
+)
+
+const (
+	defaultFrequency = 7
+	frequencyLimit   = 100000
+	month            = 3600 * 24 * 30
+	twoyears         = time.Hour * 24 * 365 * 2
 )
 
 func (s *Server) loadRules() ([]ruletree.DirRule, error) { //nolint:funlen
@@ -172,7 +180,11 @@ func (s *Server) claimDir(w http.ResponseWriter, r *http.Request) error { //noli
 		return ErrCannotClaimDirectory
 	}
 
-	err = s.claimDirectory(dir, user)
+	err = s.claimDirectory(
+		dir,
+		user,
+		defaultDirDetails(),
+	)
 	if err != nil {
 		return err
 	}
@@ -182,10 +194,22 @@ func (s *Server) claimDir(w http.ResponseWriter, r *http.Request) error { //noli
 	return json.NewEncoder(w).Encode(user)
 }
 
-func (s *Server) claimDirectory(fileDir, user string) error {
+func defaultDirDetails() dirDetails {
+	reviewDate := time.Now().Add(twoyears).Unix()
+
+	return dirDetails{Frequency: defaultFrequency,
+		ReviewDate: reviewDate,
+		RemoveDate: reviewDate + month,
+	}
+}
+
+func (s *Server) claimDirectory(fileDir, user string, dirdetails dirDetails) error {
 	directory := &db.Directory{
-		Path:      fileDir,
-		ClaimedBy: user,
+		Path:       fileDir,
+		ClaimedBy:  user,
+		Frequency:  dirdetails.Frequency,
+		ReviewDate: dirdetails.ReviewDate,
+		RemoveDate: dirdetails.RemoveDate,
 	}
 
 	if err := s.rulesDB.CreateDirectory(directory); err != nil {
@@ -295,6 +319,98 @@ func (s *Server) revokeDirClaim(_ http.ResponseWriter, r *http.Request) error {
 	return s.rulesDB.RemoveDirectory(directory.Directory)
 }
 
+func (s *Server) SetDirDetails(w http.ResponseWriter, r *http.Request) {
+	handle(w, r, s.setDirDetails)
+}
+
+func (s *Server) setDirDetails(_ http.ResponseWriter, r *http.Request) error { //nolint:funlen
+	dir, err := getDir(r)
+	if err != nil {
+		return err
+	}
+
+	dDetails, err := getDirDetails(r)
+	if err != nil {
+		return err
+	}
+
+	if err = validateDirDetails(dDetails); err != nil {
+		return err
+	}
+
+	user := s.getUser(r)
+
+	s.rulesMu.Lock()
+	defer s.rulesMu.Unlock()
+
+	directory, ok := s.directoryRules[dir]
+	if !ok {
+		return ErrDirectoryNotClaimed
+	}
+
+	if directory.ClaimedBy != user {
+		return ErrInvalidUser
+	}
+
+	directory.Frequency = dDetails.Frequency
+	directory.ReviewDate = dDetails.ReviewDate
+	directory.RemoveDate = dDetails.RemoveDate
+
+	return s.rulesDB.UpdateDirectory(directory.Directory)
+}
+
+func validateDirDetails(d dirDetails) error {
+	if d.Frequency > frequencyLimit {
+		return ErrInvalidFrequency
+	}
+
+	remove := d.RemoveDate
+	review := d.ReviewDate
+
+	if remove < review {
+		return ErrInvalidTime
+	}
+
+	if review < time.Now().Unix() {
+		return ErrInvalidTime
+	}
+
+	return nil
+}
+
+type dirDetails struct {
+	Frequency  uint
+	ReviewDate int64
+	RemoveDate int64
+}
+
+func getDirDetails(r *http.Request) (dirDetails, error) {
+	frequencyStr := r.FormValue("frequency")
+	reviewStr := r.FormValue("review")
+	removeStr := r.FormValue("remove")
+
+	frequency, err := strconv.ParseUint(frequencyStr, 10, 64)
+	if err != nil {
+		return dirDetails{}, Error{Err: err, Code: http.StatusBadRequest}
+	}
+
+	if frequency > frequencyLimit {
+		return dirDetails{}, ErrInvalidFrequency
+	}
+
+	review, err := strconv.ParseInt(reviewStr, 10, 64)
+	if err != nil {
+		return dirDetails{}, Error{Err: err, Code: http.StatusBadRequest}
+	}
+
+	remove, err := strconv.ParseInt(removeStr, 10, 64)
+	if err != nil {
+		return dirDetails{}, Error{Err: err, Code: http.StatusBadRequest}
+	}
+
+	return dirDetails{Frequency: uint(frequency), ReviewDate: review, RemoveDate: remove}, nil
+}
+
 // CreateRule allows the claimant of a directory to add a rule to that
 // directory.
 //
@@ -305,9 +421,6 @@ func (s *Server) revokeDirClaim(_ http.ResponseWriter, r *http.Request) error {
 //	match       The match rule.
 //	action      One of nobackup, backup, or manualbackup.
 //	metadata    For a manualbackup, it's the requestor of the backup set.
-//	frequency   How often in days to run the backup.
-//	reviewdate  Unix seconds representing the date of the backup review.
-//	removedate  Unix seconds representing the date of the backup removal.
 func (s *Server) CreateRule(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.createRule)
 }
@@ -366,18 +479,16 @@ func (s *Server) addRuleToDir(directory *ruletree.DirRules, rule *db.Rule) error
 	return nil
 }
 
-func getRuleDetails(r *http.Request) (*db.Rule, error) { //nolint:funlen,gocyclo,cyclop
+func getRuleDetails(r *http.Request) (*db.Rule, error) {
 	rule := new(db.Rule)
 
-	var requireMetadata, requireFrequency bool
+	var requireMetadata bool
 
 	switch r.FormValue("action") {
 	case "nobackup":
 		rule.BackupType = db.BackupNone
-		requireFrequency = true
 	case "backup":
 		rule.BackupType = db.BackupIBackup
-		requireFrequency = true
 	case "manualbackup":
 		rule.BackupType = db.BackupManual
 		requireMetadata = true
@@ -389,29 +500,11 @@ func getRuleDetails(r *http.Request) (*db.Rule, error) { //nolint:funlen,gocyclo
 		rule.Metadata = r.FormValue("metadata")
 	}
 
-	if requireFrequency {
-		freq, err := strconv.ParseUint(r.FormValue("frequency"), 10, 64)
-		if err != nil {
-			return nil, ErrInvalidFrequency
-		}
-
-		rule.Frequency = uint(freq)
-	}
-
 	rule.Match = r.FormValue("match")
 	if rule.Match == "" {
 		rule.Match = "*"
 	} else if !validMatch(rule.Match) {
 		return nil, ErrInvalidMatch
-	}
-
-	var err error
-	if rule.ReviewDate, err = strconv.ParseInt(r.FormValue("review"), 10, 64); err != nil {
-		return nil, ErrInvalidTime
-	}
-
-	if rule.RemoveDate, err = strconv.ParseInt(r.FormValue("remove"), 10, 64); err != nil {
-		return nil, ErrInvalidTime
 	}
 
 	return rule, nil
@@ -479,10 +572,7 @@ func (s *Server) updateRule(w http.ResponseWriter, r *http.Request) error { //no
 
 func (s *Server) updateRuleTo(existingRule, rule *db.Rule) error {
 	existingRule.BackupType = rule.BackupType
-	existingRule.Frequency = rule.Frequency
 	existingRule.Metadata = rule.Metadata
-	existingRule.RemoveDate = rule.RemoveDate
-	existingRule.ReviewDate = rule.ReviewDate
 
 	return s.rulesDB.UpdateRule(existingRule)
 }
