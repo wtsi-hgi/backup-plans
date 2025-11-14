@@ -1,9 +1,9 @@
 import type { BackupType, dirDetails, DirectoryWithChildren, Rule, RuleStats } from "./types.js"
 import { clearNode } from "./lib/dom.js";
-import { br, button, details, dialog, div, form, h2, h3, input, label, option, p, select, table, tbody, td, textarea, th, thead, time, tr } from './lib/html.js';
+import { br, button, dialog, div, form, h2, h3, input, label, option, p, select, table, tbody, td, textarea, th, thead, tr } from './lib/html.js';
 import { svg, title, use } from './lib/svg.js';
-import { action, confirm, formatBytes, setAndReturn } from "./lib/utils.js";
-import { createRule, getTree, removeRule, setDirDetails, updateRule, uploadFOFN, user } from "./rpc.js";
+import { action, formatBytes, setAndReturn } from "./lib/utils.js";
+import { createRule, getTree, removeRule, setDirDetails, updateRule, uploadFOFN, user, setExists } from "./rpc.js";
 import { BackupIBackup, BackupManual, BackupNone } from "./types.js"
 
 const createStuff = (backupType: BackupType, md: string, setText: string, closeFn: () => void) => {
@@ -54,10 +54,23 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 
 					disableInputs();
 
-					(rule.Match ? updateRule : createRule)(path, backupType.value, rule.Match || match.value || "*", backupType.value === "manualbackup" ? metadata.value : "")
-						.then(() => {
-							load(path);
-							overlay.remove();
+					verifyMetadata(metadata.value)
+						.then(valid => {
+							if (!valid) {
+								enableInputs();
+								console.log("verifymetadata is false, exiting");
+
+								return;
+							}
+
+							console.log("DEBUG: verifymetadata is true, valid, adding rule");
+
+							return (rule.Match ? updateRule : createRule)(path, backupType.value, rule.Match || match.value || "*", backupType.value === "manualbackup" ? metadata.value : "")
+								.then(() => {
+									console.log("DEBUG: loading path??")
+									load(path);
+									overlay.remove();
+								});
 						})
 						.catch((e: Error) => {
 							enableInputs();
@@ -296,6 +309,18 @@ export default Object.assign(base, {
 		]);
 	}
 });
+
+// verifyMetadata will return true if the metadata setName is valid and exists
+function verifyMetadata(metadata: string): Promise<Boolean> {
+	if (metadata === "") {
+		console.log("metadata is empty, returning false");
+
+		return Promise.reject({ "message": "Metadata cannot be empty" });
+	}
+
+	console.log("DEBUG: Calling setExists with user:", user, "and metadata:", metadata);
+	return setExists(metadata);
+}
 
 function evalFOFN(fr: FileReader, fofnSection: HTMLElement, parentDirDetails: dirDetails, dir: string): Promise<FofnTable> {
 	return new Promise((resolve, reject) => {

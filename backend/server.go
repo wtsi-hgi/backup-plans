@@ -116,3 +116,21 @@ type Error struct {
 func (e Error) Error() string {
 	return e.Err.Error()
 }
+
+func (s *Server) SetExists(w http.ResponseWriter, r *http.Request) {
+	handle(w, r, s.setExists)
+}
+
+func (s *Server) setExists(w http.ResponseWriter, r *http.Request) error {
+	user := s.getUser(r)
+	setName := r.FormValue("metadata")
+
+	got, err := s.cache.GetBackupActivity(setName, user)
+	if err != nil {
+		return err
+	}
+
+	w.Header().Set("Content-type", "application/json")
+
+	return json.NewEncoder(w).Encode(got != nil)
+}
