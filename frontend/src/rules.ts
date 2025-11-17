@@ -128,31 +128,6 @@ const addEditOverlay = (path: string, rule: Rule, load: (path: string) => void, 
 
 	overlay.showModal();
 },
-	addConfirmOverlay = (path: string, rule: Rule, btn: HTMLButtonElement, load: (path: string) => void) => {
-		btn.classList.add("disabled");
-		const confirm = button({ "value": "confirm" }, "Confirm"),
-			cancel = button({ "type": "button", "click": () => overlay.close() }, "Cancel"),
-			overlay = document.body.appendChild(dialog({ "id": "addEdit", "closedby": "any", "close": () => { btn.classList.remove("disabled"); overlay.remove(); } }, form({
-				"submit": (e: SubmitEvent) => {
-					e.preventDefault();
-					removeRule(path, rule.Match)
-						.then(() => {
-							load(path);
-							overlay.remove();
-						});
-				}
-			}, [
-				div([
-					h2(`Are you sure you wish to remove this rule?`),
-					p(` Path: ${path}`),
-					p(` Match: ${rule.Match}`)
-				]),
-
-				div({ "style": "display: flex; justify-content: center; gap: 0.5rem; margin-top: 0.5rem;" }, [confirm, cancel])
-			])));
-
-		overlay.showModal();
-	},
 	addRule = (path: string, load: (path: string) => void) => button({
 		"click": () => addEditOverlay(path, {
 			"BackupType": BackupIBackup,
@@ -197,10 +172,7 @@ export default Object.assign(base, {
 						])),
 						button({
 							"class": "actionButton",
-							"click": function (e: Event) {
-								const btn = e.currentTarget as HTMLButtonElement;
-								addConfirmOverlay(path, rule, btn, load);
-							}
+							"click": () => confirm("Are you sure you wish to remove this rule?", () => removeRule(path, rule.Match).then(() => load(path)))
 						}, svg([
 							title("Remove Rule"),
 							use({ "href": "#remove" })
