@@ -20,6 +20,7 @@ var (
 	isOtar   = regexp.MustCompile(`^/lustre/scratch[0-9]+/open-targets/`)
 
 	ErrInvalidPath = errors.New("cannot determine transformer from path")
+	ErrFrozenSet   = errors.New("cannot update frozen backup")
 )
 
 // Connect returns a client that can talk to the given ibackup server using
@@ -38,12 +39,18 @@ func Connect(url, cert string) (*server.Client, error) {
 	return server.NewClient(url, cert, jwt), nil
 }
 
-// Backup creates a new set called setName for the requester if frequency > 0
-// and it has been longer than the frequency since the last discovery for that
-// set.
-func Backup(client *server.Client, setName, requester string, files []string,
+type Client interface {
+	GetSetByName(requester, setName string) (*set.Set, error)
+	AddOrUpdateSet(set *set.Set) error
+	MergeFiles(setID string, paths []string) error
+	TriggerDiscovery(setID string, forceRemovals bool) error
+}
+
+// Backup creates a new set called setName for the requester if it has been
+// longer than the frequency since the last discovery for that set.
+func Backup(client Client, setName, requester string, files []string,
 	frequency int, review, remove int64) error {
-	if len(files) == 0 || frequency == 0 {
+	if len(files) == 0 {
 		return nil
 	}
 
@@ -67,7 +74,7 @@ func Backup(client *server.Client, setName, requester string, files []string,
 	return client.TriggerDiscovery(got.ID(), false)
 }
 
-func createOrUpdateSet(client *server.Client, setName, requester, transformer string,
+func createOrUpdateSet(client Client, setName, requester, transformer string,
 	frequency int, reviewDate, removeDate string) (*set.Set, error) {
 	got, err := client.GetSetByName(requester, setName)
 	if errors.Is(err, server.ErrBadSet) {
@@ -76,10 +83,14 @@ func createOrUpdateSet(client *server.Client, setName, requester, transformer st
 		return nil, err
 	}
 
+	if frequency == 0 {
+		return got, ErrFrozenSet
+	}
+
 	return updateSet(client, got, frequency, reviewDate, removeDate)
 }
 
-func createSet(client *server.Client, setName, requester, transformer,
+func createSet(client Client, setName, requester, transformer,
 	reviewDate, removeDate string) (*set.Set, error) {
 	got := &set.Set{
 		Name:        setName,
@@ -99,7 +110,7 @@ func createSet(client *server.Client, setName, requester, transformer,
 	return got, nil
 }
 
-func updateSet(client *server.Client, got *set.Set,
+func updateSet(client Client, got *set.Set,
 	frequency int, reviewDate, removeDate string) (*set.Set, error) {
 	if got.LastDiscovery.Add(time.Hour*24*time.Duration(frequency-1) + time.Hour*12).After(time.Now()) { //nolint:nestif
 		return nil, nil //nolint:nilnil
