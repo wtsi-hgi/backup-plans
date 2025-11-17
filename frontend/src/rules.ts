@@ -128,10 +128,11 @@ const addEditOverlay = (path: string, rule: Rule, load: (path: string) => void, 
 
 	overlay.showModal();
 },
-	addConfirmOverlay = (path: string, rule: Rule, load: (path: string) => void) => {
+	addConfirmOverlay = (path: string, rule: Rule, btn: HTMLButtonElement, load: (path: string) => void) => {
+		btn.classList.add("disabled");
 		const confirm = button({ "value": "confirm" }, "Confirm"),
 			cancel = button({ "type": "button", "click": () => overlay.close() }, "Cancel"),
-			overlay = document.body.appendChild(dialog({ "id": "addEdit", "closedby": "any", "close": () => overlay.remove() }, form({
+			overlay = document.body.appendChild(dialog({ "id": "addEdit", "closedby": "any", "close": () => { btn.classList.remove("disabled"); overlay.remove(); } }, form({
 				"submit": (e: SubmitEvent) => {
 					e.preventDefault();
 					removeRule(path, rule.Match)
@@ -196,7 +197,10 @@ export default Object.assign(base, {
 						])),
 						button({
 							"class": "actionButton",
-							"click": () => addConfirmOverlay(path, rule, load)
+							"click": function (e: Event) {
+								const btn = e.currentTarget as HTMLButtonElement;
+								addConfirmOverlay(path, rule, btn, load);
+							}
 						}, svg([
 							title("Remove Rule"),
 							use({ "href": "#remove" })
