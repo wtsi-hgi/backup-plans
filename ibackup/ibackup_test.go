@@ -71,8 +71,9 @@ func TestIbackup(t *testing.T) {
 					Requester:   u.Username,
 					Transformer: "humgen",
 					Metadata: map[string]string{
-						transfer.MetaKeyReview:  ibackup.TimeToMeta(review),
-						transfer.MetaKeyRemoval: ibackup.TimeToMeta(remove),
+						transfer.MetaKeyReason:  "backup",
+						transfer.MetaKeyReview:  timeToMeta(review),
+						transfer.MetaKeyRemoval: timeToMeta(remove),
 					},
 					NumFiles: 1,
 					Missing:  1,
@@ -286,4 +287,13 @@ func (m *MockClient) MergeFiles(setID string, paths []string) error {
 	m.MergeCalls = append(m.MergeCalls, mergeCall{setID: setID, paths: paths})
 
 	return nil
+}
+
+// timeToMeta converts a time to a string suitable for storing as metadata, in
+// a way that ObjectInfo.ModTime() will understand and be able to convert back
+// again.
+func timeToMeta(t int64) string {
+	b, _ := time.Unix(t, 0).UTC().Truncate(24 * time.Hour).MarshalText() //nolint:errcheck
+
+	return string(b)
 }

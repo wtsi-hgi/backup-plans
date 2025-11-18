@@ -59,8 +59,11 @@ func Backup(client Client, setName, requester string, files []string,
 		return ErrInvalidPath
 	}
 
+	reviewDate := time.Unix(review, 0).Format(time.DateOnly)
+	removeDate := time.Unix(remove, 0).Format(time.DateOnly)
+
 	got, err := createOrUpdateSet(client, setName, requester, transformer,
-		frequency, TimeToMeta(review), TimeToMeta(remove))
+		frequency, reviewDate, removeDate)
 	if err != nil {
 		return err
 	} else if got == nil {
@@ -78,7 +81,7 @@ func createOrUpdateSet(client Client, setName, requester, transformer string,
 	frequency int, reviewDate, removeDate string) (*set.Set, error) {
 	got, err := client.GetSetByName(requester, setName)
 	if errors.Is(err, server.ErrBadSet) {
-		return createSet(client, setName, requester, transformer, reviewDate, removeDate)
+		return createSet(client, setName, requester, transformer, reviewDate, removeDate, frequency)
 	} else if err != nil {
 		return nil, err
 	}
@@ -91,16 +94,23 @@ func createOrUpdateSet(client Client, setName, requester, transformer string,
 }
 
 func createSet(client Client, setName, requester, transformer,
-	reviewDate, removeDate string) (*set.Set, error) {
+	reviewDate, removeDate string, frequency int) (*set.Set, error) {
+	reason := transfer.Backup
+	if frequency == 0 {
+		reason = transfer.Archive
+	}
+
+	m, err := transfer.HandleMeta("", reason, reviewDate, removeDate, nil)
+	if err != nil {
+		return nil, err
+	}
+
 	got := &set.Set{
 		Name:        setName,
 		Requester:   requester,
 		Transformer: transformer,
-		Metadata: map[string]string{
-			transfer.MetaKeyReview:  reviewDate,
-			transfer.MetaKeyRemoval: removeDate,
-		},
-		Failed: 0,
+		Metadata:    m.LocalMeta,
+		Failed:      0,
 	}
 
 	if err := client.AddOrUpdateSet(got); err != nil {
@@ -114,9 +124,17 @@ func updateSet(client Client, got *set.Set,
 	frequency int, reviewDate, removeDate string) (*set.Set, error) {
 	if got.LastDiscovery.Add(time.Hour*24*time.Duration(frequency-1) + time.Hour*12).After(time.Now()) { //nolint:nestif
 		return nil, nil //nolint:nilnil
-	} else if got.Metadata[transfer.MetaKeyReview] != reviewDate || got.Metadata[transfer.MetaKeyRemoval] != removeDate {
-		got.Metadata[transfer.MetaKeyReview] = reviewDate
-		got.Metadata[transfer.MetaKeyRemoval] = removeDate
+	}
+
+	m, err := transfer.HandleMeta("", 0, reviewDate, removeDate, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if got.Metadata[transfer.MetaKeyReview] != m.LocalMeta[transfer.MetaKeyReview] ||
+		got.Metadata[transfer.MetaKeyRemoval] != m.LocalMeta[transfer.MetaKeyRemoval] {
+		got.Metadata[transfer.MetaKeyReview] = m.LocalMeta[transfer.MetaKeyReview]
+		got.Metadata[transfer.MetaKeyRemoval] = m.LocalMeta[transfer.MetaKeyRemoval]
 
 		if err := client.AddOrUpdateSet(got); err != nil {
 			return nil, err
@@ -252,13 +270,4 @@ func (c *Cache) runCache() {
 
 		c.mu.Unlock()
 	}
-}
-
-// TimeToMeta converts a time to a string suitable for storing as metadata, in
-// a way that ObjectInfo.ModTime() will understand and be able to convert back
-// again.
-func TimeToMeta(t int64) string {
-	b, _ := time.Unix(t, 0).UTC().Truncate(time.Second).MarshalText() //nolint:errcheck
-
-	return string(b)
 }
