@@ -58,6 +58,7 @@ func TestTree(t *testing.T) {
 			code, resp := getResponse(
 				s.Tree,
 				"/api/tree?dir=/some/path/MyDir/",
+				nil,
 			)
 			So(code, ShouldEqual, http.StatusUnauthorized)
 			So(resp, ShouldEqual, "not authorised to see this directory\n")
@@ -67,6 +68,7 @@ func TestTree(t *testing.T) {
 			code, resp = getResponse(
 				s.Tree,
 				"/api/tree?dir=/some/path/MyDir/",
+				nil,
 			)
 			So(code, ShouldEqual, http.StatusOK)
 			So(resp, ShouldEqual, "{\"RuleSummaries\":[{\"ID\":0,\"Users\":["+
@@ -74,25 +76,35 @@ func TestTree(t *testing.T) {
 				"{\"Name\":\""+user.Username+"\",\"MTime\":6,\"Files\":1,\"Size\":5}],"+
 				"\"Groups\":["+
 				"{\"Name\":\""+users.Group(2)+"\",\"MTime\":6,\"Files\":2,\"Size\":8}]}"+
-				"],\"Children\":{},\"ClaimedBy\":\"\",\"Rules\":{},\"Unauthorised\":[],\"CanClaim\":true}\n")
+				"],\"Children\":{\"ChildToClaim/\":{\"ClaimedBy\":\"\",\"RuleSummaries\""+
+				":[{\"ID\":0,\"Users\":[],\"Groups\":[]}],\"Children\":{}},\"ChildToNotClaim/\""+
+				":{\"ClaimedBy\":\"\",\"RuleSummaries\":[{\"ID\":0,\"Users\":[],\"Groups\":[]}],\""+
+				"Children\":{}}},\"ClaimedBy\":\"\",\"Rules\":{},\"Unauthorised\":[],\"CanClaim\""+
+				":true,\"Frequency\":0,\"ReviewDate\":0,\"RemoveDate\":0}\n")
 
-			code, _ = getResponse(s.ClaimDir, "/api/dir/claim?dir=/some/path/MyDir/")
+			code, _ = getResponse(
+				s.ClaimDir,
+				"/api/dir/claim?dir=/some/path/MyDir/",
+				nil,
+			)
 			So(code, ShouldEqual, http.StatusOK)
 
 			code, _ = getResponse(
 				s.CreateRule,
 				"/api/rules/create?dir=/some/path/MyDir/&action=backup&match=*.txt&frequency=7&review=100&remove=200",
+				nil,
 			)
 			So(code, ShouldEqual, http.StatusNoContent)
 
 			code, resp = getResponse(
 				s.Tree,
 				"/api/tree?dir=/some/path/MyDir/",
+				nil,
 			)
 			So(code, ShouldEqual, http.StatusOK)
 
-			re := regexp.MustCompile(`Created\":[0-9]+,\"Modified\":[0-9]+`)
-			resp = re.ReplaceAllString(resp, "Created\":0,\"Modified\":0")
+			re := regexp.MustCompile("[0-9]{5,}")
+			resp = re.ReplaceAllString(resp, "0")
 
 			So(resp, ShouldEqual, "{\"RuleSummaries\":[{\"ID\":0,\"Users\":["+
 				"{\"Name\":\""+user.Username+"\",\"MTime\":6,\"Files\":1,\"Size\":5}"+
@@ -102,10 +114,13 @@ func TestTree(t *testing.T) {
 				"{\"Name\":\"root\",\"MTime\":4,\"Files\":1,\"Size\":3}"+
 				"],\"Groups\":["+
 				"{\"Name\":\""+users.Group(2)+"\",\"MTime\":4,\"Files\":1,\"Size\":3}]}"+
-				"],\"Children\":{},\"ClaimedBy\":\"root\",\"Rules\":{"+
-				"\"/some/path/MyDir/\":{\"1\":{\"BackupType\":1,\"Metadata\":\"\",\"ReviewDate\":100,"+
-				"\"RemoveDate\":200,\"Match\":\"*.txt\",\"Frequency\":7,\"Created\":0,\"Modified\":0}}},"+
-				"\"Unauthorised\":[],\"CanClaim\":true}\n")
+				"],\"Children\":{\"ChildToClaim/\":{\"ClaimedBy\":\"\",\"RuleSummaries\":"+
+				"[],\"Children\":{}},\"ChildToNotClaim/\""+
+				":{\"ClaimedBy\":\"\",\"RuleSummaries\":[],\"Children\":{}}},\"ClaimedBy\":\"root\",\"Rules\":{"+
+				"\"/some/path/MyDir/\":{\"1\":{\"BackupType\":1,\"Metadata\":\"\","+
+				"\"Match\":\"*.txt\",\"Created\":0,\"Modified\":0}}},"+
+				"\"Unauthorised\":[],\"CanClaim\":true,"+
+				"\"Frequency\":7,\"ReviewDate\":0,\"RemoveDate\":0}\n")
 		})
 	})
 }

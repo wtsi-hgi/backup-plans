@@ -155,3 +155,154 @@ details.rule-section>summary:not(:has(button:hover)):hover::marker {
 select:has(option:checked[value="manualbackup"])~#metadataInput {
 	display: unset;
 }
+
+#addEdit span+label {
+	width: auto;
+}
+
+#addEdit select {
+	margin: 3px 0;
+}
+
+#addEdit button,
+#fofnPaste button,
+#confirm button,
+#addEdit select {
+	background-color: var(--button-background);
+	color: var(--button-colour-addEdit);
+	padding: 3px 7px;
+	border: 1px solid var(--button-border);
+	border-radius: 6px;
+	cursor: pointer;
+	font-size: 16px;
+}
+
+button+button {
+	margin-left: 3px;
+}
+
+#addEdit button:hover,
+#confirm button:hover,
+#addEdit select:hover {
+	background-color: var(--button-background-hover);
+	border-color: var(--button-border-hover);
+}
+
+#addEdit button:active,
+#fofnPaste button:active,
+#confirm button:active,
+select:active {
+	background-color: var(--button-background-active);
+}
+
+button:disabled,
+select:disabled {
+	background-color: var(--button-background-disabled) !important;
+	color: var(--button-colour-disabled) !important;
+	border-color: var(--button-border-disabled) !important;
+	cursor: not-allowed !important;
+}
+
+.overwrite {
+	color: var(--overwritecolour);
+}
+
+.overwriteDirDetail {
+	color: var(--dirDetailscolour);
+}
+
+.claim {
+	color: var(--claimcolour);
+}
+
+#addEdit,
+#confirm {
+	background: var(--background);
+	color: var(--color);
+}
+
+#confirm {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: center;
+}
+
+#confirm>div {
+	flex: 0 0 100%;
+	margin-bottom: 10px;
+	text-align: center;
+}
+
+#addEdit td {
+	vertical-align: top;
+	width: 50%;
+	padding-top: 1em;
+}
+
+#addEdit td:first-child,
+#addEdit th:first-child {
+	border-right: 1px solid var(--subtleBorder);
+}
+
+#addEdit table {
+	width: 100%;
+	border-collapse: separate;
+	border-spacing: 0;
+}
+
+#addEdit thead th {
+	border-bottom: 1px solid var(--subtleBorder);
+	text-align: left;
+}
+
+#addEdit th:last-child,
+#addEdit td:last-child {
+	padding-left: 1em;
+}
+
+.tooManyFiles {
+	color: var(--overwritecolour);
+}
+
+#fofnKey div {
+	text-align: right;
+}
+
+#fofnKey div:after {
+	content: "";
+	display: inline-block;
+	width: 0.8em;
+	height: 0.8em;
+	border: 1px solid currentColor;
+	margin-left: 0.5em;
+	margin-bottom: -0.1em;
+}
+
+#fofnKey div:first-child:after {
+	background-color: var(--claimcolour);
+}
+
+#fofnKey div:nth-child(2):after {
+	background-color: var(--dirDetailscolour);
+}
+
+#fofnKey div:last-child:after {
+	background-color: var(--overwritecolour);
+}
+
+#fofnPaste {
+	background-color: var(--background);
+}
+
+#fofnPaste textarea {
+	height: 200px;
+	background-color: var(--background);
+	color: var(--colour);
+	border: 3px solid var(--subtleBorder);
+}
+
+dialog {
+	border-radius: 0.7em;
+	border-color: var(--subtleBorder);
+}

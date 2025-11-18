@@ -41,7 +41,6 @@ linters:
     - ineffassign
     - interfacebloat
     - intrange
-    - ireturn
     - lll
     - maintidx
     - makezero

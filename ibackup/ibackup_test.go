@@ -14,7 +14,13 @@ import (
 	gas "github.com/wtsi-hgi/go-authserver"
 	"github.com/wtsi-hgi/ibackup/server"
 	"github.com/wtsi-hgi/ibackup/set"
+	"github.com/wtsi-hgi/ibackup/transfer"
 	"go.etcd.io/bbolt"
+)
+
+var (
+	twoyears         = time.Now().Add(time.Hour * 24 * 365 * 2) //nolint:gochecknoglobals
+	twoYearsAddMonth = twoyears.Add(time.Hour * 24 * 30)        //nolint:gochecknoglobals
 )
 
 func TestIbackup(t *testing.T) {
@@ -32,6 +38,8 @@ func TestIbackup(t *testing.T) {
 		client, err := ibackup.Connect(addr, certPath)
 		So(err, ShouldBeNil)
 
+		mockClient := newMockClient(client)
+
 		Convey("You can create backup sets", func() {
 			sets, err := client.GetSets(u.Username)
 			So(err, ShouldBeNil)
@@ -39,14 +47,8 @@ func TestIbackup(t *testing.T) {
 
 			setName := "mySet"
 
-			runTestBackups(client, setName, u.Username, []string{}, 0)
-
-			sets, err = client.GetSets(u.Username)
+			err = ibackup.Backup(client, setName, u.Username, []string{}, 0, 0, 0)
 			So(err, ShouldBeNil)
-			So(sets, ShouldBeNil)
-
-			runTestBackups(client, setName, u.Username,
-				[]string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}, 0)
 
 			sets, err = client.GetSets(u.Username)
 			So(err, ShouldBeNil)
@@ -54,8 +56,12 @@ func TestIbackup(t *testing.T) {
 
 			before := time.Now()
 
+			review := twoyears.Unix()
+			remove := twoYearsAddMonth.Unix()
+			setName += "2"
+
 			runTestBackups(client, setName, u.Username,
-				[]string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}, 1)
+				[]string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}, 1, review, remove)
 
 			sets, err = client.GetSets(u.Username)
 			So(err, ShouldBeNil)
@@ -64,16 +70,40 @@ func TestIbackup(t *testing.T) {
 					Name:        setName,
 					Requester:   u.Username,
 					Transformer: "humgen",
-					Metadata:    map[string]string{},
-					NumFiles:    1,
-					Missing:     1,
-					Status:      set.Complete,
+					Metadata: map[string]string{
+						transfer.MetaKeyReason:  "backup",
+						transfer.MetaKeyReview:  timeToMeta(review),
+						transfer.MetaKeyRemoval: timeToMeta(remove),
+					},
+					NumFiles: 1,
+					Missing:  1,
+					Status:   set.Complete,
 				},
 			})
+			So(sets[0].Metadata[transfer.MetaKeyReview], ShouldNotBeBlank)
+			So(sets[0].Metadata[transfer.MetaKeyRemoval], ShouldNotBeBlank)
 
 			sba, err := ibackup.GetBackupActivity(client, setName, u.Username)
 			So(err, ShouldBeNil)
 			So(sba.LastSuccess, ShouldHappenAfter, before)
+
+			Convey("You can create a freeze, which cannot be overwritten", func() {
+				u.Username += "2"
+
+				runTestBackups(client, setName, u.Username,
+					[]string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}, 0, 0, 0)
+
+				sba, err := ibackup.GetBackupActivity(client, setName, u.Username)
+				So(err, ShouldBeNil)
+				So(sba.LastSuccess, ShouldNotBeNil)
+
+				err = ibackup.Backup(mockClient, setName, u.Username,
+					[]string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}, 0, 0, 0)
+
+				So(err, ShouldEqual, ibackup.ErrFrozenSet)
+
+				So(len(mockClient.Discoveries), ShouldBeZeroValue)
+			})
 
 			Convey("You cannot update a sets files more often than the frequency allows", func() {
 				got, err := client.GetSetByName(u.Username, setName)
@@ -84,7 +114,7 @@ func TestIbackup(t *testing.T) {
 
 				So(setSet(s, got), ShouldBeNil)
 				runTestBackups(client, setName, u.Username,
-					[]string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}, 1)
+					[]string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}, 1, 0, 0)
 
 				got, err = client.GetSetByName(u.Username, setName)
 				So(err, ShouldBeNil)
@@ -96,7 +126,7 @@ func TestIbackup(t *testing.T) {
 				So(setSet(s, got), ShouldBeNil)
 
 				runTestBackups(client, setName, u.Username,
-					[]string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}, 1)
+					[]string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}, 1, review, remove)
 
 				got, err = client.GetSetByName(u.Username, setName)
 				So(err, ShouldBeNil)
@@ -224,7 +254,46 @@ func setSet(s *server.Server, got *set.Set) error {
 	})
 }
 
-func runTestBackups(client *server.Client, setname, requester string, files []string, frequency int) {
-	err := ibackup.Backup(client, setname, requester, files, frequency)
+func runTestBackups(client *server.Client, setname, requester string, files []string,
+	frequency int, review, remove int64) {
+	err := ibackup.Backup(client, setname, requester, files, frequency, review, remove)
 	So(err, ShouldBeNil)
+}
+
+type mergeCall struct {
+	setID string
+	paths []string
+}
+type MockClient struct {
+	*server.Client
+	Discoveries map[string]time.Time
+	MergeCalls  []mergeCall
+}
+
+func newMockClient(client *server.Client) *MockClient {
+	return &MockClient{
+		Client:      client,
+		Discoveries: make(map[string]time.Time),
+	}
+}
+
+func (m *MockClient) TriggerDiscovery(setID string, forceRemovals bool) error {
+	m.Discoveries[setID] = time.Now()
+
+	return nil
+}
+
+func (m *MockClient) MergeFiles(setID string, paths []string) error {
+	m.MergeCalls = append(m.MergeCalls, mergeCall{setID: setID, paths: paths})
+
+	return nil
+}
+
+// timeToMeta converts a time to a string suitable for storing as metadata, in
+// a way that ObjectInfo.ModTime() will understand and be able to convert back
+// again.
+func timeToMeta(t int64) string {
+	b, _ := time.Unix(t, 0).UTC().Truncate(24 * time.Hour).MarshalText() //nolint:errcheck
+
+	return string(b)
 }
