@@ -1,6 +1,6 @@
-import type { BackupType, dirDetails, DirectoryWithChildren, Rule, RuleStats } from "./types.js"
+import type { BackupType, dirDetails, DirectoryWithChildren, Rule } from "./types.js"
 import { clearNode } from "./lib/dom.js";
-import { br, button, details, dialog, div, form, h2, h3, input, label, option, p, select, table, tbody, td, textarea, th, thead, time, tr } from './lib/html.js';
+import { br, button, dialog, div, form, h2, h3, input, label, option, p, select, table, tbody, td, textarea, th, thead, tr } from './lib/html.js';
 import { svg, title, use } from './lib/svg.js';
 import { action, confirm, formatBytes, setAndReturn } from "./lib/utils.js";
 import { createRule, getTree, removeRule, setDirDetails, updateRule, uploadFOFN, user } from "./rpc.js";
@@ -159,36 +159,6 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 				fofnSection,
 				set,
 				cancel,
-			])));
-
-		overlay.showModal();
-	},
-	addConfirmOverlay = (path: string, rule: Rule, load: (path: string) => void) => {
-		const confirm = button({ "value": "confirm" }, "Confirm"),
-			cancel = button({ "type": "button", "click": () => overlay.close() }, "Cancel"),
-			overlay = document.body.appendChild(dialog({ "id": "addEdit", "closedby": "any", "close": () => overlay.remove() }, form({
-				"submit": (e: SubmitEvent) => {
-					e.preventDefault();
-					confirm.toggleAttribute("disabled", true);
-					cancel.toggleAttribute("disabled", true);
-
-					removeRule(path, rule.Match)
-						.then(() => {
-							load(path);
-							overlay.remove();
-						}).catch(() => {
-							confirm.removeAttribute("disabled");
-							cancel.removeAttribute("disabled");
-						});
-				}
-			}, [
-				div([
-					h2(`Are you sure you wish to remove this rule?`),
-					p(` Path: ${path}`),
-					p(` Match: ${rule.Match}`)
-				]),
-
-				div({ "style": "display: flex; justify-content: center; gap: 0.5rem; margin-top: 0.5rem;" }, [confirm, cancel])
 			])));
 
 		overlay.showModal();
