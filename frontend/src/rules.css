@@ -166,6 +166,7 @@ select:has(option:checked[value="manualbackup"])~#metadataInput {
 
 #addEdit button,
 #fofnPaste button,
+#confirm button,
 #addEdit select {
 	background-color: var(--button-background);
 	color: var(--button-colour-addEdit);
@@ -181,6 +182,7 @@ button+button {
 }
 
 #addEdit button:hover,
+#confirm button:hover,
 #addEdit select:hover {
 	background-color: var(--button-background-hover);
 	border-color: var(--button-border-hover);
@@ -188,6 +190,7 @@ button+button {
 
 #addEdit button:active,
 #fofnPaste button:active,
+#confirm button:active,
 select:active {
 	background-color: var(--button-background-active);
 }
@@ -208,9 +211,23 @@ select:disabled {
 	color: var(--claimcolour);
 }
 
-#addEdit {
+#addEdit,
+#confirm {
 	background: var(--background);
 	color: var(--color);
+}
+
+#confirm {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: center;
+}
+
+#confirm>div {
+	flex: 0 0 100%;
+	margin-bottom: 10px;
+	text-align: center;
 }
 
 #addEdit td {
