@@ -32,6 +32,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
@@ -90,7 +91,7 @@ func TestClaimDir(t *testing.T) {
 			Convey("You can revoke a claim", func() {
 				u = ""
 
-				code, resp := getResponse(s.RevokeDirClaim, "/api/dir/revoke?dir=/does/not/exist", nil)
+				code, resp = getResponse(s.RevokeDirClaim, "/api/dir/revoke?dir=/does/not/exist", nil)
 				So(code, ShouldEqual, http.StatusBadRequest)
 				So(resp, ShouldEqual, "invalid dir path\n")
 
@@ -112,7 +113,7 @@ func TestClaimDir(t *testing.T) {
 			Convey("You can pass a claim", func() {
 				u = ""
 
-				code, resp := getResponse(
+				code, resp = getResponse(
 					s.PassDirClaim,
 					"/api/dir/pass?dir=/does/not/exist&passTo="+user.Username,
 					nil,
@@ -153,6 +154,69 @@ func TestClaimDir(t *testing.T) {
 				)
 				So(code, ShouldEqual, http.StatusForbidden)
 				So(resp, ShouldEqual, "invalid user\n")
+			})
+
+			now := strconv.FormatInt(time.Now().Unix(), 10)
+			future := strconv.FormatInt(time.Now().AddDate(0, 1, 0).Unix(), 10)
+
+			Convey("You can set directory details", func() {
+				u = ""
+
+				code, resp = getResponse(
+					s.SetDirDetails,
+					"/api/dir/setDirDetails?dir=/some/path/MyDir/&frequency=10&review="+now+"&remove="+future,
+					nil,
+				)
+				So(resp, ShouldEqual, "invalid user\n")
+				So(code, ShouldEqual, http.StatusForbidden)
+
+				u = root
+
+				code, resp = getResponse(
+					s.SetDirDetails,
+					"/api/dir/setDirDetails?dir=/some/path/MyDir/&frequency=10&review="+now+"&remove="+future,
+					nil,
+				)
+
+				So(code, ShouldEqual, http.StatusNoContent)
+				So(resp, ShouldEqual, "")
+
+				code, resp = getResponse(
+					s.Tree,
+					"/api/tree?dir=/some/path/MyDir/",
+					nil,
+				)
+				So(code, ShouldEqual, http.StatusOK)
+				So(resp, ShouldContainSubstring, "\"Frequency\":10,\"ReviewDate\":"+now+",\"RemoveDate\":"+future)
+			})
+
+			Convey("You cannot set invalid directory details", func() {
+				code, resp = getResponse(
+					s.SetDirDetails,
+					"/api/dir/setDirDetails?dir=/some/path/MyDir/&frequency=-1&review="+now+"&remove="+future,
+					nil,
+				)
+
+				So(code, ShouldEqual, http.StatusBadRequest)
+				So(resp, ShouldEqual, "strconv.ParseUint: parsing \"-1\": invalid syntax\n")
+
+				code, resp = getResponse(
+					s.SetDirDetails,
+					"/api/dir/setDirDetails?dir=/some/path/MyDir/&frequency=10&review=0&remove="+future,
+					nil,
+				)
+
+				So(code, ShouldEqual, http.StatusBadRequest)
+				So(resp, ShouldEqual, "invalid time\n")
+
+				code, resp = getResponse(
+					s.SetDirDetails,
+					"/api/dir/setDirDetails?dir=/some/path/MyDir/&frequency=10&review="+future+"&remove="+now,
+					nil,
+				)
+
+				So(code, ShouldEqual, http.StatusBadRequest)
+				So(resp, ShouldEqual, "invalid time\n")
 			})
 		})
 	})
@@ -256,6 +320,8 @@ func createTestTree(t *testing.T) string {
 	treeDB := directories.NewRoot("/some/path/", time.Now().Unix())
 	treeDB.AddDirectory("MyDir").UID = uid
 	treeDB.AddDirectory("ChildDir").UID = uid
+	treeDB.AddDirectory("MyDir").AddDirectory("ChildToClaim")
+	treeDB.AddDirectory("MyDir").AddDirectory("ChildToNotClaim")
 	directories.AddFile(&treeDB.Directory, "MyDir/a.txt", 0, 2, 3, 4)
 	directories.AddFile(&treeDB.Directory, "MyDir/b.csv", uid, 2, 5, 6)
 	directories.AddFile(&treeDB.Directory, "YourDir/c.tsv", 21, 22, 15, 16)

@@ -89,7 +89,17 @@ func (s *Server) validateAndApplyFofn(user, dir string, files []string, rule db.
 		return err
 	}
 
-	rulesToAdd, err := s.createRulesToAdd(user, rule, files)
+	var dirDetails dirDetails
+
+	if dr, ok := s.directoryRules[dir]; ok {
+		dirDetails.Frequency = dr.Frequency
+		dirDetails.ReviewDate = dr.ReviewDate
+		dirDetails.RemoveDate = dr.RemoveDate
+	} else {
+		dirDetails = defaultDirDetails()
+	}
+
+	rulesToAdd, err := s.createRulesToAdd(user, rule, files, dirDetails)
 	if err != nil {
 		return err
 	}
@@ -157,13 +167,16 @@ func splitDir(file string) (string, string) {
 	return file[:i+1], file[i+1:]
 }
 
-func (s *Server) createRulesToAdd(user string, rule db.Rule, files []string) ([]ruletree.DirRule, error) {
+func (s *Server) createRulesToAdd(user string, rule db.Rule, files []string,
+	dirDetails dirDetails) ([]ruletree.DirRule, error) {
 	rulesToAdd := make([]ruletree.DirRule, 0, len(files))
+
+	detailsSet := make(map[*ruletree.DirRules]bool)
 
 	// add rules
 	for _, file := range files {
 		// claim dir
-		dirRules, err := s.claimAndCreateDirRules(file, user)
+		dirRules, err := s.claimAndCreateDirRules(file, user, dirDetails, detailsSet)
 		if err != nil {
 			return nil, err
 		}
@@ -182,16 +195,31 @@ func (s *Server) createRulesToAdd(user string, rule db.Rule, files []string) ([]
 	return rulesToAdd, nil
 }
 
-func (s *Server) claimAndCreateDirRules(file, user string) (*ruletree.DirRules, error) {
+func (s *Server) claimAndCreateDirRules(file, user string, dirDetails dirDetails,
+	detailsSet map[*ruletree.DirRules]bool) (*ruletree.DirRules, error) {
 	fileDir, _ := splitDir(file)
 	dirRules := s.directoryRules[fileDir]
 
 	if dirRules == nil {
-		if err := s.claimDirectory(fileDir, user); err != nil {
+		if err := s.claimDirectory(fileDir, user, dirDetails); err != nil {
 			return nil, err
 		}
 
 		dirRules = s.directoryRules[fileDir]
+
+		return dirRules, nil
+	}
+
+	if !detailsSet[dirRules] {
+		detailsSet[dirRules] = true
+
+		dirRules.Frequency = dirDetails.Frequency
+		dirRules.ReviewDate = dirDetails.ReviewDate
+		dirRules.RemoveDate = dirDetails.RemoveDate
+
+		if err := s.rulesDB.UpdateDirectory(dirRules.Directory); err != nil {
+			return nil, err
+		}
 	}
 
 	return dirRules, nil
