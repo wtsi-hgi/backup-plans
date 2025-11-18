@@ -122,7 +122,7 @@ func createSet(client Client, setName, requester, transformer,
 
 func updateSet(client Client, got *set.Set,
 	frequency int, reviewDate, removeDate string) (*set.Set, error) {
-	if got.LastDiscovery.Add(time.Hour*24*time.Duration(frequency-1) + time.Hour*12).After(time.Now()) { //nolint:nestif
+	if got.LastDiscovery.Add(time.Hour*24*time.Duration(frequency-1) + time.Hour*12).After(time.Now()) {
 		return nil, nil //nolint:nilnil
 	}
 
