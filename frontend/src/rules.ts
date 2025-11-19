@@ -396,6 +396,8 @@ function parseFofn(result: string, dir: string, parentDirDetails: dirDetails, fo
 			clearNode(fofnSection, div({ "class": "tooManyFiles" }, 'Number of files cannot exceed 100.'));
 
 			reject();
+
+			return;
 		}
 
 		getDirectories(validTable.files).then(dirs => {
@@ -431,9 +433,8 @@ function parseFofn(result: string, dir: string, parentDirDetails: dirDetails, fo
 			resolve(validTable);
 		});
 	}).catch(() => {
-		console.log('??');
 		reject();
-	})
+	});
 }
 
 function roundDate(date: number) {
