@@ -477,7 +477,7 @@ class FofnTable {
 				td(keyAttributes, key),
 				td(z.values.map(v => div({
 					"class":
-						(v.overwrite ? "overwrite" : "") +
+						(v.overwrite ? "overwrite" : "") + " " +
 						(v.isDirectory ? "directory" : "")
 				}, v.value)))
 			]));
