@@ -215,6 +215,10 @@ select:disabled {
 	color: var(--claimcolour);
 }
 
+.directory {
+	color: var(--directorycolour);
+}
+
 #addEdit,
 #confirm {
 	background: var(--background);
@@ -287,8 +291,12 @@ select:disabled {
 	background-color: var(--dirDetailscolour);
 }
 
-#fofnKey div:last-child:after {
+#fofnKey div:nth-child(3):after {
 	background-color: var(--overwritecolour);
+}
+
+#fofnKey div:nth-child(4):after {
+	background-color: var(--directorycolour);
 }
 
 #fofnPaste {

@@ -41,4 +41,5 @@ export const getTree = (dir: string) => getURL<Tree>("api/tree", { dir }),
 	uploadFOFN = (dir: string, action: string, metadata: string, files: string[]) => getURL<void>("api/uploadfofn", { dir, action, metadata }, JSON.stringify(files)),
 	setDirDetails = (dir: string, frequency: number, review: number, remove: number) => getURL<void>("api/dir/setdetails", { dir, frequency, review, remove }),
 	setExists = (metadata: string) => getURL<boolean>("api/setExists", { metadata }),
+	getDirectories = (paths: string[]) => getURL<boolean[]>("api/getDirectories", {}, JSON.stringify(paths)),
 	user = await getURL<string>("api/whoami");

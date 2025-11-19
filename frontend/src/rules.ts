@@ -3,7 +3,7 @@ import { clearNode } from "./lib/dom.js";
 import { br, button, dialog, div, form, h2, h3, input, label, option, p, select, table, tbody, td, textarea, th, thead, tr } from './lib/html.js';
 import { svg, title, use } from './lib/svg.js';
 import { action, confirm, formatBytes, setAndReturn } from "./lib/utils.js";
-import { createRule, getTree, removeRule, setDirDetails, updateRule, uploadFOFN, setExists, user } from "./rpc.js";
+import { createRule, getTree, removeRule, setDirDetails, updateRule, uploadFOFN, setExists, user, getDirectories } from "./rpc.js";
 import { BackupIBackup, BackupManual, BackupNone } from "./types.js"
 
 const createStuff = (backupType: BackupType, md: string, setText: string, closeFn: () => void) => {
@@ -25,7 +25,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 		])
 	] as const;
 },
-	addEditOverlay = (path: string, rule: Rule, load: (path: string) => void, isFOFN = false) => {
+	addEditOverlay = (path: string, rule: Rule, load: (path: string) => void) => {
 		const [backupType, set, cancel, metadata, metadataSection] = createStuff(rule.BackupType, rule.Metadata, rule.Match ? "Update" : "Add", () => overlay.close()),
 			match = input({ "id": "match", "type": "text", "value": rule.Match, [rule.Match ? "disabled" : "enabled"]: "" }),
 			disableInputs = () => {
@@ -372,10 +372,10 @@ function parseFofn(result: string, dir: string, parentDirDetails: dirDetails, fo
 				if (parentDirDetails.Frequency !== data.Frequency) {
 					diffs.push(`Frequency: \n Old: ${data.Frequency} \n New: ${parentDirDetails.Frequency} \n`);
 				}
-				if (parentDirDetails.ReviewDate !== data.ReviewDate) {
+				if (roundDate(parentDirDetails.ReviewDate) !== roundDate(data.ReviewDate)) {
 					diffs.push(`Review Date: \n Old: ${new Date(data.ReviewDate * 1000).toLocaleDateString()} \n New: ${new Date(parentDirDetails.ReviewDate * 1000).toLocaleDateString()} \n`);
 				}
-				if (parentDirDetails.RemoveDate !== data.RemoveDate) {
+				if (roundDate(parentDirDetails.RemoveDate) !== roundDate(data.RemoveDate)) {
 					diffs.push(`Remove Date: \n Old: ${new Date(data.RemoveDate * 1000).toLocaleDateString()} \n New: ${new Date(parentDirDetails.RemoveDate * 1000).toLocaleDateString()} \n`);
 				}
 
@@ -394,35 +394,56 @@ function parseFofn(result: string, dir: string, parentDirDetails: dirDetails, fo
 	Promise.all(ps).then(() => {
 		if (validTable.files.length > 100) {
 			clearNode(fofnSection, div({ "class": "tooManyFiles" }, 'Number of files cannot exceed 100.'));
-			reject();
 
-			return;
+			reject();
 		}
 
-		const title = h2({ "style": "float: left" }, 'Rules from FOFN:');
-		const invalidHeader = h3('Invalid filepaths:');
+		getDirectories(validTable.files).then(dirs => {
+			const dirSet = new Set(validTable.files.filter((_, i) => dirs[i]));
 
-		const key = div({ "id": "fofnKey" }, [
-			div("Will claim directory"),
-			div("Will overwrite directory detail(s)"),
-			div("Will overwrite rule")
-		]);
+			for (const [dir, rowdata] of validTable.rows.entries()) {
+				for (const value of rowdata.values) {
+					var path = dir.concat(value.value);
+					if (dirSet.has(path)) {
+						value.isDirectory = true;
+					}
+				}
+			}
 
-		clearNode(
-			fofnSection,
-			[
-				title,
-				validTable.files.length > 0 ? [key, validTable.createTable("Directory", "Match")] : p("No valid filepaths found."),
-				invalidTable.files.length > 0 ? [invalidHeader, invalidTable.createTable("Reason", "Line")] : []
-			]
-		);
-		resolve(validTable);
-	});
-};
+			const title = h2({ "style": "float: left" }, 'Rules from FOFN:');
+			const invalidHeader = h3('Invalid filepaths:');
+
+			const key = div({ "id": "fofnKey" }, [
+				div("Will claim directory"),
+				div("Will overwrite directory detail(s)"),
+				div("Will overwrite rule"),
+				div("Match is a directory")
+			]);
+
+			clearNode(
+				fofnSection,
+				[
+					title,
+					validTable.files.length > 0 ? [key, validTable.createTable("Directory", "Match")] : p("No valid filepaths found."),
+					invalidTable.files.length > 0 ? [invalidHeader, invalidTable.createTable("Reason", "Line")] : []
+				]
+			);
+			resolve(validTable);
+		});
+	}).catch(() => {
+		console.log('??');
+		reject();
+	})
+}
+
+function roundDate(date: number) {
+	return Math.floor(date / 86400000);
+}
 
 type value = {
 	value: string;
 	overwrite: boolean;
+	isDirectory: boolean;
 }
 
 type rowData = {
@@ -453,7 +474,11 @@ class FofnTable {
 
 			rows.push(tr([
 				td(keyAttributes, key),
-				td(z.values.map(v => div({ "class": v.overwrite ? "overwrite" : "" }, v.value)))
+				td(z.values.map(v => div({
+					"class":
+						(v.overwrite ? "overwrite" : "") +
+						(v.isDirectory ? "directory" : "")
+				}, v.value)))
 			]));
 		}
 		return table({}, [
@@ -468,7 +493,7 @@ class FofnTable {
 	addLine(key: string, value: string, claim: boolean = false, overwrite: boolean = false, overwriteDirDetail: boolean = false, dirDetailText: string = "") {
 		const row = this.rows.get(key) ?? setAndReturn(this.rows, key, { values: [], claim: false, overwriteDirDetail: false, dirDetailText });
 
-		row.values.push({ value, overwrite });
+		row.values.push({ value, overwrite, isDirectory: false });
 		row.claim ||= claim;
 		row.overwriteDirDetail ||= overwriteDirDetail;
 

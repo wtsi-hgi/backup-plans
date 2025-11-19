@@ -180,6 +180,20 @@ func (r *ruleOverlay) getSummary() *DirSummary {
 	return ds
 }
 
+func (r *ruleOverlay) IsDirectory(path string) bool {
+	cr, path, err := r.getChild(path)
+
+	for err != nil {
+		return false
+	}
+
+	if path == "" {
+		return true
+	}
+
+	return cr.IsDirectory(path)
+}
+
 // Stats represents the summarised stats for a particular user or group for a
 // directory.
 type Stats struct {

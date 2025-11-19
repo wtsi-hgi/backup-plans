@@ -249,3 +249,25 @@ func (s *Server) createRuleToAdd(file string, rule db.Rule, dirRules *ruletree.D
 
 	return &add, nil
 }
+
+func (s *Server) GetDirectories(w http.ResponseWriter, r *http.Request) {
+	handle(w, r, s.getDirectories)
+}
+func (s *Server) getDirectories(w http.ResponseWriter, r *http.Request) error {
+	var dirs []bool
+
+	var paths []string
+
+	err := json.NewDecoder(r.Body).Decode(&paths)
+	if err != nil {
+		return err
+	}
+
+	for _, path := range paths {
+		dirs = append(dirs, s.rootDir.IsDirectory(path))
+	}
+
+	w.Header().Set("Content-type", "application/json")
+
+	return json.NewEncoder(w).Encode(dirs)
+}
