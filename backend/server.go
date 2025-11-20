@@ -136,6 +136,7 @@ func (s *Server) setExists(w http.ResponseWriter, r *http.Request) error {
 		if err.Error() == "set with that id does not exist" {
 			return nil
 		}
+
 		return err
 	}
 
