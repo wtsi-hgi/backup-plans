@@ -250,6 +250,8 @@ func (s *Server) createRuleToAdd(file string, rule db.Rule, dirRules *ruletree.D
 	return &add, nil
 }
 
+// GetDirectories takes an array of paths, and returns a same ordered array of
+// booleans indicating whether each path points to a directory.
 func (s *Server) GetDirectories(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.getDirectories)
 }
