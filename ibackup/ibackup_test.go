@@ -1,7 +1,13 @@
 package ibackup_test
 
 import (
+	"errors"
+	"io"
 	"os/user"
+	"path/filepath"
+	"regexp"
+	"strconv"
+	"sync/atomic"
 	"testing"
 	"time"
 	"unsafe"
@@ -19,9 +25,132 @@ import (
 )
 
 var (
-	twoyears         = time.Now().Add(time.Hour * 24 * 365 * 2) //nolint:gochecknoglobals
-	twoYearsAddMonth = twoyears.Add(time.Hour * 24 * 30)        //nolint:gochecknoglobals
+	twoYears         = time.Now().Add(time.Hour * 24 * 365 * 2) //nolint:gochecknoglobals
+	twoYearsAddMonth = twoYears.Add(time.Hour * 24 * 30)        //nolint:gochecknoglobals
 )
+
+func TestMultiIbackup(t *testing.T) {
+	Convey("Given multiple ibackup servers", t, func() {
+		So(testirods.AddPseudoIRODsToolsToPathIfRequired(t), ShouldBeNil)
+
+		servers := make(map[string]ibackup.ServerDetails)
+
+		for i := range 2 {
+			_, addr, certPath, dfn, err := ib.NewTestIbackupServer(t)
+			So(err, ShouldBeNil)
+
+			Reset(func() { dfn() })
+
+			servers["example_"+strconv.Itoa(i+1)] = ibackup.ServerDetails{
+				Addr:  addr,
+				Cert:  certPath,
+				Token: filepath.Join(filepath.Dir(certPath), ".ibackup.token"),
+			}
+		}
+
+		config := ibackup.Config{
+			Servers: servers,
+			PathToServer: map[string]ibackup.ServerTransformer{
+				"^/some/path/": {
+					ServerName:  "example_1",
+					Transformer: ib.CustomTransformer,
+				},
+				"^/some/other/path/": {
+					ServerName:  "example_2",
+					Transformer: "prefix=/some/other/path/:/remote/other/path/",
+				},
+			},
+		}
+
+		Convey("Bad config results in errors", func() {
+			servers["not_a_running_server"] = ibackup.ServerDetails{}
+
+			mc, err := ibackup.New(config)
+			So(mc, ShouldNotBeNil)
+			So(err, ShouldNotBeNil)
+			So(ibackup.IsOnlyConnectionErrors(err), ShouldBeTrue)
+
+			servers["another_non-running_server"] = ibackup.ServerDetails{}
+
+			mc, err = ibackup.New(config)
+			So(mc, ShouldNotBeNil)
+			So(err, ShouldNotBeNil)
+			So(ibackup.IsOnlyConnectionErrors(err), ShouldBeTrue)
+
+			So(ibackup.IsOnlyConnectionErrors(errors.Join(err, io.EOF)), ShouldBeFalse)
+
+			config.PathToServer["["] = ibackup.ServerTransformer{
+				ServerName:  "example_1",
+				Transformer: ib.CustomTransformer,
+			}
+
+			delete(servers, "not_a_running_server")
+			delete(servers, "another_non-running_server")
+
+			mc, err = ibackup.New(config)
+			So(mc, ShouldBeNil)
+			So(err, ShouldNotBeNil)
+			So(ibackup.IsOnlyConnectionErrors(err), ShouldBeFalse)
+
+			delete(config.PathToServer, "[")
+
+			config.PathToServer["^/a/path/"] = ibackup.ServerTransformer{
+				ServerName:  "not_a_server",
+				Transformer: ib.CustomTransformer,
+			}
+
+			mc, err = ibackup.New(config)
+			So(mc, ShouldBeNil)
+			So(err, ShouldNotBeNil)
+			So(ibackup.IsOnlyConnectionErrors(err), ShouldBeFalse)
+		})
+
+		Convey("Good config results in a valid MultiClient", func() {
+			mc, err := ibackup.New(config) // Connect to the servers and store, but don't stop on server error; DO stop on regex error
+			So(err, ShouldBeNil)
+
+			u, err := user.Current()
+			So(err, ShouldBeNil)
+
+			setName := "mySet"
+
+			Convey("You can backup the same set to different servers", func() {
+				So(mc.Backup("/some/path/a/dir/", setName, u.Username, []string{"/some/path/a/dir/file", "/some/path/a/dir/file2"}, 0, 1, 2), ShouldBeNil)
+				So(mc.Backup("/some/other/path/a/dir/", setName, u.Username, []string{"/some/other/path/a/dir/file"}, 0, 3, 4), ShouldBeNil)
+
+				baa, err := mc.GetBackupActivity("/some/path/a/dir/", setName, u.Username)
+				So(err, ShouldBeNil)
+
+				bab, err := mc.GetBackupActivity("/some/other/path/a/dir/", setName, u.Username)
+				So(err, ShouldBeNil)
+
+				So(baa.LastSuccess, ShouldNotEqual, bab.LastSuccess)
+
+				Convey("You can query a MultiCache", func() {
+					mcache := ibackup.NewMultiCache(mc, time.Second)
+
+					Reset(mcache.Stop)
+
+					ba, err := mcache.GetBackupActivity("/some/path/a/dir/", setName, u.Username)
+					So(err, ShouldBeNil)
+					So(ba, ShouldResemble, baa)
+
+					for _, client := range *(*map[*regexp.Regexp]**atomic.Pointer[server.Client])(unsafe.Pointer(mc)) {
+						*(*string)(unsafe.Pointer((*client).Load())) = ""
+					}
+
+					ba, err = mcache.GetBackupActivity("/some/path/a/dir/", setName, u.Username)
+					So(err, ShouldBeNil)
+					So(ba, ShouldResemble, baa)
+
+					ba, err = mcache.GetBackupActivity("/some/other/path/a/dir/", setName, u.Username)
+					So(err, ShouldNotBeNil)
+					So(ba, ShouldBeNil)
+				})
+			})
+		})
+	})
+}
 
 func TestIbackup(t *testing.T) {
 	Convey("Given a new ibackup server", t, func() {
@@ -47,7 +176,7 @@ func TestIbackup(t *testing.T) {
 
 			setName := "mySet"
 
-			err = ibackup.Backup(client, setName, u.Username, []string{}, 0, 0, 0)
+			err = ibackup.Backup(client, "prefix=/lustre/:/remote/", setName, u.Username, []string{}, 0, 0, 0)
 			So(err, ShouldBeNil)
 
 			sets, err = client.GetSets(u.Username)
@@ -56,7 +185,7 @@ func TestIbackup(t *testing.T) {
 
 			before := time.Now()
 
-			review := twoyears.Unix()
+			review := twoYears.Unix()
 			remove := twoYearsAddMonth.Unix()
 			setName += "2"
 
@@ -69,7 +198,7 @@ func TestIbackup(t *testing.T) {
 				{
 					Name:        setName,
 					Requester:   u.Username,
-					Transformer: "humgen",
+					Transformer: "prefix=/lustre/:/remote/",
 					Metadata: map[string]string{
 						transfer.MetaKeyReason:  "backup",
 						transfer.MetaKeyReview:  timeToMeta(review),
@@ -97,7 +226,7 @@ func TestIbackup(t *testing.T) {
 				So(err, ShouldBeNil)
 				So(sba.LastSuccess, ShouldNotBeNil)
 
-				err = ibackup.Backup(mockClient, setName, u.Username,
+				err = ibackup.Backup(mockClient, "prefix=/lustre/:/remote/", setName, u.Username,
 					[]string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}, 0, 0, 0)
 
 				So(err, ShouldEqual, ibackup.ErrFrozenSet)
@@ -145,11 +274,10 @@ func TestIbackup(t *testing.T) {
 				So(err, ShouldNotBeNil)
 
 				manualSetName := "manualSetName"
-				files := []string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}
 				manualSet := &set.Set{
 					Name:        manualSetName,
 					Requester:   u.Username,
-					Transformer: ibackup.GetTransformer(files[0]),
+					Transformer: "prefix=/lustre/:/remote/",
 					Description: "manual backup set",
 				}
 
@@ -187,6 +315,7 @@ func TestIbackup(t *testing.T) {
 			Convey("The cache updates after a specified amount of time", func() {
 				cacheTimeout := time.Second * 1
 				cache := ibackup.NewCache(client, cacheTimeout)
+
 				backupActivity, err := cache.GetBackupActivity(setName, u.Username)
 				So(err, ShouldBeNil)
 				So(backupActivity.LastSuccess, ShouldHappenAfter, before)
@@ -256,7 +385,7 @@ func setSet(s *server.Server, got *set.Set) error {
 
 func runTestBackups(client *server.Client, setname, requester string, files []string,
 	frequency int, review, remove int64) {
-	err := ibackup.Backup(client, setname, requester, files, frequency, review, remove)
+	err := ibackup.Backup(client, "prefix=/lustre/:/remote/", setname, requester, files, frequency, review, remove)
 	So(err, ShouldBeNil)
 }
 

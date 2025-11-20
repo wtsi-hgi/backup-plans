@@ -36,7 +36,6 @@ import (
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/ibackup"
 	"github.com/wtsi-hgi/backup-plans/ruletree"
-	"github.com/wtsi-hgi/ibackup/server"
 	"vimagination.zapto.org/httpbuffer"
 	_ "vimagination.zapto.org/httpbuffer/gzip" //
 )
@@ -52,19 +51,19 @@ type Server struct {
 	rules          map[uint64]*db.Rule
 	reportRoots    []string
 	adminGroup     uint32
-	cache          *ibackup.Cache
+	cache          *ibackup.MultiCache
 
 	rootDir *ruletree.RootDir
 }
 
 // New creates a new Backend API server.
 func New(db *db.DB, getUser func(r *http.Request) string, reportRoots []string,
-	ibackupclient *server.Client) (*Server, error) {
+	ibackupclient *ibackup.MultiClient) (*Server, error) {
 	s := &Server{
 		getUser:     getUser,
 		rulesDB:     db,
 		reportRoots: reportRoots,
-		cache:       ibackup.NewCache(ibackupclient, time.Hour),
+		cache:       ibackup.NewMultiCache(ibackupclient, time.Hour),
 	}
 
 	rules, err := s.loadRules()

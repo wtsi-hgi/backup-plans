@@ -7,7 +7,6 @@ import (
 
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/ibackup"
-	"github.com/wtsi-hgi/ibackup/server"
 	"github.com/wtsi-hgi/wrstat-ui/summary"
 	"github.com/wtsi-hgi/wrstat-ui/summary/group"
 	"vimagination.zapto.org/tree"
@@ -52,7 +51,7 @@ type SetInfo struct {
 // Backup will back up all files in the given treeNode that match rules in the
 // given planDB, using the given ibackup client. It returns a list of the set IDs
 // created.
-func Backup(planDB *db.DB, treeNode tree.Node, client *server.Client) ([]SetInfo, error) {
+func Backup(planDB *db.DB, treeNode tree.Node, client *ibackup.MultiClient) ([]SetInfo, error) {
 	dirs := make(map[int64]*db.Directory)
 
 	for dir := range planDB.ReadDirectories().Iter {
@@ -80,7 +79,7 @@ func Backup(planDB *db.DB, treeNode tree.Node, client *server.Client) ([]SetInfo
 	return addFofnsToIBackup(client, setFofns, dirs)
 }
 
-func addFofnsToIBackup(client *server.Client, setFofns map[int64][]string,
+func addFofnsToIBackup(client *ibackup.MultiClient, setFofns map[int64][]string,
 	dirs map[int64]*db.Directory) ([]SetInfo, error) {
 	backupSetInfos := make([]SetInfo, 0, len(setFofns))
 
@@ -90,7 +89,7 @@ func addFofnsToIBackup(client *server.Client, setFofns map[int64][]string,
 		setInfo := dirs[dirID]
 		backupSetName := setNamePrefix + setInfo.Path
 
-		err := ibackup.Backup(client, backupSetName, setInfo.ClaimedBy, fofns,
+		err := client.Backup(setInfo.Path, backupSetName, setInfo.ClaimedBy, fofns,
 			int(setInfo.Frequency), setInfo.ReviewDate, setInfo.RemoveDate) //nolint:gosec
 		if err != nil {
 			errs = errors.Join(errs, err)

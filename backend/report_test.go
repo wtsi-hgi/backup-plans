@@ -2,13 +2,17 @@ package backend
 
 import (
 	"encoding/json"
+	"maps"
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
+	"unsafe"
 
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/wtsi-hgi/backup-plans/db"
@@ -18,6 +22,7 @@ import (
 	"github.com/wtsi-hgi/backup-plans/internal/testirods"
 	"github.com/wtsi-hgi/backup-plans/ruletree"
 	"github.com/wtsi-hgi/backup-plans/users"
+	"github.com/wtsi-hgi/ibackup/server"
 	"github.com/wtsi-hgi/ibackup/set"
 	"vimagination.zapto.org/tree"
 )
@@ -36,32 +41,34 @@ func TestReport(t *testing.T) {
 
 		So(testirods.AddPseudoIRODsToolsToPathIfRequired(t), ShouldBeNil)
 
-		client := ib.NewClient(t)
+		client := ib.NewMultiClient(t)
 		roots := []string{
 			"/lustre/scratch123/humgen/a/c/",
 			"/lustre/scratch123/humgen/a/b/",
 		}
 
-		server, err := New(testDB, func(_ *http.Request) string { return "test" }, roots, client)
+		srv, err := New(testDB, func(_ *http.Request) string { return "test" }, roots, client)
 		So(err, ShouldBeNil)
-		err = server.AddTree(path)
+		err = srv.AddTree(path)
 		So(err, ShouldBeNil)
 
 		exampleSet := &set.Set{
 			Name:        "plan::/lustre/scratch123/humgen/a/c/",
 			Requester:   "userB",
-			Transformer: "humgen",
+			Transformer: "prefix=/:/remote/",
 		}
 
-		err = client.AddOrUpdateSet(exampleSet)
+		single := (*slices.Collect(maps.Values(*(*map[*regexp.Regexp]**atomic.Pointer[server.Client])(unsafe.Pointer(client))))[0]).Load()
+
+		err = single.AddOrUpdateSet(exampleSet)
 		So(err, ShouldBeNil)
 
 		beforeTrigger := time.Now()
 
-		err = client.TriggerDiscovery(exampleSet.ID(), false)
+		err = single.TriggerDiscovery(exampleSet.ID(), false)
 		So(err, ShouldBeNil)
 		Convey("A summary can be retrieved", func() {
-			code, str := getResponse(server.Summary, "/api/reports", nil)
+			code, str := getResponse(srv.Summary, "/api/reports", nil)
 			So(code, ShouldEqual, http.StatusOK)
 
 			var gotSummary summary

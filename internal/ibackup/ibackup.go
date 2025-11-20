@@ -2,6 +2,7 @@ package ibackup
 
 import (
 	"io"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -12,14 +13,19 @@ import (
 	"github.com/wtsi-hgi/ibackup/baton"
 	"github.com/wtsi-hgi/ibackup/server"
 	"github.com/wtsi-hgi/ibackup/set"
+	"github.com/wtsi-hgi/ibackup/transformer"
 )
+
+const CustomTransformer = "customTransformer"
+
+func init() {
+	transformer.Register(CustomTransformer, "^/some/path/", "/remote/path/")
+}
 
 // NewTestIbackupServer returns a test ibackup server, its address, certificate
 // path, a function you should defer to stop the server, and an error.
 func NewTestIbackupServer(t *testing.T) (*server.Server, string, string, func() error, error) { //nolint:funlen
 	t.Helper()
-
-	t.Setenv("XDG_STATE_HOME", t.TempDir())
 
 	handler, err := baton.GetBatonHandler()
 	if err != nil {
@@ -41,6 +47,8 @@ func NewTestIbackupServer(t *testing.T) (*server.Server, string, string, func() 
 		return nil, "", "", nil, err
 	}
 
+	t.Setenv("XDG_STATE_HOME", filepath.Dir(certPath))
+
 	err = s.EnableAuthWithServerToken(certPath, keyPath, ".ibackup.token",
 		func(_, _ string) (bool, string) { return true, "1" })
 	if err != nil {
@@ -51,13 +59,15 @@ func NewTestIbackupServer(t *testing.T) (*server.Server, string, string, func() 
 		return nil, "", "", nil, err
 	}
 
-	if err = s.LoadSetDB(filepath.Join(t.TempDir(), "db"), ""); err != nil {
+	if err = s.LoadSetDB(filepath.Join(t.TempDir(), "db"), "", ""); err != nil {
 		return nil, "", "", nil, err
 	}
 
 	addr, dfn, err := gas.StartTestServer(s, certPath, keyPath)
 
 	time.Sleep(time.Second >> 1)
+
+	os.Setenv("XDG_STATE_HOME", "/")
 
 	return s, addr, certPath, dfn, err
 }
@@ -101,4 +111,33 @@ func waitForSetsComplete(client *server.Client) {
 			}
 		}
 	}
+}
+
+func NewMultiClient(t *testing.T) *ibackup.MultiClient {
+	t.Helper()
+
+	_, addr, certPath, dfn, err := NewTestIbackupServer(t)
+	So(err, ShouldBeNil)
+
+	time.Sleep(time.Second >> 1)
+
+	Reset(func() { So(dfn(), ShouldBeNil) })
+
+	client, err := ibackup.New(ibackup.Config{
+		Servers: map[string]ibackup.ServerDetails{
+			"": {
+				Addr:  addr,
+				Cert:  certPath,
+				Token: filepath.Join(filepath.Dir(certPath), ".ibackup.token"),
+			},
+		},
+		PathToServer: map[string]ibackup.ServerTransformer{
+			"": {
+				Transformer: "prefix=/:/remote/",
+			},
+		},
+	})
+	So(err, ShouldBeNil)
+
+	return client
 }

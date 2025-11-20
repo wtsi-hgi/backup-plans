@@ -28,6 +28,7 @@ package cmd
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -39,10 +40,9 @@ import (
 )
 
 // options for this cmd.
-var ibackupURL string
 var planDB string
 var treeDB string
-var cert string
+var configPath string
 
 // serverCmd represents the server command.
 var backupCmd = &cobra.Command{
@@ -72,16 +72,23 @@ to maintain password security.
 	PreRunE: func(cmd *cobra.Command, _ []string) error {
 		envMap := map[string]string{
 			"BACKUP_PLANS_CONNECTION": "plan",
-			"IBACKUP_SERVER_URL":      "ibackup",
-			"IBACKUP_SERVER_CERT":     "cert",
 		}
 
 		return checkEnvVarFlags(cmd, envMap)
 	},
 	RunE: func(_ *cobra.Command, _ []string) error {
-		client, err := ibackup.Connect(ibackupURL, cert)
+		config, err := parseConfig(configPath)
 		if err != nil {
-			return fmt.Errorf("failed to connect to ibackup server: %w", err)
+			return fmt.Errorf("failed to parse config file: %w", err)
+		}
+
+		client, err := ibackup.New(config.IBackup)
+		if err != nil {
+			if !ibackup.IsOnlyConnectionErrors(err) {
+				return err
+			}
+
+			slog.Warn("ibackup connection errors", "errs", err)
 		}
 
 		planDB, err := db.Init(planDB)
@@ -117,12 +124,10 @@ func init() {
 		"sql connection string for your plan database")
 	backupCmd.Flags().StringVarP(&treeDB, "tree", "t", "",
 		"Path to tree db file, usually generated using db cmd")
-	backupCmd.Flags().StringVarP(&ibackupURL, "ibackup", "i", os.Getenv("IBACKUP_SERVER_URL"),
-		"ibackup server url")
-	backupCmd.Flags().StringVarP(&cert, "cert", "c", os.Getenv("IBACKUP_SERVER_CERT"),
-		"Path to ibackup server certificate file")
+	backupCmd.Flags().StringVarP(&configPath, "config", "c", "", "ibackup config")
 
-	backupCmd.MarkFlagRequired("tree") //nolint:errcheck
+	backupCmd.MarkFlagRequired("tree")   //nolint:errcheck
+	backupCmd.MarkFlagRequired("config") //nolint:errcheck
 }
 
 func checkEnvVarFlags(cmd *cobra.Command, envMap map[string]string) error {
