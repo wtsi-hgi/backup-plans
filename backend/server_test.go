@@ -86,8 +86,8 @@ func TestSetExists(t *testing.T) {
 				nil,
 			)
 
-			So(code, ShouldEqual, http.StatusInternalServerError)
-			So(resp, ShouldEqual, "set with that id does not exist\n")
+			So(code, ShouldEqual, http.StatusNoContent)
+			So(resp, ShouldEqual, "")
 		})
 	})
 }
