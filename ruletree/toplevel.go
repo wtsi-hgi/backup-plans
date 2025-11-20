@@ -82,7 +82,7 @@ func (r *RootDir) IsDirectory(path string) bool {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	return r.topLevelDir.IsDirectory(path[1:] + "/")
+	return r.topLevelDir.IsDirectory(strings.TrimPrefix(path, "/") + "/")
 }
 
 // NewRoot create a new RootDir, initialised with the given rules.

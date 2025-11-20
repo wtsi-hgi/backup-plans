@@ -57,7 +57,7 @@ func TestTopLevel(t *testing.T) {
 		err = root.AddTree(treeDBPathA)
 		So(err, ShouldBeNil)
 
-		Convey("You can get children", func() {
+		Convey("You can check if given children are directories", func() {
 			So(root.IsDirectory("/some/path"), ShouldBeTrue)
 			So(root.IsDirectory("/some/path/MyDir"), ShouldBeTrue)
 			So(root.IsDirectory("/some/path/YourDir/a"), ShouldBeFalse)

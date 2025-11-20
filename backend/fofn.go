@@ -253,6 +253,7 @@ func (s *Server) createRuleToAdd(file string, rule db.Rule, dirRules *ruletree.D
 func (s *Server) GetDirectories(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.getDirectories)
 }
+
 func (s *Server) getDirectories(w http.ResponseWriter, r *http.Request) error {
 	var paths []string
 
