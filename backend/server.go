@@ -2,6 +2,7 @@
  * Copyright (c) 2025 Genome Research Ltd.
  *
  * Author: Michael Woolnough <mw31@sanger.ac.uk>
+ *		   Sky Haines <sh55@sanger.ac.uk>
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -115,4 +116,31 @@ type Error struct {
 
 func (e Error) Error() string {
 	return e.Err.Error()
+}
+
+// SetExists is an HTTP endpoint that will return whether there is an ibackup
+// set with:
+//
+//	Set name: The requests metadata form value.
+//		User: Given by the getUser func passed when creating the server with New(...)
+func (s *Server) SetExists(w http.ResponseWriter, r *http.Request) {
+	handle(w, r, s.setExists)
+}
+
+func (s *Server) setExists(w http.ResponseWriter, r *http.Request) error {
+	user := s.getUser(r)
+	setName := r.FormValue("metadata")
+
+	got, err := s.cache.GetBackupActivity(setName, user)
+	if err != nil {
+		if err.Error() == "set with that id does not exist" {
+			return nil
+		}
+
+		return err
+	}
+
+	w.Header().Set("Content-type", "application/json")
+
+	return json.NewEncoder(w).Encode(got != nil)
 }

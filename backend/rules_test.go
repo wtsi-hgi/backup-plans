@@ -26,9 +26,7 @@
 package backend
 
 import (
-	"io"
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -338,12 +336,4 @@ func createTestTree(t *testing.T) string {
 	So(f.Close(), ShouldBeNil)
 
 	return treeDBPath
-}
-
-func getResponse(fn http.HandlerFunc, url string, body io.Reader) (int, string) {
-	w := httptest.NewRecorder()
-
-	fn(w, httptest.NewRequest(http.MethodGet, url, body))
-
-	return w.Code, w.Body.String()
 }

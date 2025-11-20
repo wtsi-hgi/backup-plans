@@ -86,7 +86,9 @@ func addHandlesAndListen(b *backend.Server, listen net.Listener) error {
 	http.Handle("/api/rules/remove", http.HandlerFunc(b.RemoveRule))
 	http.Handle("/api/report/summary", http.HandlerFunc(b.Summary))
 	http.Handle("/api/uploadfofn", http.HandlerFunc(b.Fofn))
+	http.Handle("/api/setExists", http.HandlerFunc(b.SetExists))
 	http.Handle("/api/dir/setdetails", http.HandlerFunc(b.SetDirDetails))
+	http.Handle("/api/getDirectories", http.HandlerFunc(b.GetDirectories))
 	http.Handle("/", frontend.Index)
 
 	slog.Info("Serving...")

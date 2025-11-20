@@ -249,3 +249,28 @@ func (s *Server) createRuleToAdd(file string, rule db.Rule, dirRules *ruletree.D
 
 	return &add, nil
 }
+
+// GetDirectories takes an array of paths, and returns a same ordered array of
+// booleans indicating whether each path points to a directory.
+func (s *Server) GetDirectories(w http.ResponseWriter, r *http.Request) {
+	handle(w, r, s.getDirectories)
+}
+
+func (s *Server) getDirectories(w http.ResponseWriter, r *http.Request) error {
+	var paths []string
+
+	err := json.NewDecoder(r.Body).Decode(&paths)
+	if err != nil {
+		return err
+	}
+
+	dirs := make([]bool, len(paths))
+
+	for i, path := range paths {
+		dirs[i] = s.rootDir.IsDirectory(path)
+	}
+
+	w.Header().Set("Content-type", "application/json")
+
+	return json.NewEncoder(w).Encode(dirs)
+}
