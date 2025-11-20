@@ -46,6 +46,7 @@ const nameBufLen = 4096
 type summariser interface {
 	Summary(path string) (*DirSummary, error)
 	GetOwner(path string) (uint32, uint32, error)
+	IsDirectory(path string) bool
 }
 
 // DirRules is a Directory reference and a map of its rules, keyed by the Match.
@@ -70,6 +71,18 @@ type RootDir struct {
 type DirRule struct {
 	*db.Directory
 	*db.Rule
+}
+
+// IsDirectory returns whether a given path is a path to a directory.
+func (r *RootDir) IsDirectory(path string) bool {
+	if strings.HasSuffix(path, "/") {
+		return true
+	}
+
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	return r.topLevelDir.IsDirectory(strings.TrimPrefix(path, "/") + "/")
 }
 
 // NewRoot create a new RootDir, initialised with the given rules.
@@ -363,6 +376,24 @@ func (t *topLevelDir) GetOwner(path string) (uint32, uint32, error) {
 	}
 
 	return child.GetOwner(rest)
+}
+
+func (t *topLevelDir) IsDirectory(path string) bool {
+	return isDirectory(path, t.getChild)
+}
+
+func isDirectory(path string, getChild func(string) (summariser, string, error)) bool {
+	cr, path, err := getChild(path)
+
+	for err != nil {
+		return false
+	}
+
+	if path == "" {
+		return true
+	}
+
+	return cr.IsDirectory(path)
 }
 
 // AddTree adds a tree database, specified by the given file path, to the

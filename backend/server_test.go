@@ -29,39 +29,42 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/wtsi-hgi/backup-plans/backups"
-	"github.com/wtsi-hgi/backup-plans/ibackup"
 	ib "github.com/wtsi-hgi/backup-plans/internal/ibackup"
 	"github.com/wtsi-hgi/backup-plans/internal/plandb"
 	"github.com/wtsi-hgi/backup-plans/internal/testdb"
 	"github.com/wtsi-hgi/backup-plans/internal/testirods"
+	"vimagination.zapto.org/tree"
 )
 
-func TestSetExists(t *testing.T) {
+func TestEndpoints(t *testing.T) {
 	Convey("Given an ibackup server with backed up sets", t, func() {
 		So(testirods.AddPseudoIRODsToolsToPathIfRequired(t), ShouldBeNil)
 
-		s, addr, certPath, dfn, err := ib.NewTestIbackupServer(t)
-		So(err, ShouldBeNil)
-
-		Reset(func() { So(dfn(), ShouldBeNil) })
+		ibackupClient := ib.NewClient(t)
 
 		var u userHandler
-
-		ibackupClient, err := ibackup.Connect(addr, certPath)
-		So(err, ShouldBeNil)
-
-		So(s, ShouldNotBeNil)
-		So(u, ShouldNotBeNil)
-		So(ibackupClient, ShouldNotBeNil)
 
 		testDB, _ := plandb.PopulateExamplePlanDB(t)
 		tr := plandb.ExampleTree()
 
+		treeFile := filepath.Join(t.TempDir(), "tree.db")
+		f, err := os.Create(treeFile)
+		So(err, ShouldBeNil)
+
+		So(tree.Serialise(f, tr), ShouldBeNil)
+		So(f.Close(), ShouldBeNil)
+
 		server, err := New(testdb.CreateTestDatabase(t), u.getUser, nil, ibackupClient)
+		So(err, ShouldBeNil)
+
+		err = server.AddTree(treeFile)
 		So(err, ShouldBeNil)
 
 		setInfos, err := backups.Backup(testDB, tr, ibackupClient)
@@ -88,6 +91,22 @@ func TestSetExists(t *testing.T) {
 
 			So(code, ShouldEqual, http.StatusNoContent)
 			So(resp, ShouldEqual, "")
+		})
+
+		Convey("You can check if a slice of paths refers to directories or files", func() {
+			u = "userA"
+			code, resp := getResponse(
+				server.GetDirectories,
+				"/test?",
+				strings.NewReader(`[
+					"lustre/scratch123/humgen/a/b/",
+					"/lustre/scratch123/humgen/a",
+					"/lustre/scratch123/humgen/a/b/1.jpg"
+				]`),
+			)
+
+			So(resp, ShouldEqual, "[true,true,false]\n")
+			So(code, ShouldEqual, http.StatusOK)
 		})
 	})
 }

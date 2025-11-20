@@ -11,6 +11,7 @@ import (
 	gas "github.com/wtsi-hgi/go-authserver"
 	"github.com/wtsi-hgi/ibackup/baton"
 	"github.com/wtsi-hgi/ibackup/server"
+	"github.com/wtsi-hgi/ibackup/set"
 )
 
 // NewTestIbackupServer returns a test ibackup server, its address, certificate
@@ -69,10 +70,35 @@ func NewClient(t *testing.T) *server.Client {
 
 	time.Sleep(time.Second >> 1)
 
-	Reset(func() { So(dfn(), ShouldBeNil) })
-
 	client, err := ibackup.Connect(addr, certPath)
 	So(err, ShouldBeNil)
 
+	Reset(func() {
+		waitForSetsComplete(client)
+		So(dfn(), ShouldBeNil)
+	})
+
 	return client
+}
+
+func waitForSetsComplete(client *server.Client) {
+	ready := false
+	for !ready {
+		sets, err := client.GetSets("all")
+		if err != nil {
+			break
+		}
+
+		ready = true
+
+		for _, item := range sets {
+			if item.Status != set.Complete {
+				ready = false
+
+				time.Sleep(time.Millisecond * 500) //nolint:mnd
+
+				break
+			}
+		}
+	}
 }
