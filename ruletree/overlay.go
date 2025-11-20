@@ -96,7 +96,7 @@ func (r *ruleOverlay) Summary(path string) (*DirSummary, error) {
 	return cr.Summary(rest)
 }
 
-func (r *ruleOverlay) getChild(path string) (*ruleOverlay, string, error) {
+func (r *ruleOverlay) getChild(path string) (summariser, string, error) {
 	pos := strings.IndexByte(path, '/')
 	child := path[:pos+1]
 
@@ -181,17 +181,7 @@ func (r *ruleOverlay) getSummary() *DirSummary {
 }
 
 func (r *ruleOverlay) IsDirectory(path string) bool {
-	cr, path, err := r.getChild(path)
-
-	for err != nil {
-		return false
-	}
-
-	if path == "" {
-		return true
-	}
-
-	return cr.IsDirectory(path)
+	return isDirectory(path, r.getChild)
 }
 
 // Stats represents the summarised stats for a particular user or group for a

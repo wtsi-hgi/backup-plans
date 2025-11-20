@@ -379,7 +379,11 @@ func (t *topLevelDir) GetOwner(path string) (uint32, uint32, error) {
 }
 
 func (t *topLevelDir) IsDirectory(path string) bool {
-	cr, path, err := t.getChild(path)
+	return isDirectory(path, t.getChild)
+}
+
+func isDirectory(path string, getChild func(string) (summariser, string, error)) bool {
+	cr, path, err := getChild(path)
 
 	for err != nil {
 		return false

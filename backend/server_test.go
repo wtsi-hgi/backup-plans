@@ -36,7 +36,6 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/wtsi-hgi/backup-plans/backups"
-	"github.com/wtsi-hgi/backup-plans/ibackup"
 	ib "github.com/wtsi-hgi/backup-plans/internal/ibackup"
 	"github.com/wtsi-hgi/backup-plans/internal/plandb"
 	"github.com/wtsi-hgi/backup-plans/internal/testdb"
@@ -48,19 +47,9 @@ func TestEndpoints(t *testing.T) {
 	Convey("Given an ibackup server with backed up sets", t, func() {
 		So(testirods.AddPseudoIRODsToolsToPathIfRequired(t), ShouldBeNil)
 
-		s, addr, certPath, dfn, err := ib.NewTestIbackupServer(t)
-		So(err, ShouldBeNil)
-
-		Reset(func() { So(dfn(), ShouldBeNil) })
+		ibackupClient := ib.NewClient(t)
 
 		var u userHandler
-
-		ibackupClient, err := ibackup.Connect(addr, certPath)
-		So(err, ShouldBeNil)
-
-		So(s, ShouldNotBeNil)
-		So(u, ShouldNotBeNil)
-		So(ibackupClient, ShouldNotBeNil)
 
 		testDB, _ := plandb.PopulateExamplePlanDB(t)
 		tr := plandb.ExampleTree()
