@@ -9,7 +9,6 @@ import (
 	. "github.com/smartystreets/goconvey/convey" //nolint:staticcheck,revive
 	"github.com/wtsi-hgi/backup-plans/ibackup"
 	gas "github.com/wtsi-hgi/go-authserver"
-
 	"github.com/wtsi-hgi/ibackup/baton"
 	"github.com/wtsi-hgi/ibackup/server"
 	"github.com/wtsi-hgi/ibackup/set"
@@ -75,30 +74,31 @@ func NewClient(t *testing.T) *server.Client {
 	So(err, ShouldBeNil)
 
 	Reset(func() {
-		// Poll until all sets are ready
-		ready := false
-		for !ready {
-			sets, err := client.GetSets("all")
-			if err != nil {
-				break
-			}
-
-			ready = true
-
-			for _, item := range sets {
-				if item.Status != set.Complete {
-					ready = false
-
-					time.Sleep(time.Millisecond * 500) //nolint:mnd
-
-					break
-				}
-			}
-
-		}
-
+		waitForSetsComplete(client)
 		So(dfn(), ShouldBeNil)
 	})
 
 	return client
+}
+
+func waitForSetsComplete(client *server.Client) {
+	ready := false
+	for !ready {
+		sets, err := client.GetSets("all")
+		if err != nil {
+			break
+		}
+
+		ready = true
+
+		for _, item := range sets {
+			if item.Status != set.Complete {
+				ready = false
+
+				time.Sleep(time.Millisecond * 500) //nolint:mnd
+
+				break
+			}
+		}
+	}
 }
