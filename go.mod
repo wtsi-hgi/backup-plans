@@ -1,6 +1,6 @@
 module github.com/wtsi-hgi/backup-plans
 
-go 1.24.4
+go 1.25.3
 
 tool vimagination.zapto.org/jspacker/cmd/jspacker
 
@@ -12,10 +12,11 @@ require (
 	github.com/spf13/cobra v1.10.1
 	github.com/ugorji/go/codec v1.3.0
 	github.com/wtsi-hgi/go-authserver v1.5.1
-	github.com/wtsi-hgi/ibackup v1.11.0
+	github.com/wtsi-hgi/ibackup v1.13.0
 	github.com/wtsi-hgi/wrstat-ui v1.8.11
 	go.etcd.io/bbolt v1.4.3
 	golang.org/x/sys v0.37.0
+	gopkg.in/yaml.v2 v2.4.0
 	modernc.org/sqlite v1.39.1
 	vimagination.zapto.org/byteio v1.2.2
 	vimagination.zapto.org/httpbuffer v1.1.4
@@ -151,6 +152,7 @@ require (
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/viant/ptrie v1.0.1 // indirect
 	github.com/wtsi-hgi/grand v1.0.0 // indirect
+	github.com/wtsi-hgi/statter v1.0.0 // indirect
 	github.com/wtsi-npg/extendo/v2 v2.7.1-0.20250509131519-b95b89bd744d // indirect
 	github.com/wtsi-npg/logshim v1.5.0 // indirect
 	github.com/wtsi-npg/logshim-zerolog v1.5.0 // indirect
@@ -175,7 +177,6 @@ require (
 	google.golang.org/protobuf v1.36.6 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/tylerb/graceful.v1 v1.2.15 // indirect
-	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/api v0.33.1 // indirect
 	k8s.io/apimachinery v0.33.1 // indirect

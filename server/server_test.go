@@ -39,6 +39,7 @@ import (
 	"time"
 
 	. "github.com/smartystreets/goconvey/convey"
+	"github.com/wtsi-hgi/backup-plans/ibackup"
 	"github.com/wtsi-hgi/backup-plans/internal/directories"
 	"github.com/wtsi-hgi/backup-plans/internal/testdb"
 	"github.com/wtsi-hgi/backup-plans/users"
@@ -71,8 +72,11 @@ func TestSeverDBUpdate(t *testing.T) {
 			errCh := make(chan error)
 			dbCheckTime = time.Second
 
+			client, err := ibackup.New(ibackup.Config{})
+			So(err, ShouldBeNil)
+
 			go func() {
-				errCh <- start(l, tdb, func(*http.Request) string { return u.Username }, nil, 0, nil, tmp)
+				errCh <- start(l, tdb, func(*http.Request) string { return u.Username }, nil, 0, client, tmp)
 			}()
 
 			baseURL := fmt.Sprintf("http://127.0.0.1:%d/", l.Addr().(*net.TCPAddr).Port) //nolint:errcheck,forcetypeassert

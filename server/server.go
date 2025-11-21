@@ -38,7 +38,7 @@ import (
 	"github.com/wtsi-hgi/backup-plans/backend"
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/frontend"
-	ib "github.com/wtsi-hgi/ibackup/server"
+	"github.com/wtsi-hgi/backup-plans/ibackup"
 	wrs "github.com/wtsi-hgi/wrstat-ui/server"
 )
 
@@ -48,7 +48,7 @@ var ErrNoTrees = errors.New("no tree dbs specified")
 
 // Start creates and start a new server after loading the trees given.
 func Start(listen string, d *db.DB, getUser func(*http.Request) string,
-	report []string, adminGroup uint32, client *ib.Client, initialTrees ...string) error {
+	report []string, adminGroup uint32, client *ibackup.MultiClient, initialTrees ...string) error {
 	l, err := net.Listen("tcp", listen) //nolint:noctx
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
@@ -59,7 +59,7 @@ func Start(listen string, d *db.DB, getUser func(*http.Request) string,
 }
 
 func start(listen net.Listener, d *db.DB, getUser func(*http.Request) string,
-	report []string, adminGroup uint32, client *ib.Client, initialTrees ...string) error {
+	report []string, adminGroup uint32, client *ibackup.MultiClient, initialTrees ...string) error {
 	b, err := backend.New(d, getUser, report, client)
 	if err != nil {
 		return err

@@ -54,7 +54,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 
 					disableInputs();
 
-					verifyMetadata(backupType.value, metadata.value)
+					verifyMetadata(path, backupType.value, metadata.value)
 						.then(valid => {
 							if (!valid) {
 								enableInputs();
@@ -151,7 +151,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 
 					disableInputs();
 
-					verifyMetadata(backupType.value, metadata.value)
+					verifyMetadata(path, backupType.value, metadata.value)
 						.then(valid => {
 							if (!valid) {
 								enableInputs();
@@ -282,13 +282,13 @@ export default Object.assign(base, {
 });
 
 // verifyMetadata will return true if the metadata setName is valid and exists
-function verifyMetadata(backupType: string, metadata: string): Promise<Boolean> {
+function verifyMetadata(dir: string, backupType: string, metadata: string): Promise<Boolean> {
 	if (backupType !== "manualbackup") {
 		return Promise.resolve(true);
 	}
 	if (metadata === "") return Promise.reject({ "message": "Metadata cannot be empty" });
 
-	return setExists(metadata);
+	return setExists(dir, metadata);
 }
 
 function evalFOFN(fr: FileReader, fofnSection: HTMLElement, parentDirDetails: dirDetails, dir: string): Promise<FofnTable> {

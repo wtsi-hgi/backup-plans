@@ -47,7 +47,7 @@ func TestEndpoints(t *testing.T) {
 	Convey("Given an ibackup server with backed up sets", t, func() {
 		So(testirods.AddPseudoIRODsToolsToPathIfRequired(t), ShouldBeNil)
 
-		ibackupClient := ib.NewClient(t)
+		ibackupClient := ib.NewMultiClient(t)
 
 		var u userHandler
 
@@ -75,7 +75,7 @@ func TestEndpoints(t *testing.T) {
 			u = "userA"
 			code, resp := getResponse(
 				server.SetExists,
-				"/api/setExists?metadata=plan::/lustre/scratch123/humgen/a/b/",
+				"/api/setExists?dir=/lustre/&metadata=plan::/lustre/scratch123/humgen/a/b/",
 				nil,
 			)
 
@@ -85,7 +85,7 @@ func TestEndpoints(t *testing.T) {
 			u = "userB"
 			code, resp = getResponse(
 				server.SetExists,
-				"/api/setExists?metadata=plan::/lustre/scratch123/humgen/a/b/",
+				"/api/setExists?dir=/lustre/&metadata=plan::/lustre/scratch123/humgen/a/b/",
 				nil,
 			)
 

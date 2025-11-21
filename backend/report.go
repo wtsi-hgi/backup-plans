@@ -121,7 +121,7 @@ func (s *Server) summary(w http.ResponseWriter, _ *http.Request) error { //nolin
 	s.rulesMu.RUnlock()
 
 	for dir, claimedBy := range dirClaims {
-		sba, err := s.cache.GetBackupActivity("plan::"+dir, claimedBy)
+		sba, err := s.cache.GetBackupActivity(dir, "plan::"+dir, claimedBy)
 		if err != nil && err.Error() != "set with that id does not exist" {
 			return err
 		}

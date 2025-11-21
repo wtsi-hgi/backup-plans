@@ -29,6 +29,7 @@ package cmd
 import (
 	"encoding/base64"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"strings"
@@ -79,21 +80,28 @@ to maintain password security.
 	PreRunE: func(cmd *cobra.Command, _ []string) error {
 		envMap := map[string]string{
 			"BACKUP_PLANS_CONNECTION": "plan",
-			"IBACKUP_SERVER_URL":      "ibackup",
-			"IBACKUP_SERVER_CERT":     "cert",
 		}
 
 		return checkEnvVarFlags(cmd, envMap)
 	},
 	RunE: func(_ *cobra.Command, args []string) error {
+		config, err := parseConfig(configPath)
+		if err != nil {
+			return fmt.Errorf("failed to parse config file: %w", err)
+		}
+
 		d, err := db.Init(planDB)
 		if err != nil {
 			return err
 		}
 
-		client, err := ibackup.Connect(ibackupURL, cert)
+		client, err := ibackup.New(config.IBackup)
 		if err != nil {
-			return fmt.Errorf("failed to connect to ibackup server: %w", err)
+			if !ibackup.IsOnlyConnectionErrors(err) {
+				return err
+			}
+
+			slog.Warn("ibackup connection errors", "errs", err)
 		}
 
 		return server.Start(fmt.Sprintf(":%d", serverPort), d, getUser, reportRoots, adminGroup, client, args...)
@@ -110,11 +118,10 @@ func init() {
 	serverCmd.Flags().StringSliceVarP(&reportRoots, "report", "r", nil, "reporting root, can be supplied more than once")
 	serverCmd.Flags().StringVarP(&planDB, "plan", "p", os.Getenv("BACKUP_PLANS_CONNECTION"),
 		"sql connection string for your plan database")
-	serverCmd.Flags().StringVarP(&ibackupURL, "ibackup", "i", os.Getenv("IBACKUP_SERVER_URL"), "ibackup server url")
-	serverCmd.Flags().StringVarP(&cert, "cert", "c", os.Getenv("IBACKUP_SERVER_CERT"),
-		"Path to ibackup server certificate file")
+	serverCmd.Flags().StringVarP(&configPath, "config", "c", "", "ibackup config")
 
-	serverCmd.MarkFlagRequired("tree") //nolint:errcheck
+	serverCmd.MarkFlagRequired("tree")   //nolint:errcheck
+	serverCmd.MarkFlagRequired("config") //nolint:errcheck
 }
 
 func getUser(r *http.Request) string {
