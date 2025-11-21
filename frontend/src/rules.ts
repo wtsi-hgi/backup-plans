@@ -441,7 +441,7 @@ function parseFofn(result: string, dir: string, parentDirDetails: dirDetails, fo
 }
 
 function roundDate(date: number) {
-	return Math.floor(date / 86400000);
+	return Math.floor(date / 86400);
 }
 
 type value = {
