@@ -58,7 +58,7 @@ func TestReport(t *testing.T) {
 			Transformer: "prefix=/:/remote/",
 		}
 
-		single := (*slices.Collect(maps.Values(*(*map[*regexp.Regexp]**atomic.Pointer[server.Client])(unsafe.Pointer(client))))[0]).Load() //nolint:lll
+		single := getSingleClientFromMultiClient(t, client)
 
 		err = single.AddOrUpdateSet(exampleSet)
 		So(err, ShouldBeNil)
@@ -247,4 +247,17 @@ func copyRule(rule *db.Rule) *db.Rule {
 		Created:    rule.Created,
 		Modified:   rule.Modified,
 	}
+}
+
+// getSingleClientFromMultiClient returns the client from a MultiClient
+// containing only one ibackup client.
+func getSingleClientFromMultiClient(t *testing.T, client *ibackup.MultiClient) *server.Client {
+	t.Helper()
+
+	clientMap := *(*map[*regexp.Regexp]**atomic.Pointer[server.Client])(unsafe.Pointer(client))
+	So(len(clientMap), ShouldEqual, 1)
+
+	singleClient := *slices.Collect(maps.Values(clientMap))[0]
+
+	return singleClient.Load()
 }
