@@ -75,7 +75,7 @@ func TestEndpoints(t *testing.T) {
 			u = "userA"
 			code, resp := getResponse(
 				server.SetExists,
-				"/api/setExists?metadata=plan::/lustre/scratch123/humgen/a/b/",
+				"/api/setExists?dir=/lustre/&metadata=plan::/lustre/scratch123/humgen/a/b/",
 				nil,
 			)
 
@@ -85,7 +85,7 @@ func TestEndpoints(t *testing.T) {
 			u = "userB"
 			code, resp = getResponse(
 				server.SetExists,
-				"/api/setExists?metadata=plan::/lustre/scratch123/humgen/a/b/",
+				"/api/setExists?dir=/lustre/&metadata=plan::/lustre/scratch123/humgen/a/b/",
 				nil,
 			)
 
