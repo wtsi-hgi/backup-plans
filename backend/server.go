@@ -130,7 +130,12 @@ func (s *Server) setExists(w http.ResponseWriter, r *http.Request) error {
 	user := s.getUser(r)
 	setName := r.FormValue("metadata")
 
-	got, err := s.cache.GetBackupActivity(setName, user)
+	dir, err := getDir(r)
+	if err != nil {
+		return err
+	}
+
+	got, err := s.cache.GetBackupActivity(dir, setName, user)
 	if err != nil {
 		if err.Error() == "set with that id does not exist" {
 			return nil

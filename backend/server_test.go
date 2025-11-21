@@ -47,7 +47,7 @@ func TestEndpoints(t *testing.T) {
 	Convey("Given an ibackup server with backed up sets", t, func() {
 		So(testirods.AddPseudoIRODsToolsToPathIfRequired(t), ShouldBeNil)
 
-		ibackupClient := ib.NewClient(t)
+		ibackupClient := ib.NewMultiClient(t)
 
 		var u userHandler
 
