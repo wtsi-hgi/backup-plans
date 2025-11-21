@@ -123,8 +123,11 @@ func (s *Server) validateFofn(user, dir string, files []string) error {
 			}
 		}
 
-		prev = file
+		if strings.HasSuffix(file, "/") || strings.Contains(file, "\x00") {
+			return ErrInvalidMatch
+		}
 
+		prev = file
 		if err := s.validateClaimAndRule(user, dir, file, uid, groups); err != nil {
 			return err
 		}
