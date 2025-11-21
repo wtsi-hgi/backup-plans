@@ -123,7 +123,7 @@ func (s *Server) validateFofn(user, dir string, files []string) error {
 			}
 		}
 
-		if strings.HasSuffix(file, "/") || strings.Contains(file, "�") {
+		if strings.HasSuffix(file, "/") || strings.Contains(file, "\x00") {
 			return ErrInvalidMatch
 		}
 

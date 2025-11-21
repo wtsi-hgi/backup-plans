@@ -503,7 +503,7 @@ func getRuleDetails(r *http.Request) (*db.Rule, error) { //nolint:gocyclo
 	rule.Match = r.FormValue("match")
 	if rule.Match == "" {
 		rule.Match = "*"
-	} else if !validMatch(rule.Match) || strings.Contains(rule.Match, "�") {
+	} else if !validMatch(rule.Match) || strings.Contains(rule.Match, "\x00") {
 		return nil, ErrInvalidMatch
 	}
 
