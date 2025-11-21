@@ -116,7 +116,7 @@ func waitForSetsComplete(client *server.Client) {
 
 // NewMultiClient returns an ibackup MultiClient configured with a single
 // server.
-func NewMultiClient(t *testing.T) *ibackup.MultiClient {
+func NewMultiClient(t *testing.T) *ibackup.MultiClient { //nolint:funlen
 	t.Helper()
 
 	_, addr, certPath, dfn, err := NewTestIbackupServer(t)
@@ -125,8 +125,8 @@ func NewMultiClient(t *testing.T) *ibackup.MultiClient {
 	time.Sleep(time.Second >> 1)
 
 	Reset(func() {
-		client, err := ibackup.Connect(addr, certPath)
-		So(err, ShouldBeNil)
+		client, errr := ibackup.Connect(addr, certPath)
+		So(errr, ShouldBeNil)
 
 		waitForSetsComplete(client)
 		So(dfn(), ShouldBeNil)
