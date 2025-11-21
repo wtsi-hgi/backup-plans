@@ -3,7 +3,6 @@ package ibackup
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"maps"
 	"path/filepath"
@@ -45,6 +44,12 @@ type clientTransformer struct {
 type Config struct {
 	Servers      map[string]ServerDetails
 	PathToServer map[string]ServerTransformer
+}
+
+type UnknownServerError string
+
+func (u UnknownServerError) Error() string {
+	return "unknown server name: " + string(u)
 }
 
 // MultiClient contains multiple ibackup clients that can be selected by path.
@@ -152,7 +157,7 @@ func createClients(servers map[string]*serverClient, c Config) (map[*regexp.Rege
 	for re, server := range c.PathToServer {
 		s, ok := servers[server.ServerName]
 		if !ok {
-			return nil, fmt.Errorf("unknown server name: %q", server.ServerName)
+			return nil, UnknownServerError(server.ServerName)
 		}
 
 		r, err := regexp.Compile(re)
@@ -414,7 +419,7 @@ func NewCache(client Client, d time.Duration) *Cache {
 		stop:   fn,
 	}
 
-	go cache.runCache(d, ctx)
+	go cache.runCache(ctx, d)
 
 	return cache
 }
@@ -445,7 +450,7 @@ func (c *Cache) GetBackupActivity(setName, requester string) (*SetBackupActivity
 	return sba, nil
 }
 
-func (c *Cache) runCache(d time.Duration, ctx context.Context) {
+func (c *Cache) runCache(ctx context.Context, d time.Duration) {
 	for {
 		select {
 		case <-ctx.Done():

@@ -39,7 +39,7 @@ func TestMultiIbackup(t *testing.T) {
 			_, addr, certPath, dfn, err := ib.NewTestIbackupServer(t)
 			So(err, ShouldBeNil)
 
-			Reset(func() { dfn() })
+			Reset(func() { dfn() }) //nolint:errcheck
 
 			servers["example_"+strconv.Itoa(i+1)] = ibackup.ServerDetails{
 				Addr:  addr,
@@ -106,7 +106,7 @@ func TestMultiIbackup(t *testing.T) {
 		})
 
 		Convey("Good config results in a valid MultiClient", func() {
-			mc, err := ibackup.New(config) // Connect to the servers and store, but don't stop on server error; DO stop on regex error
+			mc, err := ibackup.New(config)
 			So(err, ShouldBeNil)
 
 			u, err := user.Current()
@@ -115,8 +115,10 @@ func TestMultiIbackup(t *testing.T) {
 			setName := "mySet"
 
 			Convey("You can backup the same set to different servers", func() {
-				So(mc.Backup("/some/path/a/dir/", setName, u.Username, []string{"/some/path/a/dir/file", "/some/path/a/dir/file2"}, 0, 1, 2), ShouldBeNil)
-				So(mc.Backup("/some/other/path/a/dir/", setName, u.Username, []string{"/some/other/path/a/dir/file"}, 0, 3, 4), ShouldBeNil)
+				So(mc.Backup("/some/path/a/dir/", setName, u.Username,
+					[]string{"/some/path/a/dir/file", "/some/path/a/dir/file2"}, 0, 1, 2), ShouldBeNil)
+				So(mc.Backup("/some/other/path/a/dir/", setName, u.Username,
+					[]string{"/some/other/path/a/dir/file"}, 0, 3, 4), ShouldBeNil)
 
 				baa, err := mc.GetBackupActivity("/some/path/a/dir/", setName, u.Username)
 				So(err, ShouldBeNil)

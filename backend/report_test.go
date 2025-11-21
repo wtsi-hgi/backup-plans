@@ -58,7 +58,7 @@ func TestReport(t *testing.T) {
 			Transformer: "prefix=/:/remote/",
 		}
 
-		single := (*slices.Collect(maps.Values(*(*map[*regexp.Regexp]**atomic.Pointer[server.Client])(unsafe.Pointer(client))))[0]).Load()
+		single := (*slices.Collect(maps.Values(*(*map[*regexp.Regexp]**atomic.Pointer[server.Client])(unsafe.Pointer(client))))[0]).Load() //nolint:lll
 
 		err = single.AddOrUpdateSet(exampleSet)
 		So(err, ShouldBeNil)

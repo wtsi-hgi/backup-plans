@@ -86,7 +86,8 @@ func TestCommands(t *testing.T) {
 			out, err := exec.Command(appExe, "backup", "--plan", dbPath, //nolint:noctx
 				"--tree", "testdata/tree.db", "--config", config).CombinedOutput()
 
-			So(string(out), ShouldContainSubstring, "ibackup set 'plan::/lustre/scratch123/humgen/a/b/' created for userA with 2 files\n")
+			So(string(out), ShouldContainSubstring,
+				"ibackup set 'plan::/lustre/scratch123/humgen/a/b/' created for userA with 2 files\n")
 			So(err, ShouldBeNil)
 
 			ibackupClient, err := ibackup.Connect(addr, certPath)

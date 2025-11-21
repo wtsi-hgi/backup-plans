@@ -18,13 +18,13 @@ import (
 
 const CustomTransformer = "customTransformer"
 
-func init() {
-	transformer.Register(CustomTransformer, "^/some/path/", "/remote/path/")
+func init() { //nolint:gochecknoinits
+	transformer.Register(CustomTransformer, "^/some/path/", "/remote/path/") //nolint:errcheck
 }
 
 // NewTestIbackupServer returns a test ibackup server, its address, certificate
 // path, a function you should defer to stop the server, and an error.
-func NewTestIbackupServer(t *testing.T) (*server.Server, string, string, func() error, error) { //nolint:funlen
+func NewTestIbackupServer(t *testing.T) (*server.Server, string, string, func() error, error) { //nolint:funlen,unparam
 	t.Helper()
 
 	handler, err := baton.GetBatonHandler()

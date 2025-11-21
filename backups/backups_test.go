@@ -185,15 +185,16 @@ func TestBackups(t *testing.T) {
 			So(setInfos[0].Requestor, ShouldEqual, "userA")
 			So(setInfos[0].FileCount, ShouldEqual, 2)
 
-			sets, err := ibackupClient.GetBackupActivity("/lustre/scratch123/humgen/a/b/", "plan::/lustre/scratch123/humgen/a/b/", "userA")
+			sets, err := ibackupClient.GetBackupActivity("/lustre/scratch123/humgen/a/b/",
+				"plan::/lustre/scratch123/humgen/a/b/", "userA")
 			So(err, ShouldBeNil)
 			So(sets.Name, ShouldEqual, "plan::/lustre/scratch123/humgen/a/b/")
 			So(sets.Requester, ShouldEqual, "userA")
 
-			sets, err = ibackupClient.GetBackupActivity("/lustre/scratch123/humgen/a/b/", "plan::/lustre/scratch123/humgen/a/b/", "userB")
+			sets, err = ibackupClient.GetBackupActivity("/lustre/scratch123/humgen/a/b/",
+				"plan::/lustre/scratch123/humgen/a/b/", "userB")
 			So(err, ShouldNotBeNil)
 			So(sets, ShouldBeNil)
-
 		})
 	})
 }
