@@ -2,7 +2,7 @@ import type { BackupType, dirDetails, DirectoryWithChildren, Rule } from "./type
 import { clearNode } from "./lib/dom.js";
 import { br, button, dialog, div, form, h2, h3, input, label, option, p, select, table, tbody, td, textarea, th, thead, tr } from './lib/html.js';
 import { svg, title, use } from './lib/svg.js';
-import { action, confirm, formatBytes, setAndReturn } from "./lib/utils.js";
+import { action, confirm, formatBytes, secondsInDay, setAndReturn } from "./lib/utils.js";
 import { createRule, getTree, removeRule, setDirDetails, updateRule, uploadFOFN, setExists, user, getDirectories } from "./rpc.js";
 import { BackupIBackup, BackupManual, BackupNone } from "./types.js"
 
@@ -441,7 +441,7 @@ function parseFofn(result: string, dir: string, parentDirDetails: dirDetails, fo
 }
 
 function roundDate(date: number) {
-	return Math.floor(date / 86400);
+	return Math.floor(date / secondsInDay);
 }
 
 type value = {
