@@ -88,7 +88,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 
 		const [backupType, set, cancel, metadata, metadataSection] = createStuff(BackupIBackup, "", "Add", () => overlay.close()),
 			fofn = input({
-				"id": "fofn", "type": "file", "accept": ".txt", "style": "display: none", "change": () => {
+				"id": "fofn", "type": "file", "accept": "text/plain", "style": "display: none", "change": () => {
 					const fr = new FileReader();
 
 					evalFOFN(fr, fofnSection, dirDetails, path).then(vt => validTable = vt);
