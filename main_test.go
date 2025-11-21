@@ -74,6 +74,8 @@ func TestCommands(t *testing.T) {
 			},
 		}), ShouldBeNil)
 
+		So(f.Close(), ShouldBeNil)
+
 		Convey("The backups command returns an error about required flags with no args", func() {
 			out, err := exec.Command(appExe, "backup").CombinedOutput() //nolint:noctx
 			So(err, ShouldNotBeNil)

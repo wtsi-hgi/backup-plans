@@ -30,6 +30,8 @@ type ServerDetails struct {
 	Addr, Cert, Token string
 }
 
+// ServerTransformer combines a configured server name and a transformer to be
+// used.
 type ServerTransformer struct {
 	ServerName, Transformer string
 }
@@ -111,6 +113,15 @@ func (s *serverClient) await(ctx context.Context, details ServerDetails) {
 }
 
 // New creates a new MultiClient from the given Config.
+//
+// An error will be returned if any ibackup servers cannot be reached, but a
+// MultiClient will also be returned; a goroutine will also be spawned that will
+// attempt to establish the connection. The MultiClient.Stop() method should be
+// called to stop these goroutines.
+//
+// The IsOnlyConnectionErrors() function can be used to detect when the error
+// returned is only a (potentially temporary) connection error; in such a case,
+// it is valid to continue using the returned MultiClient.
 func New(c Config) (*MultiClient, error) {
 	ctx, stop := context.WithCancel(context.Background())
 
@@ -174,10 +185,13 @@ func createClients(servers map[string]*serverClient, c Config) (map[*regexp.Rege
 	return clients, nil
 }
 
+// Stop stops all attempts to connect to previously unreachable ibackup servers.
 func (m *MultiClient) Stop() {
 	m.stop()
 }
 
+// IsOnlyConnectionErrors returns whether the given error only contains
+// (potentially temporary) ibackup server connection errors.
 func IsOnlyConnectionErrors(err error) bool {
 	var sce *ServerConnectionError
 

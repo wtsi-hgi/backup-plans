@@ -72,6 +72,7 @@ func NewTestIbackupServer(t *testing.T) (*server.Server, string, string, func() 
 	return s, addr, certPath, dfn, err
 }
 
+// NewClient returns a new ibackup client for a new server.
 func NewClient(t *testing.T) *server.Client {
 	t.Helper()
 
@@ -113,6 +114,8 @@ func waitForSetsComplete(client *server.Client) {
 	}
 }
 
+// NewMultiClient returns an ibackup MultiClient configured with a single
+// server.
 func NewMultiClient(t *testing.T) *ibackup.MultiClient {
 	t.Helper()
 
@@ -121,7 +124,13 @@ func NewMultiClient(t *testing.T) *ibackup.MultiClient {
 
 	time.Sleep(time.Second >> 1)
 
-	Reset(func() { So(dfn(), ShouldBeNil) })
+	Reset(func() {
+		client, err := ibackup.Connect(addr, certPath)
+		So(err, ShouldBeNil)
+
+		waitForSetsComplete(client)
+		So(dfn(), ShouldBeNil)
+	})
 
 	client, err := ibackup.New(ibackup.Config{
 		Servers: map[string]ibackup.ServerDetails{
