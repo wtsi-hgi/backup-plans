@@ -28,6 +28,7 @@ package backend
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"slices"
 	"strconv"
@@ -501,9 +502,10 @@ func getRuleDetails(r *http.Request) (*db.Rule, error) {
 	}
 
 	rule.Match = r.FormValue("match")
+	fmt.Println("rule.Match:", rule.Match)
 	if rule.Match == "" {
 		rule.Match = "*"
-	} else if !validMatch(rule.Match) {
+	} else if !validMatch(rule.Match) || strings.Contains(rule.Match, "�") {
 		return nil, ErrInvalidMatch
 	}
 

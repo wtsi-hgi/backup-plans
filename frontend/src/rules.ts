@@ -88,7 +88,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 
 		const [backupType, set, cancel, metadata, metadataSection] = createStuff(BackupIBackup, "", "Add", () => overlay.close()),
 			fofn = input({
-				"id": "fofn", "type": "file", "style": "display: none", "change": () => {
+				"id": "fofn", "type": "file", "accept": ".txt", "style": "display: none", "change": () => {
 					const fr = new FileReader();
 
 					evalFOFN(fr, fofnSection, dirDetails, path).then(vt => validTable = vt);
@@ -178,7 +178,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 		overlay.showModal();
 	},
 	dirDetailOverlay = (path: string, dirDetails: dirDetails, load: (path: string) => void) => {
-		const frequency = input({ "id": "frequency", "type": "number", "value": dirDetails.Frequency + "" }),
+		const frequency = input({ "id": "frequency", "type": "number", "min": "0", "value": dirDetails.Frequency + "" }),
 			review = input({ "id": "review", "type": "date", "value": new Date(dirDetails.ReviewDate * 1000).toISOString().substring(0, 10) }),
 			remove = input({ "id": "remove", "type": "date", "value": new Date(dirDetails.RemoveDate * 1000).toISOString().substring(0, 10) }),
 			set = button({ "value": "set" }, "Set"),
@@ -317,6 +317,10 @@ function parseFofn(result: string, dir: string, parentDirDetails: dirDetails, fo
 	const fofn = new Map<string, string[]>();
 
 	for (let line of lines) {
+		if (line.endsWith("/")) {
+			line += "*";
+		}
+
 		// Filter out comments
 		if (line.includes('#')) {
 			const index = line.indexOf('#');
@@ -343,6 +347,11 @@ function parseFofn(result: string, dir: string, parentDirDetails: dirDetails, fo
 			invalidTable.addLine("Outside of current dir ", line);
 
 			continue;
+		}
+
+		// Check for invalid char 
+		if (line.includes("\0")) {
+			invalidTable.addLine("Invalid char in match ", line);
 		}
 
 		const wci = line.indexOf("*"),
