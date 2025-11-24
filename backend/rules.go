@@ -479,7 +479,7 @@ func (s *Server) addRuleToDir(directory *ruletree.DirRules, rule *db.Rule) error
 	return nil
 }
 
-func getRuleDetails(r *http.Request) (*db.Rule, error) {
+func getRuleDetails(r *http.Request) (*db.Rule, error) { //nolint:gocyclo
 	rule := new(db.Rule)
 
 	var requireMetadata bool
@@ -503,7 +503,7 @@ func getRuleDetails(r *http.Request) (*db.Rule, error) {
 	rule.Match = r.FormValue("match")
 	if rule.Match == "" {
 		rule.Match = "*"
-	} else if !validMatch(rule.Match) {
+	} else if !validMatch(rule.Match) || strings.Contains(rule.Match, "\x00") {
 		return nil, ErrInvalidMatch
 	}
 

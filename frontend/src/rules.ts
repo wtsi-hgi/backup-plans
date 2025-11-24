@@ -2,7 +2,7 @@ import type { BackupType, dirDetails, DirectoryWithChildren, Rule } from "./type
 import { clearNode } from "./lib/dom.js";
 import { br, button, dialog, div, form, h2, h3, input, label, option, p, select, table, tbody, td, textarea, th, thead, tr } from './lib/html.js';
 import { svg, title, use } from './lib/svg.js';
-import { action, confirm, formatBytes, setAndReturn } from "./lib/utils.js";
+import { action, confirm, formatBytes, secondsInDay, setAndReturn } from "./lib/utils.js";
 import { createRule, getTree, removeRule, setDirDetails, updateRule, uploadFOFN, setExists, user, getDirectories } from "./rpc.js";
 import { BackupIBackup, BackupManual, BackupNone } from "./types.js"
 
@@ -178,7 +178,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 		overlay.showModal();
 	},
 	dirDetailOverlay = (path: string, dirDetails: dirDetails, load: (path: string) => void) => {
-		const frequency = input({ "id": "frequency", "type": "number", "value": dirDetails.Frequency + "" }),
+		const frequency = input({ "id": "frequency", "type": "number", "min": "0", "value": dirDetails.Frequency + "" }),
 			review = input({ "id": "review", "type": "date", "value": new Date(dirDetails.ReviewDate * 1000).toISOString().substring(0, 10) }),
 			remove = input({ "id": "remove", "type": "date", "value": new Date(dirDetails.RemoveDate * 1000).toISOString().substring(0, 10) }),
 			set = button({ "value": "set" }, "Set"),
@@ -317,6 +317,10 @@ function parseFofn(result: string, dir: string, parentDirDetails: dirDetails, fo
 	const fofn = new Map<string, string[]>();
 
 	for (let line of lines) {
+		if (line.endsWith("/")) {
+			line += "*";
+		}
+
 		// Filter out comments
 		if (line.includes('#')) {
 			const index = line.indexOf('#');
@@ -343,6 +347,11 @@ function parseFofn(result: string, dir: string, parentDirDetails: dirDetails, fo
 			invalidTable.addLine("Outside of current dir ", line);
 
 			continue;
+		}
+
+		// Check for invalid char 
+		if (line.includes("\0")) {
+			invalidTable.addLine("Invalid char in match ", line);
 		}
 
 		const wci = line.indexOf("*"),
@@ -441,7 +450,7 @@ function parseFofn(result: string, dir: string, parentDirDetails: dirDetails, fo
 }
 
 function roundDate(date: number) {
-	return Math.floor(date / 86400000);
+	return Math.floor(date / secondsInDay);
 }
 
 type value = {
