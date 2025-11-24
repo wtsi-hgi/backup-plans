@@ -141,6 +141,9 @@ type userGroupsBOM struct {
 	Owners, BOM   map[string][]string
 }
 
+// UserGroups is an HTTP endpoint that returns the complete list of users and
+// groups in the mounted filesystem trees, and maps of Owners->Groups and
+// BOM->Groups.
 func (s *Server) UserGroups(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.userGroups)
 }
