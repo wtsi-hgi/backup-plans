@@ -61,7 +61,7 @@ func TestEndpoints(t *testing.T) {
 		So(tree.Serialise(f, tr), ShouldBeNil)
 		So(f.Close(), ShouldBeNil)
 
-		server, err := New(testdb.CreateTestDatabase(t), u.getUser, nil, ibackupClient, "")
+		server, err := New(testdb.CreateTestDatabase(t), u.getUser, nil, ibackupClient, "", "")
 		So(err, ShouldBeNil)
 
 		err = server.AddTree(treeFile)

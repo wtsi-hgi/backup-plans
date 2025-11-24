@@ -58,13 +58,14 @@ type Server struct {
 	adminGroup     uint32
 	cache          *ibackup.MultiCache
 	owners         map[string][]string
+	bom            map[string][]string
 
 	rootDir *ruletree.RootDir
 }
 
 // New creates a new Backend API server.
 func New(db *db.DB, getUser func(r *http.Request) string, reportRoots []string,
-	ibackupclient *ibackup.MultiClient, owners string) (*Server, error) {
+	ibackupclient *ibackup.MultiClient, owners, bom string) (*Server, error) {
 	s := &Server{
 		getUser:     getUser,
 		rulesDB:     db,
@@ -73,6 +74,10 @@ func New(db *db.DB, getUser func(r *http.Request) string, reportRoots []string,
 	}
 
 	if err := s.loadOwners(owners); err != nil {
+		return nil, err
+	}
+
+	if err := s.loadBOM(bom); err != nil {
 		return nil, err
 	}
 
@@ -125,6 +130,42 @@ func (s *Server) loadOwners(owners string) error {
 
 	s.rulesMu.Lock()
 	s.owners = ownersMap
+	s.rulesMu.Unlock()
+
+	return nil
+}
+
+func (s *Server) loadBOM(bom string) error {
+	if bom == "" {
+		return nil
+	}
+
+	f, err := os.Open(bom)
+	if err != nil {
+		return err
+	}
+
+	defer f.Close()
+
+	bomMap := make(map[string][]string)
+
+	r := csv.NewReader(f)
+
+	for {
+		record, err := r.Read()
+		if errors.Is(err, io.EOF) {
+			break
+		} else if err != nil {
+			return err
+		} else if len(record) < 2 {
+			continue
+		}
+
+		bomMap[record[1]] = append(bomMap[record[1]], record[0])
+	}
+
+	s.rulesMu.Lock()
+	s.bom = bomMap
 	s.rulesMu.Unlock()
 
 	return nil

@@ -33,9 +33,8 @@ import (
 )
 
 type userGroupsBOM struct {
-	Users  []string
-	Groups []string
-	Owners map[string][]string
+	Users, Groups []string
+	Owners, BOM   map[string][]string
 }
 
 func (s *Server) UserGroups(w http.ResponseWriter, r *http.Request) {
@@ -63,6 +62,7 @@ func (s *Server) userGroups(w http.ResponseWriter, _ *http.Request) error {
 
 	s.rulesMu.RLock()
 	owners := s.owners
+	bom := s.bom
 	s.rulesMu.RUnlock()
 
 	w.Header().Set("Content-Type", "application/json")
@@ -71,5 +71,6 @@ func (s *Server) userGroups(w http.ResponseWriter, _ *http.Request) error {
 		Users:  slices.Collect(maps.Keys(users)),
 		Groups: slices.Collect(maps.Keys(groups)),
 		Owners: owners,
+		BOM:    bom,
 	})
 }

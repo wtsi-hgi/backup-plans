@@ -48,19 +48,19 @@ var ErrNoTrees = errors.New("no tree dbs specified")
 
 // Start creates and start a new server after loading the trees given.
 func Start(listen string, d *db.DB, getUser func(*http.Request) string,
-	report []string, adminGroup uint32, client *ibackup.MultiClient, owners string, initialTrees ...string) error {
+	report []string, adminGroup uint32, client *ibackup.MultiClient, owners, bom string, initialTrees ...string) error {
 	l, err := net.Listen("tcp", listen) //nolint:noctx
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
 	}
 	defer l.Close()
 
-	return start(l, d, getUser, report, adminGroup, client, owners, initialTrees...)
+	return start(l, d, getUser, report, adminGroup, client, owners, bom, initialTrees...)
 }
 
 func start(listen net.Listener, d *db.DB, getUser func(*http.Request) string,
-	report []string, adminGroup uint32, client *ibackup.MultiClient, owners string, initialTrees ...string) error {
-	b, err := backend.New(d, getUser, report, client, owners)
+	report []string, adminGroup uint32, client *ibackup.MultiClient, owners, bom string, initialTrees ...string) error {
+	b, err := backend.New(d, getUser, report, client, owners, bom)
 	if err != nil {
 		return err
 	}

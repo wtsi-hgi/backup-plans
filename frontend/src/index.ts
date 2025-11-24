@@ -26,6 +26,7 @@ const load = (path: string) => Load(path).then(data => {
 (document.readyState === "complete" ? Promise.resolve() : new Promise(successFn => window.addEventListener("load", successFn, { "once": true })))
 	.then(() => getUserGroups())
 	.then(Filter.init)
+	.then(() => load("/"))
 	.then(() => {
 		Report.init(load);
 		document.body.replaceChildren(

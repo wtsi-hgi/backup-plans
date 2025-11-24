@@ -190,8 +190,7 @@ button+button {
 
 #addEdit button:active,
 #fofnPaste button:active,
-#confirm button:active,
-select:active {
+#confirm button:active {
 	background-color: var(--button-background-active);
 }
 
