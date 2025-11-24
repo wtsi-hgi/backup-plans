@@ -156,6 +156,10 @@ select:has(option:checked[value="manualbackup"])~#metadataInput {
 	display: unset;
 }
 
+select:has(option:checked[value="manualbackup"])~#metadataInput #metadataLabel::after {
+	content: "Set Name:";
+}
+
 #addEdit span+label {
 	width: auto;
 }

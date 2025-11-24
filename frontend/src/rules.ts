@@ -7,7 +7,8 @@ import { createRule, getTree, removeRule, setDirDetails, updateRule, uploadFOFN,
 import { BackupIBackup, BackupManual, BackupNone } from "./types.js"
 
 const createStuff = (backupType: BackupType, md: string, setText: string, closeFn: () => void) => {
-	const metadata = input({ "id": "metadata", "type": "text", "value": md });
+	const metadata = input({ "id": "metadata", "type": "text", "value": md }),
+		metadataLabel = label({ "for": "metadata", "id": "metadataLabel" }, "");
 
 	return [
 		select({ "id": "backupType" }, [
@@ -19,7 +20,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 		button({ "type": "button", "click": closeFn }, "Cancel"),
 		metadata,
 		div({ "id": "metadataInput" }, [
-			label({ "for": "metadata" }, "Metadata"),
+			metadataLabel,
 			metadata,
 			br(),
 		])
