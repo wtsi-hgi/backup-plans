@@ -32,9 +32,9 @@ export type DirectoryRules = {
 	Rules: Record<string, Rule>;
 };
 
-export type BackupType = -1 | 0 | 1 | 2 | 3;
+export type BackupType = -1 | 0 | 1 | 2 | 3 | 4 | 5;
 
-export const [BackupNone, BackupIBackup, BackupManual] = Array.from({ "length": 3 }, (_, n) => n as BackupType),
+export const [BackupNone, BackupIBackup, BackupManual, BackupManualGit, BackupManualUnchecked] = Array.from({ "length": 6 }, (_, n) => n as BackupType),
 	BackupWarn = -1;
 
 export type Rule = {

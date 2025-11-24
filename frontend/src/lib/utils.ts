@@ -2,7 +2,7 @@ import type { Children } from "./dom.js";
 import { button, dialog, div } from "./html.js";
 
 const byteSizes = ["B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB", "RiB", "QiB"],
-	actions = ["No Backup", "IBackup", "Manual Backup"];
+	actions = ["No Backup", "IBackup", "Manual Backup: iBackup", "Manual Backup: Git", "Manual Backup: Other"];
 
 export const formatBytes = (size: bigint) => {
 	for (const suffix of byteSizes) {

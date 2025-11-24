@@ -36,6 +36,8 @@ const (
 	BackupNone BackupType = iota
 	BackupIBackup
 	BackupManual
+	BackupManualGit
+	BackupManualUnchecked
 )
 
 // Rule represents a defined rule.
