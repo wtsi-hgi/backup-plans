@@ -26,11 +26,113 @@
 package backend
 
 import (
+	"encoding/csv"
 	"encoding/json"
+	"errors"
+	"io"
 	"maps"
 	"net/http"
+	"os"
 	"slices"
+	"strconv"
+
+	"github.com/wtsi-hgi/backup-plans/users"
 )
+
+func (s *Server) loadOwners(owners string) error {
+	if owners == "" {
+		return nil
+	}
+
+	f, err := os.Open(owners)
+	if err != nil {
+		return err
+	}
+
+	defer f.Close()
+
+	ownersMap, err := parseOwners(f)
+	if err != nil {
+		return err
+	}
+
+	s.rulesMu.Lock()
+	s.owners = ownersMap
+	s.rulesMu.Unlock()
+
+	return nil
+}
+
+func parseOwners(r io.Reader) (map[string][]string, error) {
+	ownersMap := make(map[string][]string)
+
+	cr := csv.NewReader(r)
+
+	for {
+		record, err := cr.Read()
+		if errors.Is(err, io.EOF) {
+			break
+		} else if err != nil {
+			return nil, err
+		} else if len(record) < 2 {
+			continue
+		}
+
+		gid, err := strconv.ParseUint(record[0], 10, 32)
+		if err != nil {
+			return nil, err
+		}
+
+		ownersMap[record[1]] = append(ownersMap[record[1]], users.Group(uint32(gid)))
+	}
+
+	return ownersMap, nil
+}
+
+func (s *Server) loadBOM(bom string) error {
+	if bom == "" {
+		return nil
+	}
+
+	f, err := os.Open(bom)
+	if err != nil {
+		return err
+	}
+
+	defer f.Close()
+
+	bomMap, err := parseBOM(f)
+	if err != nil {
+		return err
+	}
+
+	s.rulesMu.Lock()
+	s.bom = bomMap
+	s.rulesMu.Unlock()
+
+	return nil
+}
+
+func parseBOM(r io.Reader) (map[string][]string, error) {
+	bomMap := make(map[string][]string)
+
+	cr := csv.NewReader(r)
+
+	for {
+		record, err := cr.Read()
+		if errors.Is(err, io.EOF) {
+			break
+		} else if err != nil {
+			return nil, err
+		} else if len(record) < 2 {
+			continue
+		}
+
+		bomMap[record[1]] = append(bomMap[record[1]], record[0])
+	}
+
+	return bomMap, nil
+}
 
 type userGroupsBOM struct {
 	Users, Groups []string

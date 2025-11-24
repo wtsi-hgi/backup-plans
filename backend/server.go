@@ -27,20 +27,15 @@
 package backend
 
 import (
-	"encoding/csv"
 	"encoding/json"
 	"errors"
-	"io"
 	"net/http"
-	"os"
-	"strconv"
 	"sync"
 	"time"
 
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/ibackup"
 	"github.com/wtsi-hgi/backup-plans/ruletree"
-	"github.com/wtsi-hgi/backup-plans/users"
 	"vimagination.zapto.org/httpbuffer"
 	_ "vimagination.zapto.org/httpbuffer/gzip" //
 )
@@ -92,83 +87,6 @@ func New(db *db.DB, getUser func(r *http.Request) string, reportRoots []string,
 	}
 
 	return s, nil
-}
-
-func (s *Server) loadOwners(owners string) error {
-	if owners == "" {
-		return nil
-	}
-
-	f, err := os.Open(owners)
-	if err != nil {
-		return err
-	}
-
-	defer f.Close()
-
-	ownersMap := make(map[string][]string)
-
-	r := csv.NewReader(f)
-
-	for {
-		record, err := r.Read()
-		if errors.Is(err, io.EOF) {
-			break
-		} else if err != nil {
-			return err
-		} else if len(record) < 2 {
-			continue
-		}
-
-		gid, err := strconv.ParseUint(record[0], 10, 32)
-		if err != nil {
-			return err
-		}
-
-		ownersMap[record[1]] = append(ownersMap[record[1]], users.Group(uint32(gid)))
-	}
-
-	s.rulesMu.Lock()
-	s.owners = ownersMap
-	s.rulesMu.Unlock()
-
-	return nil
-}
-
-func (s *Server) loadBOM(bom string) error {
-	if bom == "" {
-		return nil
-	}
-
-	f, err := os.Open(bom)
-	if err != nil {
-		return err
-	}
-
-	defer f.Close()
-
-	bomMap := make(map[string][]string)
-
-	r := csv.NewReader(f)
-
-	for {
-		record, err := r.Read()
-		if errors.Is(err, io.EOF) {
-			break
-		} else if err != nil {
-			return err
-		} else if len(record) < 2 {
-			continue
-		}
-
-		bomMap[record[1]] = append(bomMap[record[1]], record[0])
-	}
-
-	s.rulesMu.Lock()
-	s.bom = bomMap
-	s.rulesMu.Unlock()
-
-	return nil
 }
 
 func (s *Server) SetAdminGroup(gid uint32) {
