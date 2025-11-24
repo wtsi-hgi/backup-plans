@@ -3,6 +3,7 @@ package backups
 import (
 	"bytes"
 	"os/user"
+	"path/filepath"
 	"testing"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -151,7 +152,21 @@ func TestBackups(t *testing.T) {
 		u, err := user.Current()
 		So(err, ShouldBeNil)
 
-		ibackupClient, err := ibackup.Connect(addr, certPath)
+		ibackupClient, err := ibackup.New(ibackup.Config{
+			Servers: map[string]ibackup.ServerDetails{
+				"server": {
+					Addr:  addr,
+					Cert:  certPath,
+					Token: filepath.Join(filepath.Dir(certPath), ".ibackup.token"),
+				},
+			},
+			PathToServer: map[string]ibackup.ServerTransformer{
+				"^/lustre/": {
+					ServerName:  "server",
+					Transformer: "prefix=/lustre/:/remote/",
+				},
+			},
+		})
 		So(err, ShouldBeNil)
 
 		So(s, ShouldNotBeNil)
@@ -170,15 +185,16 @@ func TestBackups(t *testing.T) {
 			So(setInfos[0].Requestor, ShouldEqual, "userA")
 			So(setInfos[0].FileCount, ShouldEqual, 2)
 
-			sets, err := ibackupClient.GetSets("userA")
+			sets, err := ibackupClient.GetBackupActivity("/lustre/scratch123/humgen/a/b/",
+				"plan::/lustre/scratch123/humgen/a/b/", "userA")
 			So(err, ShouldBeNil)
-			So(len(sets), ShouldEqual, 1)
-			So(sets[0].Name, ShouldEqual, "plan::/lustre/scratch123/humgen/a/b/")
-			So(sets[0].Requester, ShouldEqual, "userA")
+			So(sets.Name, ShouldEqual, "plan::/lustre/scratch123/humgen/a/b/")
+			So(sets.Requester, ShouldEqual, "userA")
 
-			sets, err = ibackupClient.GetSets("userB")
-			So(err, ShouldBeNil)
-			So(len(sets), ShouldEqual, 0)
+			sets, err = ibackupClient.GetBackupActivity("/lustre/scratch123/humgen/a/b/",
+				"plan::/lustre/scratch123/humgen/a/b/", "userB")
+			So(err, ShouldNotBeNil)
+			So(sets, ShouldBeNil)
 		})
 	})
 }

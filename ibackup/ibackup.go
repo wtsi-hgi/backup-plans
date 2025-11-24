@@ -1,11 +1,15 @@
 package ibackup
 
 import (
+	"context"
 	"errors"
+	"log/slog"
 	"maps"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	gas "github.com/wtsi-hgi/go-authserver"
@@ -15,18 +19,243 @@ import (
 )
 
 var (
-	isHumgen = regexp.MustCompile(`^/lustre/scratch[0-9]+/humgen/`)
-	isGengen = regexp.MustCompile(`^/lustre/scratch[0-9]+/gengen/`)
-	isOtar   = regexp.MustCompile(`^/lustre/scratch[0-9]+/open-targets/`)
-
-	ErrInvalidPath = errors.New("cannot determine transformer from path")
-	ErrFrozenSet   = errors.New("cannot update frozen backup")
+	ErrInvalidPath   = errors.New("cannot determine transformer from path")
+	ErrUnknownClient = errors.New("cannot determine client from path")
+	ErrFrozenSet     = errors.New("cannot update frozen backup")
 )
+
+// ServerDetails contains the connection details for a particular ibackup
+// server.
+type ServerDetails struct {
+	Addr, Cert, Token string
+}
+
+// ServerTransformer combines a configured server name and a transformer to be
+// used.
+type ServerTransformer struct {
+	ServerName, Transformer string
+}
+
+type clientTransformer struct {
+	client      *serverClient
+	transformer string
+}
+
+// Config contains a map of named ibackup servers, and their connection details,
+// and a map of path regexp to server name.
+type Config struct {
+	Servers      map[string]ServerDetails
+	PathToServer map[string]ServerTransformer
+}
+
+type UnknownServerError string
+
+func (u UnknownServerError) Error() string {
+	return "unknown server name: " + string(u)
+}
+
+// MultiClient contains multiple ibackup clients that can be selected by path.
+type MultiClient struct {
+	clients map[*regexp.Regexp]*clientTransformer
+	stop    func()
+}
+
+type ServerConnectionError struct {
+	server string
+	err    error
+}
+
+func (s ServerConnectionError) Error() string {
+	return s.server + ": " + s.err.Error()
+}
+
+func (s ServerConnectionError) Unwrap() error {
+	return s.err
+}
+
+type serverClient struct {
+	atomic.Pointer[server.Client]
+}
+
+func (s *serverClient) GetSetByName(requester, setName string) (*set.Set, error) {
+	return s.Load().GetSetByName(requester, setName)
+}
+
+func (s *serverClient) AddOrUpdateSet(set *set.Set) error {
+	return s.Load().AddOrUpdateSet(set)
+}
+
+func (s *serverClient) MergeFiles(setID string, paths []string) error {
+	return s.Load().MergeFiles(setID, paths)
+}
+
+func (s *serverClient) TriggerDiscovery(setID string, forceRemovals bool) error {
+	return s.Load().TriggerDiscovery(setID, forceRemovals)
+}
+
+func (s *serverClient) await(ctx context.Context, details ServerDetails) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(time.Minute):
+		}
+
+		c, err := connect(details.Token+".jwt", details.Token, details.Addr, details.Cert)
+		if err != nil {
+			continue
+		}
+
+		s.Store(c)
+
+		return
+	}
+}
+
+// New creates a new MultiClient from the given Config.
+//
+// An error will be returned if any ibackup servers cannot be reached, but a
+// MultiClient will also be returned; a goroutine will also be spawned that will
+// attempt to establish the connection. The MultiClient.Stop() method should be
+// called to stop these goroutines.
+//
+// The IsOnlyConnectionErrors() function can be used to detect when the error
+// returned is only a (potentially temporary) connection error; in such a case,
+// it is valid to continue using the returned MultiClient.
+func New(c Config) (*MultiClient, error) {
+	ctx, stop := context.WithCancel(context.Background())
+
+	servers, errs := createServers(ctx, c)
+
+	clients, err := createClients(servers, c)
+	if err != nil {
+		stop()
+
+		return nil, err
+	}
+
+	return &MultiClient{clients: clients, stop: stop}, errs
+}
+
+func createServers(ctx context.Context, c Config) (map[string]*serverClient, error) {
+	var errs error
+
+	servers := make(map[string]*serverClient, len(c.Servers))
+
+	for name, details := range c.Servers {
+		var client serverClient
+
+		c, err := connect(details.Token+".jwt", details.Token, details.Addr, details.Cert)
+		if err != nil {
+			errs = errors.Join(errs, &ServerConnectionError{name, err})
+
+			client.Store(new(server.Client))
+
+			go client.await(ctx, details)
+		} else {
+			client.Store(c)
+		}
+
+		servers[name] = &client
+	}
+
+	return servers, errs
+}
+
+func createClients(servers map[string]*serverClient, c Config) (map[*regexp.Regexp]*clientTransformer, error) {
+	clients := make(map[*regexp.Regexp]*clientTransformer, len(c.PathToServer))
+
+	for re, server := range c.PathToServer {
+		s, ok := servers[server.ServerName]
+		if !ok {
+			return nil, UnknownServerError(server.ServerName)
+		}
+
+		r, err := regexp.Compile(re)
+		if err != nil {
+			return nil, err
+		}
+
+		clients[r] = &clientTransformer{
+			client:      s,
+			transformer: server.Transformer,
+		}
+	}
+
+	return clients, nil
+}
+
+// Stop stops all attempts to connect to previously unreachable ibackup servers.
+func (m *MultiClient) Stop() {
+	m.stop()
+}
+
+// IsOnlyConnectionErrors returns whether the given error only contains
+// (potentially temporary) ibackup server connection errors.
+func IsOnlyConnectionErrors(err error) bool {
+	var sce *ServerConnectionError
+
+	errI, ok := err.(interface{ Unwrap() []error })
+	if !ok {
+		return errors.As(err, &sce)
+	}
+
+	for _, err := range errI.Unwrap() {
+		if !errors.As(err, &sce) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// Backup retrieves a client using the given path, and then calls the normal
+// Backup function.
+func (m *MultiClient) Backup(path string, setName, requester string, files []string,
+	frequency int, review, remove int64) error {
+	c := m.getClient(path)
+	if c == nil {
+		return ErrUnknownClient
+	}
+
+	return Backup(c.client.Load(), c.transformer, setName, requester, files, frequency, review, remove)
+}
+
+func (m *MultiClient) getClient(path string) *clientTransformer {
+	for re, c := range m.clients {
+		if re.MatchString(path) {
+			return c
+		}
+	}
+
+	return nil
+}
+
+// GetBackupActivity retrieves a client using the given path, and then calls the
+// normal GetBackupActivity function.
+func (m *MultiClient) GetBackupActivity(path, setName, requester string) (*SetBackupActivity, error) {
+	c := m.getClient(path)
+	if c == nil {
+		return nil, ErrInvalidPath
+	}
+
+	return GetBackupActivity(c.client, setName, requester)
+}
 
 // Connect returns a client that can talk to the given ibackup server using
 // the .ibackup.jwt and .ibackup.token files.
 func Connect(url, cert string) (*server.Client, error) {
-	client, err := gas.NewClientCLI(".ibackup.jwt", ".ibackup.token", url, cert, false)
+	base := filepath.Dir(cert)
+
+	return connect(
+		filepath.Join(base, ".ibackup.jwt"),
+		filepath.Join(base, ".ibackup.token"),
+		url, cert,
+	)
+}
+
+func connect(jwtBasename, serverTokenBasename, url, cert string) (*server.Client, error) {
+	client, err := gas.NewClientCLI(jwtBasename, serverTokenBasename, url, cert, false)
 	if err != nil {
 		return nil, err
 	}
@@ -36,9 +265,12 @@ func Connect(url, cert string) (*server.Client, error) {
 		return nil, err
 	}
 
+	slog.Info("ibackup server connected", "url", url)
+
 	return server.NewClient(url, cert, jwt), nil
 }
 
+// Client represents the required methods for an ibackup client.
 type Client interface {
 	GetSetByName(requester, setName string) (*set.Set, error)
 	AddOrUpdateSet(set *set.Set) error
@@ -48,15 +280,10 @@ type Client interface {
 
 // Backup creates a new set called setName for the requester if it has been
 // longer than the frequency since the last discovery for that set.
-func Backup(client Client, setName, requester string, files []string,
+func Backup(client Client, transformer, setName, requester string, files []string,
 	frequency int, review, remove int64) error {
 	if len(files) == 0 {
 		return nil
-	}
-
-	transformer := GetTransformer(files[0])
-	if transformer == "" {
-		return ErrInvalidPath
 	}
 
 	reviewDate := time.Unix(review, 0).Format(time.DateOnly)
@@ -144,24 +371,6 @@ func updateSet(client Client, got *set.Set,
 	return got, nil
 }
 
-// GetTransformer returns the named transformer for the path given, returning
-// empty string when a transformer cannot be automatically determined.
-func GetTransformer(file string) string {
-	if isHumgen.MatchString(file) {
-		return "humgen"
-	}
-
-	if isGengen.MatchString(file) {
-		return "gengen"
-	}
-
-	if isOtar.MatchString(file) {
-		return "otar"
-	}
-
-	return ""
-}
-
 // SetBackupActivity holds info about backup activity retrieved from an ibackup
 // server.
 type SetBackupActivity struct {
@@ -173,7 +382,7 @@ type SetBackupActivity struct {
 
 // GetBackupActivity queries an ibackup server to get the last completed backup
 // date and number of failures for the given set name and requester.
-func GetBackupActivity(client *server.Client, setName, requester string) (*SetBackupActivity, error) {
+func GetBackupActivity(client Client, setName, requester string) (*SetBackupActivity, error) {
 	var (
 		sba SetBackupActivity
 		err error
@@ -199,26 +408,38 @@ type setRequester struct {
 	set, requester string
 }
 
+// Cache wraps the GetBackupActivity method for an ibackup client, caching, and
+// on a schedule re-retrieving, requested set backup information.
 type Cache struct {
-	client   *server.Client
-	duration time.Duration
+	client Client
+	stop   func()
 
 	mu    sync.RWMutex
 	cache map[setRequester]*SetBackupActivity
 }
 
-func NewCache(client *server.Client, d time.Duration) *Cache {
+// NewCache creates a cache for a particular ibackup client, that will
+// re-retrieve set backup information on a timeout specified by the given
+// Duration.
+//
+// The Stop() method must be before replacing (or otherwise losing this pointer
+// to) this cache.
+func NewCache(client Client, d time.Duration) *Cache {
+	ctx, fn := context.WithCancel(context.Background())
+
 	cache := &Cache{
-		client:   client,
-		duration: d,
-		cache:    make(map[setRequester]*SetBackupActivity),
+		client: client,
+		cache:  make(map[setRequester]*SetBackupActivity),
+		stop:   fn,
 	}
 
-	go cache.runCache()
+	go cache.runCache(ctx, d)
 
 	return cache
 }
 
+// GetBackupActivity acts like the GetBackupActivity function, but looks in its
+// cache for the information before retrieving from the stored client.
 func (c *Cache) GetBackupActivity(setName, requester string) (*SetBackupActivity, error) {
 	sr := setRequester{set: setName, requester: requester}
 
@@ -243,9 +464,13 @@ func (c *Cache) GetBackupActivity(setName, requester string) (*SetBackupActivity
 	return sba, nil
 }
 
-func (c *Cache) runCache() {
+func (c *Cache) runCache(ctx context.Context, d time.Duration) {
 	for {
-		time.Sleep(c.duration)
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(d):
+		}
 
 		c.mu.RLock()
 		keys := slices.Collect(maps.Keys(c.cache))
@@ -263,11 +488,60 @@ func (c *Cache) runCache() {
 		}
 
 		c.mu.Lock()
-
-		for set, ba := range updates {
-			c.cache[set] = ba
-		}
-
+		maps.Copy(c.cache, updates)
 		c.mu.Unlock()
+	}
+}
+
+// Stop stops the concurrent retrieval of backup statuses.
+func (c *Cache) Stop() {
+	c.stop()
+}
+
+// MultiCache contains multiple ibackup caches that can be selected by path.
+type MultiCache struct {
+	caches map[*regexp.Regexp]*Cache
+}
+
+// NewMultiCache creates a new MultiClient from the given MultiClient, calling
+// NewCache for each client, with the given duration.
+//
+// The Stop() method must be before replacing (or otherwise losing this pointer
+// to) this cache.
+func NewMultiCache(mc *MultiClient, d time.Duration) *MultiCache {
+	caches := make(map[*regexp.Regexp]*Cache, len(mc.clients))
+
+	for re, c := range mc.clients {
+		caches[re] = NewCache(c.client, d)
+	}
+
+	return &MultiCache{caches: caches}
+}
+
+// GetBackupActivity retrieves a cache using the given path, and then calls the
+// normal GetBackupActivity method.
+func (m *MultiCache) GetBackupActivity(path, setName, requester string) (*SetBackupActivity, error) {
+	c := m.getClient(path)
+	if c == nil {
+		return nil, ErrUnknownClient
+	}
+
+	return c.GetBackupActivity(setName, requester)
+}
+
+func (m *MultiCache) getClient(path string) *Cache {
+	for re, c := range m.caches {
+		if re.MatchString(path) {
+			return c
+		}
+	}
+
+	return nil
+}
+
+// Stop stops the concurrent retrieval backup statuses for each client.
+func (m *MultiCache) Stop() {
+	for _, c := range m.caches {
+		c.Stop()
 	}
 }
