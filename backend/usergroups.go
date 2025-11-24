@@ -39,6 +39,8 @@ import (
 	"github.com/wtsi-hgi/backup-plans/users"
 )
 
+const csvCols = 2
+
 func (s *Server) loadOwners(owners string) error {
 	if owners == "" {
 		return nil
@@ -70,11 +72,11 @@ func parseOwners(r io.Reader) (map[string][]string, error) {
 
 	for {
 		record, err := cr.Read()
-		if errors.Is(err, io.EOF) {
+		if errors.Is(err, io.EOF) { //nolint:gocritic,nestif
 			break
 		} else if err != nil {
 			return nil, err
-		} else if len(record) < 2 {
+		} else if len(record) < csvCols {
 			continue
 		}
 
@@ -120,11 +122,11 @@ func parseBOM(r io.Reader) (map[string][]string, error) {
 
 	for {
 		record, err := cr.Read()
-		if errors.Is(err, io.EOF) {
+		if errors.Is(err, io.EOF) { //nolint:gocritic,nestif
 			break
 		} else if err != nil {
 			return nil, err
-		} else if len(record) < 2 {
+		} else if len(record) < csvCols {
 			continue
 		}
 
@@ -172,7 +174,6 @@ func (s *Server) userGroups(w http.ResponseWriter, _ *http.Request) error {
 	return json.NewEncoder(w).Encode(userGroupsBOM{
 		Users:  slices.Collect(maps.Keys(users)),
 		Groups: slices.Collect(maps.Keys(groups)),
-		Owners: owners,
-		BOM:    bom,
+		Owners: owners, BOM: bom,
 	})
 }
