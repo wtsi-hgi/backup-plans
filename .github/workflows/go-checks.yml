@@ -18,7 +18,7 @@ jobs:
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
@@ -26,15 +26,25 @@ jobs:
       - name: Run Tests
         run: go test ./...
 
+  frontend-embed-check:
+    name: frontend embed check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v6
+      - name: Run embed check
+        run: bash -c '[ "$(stat -c %Y frontend/index.html.gz)" -ge "$(find frontend/src/ -type f -printf "%T@\n" | sort | tail -n1 | cut -d'.' -f1)" ]'
+
   golangci:
     name: lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: actions/setup-go@v6
         with:
           go-version: stable
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v9
+        uses: golangci/golangci-lint-action@v9.1.0
         with:
           version: v2.6.2
