@@ -34,7 +34,7 @@ import (
 )
 
 func TestOwners(t *testing.T) {
-	Convey("A owners file can be correctly parsed in to a map", t, func() {
+	Convey("An owners file can be correctly parsed in to a map", t, func() {
 		u, err := user.Current()
 		So(err, ShouldBeNil)
 

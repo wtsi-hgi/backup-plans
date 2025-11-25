@@ -78,6 +78,9 @@ to maintain password security.
 
 --cert ibackup server authentication certificate
 	env: IBACKUP_SERVER_CERT
+
+--owners path to Owners CSV file containing two columns: GID,Owner
+--bom path to BOM CSV file containing two columns: GroupName,BOM
 `,
 	PreRunE: func(cmd *cobra.Command, _ []string) error {
 		envMap := map[string]string{
