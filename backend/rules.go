@@ -480,7 +480,7 @@ func (s *Server) addRuleToDir(directory *ruletree.DirRules, rule *db.Rule) error
 	return nil
 }
 
-func getRuleDetails(r *http.Request) (*db.Rule, error) { //nolint:gocyclo
+func getRuleDetails(r *http.Request) (*db.Rule, error) { //nolint:cyclop
 	rule := new(db.Rule)
 
 	var requireMetadata bool
