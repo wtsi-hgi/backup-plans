@@ -37,8 +37,8 @@ func TestMain(m *testing.M) {
 }
 
 func TestCommands(t *testing.T) {
-
 	mysqlConnection := os.Getenv("BACKUP_PLANS_CONNECTION_TEST")
+
 	os.Unsetenv("BACKUP_PLANS_CONNECTION_TEST")
 
 	if err := testirods.AddPseudoIRODsToolsToPathIfRequired(t); err != nil {
