@@ -38,6 +38,9 @@ func TestOwners(t *testing.T) {
 		u, err := user.Current()
 		So(err, ShouldBeNil)
 
+		group, err := user.LookupGroupId(u.Gid)
+		So(err, ShouldBeNil)
+
 		second, err := user.LookupGroupId("1")
 		So(err, ShouldBeNil)
 
@@ -48,19 +51,19 @@ func TestOwners(t *testing.T) {
 		m, err = parseOwners(strings.NewReader(u.Gid + ",ownerA"))
 		So(err, ShouldBeNil)
 		So(m, ShouldResemble, map[string][]string{
-			"ownerA": {u.Username},
+			"ownerA": {group.Name},
 		})
 
 		m, err = parseOwners(strings.NewReader(u.Gid + ",ownerA\n" + second.Gid + ",ownerA"))
 		So(err, ShouldBeNil)
 		So(m, ShouldResemble, map[string][]string{
-			"ownerA": {u.Username, second.Name},
+			"ownerA": {group.Name, second.Name},
 		})
 
 		m, err = parseOwners(strings.NewReader(u.Gid + ",ownerA\n0,ownerB\n" + second.Gid + ",ownerB"))
 		So(err, ShouldBeNil)
 		So(m, ShouldResemble, map[string][]string{
-			"ownerA": {u.Username},
+			"ownerA": {group.Name},
 			"ownerB": {"root", second.Name},
 		})
 	})
