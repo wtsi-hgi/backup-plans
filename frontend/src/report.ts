@@ -1,5 +1,5 @@
-import type { BackupStatus, BackupType, ClaimedDir, DirectoryWithChildren, ReportSummary, Rule, SizeCount, SizeCountTime, Stats } from "./types.js";
-import type { Children } from "./lib/dom.js";
+import type { BackupStatus, BackupType, ClaimedDir, DirectoryWithChildren, ReportSummary, Rule, SizeCount, SizeCountTime, Stats, UserGroups } from "./types.js";
+import type { Children, PropertiesOrChildren } from "./lib/dom.js";
 import { amendNode } from "./lib/dom.js";
 import { a, br, button, details, div, fieldset, h1, h2, input, label, legend, li, summary, table, tbody, td, th, thead, tr, ul } from "./lib/html.js";
 import { svg, title, use } from "./lib/svg.js";
@@ -7,7 +7,7 @@ import { action, formatBytes, longAgo, secondsInWeek, setAndReturn } from "./lib
 import { getReportSummary } from "./rpc.js";
 import { BackupIBackup, BackupNone, BackupWarn } from "./types.js";
 import { render } from "./disktree.js";
-
+import ODS from './ods.js';
 
 class Summary {
 	actions: SizeCountTime[] = [];
@@ -115,18 +115,18 @@ class ParentSummary extends Summary {
 					th("Failures")
 				])),
 				tbody(childrenWithBackups.length ? childrenWithBackups
-				.map(([path, child]) => tr([
-					td(child.claimedBy),
-					td("plan::" + path),
-					td(
-						child.backupStatus 
-						// If status exists but is equal to zero time (ibackup broken) show pending
-						? +new Date(child.backupStatus.LastSuccess) <= 0
-							? "Pending"
-							: new Date(child.backupStatus.LastSuccess).toLocaleString()
-						: "-"),
-					td(child.backupStatus?.Failures.toLocaleString() ?? "-")
-				])) : tr(td({ "colspan": "4" }, "No Backups")))
+					.map(([path, child]) => tr([
+						td(child.claimedBy),
+						td("plan::" + path),
+						td(
+							child.backupStatus
+								// If status exists but is equal to zero time (ibackup broken) show pending
+								? +new Date(child.backupStatus.LastSuccess) <= 0
+									? "Pending"
+									: new Date(child.backupStatus.LastSuccess).toLocaleString()
+								: "-"),
+						td(child.backupStatus?.Failures.toLocaleString() ?? "-")
+					])) : tr(td({ "colspan": "4" }, "No Backups")))
 			]),
 			this.children.size ? [
 				h2("Rules"),
@@ -164,7 +164,7 @@ class ChildSummary extends Summary {
 		tables.push(this.table());
 
 		const validRules = Array.from(this.rules.entries())
-				.filter(([_, rule]) => rule && rule.action !== -1);
+			.filter(([_, rule]) => rule && rule.action !== -1);
 
 		// Only show extra table if there are rules to show
 		if (validRules.length === 0) {
@@ -228,7 +228,9 @@ const base = div({ "id": "report" }),
 <html lang="en"><head><title>Backup Report - ${new Date(now).toLocaleString()}</title><style type="text/css">${Array.from(document.styleSheets, getCSS).reduce((a, b) => a + b, "")}</style><script type="module">(document.readyState === "complete" ? Promise.resolve() : new Promise(successFn => window.addEventListener("load", successFn, { "once": true }))).then(() => (${initFilterSort.toString().replace(/\n\t/g, "")})(document.getElementById("report"), Array.from(document.getElementsByTagName("fieldset")).filter(f => f.dataset.name), document.getElementsByTagName("input")));</script></head><body>${base.outerHTML}</body></html>`;
 
 		a({ "href": URL.createObjectURL(new Blob([html], { "type": "text/html;charset=utf-8" })), "download": `backup-report-${new Date(now).toISOString()}.html` }).click();
-	};
+	},
+	owners = new Map<string, string>(),
+	boms = new Map<string, string>();
 
 let now = 0,
 	load: (path: string) => Promise<DirectoryWithChildren>,
@@ -268,7 +270,7 @@ getReportSummary().then(data => {
 
 			for (const id of rules) {
 				for (const stats of summary.RuleSummaries.find(v => v.ID === id)?.Users ?? []) {
-					dirSummary.addChild(child, data.Rules[id] ?? {BackupType: -1, Match: ""}, stats, child === dir ? summary.ClaimedBy : childSummary.ClaimedBy ?? "", data.BackupStatus[child]);
+					dirSummary.addChild(child, data.Rules[id] ?? { BackupType: -1, Match: "" }, stats, child === dir ? summary.ClaimedBy : childSummary.ClaimedBy ?? "", data.BackupStatus[child]);
 				}
 			}
 		}
@@ -286,20 +288,43 @@ getReportSummary().then(data => {
 		label({ "for": "filterAmber" }, "No backup in 2 weeks"), filterA,
 		label({ "for": "filterGreen" }, "Backup within 2 weeks"), filterG,
 		label({ "for": "filterBlue" }, "No files to backup"), filterB
-	])
+	]);
 	children[2] = fieldset([
 		legend("Sort"),
 		label({ "for": "sortName" }, "Name"), sortName,
 		label({ "for": "sortWarnSize" }, "Unplanned size"), sortWarnSize,
 		label({ "for": "sortNoBackupSize" }, "No Backup Size"), sortNoBackupSize,
 		label({ "for": "sortBackupSize" }, "Backup Size"), sortBackupSize
-	])
+	]);
 
-	children[0].firstChild?.firstChild?.firstChild?.appendChild(button({ "click": download }, "Download Report"))
+	(children[0].firstChild?.firstChild?.firstChild as HTMLElement)?.append(
+		button({ "click": download }, "Download Report"),
+		button({
+			"click": () => {
+				const ods = ODS([{ "Programme": "HumGen", "Faculty": "Iyer", "Group": "hgi", "Path": "/some/path", "Unplanned": 1024n, "NoBackup": 45435n, "Backup": 4534555n, "ManualBackup": 45453534n }]);
+
+				a({ "href": URL.createObjectURL(new Blob([ods], { "type": "text/csv;charset=utf-8" })), "download": `backup-report-${new Date(now).toISOString()}.ods` }).click();
+			}
+		}, "Download Spreadsheet")
+	);
 	initFilterSort(base, children.slice(3) as HTMLFieldSetElement[], [filterProject, filterAll, filterR, filterA, filterG, filterB, sortName, sortWarnSize, sortNoBackupSize, sortBackupSize]);
 	amendNode(base, children);
 });
 
 export default Object.assign(base, {
-	"init": (loadFn: (path: string) => Promise<DirectoryWithChildren>) => load = loadFn
+	"init": (usergroups: UserGroups, loadFn: (path: string) => Promise<DirectoryWithChildren>) => {
+		load = loadFn;
+
+		for (const [bom, groups] of Object.entries(usergroups.BOM)) {
+			for (const group of groups) {
+				boms.set(group, bom);
+			}
+		}
+
+		for (const [owner, groups] of Object.entries(usergroups.Owners)) {
+			for (const group of groups) {
+				owners.set(group, owner);
+			}
+		}
+	}
 });
