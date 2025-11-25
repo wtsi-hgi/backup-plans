@@ -52,18 +52,38 @@ type Server struct {
 	reportRoots    []string
 	adminGroup     uint32
 	cache          *ibackup.MultiCache
+	owners         map[string][]string
+	bom            map[string][]string
 
 	rootDir *ruletree.RootDir
 }
 
 // New creates a new Backend API server.
+//
+// Owner and BOM strings are paths to CSV files with the following formats:
+//
+// Owners:
+//
+//	GID,OwnerName
+//
+// BOM:
+//
+//	GroupName,BOMName
 func New(db *db.DB, getUser func(r *http.Request) string, reportRoots []string,
-	ibackupclient *ibackup.MultiClient) (*Server, error) {
+	ibackupclient *ibackup.MultiClient, owners, bom string) (*Server, error) {
 	s := &Server{
 		getUser:     getUser,
 		rulesDB:     db,
 		reportRoots: reportRoots,
 		cache:       ibackup.NewMultiCache(ibackupclient, time.Hour),
+	}
+
+	if err := s.loadOwners(owners); err != nil {
+		return nil, err
+	}
+
+	if err := s.loadBOM(bom); err != nil {
+		return nil, err
 	}
 
 	rules, err := s.loadRules()

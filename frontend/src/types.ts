@@ -91,3 +91,10 @@ export type BackupStatus = {
 	Requester: string;
 	Failures: number;
 };
+
+export type UserGroups = {
+	Users: string[];
+	Groups: string[];
+	Owners: Record<string, string[]>;
+	BOM: Record<string, string[]>;
+}

@@ -1,4 +1,4 @@
-import type { ReportSummary, Tree } from './types.js';
+import type { ReportSummary, Tree, UserGroups } from './types.js';
 
 const getURL = <T>(url: string, params: Record<string, unknown> = {}, body?: string) => {
 	return new Promise<T>((successFn, errorFn) => {
@@ -42,4 +42,5 @@ export const getTree = (dir: string) => getURL<Tree>("api/tree", { dir }),
 	setDirDetails = (dir: string, frequency: number, review: number, remove: number) => getURL<void>("api/dir/setdetails", { dir, frequency, review, remove }),
 	setExists = (dir: string, metadata: string) => getURL<boolean>("api/setExists", { dir, metadata }),
 	getDirectories = (paths: string[]) => getURL<boolean[]>("api/getDirectories", {}, JSON.stringify(paths)),
+	getUserGroups = () => getURL<UserGroups>("api/usergroups"),
 	user = await getURL<string>("api/whoami");

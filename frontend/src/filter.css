@@ -41,7 +41,7 @@
 	box-sizing: border-box;
 }
 
-#filter select {
+#filter select:not(:first-child) {
 	width: calc(100% - 2em);
 	box-sizing: border-box;
 	min-height: 10em;

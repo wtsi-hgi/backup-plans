@@ -53,7 +53,7 @@ func TestFofn(t *testing.T) {
 
 		So(testirods.AddPseudoIRODsToolsToPathIfRequired(t), ShouldBeNil)
 
-		s, err := New(testdb.CreateTestDatabase(t), u.getUser, nil, ibackup.NewMultiClient(t))
+		s, err := New(testdb.CreateTestDatabase(t), u.getUser, nil, ibackup.NewMultiClient(t), "", "")
 		So(err, ShouldBeNil)
 
 		treeDBPath := createTestTree(t)

@@ -47,6 +47,8 @@ var (
 	serverPort  uint16
 	adminGroup  uint32
 	reportRoots []string
+	owners      string
+	bom         string
 )
 
 // serverCmd represents the server command.
@@ -76,6 +78,9 @@ to maintain password security.
 
 --cert ibackup server authentication certificate
 	env: IBACKUP_SERVER_CERT
+
+--owners path to Owners CSV file containing two columns: GID,Owner
+--bom path to BOM CSV file containing two columns: GroupName,BOM
 `,
 	PreRunE: func(cmd *cobra.Command, _ []string) error {
 		envMap := map[string]string{
@@ -104,7 +109,7 @@ to maintain password security.
 			slog.Warn("ibackup connection errors", "errs", err)
 		}
 
-		return server.Start(fmt.Sprintf(":%d", serverPort), d, getUser, reportRoots, adminGroup, client, args...)
+		return server.Start(fmt.Sprintf(":%d", serverPort), d, getUser, reportRoots, adminGroup, client, owners, bom, args...)
 	},
 }
 
@@ -119,6 +124,8 @@ func init() {
 	serverCmd.Flags().StringVarP(&planDB, "plan", "p", os.Getenv("BACKUP_PLANS_CONNECTION"),
 		"sql connection string for your plan database")
 	serverCmd.Flags().StringVarP(&configPath, "config", "c", "", "ibackup config")
+	serverCmd.Flags().StringVarP(&owners, "owners", "o", owners, "path to owners CSV file")
+	serverCmd.Flags().StringVarP(&bom, "bom", "b", bom, "path to bom area CSV file")
 
 	serverCmd.MarkFlagRequired("tree")   //nolint:errcheck
 	serverCmd.MarkFlagRequired("config") //nolint:errcheck
