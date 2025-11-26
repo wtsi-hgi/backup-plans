@@ -1,6 +1,6 @@
 module github.com/wtsi-hgi/backup-plans
 
-go 1.25.4
+go 1.25.3
 
 tool vimagination.zapto.org/jspacker/cmd/jspacker
 
