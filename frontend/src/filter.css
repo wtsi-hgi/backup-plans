@@ -41,6 +41,10 @@
 	box-sizing: border-box;
 }
 
+#filter input::-webkit-input-placeholder {
+	font-size: 0.9em;
+}
+
 #filter select:not(:first-child) {
 	width: calc(100% - 2em);
 	box-sizing: border-box;
