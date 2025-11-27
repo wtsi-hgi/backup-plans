@@ -5,9 +5,9 @@ import { a, br, button, details, div, fieldset, h1, h2, input, label, legend, li
 import { svg, title, use } from "./lib/svg.js";
 import { action, formatBytes, longAgo, secondsInWeek, setAndReturn } from "./lib/utils.js";
 import { getReportSummary } from "./rpc.js";
-import { BackupIBackup, BackupNone, BackupWarn } from "./types.js";
+import { BackupIBackup, BackupManual, BackupNone, BackupWarn } from "./types.js";
 import { render } from "./disktree.js";
-import ODS from './ods.js';
+import ODS from './odf.js';
 
 class Summary {
 	actions: SizeCountTime[] = [];
@@ -63,6 +63,13 @@ class Summary {
 
 class ParentSummary extends Summary {
 	children = new Map<string, ChildSummary>();
+	group: string;
+
+	constructor(path: string, group: string, backupStatus?: BackupStatus) {
+		super(path, backupStatus);
+
+		this.group = group;
+	}
 
 	addChild(child: string, rule: Rule, stats: Stats, claimedBy: string, backupStatus: BackupStatus) {
 		const c = this.children.get(child) ?? setAndReturn(this.children, child, new ChildSummary(child, claimedBy, backupStatus));
@@ -241,6 +248,7 @@ getReportSummary().then(data => {
 	now = +new Date();
 
 	const children: Children = ["", "", ""],
+		parents: ParentSummary[] = [],
 		overall = new Summary(""),
 		filterProject = input({ "placeholder": "Name" }),
 		filterAll = input({ "id": "filterAll", "name": "filter", "type": "radio", "checked": "checked" }),
@@ -254,7 +262,7 @@ getReportSummary().then(data => {
 		sortBackupSize = input({ "id": "sortBackupSize", "name": "sort", "type": "radio" });
 
 	for (const [dir, summary] of Object.entries(data.Summaries)) {
-		const dirSummary = new ParentSummary(dir, data.BackupStatus[dir]);
+		const dirSummary = new ParentSummary(dir, summary.Group, data.BackupStatus[dir]);
 
 		for (const rule of summary.RuleSummaries) {
 			const ruleType = data.Rules[rule.ID]?.BackupType ?? -1;
@@ -276,6 +284,7 @@ getReportSummary().then(data => {
 		}
 
 		children.push(dirSummary.section());
+		parents.push(dirSummary);
 	}
 
 	children[0] = overall.table();
@@ -301,7 +310,16 @@ getReportSummary().then(data => {
 		button({ "click": download }, "Download Report"),
 		button({
 			"click": () => {
-				const ods = ODS([{ "Programme": "HumGen", "Faculty": "Iyer", "Group": "hgi", "Path": "/some/path", "Unplanned": 1024n, "NoBackup": 45435n, "Backup": 4534555n, "ManualBackup": 45453534n }]);
+				const ods = ODS(parents.map(s => ({
+					"Programme": boms.get(s.group) ?? "",
+					"Faculty": owners.get(s.group) ?? "",
+					"Path": s.path,
+					"Group": s.group,
+					"Unplanned": s.actions[BackupWarn]?.size ?? 0n,
+					"NoBackup": s.actions[BackupNone]?.size ?? 0n,
+					"Backup": s.actions[BackupIBackup]?.size ?? 0n,
+					"ManualBackup": s.actions[BackupManual]?.size ?? 0n
+				})));
 
 				a({ "href": URL.createObjectURL(new Blob([ods], { "type": "text/csv;charset=utf-8" })), "download": `backup-report-${new Date(now).toISOString()}.ods` }).click();
 			}

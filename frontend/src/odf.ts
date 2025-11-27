@@ -47,42 +47,51 @@ export default (data: SSRow[]) => {
 	const officeNS = "urn:oasis:names:tc:opendocument:xmlns:office:1.0",
 		tableNS = "urn:oasis:names:tc:opendocument:xmlns:table:1.0",
 		textNS = "urn:oasis:names:tc:opendocument:xmlns:text:1.0",
+		styleNS = "urn:oasis:names:tc:opendocument:xmlns:style:1.0",
 		content = document.implementation.createDocument(officeNS, "document-content"),
 		de = content.documentElement,
 		tags = (ns: string) => new Proxy({}, { "get": (_, element: string) => (props: PropertiesOrChildren = {}, children?: Children) => amendNode(content.createElementNS(ns, element), props, children) }) as Record<string, (props?: PropertiesOrChildren, children?: Children) => Element>,
-		{ body, spreadsheet } = tags(officeNS),
-		{ table, "table-column": tableCol, "table-row": tableRow, "table-cell": tableCell } = tags(tableNS),
-		{ p } = tags(textNS);
+		{ "automatic-styles": automaticStyles, body, spreadsheet } = tags(officeNS),
+		{ "database-range": databaseRange, "database-ranges": databaseRanges, "named-expressions": namedExpressions, table, "table-column": tableCol, "table-row": tableRow, "table-cell": tableCell } = tags(tableNS),
+		{ p } = tags(textNS),
+		{ style } = tags(styleNS);
 
 	de.setAttributeNS(xmlns, "xmlns:office", officeNS);
 	de.setAttributeNS(xmlns, "xmlns:table", tableNS);
 	de.setAttributeNS(xmlns, "xmlns:text", textNS);
+	de.setAttributeNS(xmlns, "xmlns:style", styleNS);
 
-	amendNode(de, { "office:version": "1.3" }, body(spreadsheet(table({ "table:name": "Backup Plans" }, [
-		tableCol({ "table:number-columns-repeated": "8" }),
-		tableRow([
-			tableCell({ "office:value-type": "string" }, p("Programme")),
-			tableCell({ "office:value-type": "string" }, p("Faculty")),
-			tableCell({ "office:value-type": "string" }, p("Path")),
-			tableCell({ "office:value-type": "string" }, p("Group")),
-			tableCell({ "office:value-type": "string" }, p("Unplanned")),
-			tableCell({ "office:value-type": "string" }, p("NoBackup")),
-			tableCell({ "office:value-type": "string" }, p("Backup")),
-			tableCell({ "office:value-type": "string" }, p("Manual Backup")),
-		]),
-		data.map(row => tableRow([
-			tableCell({ "office:value-type": "string" }, p(row.Programme)),
-			tableCell({ "office:value-type": "string" }, p(row.Faculty)),
-			tableCell({ "office:value-type": "string" }, p(row.Path)),
-			tableCell({ "office:value-type": "string" }, p(row.Group)),
-			tableCell({ "office:value": row.Unplanned + "", "office:value-type": "float" }, p(formatBytes(row.Unplanned))),
-			tableCell({ "office:value": row.NoBackup + "", "office:value-type": "float" }, p(formatBytes(row.NoBackup))),
-			tableCell({ "office:value": row.Backup + "", "office:value-type": "float" }, p(formatBytes(row.Backup))),
-			tableCell({ "office:value": row.ManualBackup + "", "office:value-type": "float" }, p(formatBytes(row.ManualBackup)))
-		]))
-	]))));
+	amendNode(de, { "office:version": "1.4" }, [
+		automaticStyles(style({ "style:name": "bytes", "style:family": "table-cell", "style:parent-style-name": "Default", "style:data-style-name": "Bytes" })),
+		body(spreadsheet([
+			table({ "table:name": "Backup Plans" }, [
+				tableCol({ "table:number-columns-repeated": "8" }),
+				tableRow([
+					tableCell({ "office:value-type": "string" }, p("Programme")),
+					tableCell({ "office:value-type": "string" }, p("Faculty")),
+					tableCell({ "office:value-type": "string" }, p("Path")),
+					tableCell({ "office:value-type": "string" }, p("Group")),
+					tableCell({ "office:value-type": "string" }, p("Unplanned")),
+					tableCell({ "office:value-type": "string" }, p("NoBackup")),
+					tableCell({ "office:value-type": "string" }, p("Backup")),
+					tableCell({ "office:value-type": "string" }, p("Manual Backup")),
+				]),
+				data.map(row => tableRow([
+					tableCell({ "office:value-type": "string" }, p(row.Programme)),
+					tableCell({ "office:value-type": "string" }, p(row.Faculty)),
+					tableCell({ "office:value-type": "string" }, p(row.Path)),
+					tableCell({ "office:value-type": "string" }, p(row.Group)),
+					tableCell({ "office:value": row.Unplanned + "", "office:value-type": "float", "table:style-name": "bytes" }, p(formatBytes(row.Unplanned))),
+					tableCell({ "office:value": row.NoBackup + "", "office:value-type": "float", "table:style-name": "bytes" }, p(formatBytes(row.NoBackup))),
+					tableCell({ "office:value": row.Backup + "", "office:value-type": "float", "table:style-name": "bytes" }, p(formatBytes(row.Backup))),
+					tableCell({ "office:value": row.ManualBackup + "", "office:value-type": "float", "table:style-name": "bytes" }, p(formatBytes(row.ManualBackup)))
+				])),
+			]),
+			namedExpressions(),
+			databaseRanges(databaseRange({ "table:name": "__Anonymous_Sheet_DB__0", "table:target-range-address": "'Backup Plans'.A1:'Backup Plans'.D" + (data.length + 1), "table:display-filter-buttons": "true" }))
+		]))]);
 
-	const contentBytes = Uint8Array.from(("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" + new XMLSerializer().serializeToString(content)).split('').map(c => c.charCodeAt(0))),
+	const contentBytes = Uint8Array.from(("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n" + new XMLSerializer().serializeToString(content)).split('').map(c => c.charCodeAt(0))),
 		odsBytes = new Uint8Array(contentBytes.length + ods.length),
 		crcV = generateCRC(contentBytes);
 
