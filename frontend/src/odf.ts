@@ -65,7 +65,8 @@ export default (data: SSRow[]) => {
 		automaticStyles(style({ "style:name": "bytes", "style:family": "table-cell", "style:parent-style-name": "Default", "style:data-style-name": "Bytes" })),
 		body(spreadsheet([
 			table({ "table:name": "Backup Plans" }, [
-				tableCol({ "table:number-columns-repeated": "8" }),
+				tableCol({ "table:number-columns-repeated": "4" }),
+				tableCol({ "table:number-columns-repeated": "4", "table:default-cell-style-name": "bytes" }),
 				tableRow([
 					tableCell({ "office:value-type": "string" }, p("Programme")),
 					tableCell({ "office:value-type": "string" }, p("Faculty")),
@@ -81,10 +82,10 @@ export default (data: SSRow[]) => {
 					tableCell({ "office:value-type": "string" }, p(row.Faculty)),
 					tableCell({ "office:value-type": "string" }, p(row.Path)),
 					tableCell({ "office:value-type": "string" }, p(row.Group)),
-					tableCell({ "office:value": row.Unplanned + "", "office:value-type": "float", "table:style-name": "bytes" }, p(formatBytes(row.Unplanned))),
-					tableCell({ "office:value": row.NoBackup + "", "office:value-type": "float", "table:style-name": "bytes" }, p(formatBytes(row.NoBackup))),
-					tableCell({ "office:value": row.Backup + "", "office:value-type": "float", "table:style-name": "bytes" }, p(formatBytes(row.Backup))),
-					tableCell({ "office:value": row.ManualBackup + "", "office:value-type": "float", "table:style-name": "bytes" }, p(formatBytes(row.ManualBackup)))
+					tableCell({ "office:value": row.Unplanned + "", "office:value-type": "float" }, p(formatBytes(row.Unplanned))),
+					tableCell({ "office:value": row.NoBackup + "", "office:value-type": "float" }, p(formatBytes(row.NoBackup))),
+					tableCell({ "office:value": row.Backup + "", "office:value-type": "float" }, p(formatBytes(row.Backup))),
+					tableCell({ "office:value": row.ManualBackup + "", "office:value-type": "float" }, p(formatBytes(row.ManualBackup)))
 				])),
 			]),
 			namedExpressions(),
