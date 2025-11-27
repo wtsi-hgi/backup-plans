@@ -5,6 +5,7 @@ import (
 	"maps"
 	"net/http"
 	"os"
+	"os/user"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -38,6 +39,18 @@ func TestReport(t *testing.T) {
 		So(err, ShouldBeNil)
 		err = file.Close()
 		So(err, ShouldBeNil)
+
+		firstUser, err := user.LookupId("1")
+		So(err, ShouldBeNil)
+
+		secondUser, err := user.LookupId("2")
+		So(err, ShouldBeNil)
+
+		firstGroup, err := user.LookupGroupId("1")
+		So(err, ShouldBeNil)
+
+		// secondGroup, err := user.LookupGroupId("2")
+		// So(err, ShouldBeNil)
 
 		So(testirods.AddPseudoIRODsToolsToPathIfRequired(t), ShouldBeNil)
 
@@ -83,6 +96,8 @@ func TestReport(t *testing.T) {
 					Summaries: map[string]*ruletree.DirSummary{
 						"/lustre/scratch123/humgen/a/b/": {
 							ClaimedBy: "userA",
+							User:      firstUser.Username,
+							Group:     firstGroup.Name,
 							RuleSummaries: []ruletree.Rule{
 								{
 									ID: 0,
@@ -137,6 +152,8 @@ func TestReport(t *testing.T) {
 							Children: map[string]*ruletree.DirSummary{
 								"/lustre/scratch123/humgen/a/b/newdir/": {
 									ClaimedBy: "userC",
+									User:      firstUser.Username,
+									Group:     firstGroup.Name,
 									RuleSummaries: []ruletree.Rule{
 										{
 											ID: 4,
@@ -162,6 +179,8 @@ func TestReport(t *testing.T) {
 								},
 								"/lustre/scratch123/humgen/a/b/newdir/testextradir/": {
 									ClaimedBy: "userD",
+									User:      firstUser.Username,
+									Group:     firstGroup.Name,
 									RuleSummaries: []ruletree.Rule{
 										{
 											ID: 5,
@@ -179,6 +198,8 @@ func TestReport(t *testing.T) {
 						},
 						"/lustre/scratch123/humgen/a/c/": {
 							ClaimedBy: "userB",
+							User:      secondUser.Username,
+							Group:     firstGroup.Name,
 							RuleSummaries: []ruletree.Rule{
 								{
 									ID: 3,
