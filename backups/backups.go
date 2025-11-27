@@ -51,7 +51,7 @@ type SetInfo struct {
 // Backup will back up all files in the given treeNode that match rules in the
 // given planDB, using the given ibackup client. It returns a list of the set IDs
 // created.
-func Backup(planDB *db.DB, treeNode tree.Node, client *ibackup.MultiClient) ([]SetInfo, error) {
+func Backup(planDB *db.DB, treeNode tree.Node, client *ibackup.MultiClient) ([]SetInfo, error) { //nolint:funlen
 	dirs := make(map[int64]*db.Directory)
 
 	for dir := range planDB.ReadDirectories().Iter {
