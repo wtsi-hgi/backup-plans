@@ -9,21 +9,21 @@ const userOpts: HTMLOptionElement[] = [],
 	userSelect = select({ "multiple": "multiple" }),
 	groupSelect = select({ "multiple": "multiple" }),
 	userFilter = input({
-		"placeholder": "Filter", "list": "userList", "input": function (this: HTMLInputElement) {
+		"placeholder": "Filter: User", "list": "userList", "input": function (this: HTMLInputElement) {
 			userSelect.replaceChildren(...userOpts.filter(opt => opt.innerText.includes(this.value)));
 		}
 	}),
 	groupFilter = input({
-		"placeholder": "Filter", "list": "groupList", "input": function (this: HTMLInputElement) {
+		"placeholder": "Filter: Group, BOM, Owner", "list": "groupList", "input": function (this: HTMLInputElement) {
 			const bom = boms.get(this.value),
 				owner = owners.get(this.value);
 
 			if (bom) {
-				groupSelect.replaceChildren(...groupOpts.filter(opt => bom.includes(opt.innerText)));
+				groupSelect.replaceChildren(...groupOpts.filter(opt => bom.includes(opt.innerText)).map(e => (e.selected = true, e)));
 			} else if (owner) {
-				groupSelect.replaceChildren(...groupOpts.filter(opt => owner.includes(opt.innerText)));
+				groupSelect.replaceChildren(...groupOpts.filter(opt => owner.includes(opt.innerText)).map(e => (e.selected = true, e)));
 			} else {
-				groupSelect.replaceChildren(...groupOpts.filter(opt => opt.innerText.includes(this.value)));
+				groupSelect.replaceChildren(...groupOpts.filter(opt => opt.innerText.includes(this.value)).map(e => (e.selected = e.value === this.value, e)));
 			}
 		}
 	}),
@@ -43,13 +43,9 @@ const userOpts: HTMLOptionElement[] = [],
 		loadFiltered();
 	},
 	clearFilter = (input: HTMLInputElement, select: HTMLSelectElement, options: HTMLOptionElement[]) => {
-		for (const opt of options) {
-			opt.selected = false;
-		}
-
 		filter["type"] = "none";
 		input.value = "";
-		select.replaceChildren(...options);
+		select.replaceChildren(...options.map(opt => (opt.selected = false, opt)));
 
 		loadFiltered();
 	},
