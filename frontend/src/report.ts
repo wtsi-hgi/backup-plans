@@ -1,13 +1,13 @@
-import type { BackupStatus, BackupType, ClaimedDir, DirectoryWithChildren, ReportSummary, Rule, SizeCount, SizeCountTime, Stats } from "./types.js";
-import type { Children } from "./lib/dom.js";
+import type { BackupStatus, BackupType, ClaimedDir, DirectoryWithChildren, ReportSummary, Rule, SizeCount, SizeCountTime, Stats, UserGroups } from "./types.js";
+import type { Children, PropertiesOrChildren } from "./lib/dom.js";
 import { amendNode } from "./lib/dom.js";
 import { a, br, button, details, div, fieldset, h1, h2, input, label, legend, li, summary, table, tbody, td, th, thead, tr, ul } from "./lib/html.js";
 import { svg, title, use } from "./lib/svg.js";
 import { action, formatBytes, longAgo, secondsInWeek, setAndReturn } from "./lib/utils.js";
 import { getReportSummary } from "./rpc.js";
-import { BackupIBackup, BackupNone, BackupWarn } from "./types.js";
+import { BackupIBackup, BackupManual, BackupNone, BackupWarn } from "./types.js";
 import { render } from "./disktree.js";
-
+import ODS from './odf.js';
 
 class Summary {
 	actions: SizeCountTime[] = [];
@@ -63,6 +63,13 @@ class Summary {
 
 class ParentSummary extends Summary {
 	children = new Map<string, ChildSummary>();
+	group: string;
+
+	constructor(path: string, group: string, backupStatus?: BackupStatus) {
+		super(path, backupStatus);
+
+		this.group = group;
+	}
 
 	addChild(child: string, rule: Rule, stats: Stats, claimedBy: string, backupStatus: BackupStatus) {
 		const c = this.children.get(child) ?? setAndReturn(this.children, child, new ChildSummary(child, claimedBy, backupStatus));
@@ -73,16 +80,11 @@ class ParentSummary extends Summary {
 	}
 
 	section() {
-		const now = (+new Date()) / 1000,
-			backupTime = this.actions[BackupIBackup]?.mtime ?? 0,
-			lastActivity = Math.max(now - this.lastestMTime, 0),
-			lastBackupActivity = Math.max(now - backupTime),
-			dt = lastBackupActivity - lastActivity,
-			childrenWithBackups = Array.from(this.children.entries())
-				.filter(([path]) => summaryData.Directories[path]?.some(rid => summaryData.Rules[rid].BackupType !== BackupNone));
+		const childrenWithBackups = Array.from(this.children.entries())
+			.filter(([path]) => summaryData.Directories[path]?.some(rid => summaryData.Rules[rid].BackupType !== BackupNone));
 
 		return fieldset({
-			"data-status": ((this.actions[BackupNone]?.count ?? 0n) !== this.count) ? dt < secondsInWeek ? "g" : dt < secondsInWeek * 3 ? "a" : "r" : "b",
+			"data-status": this.status(),
 			"data-warn-size": (this.actions[BackupWarn]?.size ?? 0) + "",
 			"data-nobackup-size": (this.actions[BackupNone]?.size ?? 0) + "",
 			"data-backup-size": (this.actions[BackupIBackup]?.size ?? 0) + "",
@@ -115,18 +117,18 @@ class ParentSummary extends Summary {
 					th("Failures")
 				])),
 				tbody(childrenWithBackups.length ? childrenWithBackups
-				.map(([path, child]) => tr([
-					td(child.claimedBy),
-					td("plan::" + path),
-					td(
-						child.backupStatus 
-						// If status exists but is equal to zero time (ibackup broken) show pending
-						? +new Date(child.backupStatus.LastSuccess) <= 0
-							? "Pending"
-							: new Date(child.backupStatus.LastSuccess).toLocaleString()
-						: "-"),
-					td(child.backupStatus?.Failures.toLocaleString() ?? "-")
-				])) : tr(td({ "colspan": "4" }, "No Backups")))
+					.map(([path, child]) => tr([
+						td(child.claimedBy),
+						td("plan::" + path),
+						td(
+							child.backupStatus
+								// If status exists but is equal to zero time (ibackup broken) show pending
+								? +new Date(child.backupStatus.LastSuccess) <= 0
+									? "Pending"
+									: new Date(child.backupStatus.LastSuccess).toLocaleString()
+								: "-"),
+						td(child.backupStatus?.Failures.toLocaleString() ?? "-")
+					])) : tr(td({ "colspan": "4" }, "No Backups")))
 			]),
 			this.children.size ? [
 				h2("Rules"),
@@ -136,6 +138,16 @@ class ParentSummary extends Summary {
 				]))
 			] : []
 		])
+	}
+
+	status() {
+		const now = (+new Date()) / 1000,
+			backupTime = this.actions[BackupIBackup]?.mtime ?? 0,
+			lastActivity = Math.max(now - this.lastestMTime, 0),
+			lastBackupActivity = Math.max(now - backupTime),
+			dt = lastBackupActivity - lastActivity;
+
+		return ((this.actions[BackupNone]?.count ?? 0n) !== this.count) ? dt < secondsInWeek ? "g" : dt < secondsInWeek * 3 ? "a" : "r" : "b"
 	}
 }
 
@@ -164,7 +176,7 @@ class ChildSummary extends Summary {
 		tables.push(this.table());
 
 		const validRules = Array.from(this.rules.entries())
-				.filter(([_, rule]) => rule && rule.action !== -1);
+			.filter(([_, rule]) => rule && rule.action !== -1);
 
 		// Only show extra table if there are rules to show
 		if (validRules.length === 0) {
@@ -228,7 +240,9 @@ const base = div({ "id": "report" }),
 <html lang="en"><head><title>Backup Report - ${new Date(now).toLocaleString()}</title><style type="text/css">${Array.from(document.styleSheets, getCSS).reduce((a, b) => a + b, "")}</style><script type="module">(document.readyState === "complete" ? Promise.resolve() : new Promise(successFn => window.addEventListener("load", successFn, { "once": true }))).then(() => (${initFilterSort.toString().replace(/\n\t/g, "")})(document.getElementById("report"), Array.from(document.getElementsByTagName("fieldset")).filter(f => f.dataset.name), document.getElementsByTagName("input")));</script></head><body>${base.outerHTML}</body></html>`;
 
 		a({ "href": URL.createObjectURL(new Blob([html], { "type": "text/html;charset=utf-8" })), "download": `backup-report-${new Date(now).toISOString()}.html` }).click();
-	};
+	},
+	owners = new Map<string, string>(),
+	boms = new Map<string, string>();
 
 let now = 0,
 	load: (path: string) => Promise<DirectoryWithChildren>,
@@ -239,6 +253,7 @@ getReportSummary().then(data => {
 	now = +new Date();
 
 	const children: Children = ["", "", ""],
+		parents: ParentSummary[] = [],
 		overall = new Summary(""),
 		filterProject = input({ "placeholder": "Name" }),
 		filterAll = input({ "id": "filterAll", "name": "filter", "type": "radio", "checked": "checked" }),
@@ -252,7 +267,7 @@ getReportSummary().then(data => {
 		sortBackupSize = input({ "id": "sortBackupSize", "name": "sort", "type": "radio" });
 
 	for (const [dir, summary] of Object.entries(data.Summaries)) {
-		const dirSummary = new ParentSummary(dir, data.BackupStatus[dir]);
+		const dirSummary = new ParentSummary(dir, summary.Group, data.BackupStatus[dir]);
 
 		for (const rule of summary.RuleSummaries) {
 			const ruleType = data.Rules[rule.ID]?.BackupType ?? -1;
@@ -268,12 +283,13 @@ getReportSummary().then(data => {
 
 			for (const id of rules) {
 				for (const stats of summary.RuleSummaries.find(v => v.ID === id)?.Users ?? []) {
-					dirSummary.addChild(child, data.Rules[id] ?? {BackupType: -1, Match: ""}, stats, child === dir ? summary.ClaimedBy : childSummary.ClaimedBy ?? "", data.BackupStatus[child]);
+					dirSummary.addChild(child, data.Rules[id] ?? { BackupType: -1, Match: "" }, stats, child === dir ? summary.ClaimedBy : childSummary.ClaimedBy ?? "", data.BackupStatus[child]);
 				}
 			}
 		}
 
 		children.push(dirSummary.section());
+		parents.push(dirSummary);
 	}
 
 	children[0] = overall.table();
@@ -286,20 +302,53 @@ getReportSummary().then(data => {
 		label({ "for": "filterAmber" }, "No backup in 2 weeks"), filterA,
 		label({ "for": "filterGreen" }, "Backup within 2 weeks"), filterG,
 		label({ "for": "filterBlue" }, "No files to backup"), filterB
-	])
+	]);
 	children[2] = fieldset([
 		legend("Sort"),
 		label({ "for": "sortName" }, "Name"), sortName,
 		label({ "for": "sortWarnSize" }, "Unplanned size"), sortWarnSize,
 		label({ "for": "sortNoBackupSize" }, "No Backup Size"), sortNoBackupSize,
 		label({ "for": "sortBackupSize" }, "Backup Size"), sortBackupSize
-	])
+	]);
 
-	children[0].firstChild?.firstChild?.firstChild?.appendChild(button({ "click": download }, "Download Report"))
+	(children[0].firstChild?.firstChild?.firstChild as HTMLElement)?.append(
+		button({ "click": download }, "Download Report"),
+		button({
+			"click": () => {
+				const ods = ODS(parents.map(s => ({
+					"Programme": boms.get(s.group) ?? "",
+					"Faculty": owners.get(s.group) ?? "",
+					"Path": s.path,
+					"Group": s.group,
+					"Status": s.status(),
+					"Unplanned": s.actions[BackupWarn]?.size ?? 0n,
+					"NoBackup": s.actions[BackupNone]?.size ?? 0n,
+					"Backup": s.actions[BackupIBackup]?.size ?? 0n,
+					"ManualBackup": s.actions[BackupManual]?.size ?? 0n
+				})));
+
+				a({ "href": URL.createObjectURL(new Blob([ods], { "type": "text/csv;charset=utf-8" })), "download": `backup-report-${new Date(now).toISOString()}.ods` }).click();
+			}
+		}, "Download Spreadsheet")
+	);
 	initFilterSort(base, children.slice(3) as HTMLFieldSetElement[], [filterProject, filterAll, filterR, filterA, filterG, filterB, sortName, sortWarnSize, sortNoBackupSize, sortBackupSize]);
 	amendNode(base, children);
 });
 
 export default Object.assign(base, {
-	"init": (loadFn: (path: string) => Promise<DirectoryWithChildren>) => load = loadFn
+	"init": (usergroups: UserGroups, loadFn: (path: string) => Promise<DirectoryWithChildren>) => {
+		load = loadFn;
+
+		for (const [bom, groups] of Object.entries(usergroups.BOM)) {
+			for (const group of groups) {
+				boms.set(group, bom);
+			}
+		}
+
+		for (const [owner, groups] of Object.entries(usergroups.Owners)) {
+			for (const group of groups) {
+				owners.set(group, owner);
+			}
+		}
+	}
 });

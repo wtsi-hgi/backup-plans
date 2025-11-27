@@ -40,6 +40,8 @@ import (
 // children.
 type DirSummary struct {
 	uid, gid      uint32
+	User          string `json:",omitempty"`
+	Group         string `json:",omitempty"`
 	ClaimedBy     string
 	RuleSummaries []Rule
 	Children      map[string]*DirSummary

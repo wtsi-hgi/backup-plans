@@ -34,7 +34,7 @@ export type DirectoryRules = {
 
 export type BackupType = -1 | 0 | 1 | 2 | 3;
 
-export const [BackupNone, BackupIBackup, BackupManual] = Array.from({ "length": 4 }, (_, n) => n as BackupType),
+export const [BackupNone, BackupIBackup, BackupManual] = Array.from({ "length": 3 }, (_, n) => n as BackupType),
 	BackupWarn = -1;
 
 export type Rule = {
@@ -75,7 +75,10 @@ export type DirectoryWithChildren = Directory & dirDetails & {
 };
 
 export type ClaimedDir = DirSummary & {
+	User: string;
+	Group: string;
 	ClaimedBy: string;
+	Children: Record<string, ClaimedDir>;
 };
 
 export type ReportSummary = {

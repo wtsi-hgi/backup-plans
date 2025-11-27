@@ -35,6 +35,7 @@ import (
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/ibackup"
 	"github.com/wtsi-hgi/backup-plans/ruletree"
+	"github.com/wtsi-hgi/backup-plans/users"
 	"vimagination.zapto.org/tree"
 )
 
@@ -75,6 +76,11 @@ func (s *Server) summary(w http.ResponseWriter, _ *http.Request) error { //nolin
 
 		clear(ds.Children)
 
+		uid, gid := ds.IDs()
+
+		ds.User = users.Username(uid)
+		ds.Group = users.Group(gid)
+
 		for _, dir := range s.dirs {
 			if strings.HasPrefix(dir.Path, root) && dir.Path != root {
 				child, err := s.rootDir.Summary(dir.Path[1:])
@@ -83,6 +89,11 @@ func (s *Server) summary(w http.ResponseWriter, _ *http.Request) error { //nolin
 				}
 
 				clear(child.Children)
+
+				uid, gid := child.IDs()
+
+				child.User = users.Username(uid)
+				child.Group = users.Group(gid)
 
 				child.ClaimedBy = s.getClaimed(dir.Path)
 				ds.Children[dir.Path] = child

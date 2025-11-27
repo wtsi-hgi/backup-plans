@@ -25,10 +25,12 @@ const load = (path: string) => Load(path).then(data => {
 
 (document.readyState === "complete" ? Promise.resolve() : new Promise(successFn => window.addEventListener("load", successFn, { "once": true })))
 	.then(() => getUserGroups())
-	.then(Filter.init)
+	.then(ug => {
+		Filter.init(ug);
+		Report.init(ug, load);
+	})
 	.then(() => load("/"))
 	.then(() => {
-		Report.init(load);
 		document.body.replaceChildren(
 			symbols,
 			div({ "class": "tabs" }, [
