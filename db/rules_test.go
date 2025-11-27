@@ -53,7 +53,7 @@ func TestRules(t *testing.T) {
 				Match:      "*.jpg",
 			}
 			ruleB := &Rule{
-				BackupType: BackupManual,
+				BackupType: BackupManualIBackup,
 				Match:      "*.log",
 			}
 			ruleC := &Rule{
@@ -71,7 +71,7 @@ func TestRules(t *testing.T) {
 			})
 
 			Convey("…and update them", func() {
-				ruleA.BackupType = BackupManual
+				ruleA.BackupType = BackupManualIBackup
 
 				So(db.UpdateRule(ruleA), ShouldBeNil)
 				So(collectIter(t, db.ReadRules()), ShouldResemble, []*Rule{ruleA, ruleB, ruleC})

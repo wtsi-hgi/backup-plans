@@ -34,7 +34,7 @@ export type DirectoryRules = {
 
 export type BackupType = -1 | 0 | 1 | 2 | 3 | 4 | 5;
 
-export const [BackupNone, BackupIBackup, BackupManual, BackupManualGit, BackupManualUnchecked] = Array.from({ "length": 6 }, (_, n) => n as BackupType),
+export const [BackupNone, BackupIBackup, BackupManualIBackup, BackupManualGit, BackupManualUnchecked, BackupManualPrefect] = Array.from({ "length": 7 }, (_, n) => n as BackupType),
 	BackupWarn = -1;
 
 export type Rule = {

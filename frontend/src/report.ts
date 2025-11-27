@@ -5,7 +5,7 @@ import { a, br, button, details, div, fieldset, h1, h2, input, label, legend, li
 import { svg, title, use } from "./lib/svg.js";
 import { action, formatBytes, longAgo, secondsInWeek, setAndReturn } from "./lib/utils.js";
 import { getReportSummary } from "./rpc.js";
-import { BackupIBackup, BackupManual, BackupManualGit, BackupManualUnchecked, BackupNone, BackupWarn } from "./types.js";
+import { BackupIBackup, BackupManualIBackup, BackupManualGit, BackupManualUnchecked, BackupNone, BackupWarn } from "./types.js";
 import { render } from "./disktree.js";
 import ODS from './odf.js';
 
@@ -22,9 +22,9 @@ class Summary {
 	}
 
 	add(action: BackupType, rule: Stats) {
-		const manualBackupTypes = [BackupManual, BackupManualGit, BackupManualUnchecked];
+		const manualBackupTypes = [BackupManualIBackup, BackupManualGit, BackupManualUnchecked];
 		if (manualBackupTypes.includes(action)) {
-			action = BackupManual;
+			action = BackupManualIBackup;
 		}
 		const sct = this.actions[action] ??= { size: 0n, count: 0n, mtime: 0 };
 
@@ -167,9 +167,9 @@ class ChildSummary extends Summary {
 	}
 
 	addRule(match: string, action: BackupType, rule: Stats) {
-		const manualBackupTypes = [BackupManual, BackupManualGit, BackupManualUnchecked];
+		const manualBackupTypes = [BackupManualIBackup, BackupManualGit, BackupManualUnchecked];
 		if (manualBackupTypes.includes(action)) {
-			action = BackupManual;
+			action = BackupManualIBackup;
 		}
 		const r = this.rules.get(match) ?? setAndReturn(this.rules, match, { size: 0n, count: 0n, action });
 

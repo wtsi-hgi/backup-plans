@@ -63,13 +63,21 @@ func Backup(planDB *db.DB, treeNode tree.Node, client *ibackup.MultiClient) ([]S
 
 	setFofns := make(map[int64][]string)
 
+	uncheckedTypes := map[db.BackupType]bool{
+		db.BackupManualIBackup:   true,
+		db.BackupManualGit:       true,
+		db.BackupManualUnchecked: true,
+		db.BackupManualPrefect:   true,
+		db.BackupNone:            true,
+	}
+
 	fileInfos(treeNode, ruleList, func(fi *summary.FileInfo) {
 		rule := sm.GetGroup(fi)
 		if rule == nil {
 			return
 		}
 
-		if rule.BackupType == db.BackupManual || rule.BackupType == db.BackupNone {
+		if uncheckedTypes[rule.BackupType] {
 			return
 		}
 

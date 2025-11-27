@@ -35,9 +35,10 @@ type BackupType uint8
 const (
 	BackupNone BackupType = iota
 	BackupIBackup
-	BackupManual
+	BackupManualIBackup
 	BackupManualGit
 	BackupManualUnchecked
+	BackupManualPrefect
 )
 
 // Rule represents a defined rule.

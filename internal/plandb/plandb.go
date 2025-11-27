@@ -97,7 +97,7 @@ func PopulateExamplePlanDB(t *testing.T) (*db.DB, string) { //nolint:funlen
 		Match:      "temp.jpg",
 	}
 	ruleC := &db.Rule{
-		BackupType: db.BackupManual,
+		BackupType: db.BackupManualIBackup,
 		Match:      "*.txt",
 		Metadata:   "manualSetName",
 	}
