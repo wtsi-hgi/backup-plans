@@ -385,7 +385,7 @@ function parseFofn(result: string, dir: string, parentDirDetails: dirDetails, fo
 		}
 
 		// Allow relative paths
-		if (!line.includes("/")) {
+		if (!line.startsWith("/")) {
 			line = dir + line;
 		}
 
