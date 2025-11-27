@@ -17,6 +17,7 @@ var indexHTML []byte
 const (
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 	uncompressedSize = 52736
 	lastModifiedTime = 1764263373
 =======
@@ -27,6 +28,10 @@ const (
 	uncompressedSize = 51841
 	lastModifiedTime = 1764250638
 >>>>>>> f7c702f (Allow full relative paths)
+=======
+	uncompressedSize = 52008
+	lastModifiedTime = 1764253210
+>>>>>>> 671fade (Allow relative paths with prefix ./)
 )
 
 var Index = httpembed.HandleBuffer("index.html", indexHTML, uncompressedSize, time.Unix(lastModifiedTime, 0)) //nolint:gochecknoglobals,lll

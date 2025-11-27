@@ -386,6 +386,24 @@ function parseFofn(result: string, dir: string, parentDirDetails: dirDetails, fo
 
 		// Allow relative paths
 		if (!line.startsWith("/")) {
+			// Disallow paths relative to parents
+			if (line.startsWith("../")) {
+				invalidTable.addLine("Outside of current dir ", line);
+
+				continue;
+			}
+
+			let originalInput = line;
+			// Allow paths relative to the current dir
+			if (line.startsWith("./")) {
+				line = line.slice(2);
+			}
+
+			if (seen.has(dir + line)) {
+				invalidTable.addLine("Duplicate ", originalInput);
+
+				continue;
+			}
 			line = dir + line;
 		}
 
