@@ -80,16 +80,11 @@ class ParentSummary extends Summary {
 	}
 
 	section() {
-		const now = (+new Date()) / 1000,
-			backupTime = this.actions[BackupIBackup]?.mtime ?? 0,
-			lastActivity = Math.max(now - this.lastestMTime, 0),
-			lastBackupActivity = Math.max(now - backupTime),
-			dt = lastBackupActivity - lastActivity,
-			childrenWithBackups = Array.from(this.children.entries())
-				.filter(([path]) => summaryData.Directories[path]?.some(rid => summaryData.Rules[rid].BackupType !== BackupNone));
+		const childrenWithBackups = Array.from(this.children.entries())
+			.filter(([path]) => summaryData.Directories[path]?.some(rid => summaryData.Rules[rid].BackupType !== BackupNone));
 
 		return fieldset({
-			"data-status": ((this.actions[BackupNone]?.count ?? 0n) !== this.count) ? dt < secondsInWeek ? "g" : dt < secondsInWeek * 3 ? "a" : "r" : "b",
+			"data-status": this.status(),
 			"data-warn-size": (this.actions[BackupWarn]?.size ?? 0) + "",
 			"data-nobackup-size": (this.actions[BackupNone]?.size ?? 0) + "",
 			"data-backup-size": (this.actions[BackupIBackup]?.size ?? 0) + "",
@@ -143,6 +138,16 @@ class ParentSummary extends Summary {
 				]))
 			] : []
 		])
+	}
+
+	status() {
+		const now = (+new Date()) / 1000,
+			backupTime = this.actions[BackupIBackup]?.mtime ?? 0,
+			lastActivity = Math.max(now - this.lastestMTime, 0),
+			lastBackupActivity = Math.max(now - backupTime),
+			dt = lastBackupActivity - lastActivity;
+
+		return ((this.actions[BackupNone]?.count ?? 0n) !== this.count) ? dt < secondsInWeek ? "g" : dt < secondsInWeek * 3 ? "a" : "r" : "b"
 	}
 }
 
@@ -315,6 +320,7 @@ getReportSummary().then(data => {
 					"Faculty": owners.get(s.group) ?? "",
 					"Path": s.path,
 					"Group": s.group,
+					"Status": s.status(),
 					"Unplanned": s.actions[BackupWarn]?.size ?? 0n,
 					"NoBackup": s.actions[BackupNone]?.size ?? 0n,
 					"Backup": s.actions[BackupIBackup]?.size ?? 0n,

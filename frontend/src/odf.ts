@@ -8,6 +8,7 @@ type SSRow = {
 	Faculty: string;
 	Path: string;
 	Group: string;
+	Status: "r" | "g" | "b" | "a";
 	Unplanned: bigint;
 	NoBackup: bigint;
 	Backup: bigint;
@@ -48,30 +49,47 @@ export default (data: SSRow[]) => {
 		tableNS = "urn:oasis:names:tc:opendocument:xmlns:table:1.0",
 		textNS = "urn:oasis:names:tc:opendocument:xmlns:text:1.0",
 		styleNS = "urn:oasis:names:tc:opendocument:xmlns:style:1.0",
+		foNS = "urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0",
 		content = document.implementation.createDocument(officeNS, "document-content"),
 		de = content.documentElement,
 		tags = (ns: string) => new Proxy({}, { "get": (_, element: string) => (props: PropertiesOrChildren = {}, children?: Children) => amendNode(content.createElementNS(ns, element), props, children) }) as Record<string, (props?: PropertiesOrChildren, children?: Children) => Element>,
 		{ "automatic-styles": automaticStyles, body, spreadsheet } = tags(officeNS),
 		{ "database-range": databaseRange, "database-ranges": databaseRanges, "named-expressions": namedExpressions, table, "table-column": tableCol, "table-row": tableRow, "table-cell": tableCell } = tags(tableNS),
 		{ p } = tags(textNS),
-		{ style } = tags(styleNS);
+		{ style, "table-cell-properties": tableCellProperties } = tags(styleNS),
+		statuses = {
+			"r": "No backup in 6 weeks",
+			"g": "Backup within 2 weeks",
+			"b": "No files to backup",
+			"a": "No backup in 2 weeks"
+		};
 
 	de.setAttributeNS(xmlns, "xmlns:office", officeNS);
 	de.setAttributeNS(xmlns, "xmlns:table", tableNS);
 	de.setAttributeNS(xmlns, "xmlns:text", textNS);
 	de.setAttributeNS(xmlns, "xmlns:style", styleNS);
+	de.setAttributeNS(xmlns, "xmlns:fo", foNS);
 
 	amendNode(de, { "office:version": "1.4" }, [
-		automaticStyles(style({ "style:name": "bytes", "style:family": "table-cell", "style:parent-style-name": "Default", "style:data-style-name": "Bytes" })),
+		automaticStyles([
+			style({ "style:name": "bytes", "style:family": "table-cell", "style:parent-style-name": "Default", "style:data-style-name": "Bytes" }),
+			[
+				["r", "#ff0000"],
+				["g", "#00aa00"],
+				["b", "#44aaf7"],
+				["a", "#ffaa00"]
+			].map(s => style({ "style:name": s[0], "style:family": "table-cell", "style:parent-style-name": "Default" }, tableCellProperties({ "fo:background-color": s[1] })))
+		]),
 		body(spreadsheet([
 			table({ "table:name": "Backup Plans" }, [
-				tableCol({ "table:number-columns-repeated": "4" }),
+				tableCol({ "table:number-columns-repeated": "5" }),
 				tableCol({ "table:number-columns-repeated": "4", "table:default-cell-style-name": "bytes" }),
 				tableRow([
 					tableCell({ "office:value-type": "string" }, p("Programme")),
 					tableCell({ "office:value-type": "string" }, p("Faculty")),
 					tableCell({ "office:value-type": "string" }, p("Path")),
 					tableCell({ "office:value-type": "string" }, p("Group")),
+					tableCell({ "office:value-type": "string" }, p("Status")),
 					tableCell({ "office:value-type": "string" }, p("Unplanned")),
 					tableCell({ "office:value-type": "string" }, p("NoBackup")),
 					tableCell({ "office:value-type": "string" }, p("Backup")),
@@ -82,6 +100,7 @@ export default (data: SSRow[]) => {
 					tableCell({ "office:value-type": "string" }, p(row.Faculty)),
 					tableCell({ "office:value-type": "string" }, p(row.Path)),
 					tableCell({ "office:value-type": "string" }, p(row.Group)),
+					tableCell({ "office:value-type": "string", "table:style-name": row.Status }, p(statuses[row.Status])),
 					tableCell({ "office:value": row.Unplanned + "", "office:value-type": "float" }, p(formatBytes(row.Unplanned))),
 					tableCell({ "office:value": row.NoBackup + "", "office:value-type": "float" }, p(formatBytes(row.NoBackup))),
 					tableCell({ "office:value": row.Backup + "", "office:value-type": "float" }, p(formatBytes(row.Backup))),
@@ -89,7 +108,7 @@ export default (data: SSRow[]) => {
 				])),
 			]),
 			namedExpressions(),
-			databaseRanges(databaseRange({ "table:name": "__Anonymous_Sheet_DB__0", "table:target-range-address": "'Backup Plans'.A1:'Backup Plans'.D" + (data.length + 1), "table:display-filter-buttons": "true" }))
+			databaseRanges(databaseRange({ "table:name": "__Anonymous_Sheet_DB__0", "table:target-range-address": "'Backup Plans'.A1:'Backup Plans'.E" + (data.length + 1), "table:display-filter-buttons": "true" }))
 		]))]);
 
 	const contentBytes = Uint8Array.from(("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n" + new XMLSerializer().serializeToString(content)).split('').map(c => c.charCodeAt(0))),
