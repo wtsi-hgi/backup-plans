@@ -49,9 +49,6 @@ func TestReport(t *testing.T) {
 		firstGroup, err := user.LookupGroupId("1")
 		So(err, ShouldBeNil)
 
-		// secondGroup, err := user.LookupGroupId("2")
-		// So(err, ShouldBeNil)
-
 		So(testirods.AddPseudoIRODsToolsToPathIfRequired(t), ShouldBeNil)
 
 		client := ib.NewMultiClient(t)
