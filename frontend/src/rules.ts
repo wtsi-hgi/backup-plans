@@ -377,6 +377,18 @@ function parseFofn(result: string, dir: string, parentDirDetails: dirDetails, fo
 			continue;
 		}
 
+		// Check for invalid char 
+		if (line.includes("\0")) {
+			invalidTable.addLine("Invalid char in match ", line);
+
+			continue;
+		}
+
+		// Allow relative paths
+		if (!line.includes("/")) {
+			line = dir + line;
+		}
+
 		seen.add(line);
 
 		// Check dir exists within current dir
@@ -384,11 +396,6 @@ function parseFofn(result: string, dir: string, parentDirDetails: dirDetails, fo
 			invalidTable.addLine("Outside of current dir ", line);
 
 			continue;
-		}
-
-		// Check for invalid char 
-		if (line.includes("\0")) {
-			invalidTable.addLine("Invalid char in match ", line);
 		}
 
 		const wci = line.indexOf("*"),
