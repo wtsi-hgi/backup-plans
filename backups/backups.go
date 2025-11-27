@@ -51,7 +51,7 @@ type SetInfo struct {
 // Backup will back up all files in the given treeNode that match rules in the
 // given planDB, using the given ibackup client. It returns a list of the set IDs
 // created.
-func Backup(planDB *db.DB, treeNode tree.Node, client *ibackup.MultiClient) ([]SetInfo, error) { //nolint:funlen
+func Backup(planDB *db.DB, treeNode tree.Node, client *ibackup.MultiClient) ([]SetInfo, error) {
 	dirs := make(map[int64]*db.Directory)
 
 	for dir := range planDB.ReadDirectories().Iter {
@@ -63,22 +63,17 @@ func Backup(planDB *db.DB, treeNode tree.Node, client *ibackup.MultiClient) ([]S
 
 	setFofns := make(map[int64][]string)
 
-	uncheckedTypes := map[db.BackupType]bool{
-		db.BackupManualIBackup:   true,
-		db.BackupManualGit:       true,
-		db.BackupManualUnchecked: true,
-		db.BackupManualPrefect:   true,
-		db.BackupNone:            true,
-	}
-
 	fileInfos(treeNode, ruleList, func(fi *summary.FileInfo) {
 		rule := sm.GetGroup(fi)
 		if rule == nil {
 			return
 		}
 
-		if uncheckedTypes[rule.BackupType] {
+		switch rule.BackupType {
+		case db.BackupNone, db.BackupManualIBackup, db.BackupManualGit,
+			db.BackupManualPrefect, db.BackupManualUnchecked:
 			return
+		default:
 		}
 
 		setFofns[rule.DirID()] = append(setFofns[rule.DirID()], string(fi.Path.AppendTo(nil))+string(fi.Name))

@@ -3,7 +3,7 @@ import type { Children } from './lib/dom.js';
 import { clearNode } from './lib/dom.js';
 import { br, details, div, label, option, select, summary } from './lib/html.js';
 import { rect, svg, text, use } from './lib/svg.js';
-import { BackupIBackup, BackupNone, BackupWarn } from './types.js';
+import { BackupIBackup, BackupNone, BackupWarn } from './consts.js';
 
 
 export type Entry = {

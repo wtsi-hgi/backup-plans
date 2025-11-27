@@ -4,7 +4,10 @@ import { br, button, dialog, div, form, h2, h3, input, label, option, p, select,
 import { svg, title, use } from './lib/svg.js';
 import { action, confirm, formatBytes, secondsInDay, setAndReturn } from "./lib/utils.js";
 import { createRule, getTree, removeRule, setDirDetails, updateRule, uploadFOFN, setExists, user, getDirectories } from "./rpc.js";
-import { BackupIBackup, BackupManualIBackup, BackupNone, BackupManualGit, BackupManualUnchecked, BackupManualPrefect } from "./types.js"
+import {
+	BackupIBackup, BackupManualIBackup, BackupNone, ManualBackupStrings, ManualBackupString, BackupManualGit, BackupManualUnchecked,
+	BackupManualPrefect, ManualBackupDisplay
+} from "./consts.js"
 
 const createStuff = (backupType: BackupType, md: string, setText: string, closeFn: () => void) => {
 	const metadata = input({ "id": "metadata", "type": "text", "value": md }),
@@ -14,38 +17,38 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 			metadata,
 			br(),
 		]),
-		backupSelect = select({ "id": "backupType" }, [
+		backupSelect = select({
+			"id": "backupType", "change": () => {
+				const backupType = backupSelect.value;
+				let label = "Metadata:";
+				let show = false;
+				switch (backupType) {
+					case "manualibackup":
+						label = "Set Name";
+						show = true;
+						break;
+					case "manualgit":
+						label = "Git URL";
+						show = true;
+						break;
+					case "manualprefect":
+						label = "Prefect URL";
+						show = true;
+						break;
+					case "manualunchecked":
+						show = true;
+				}
+				metadataInput.style.display = show ? "block" : "none";
+				metadataLabel.textContent = label;
+			}
+		}, [
 			option({ "value": "backup", [backupType === BackupIBackup ? "selected" : "unselected"]: "" }, "Backup"),
-			option({ "value": "manualibackup", [backupType === BackupManualIBackup ? "selected" : "unselected"]: "" }, "Manual Backup: iBackup"),
+			option({ "value": ManualBackupString["ManualBackup"], [backupType === BackupManualIBackup ? "selected" : "unselected"]: "" }, ManualBackupDisplay["ManualBackup"]),
 			option({ "value": "nobackup", [backupType === BackupNone ? "selected" : "unselected"]: "" }, "No Backup"),
-			option({ "value": "manualgit", [backupType === BackupManualGit ? "selected" : "unselected"]: "" }, "Manual Backup: Git"),
-			option({ "value": "manualprefect", [backupType === BackupManualPrefect ? "selected" : "unselected"]: "" }, "Manual Backup: Prefect"),
-			option({ "value": "manualunchecked", [backupType === BackupManualUnchecked ? "selected" : "unselected"]: "" }, "Manual Backup: Other")
+			option({ "value": ManualBackupString["ManualGit"], [backupType === BackupManualGit ? "selected" : "unselected"]: "" }, ManualBackupDisplay["ManualGit"]),
+			option({ "value": ManualBackupString["ManualPrefect"], [backupType === BackupManualPrefect ? "selected" : "unselected"]: "" }, ManualBackupDisplay["ManualPrefect"]),
+			option({ "value": ManualBackupString["ManualUnchecked"], [backupType === BackupManualUnchecked ? "selected" : "unselected"]: "" }, ManualBackupDisplay["ManualUnchecked"])
 		]);
-
-	backupSelect.addEventListener("change", () => {
-		const backupType = backupSelect.value;
-		let label = "Metadata:";
-		let show = false;
-		switch (backupType) {
-			case "manualibackup":
-				label = "Set Name";
-				show = true;
-				break;
-			case "manualgit":
-				label = "Git URL";
-				show = true;
-				break;
-			case "manualprefect":
-				label = "Prefect URL";
-				show = true;
-				break;
-			case "manualunchecked":
-				show = true;
-		}
-		metadataInput.style.display = show ? "block" : "none";
-		metadataLabel.textContent = label;
-	});
 
 	return [
 		backupSelect,
@@ -92,7 +95,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 								return;
 							}
 
-							return (rule.Match ? updateRule : createRule)(path, backupType.value, rule.Match || match.value || "*", backupType.value === "manualibackup" ? metadata.value : "")
+							return (rule.Match ? updateRule : createRule)(path, backupType.value, rule.Match || match.value || "*", ManualBackupStrings.includes(backupType.value) ? metadata.value : "")
 								.then(() => {
 									load(path);
 									overlay.remove();

@@ -419,8 +419,8 @@ func getDirDetails(r *http.Request) (dirDetails, error) {
 // The following are the GET params for the rule:
 //
 //	match       The match rule.
-//	action      One of nobackup, backup, manualibackup, mannualbackupgit
-//				or manualbackupunchecked.
+//	action      One of nobackup, backup, manualibackup, manualgit, manualprefect
+//				or manualunchecked.
 //	metadata    For a manualibackup, it's the requestor of the backup set.
 func (s *Server) CreateRule(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.createRule)
@@ -496,11 +496,11 @@ func getRuleDetails(r *http.Request) (*db.Rule, error) { //nolint:cyclop,gocyclo
 	case "manualgit":
 		rule.BackupType = db.BackupManualGit
 		requireMetadata = true
-	case "manualunchecked":
-		rule.BackupType = db.BackupManualUnchecked
-		requireMetadata = true
 	case "manualprefect":
 		rule.BackupType = db.BackupManualPrefect
+		requireMetadata = true
+	case "manualunchecked":
+		rule.BackupType = db.BackupManualUnchecked
 		requireMetadata = true
 	default:
 		return nil, ErrInvalidAction

@@ -5,7 +5,7 @@ import { a, br, button, details, div, fieldset, h1, h2, input, label, legend, li
 import { svg, title, use } from "./lib/svg.js";
 import { action, formatBytes, longAgo, secondsInWeek, setAndReturn } from "./lib/utils.js";
 import { getReportSummary } from "./rpc.js";
-import { BackupIBackup, BackupManualIBackup, BackupManualGit, BackupManualUnchecked, BackupNone, BackupWarn } from "./types.js";
+import { BackupIBackup, BackupManualIBackup, BackupNone, BackupWarn, ManualBackupTypes } from "./consts.js";
 import { render } from "./disktree.js";
 import ODS from './odf.js';
 
@@ -22,8 +22,7 @@ class Summary {
 	}
 
 	add(action: BackupType, rule: Stats) {
-		const manualBackupTypes = [BackupManualIBackup, BackupManualGit, BackupManualUnchecked];
-		if (manualBackupTypes.includes(action)) {
+		if (ManualBackupTypes.includes(action)) {
 			action = BackupManualIBackup;
 		}
 		const sct = this.actions[action] ??= { size: 0n, count: 0n, mtime: 0 };
@@ -37,7 +36,6 @@ class Summary {
 	}
 
 	table() {
-		console.log("DEBUG:", this.actions[2]?.count.toLocaleString(), this.actions[3]?.count.toLocaleString(), this.actions[4]?.count.toLocaleString(), this.actions[5]?.count.toLocaleString());
 		return table({ "class": "summary" }, [
 			thead(tr([
 				td(),
@@ -167,8 +165,7 @@ class ChildSummary extends Summary {
 	}
 
 	addRule(match: string, action: BackupType, rule: Stats) {
-		const manualBackupTypes = [BackupManualIBackup, BackupManualGit, BackupManualUnchecked];
-		if (manualBackupTypes.includes(action)) {
+		if (ManualBackupTypes.includes(action)) {
 			action = BackupManualIBackup;
 		}
 		const r = this.rules.get(match) ?? setAndReturn(this.rules, match, { size: 0n, count: 0n, action });

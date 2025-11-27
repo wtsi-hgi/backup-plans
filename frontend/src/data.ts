@@ -1,7 +1,7 @@
 import type { Directory, DirectoryWithChildren, DirSummary, Rule, RuleSummary, SizeCountTime, Stats, Tree } from './types.js';
 import { filter } from './filter.js';
 import { getTree } from "./rpc.js";
-import { BackupWarn } from "./types.js";
+import { BackupWarn } from "./consts.js";
 
 
 type RulesWithDirs = Record<number, Rule & { dir: string }>;

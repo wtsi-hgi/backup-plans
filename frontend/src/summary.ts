@@ -4,7 +4,7 @@ import { br, button, dialog, input, label, table, tbody, td, th, thead, tr } fro
 import { svg, title, use } from "./lib/svg.js";
 import { confirm, formatBytes } from "./lib/utils.js";
 import { claimDir, passDirClaim, revokeDirClaim, user } from "./rpc.js";
-import { BackupNone, BackupIBackup, BackupWarn, BackupManualIBackup, BackupManualGit, BackupManualPrefect, BackupManualUnchecked } from './types.js';
+import { BackupNone, BackupIBackup, BackupWarn, ManualBackupTypes } from './consts.js';
 
 const claimedByCell = td(),
 	totalCount = td(),
@@ -81,9 +81,8 @@ export default Object.assign(base, {
 				])) : []]
 			: data.canClaim ? button({ "click": () => claimDir(path).then(() => load(path)) }, "Claim") : []);
 
-		let manualActions: SizeCountTime = { count: 0n, size: 0n, mtime: 0 };
-		const manualBackupTypes = [BackupManualIBackup, BackupManualGit, BackupManualPrefect, BackupManualUnchecked];
-		manualBackupTypes.forEach((backup) => {
+		const manualActions: SizeCountTime = { count: 0n, size: 0n, mtime: 0 };
+		ManualBackupTypes.forEach((backup) => {
 			manualActions.count += BigInt(data.actions[backup]?.count ?? 0);
 			manualActions.mtime += data.actions[backup]?.mtime ?? 0;
 			manualActions.size += BigInt(data.actions[backup]?.size ?? 0);
