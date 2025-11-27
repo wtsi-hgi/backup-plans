@@ -1,5 +1,6 @@
 //go:generate go run odf.go
 
+//nolint:gosec,errcheck,funlen,lll,mnd
 package main
 
 import (
