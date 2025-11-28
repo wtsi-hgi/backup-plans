@@ -141,9 +141,17 @@ input[type="checkbox"] {
 	border-radius: 4px;
 }
 
+.prettyTableContainer {
+	max-height: 300px;
+	overflow-y: auto;
+}
+
 .prettyTable thead th {
 	padding-right: 1.25em;
 	border-bottom: 1px solid var(--tableBorder);
+	position: sticky;
+	top: 0;
+	background-color: var(--tableOddBG);
 }
 
 .prettyTable thead th.sortable:hover {

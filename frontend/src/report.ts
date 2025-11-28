@@ -345,13 +345,13 @@ export default Object.assign(base, {
 	"init": (usergroups: UserGroups, loadFn: (path: string) => Promise<DirectoryWithChildren>) => {
 		load = loadFn;
 
-		for (const [bom, groups] of Object.entries(usergroups.BOM)) {
+		for (const [bom, groups] of Object.entries(usergroups.BOM ?? {})) {
 			for (const group of groups) {
 				boms.set(group, bom);
 			}
 		}
 
-		for (const [owner, groups] of Object.entries(usergroups.Owners)) {
+		for (const [owner, groups] of Object.entries(usergroups.Owners ?? {})) {
 			for (const group of groups) {
 				owners.set(group, owner);
 			}
