@@ -1,4 +1,4 @@
-import type { DirectoryWithChildren, SizeCountTime } from "./types.js";
+import type { DirectoryWithChildren, SizeCountTime, SizeCount } from "./types.js";
 import { clearNode } from "./lib/dom.js";
 import { br, button, dialog, input, label, table, tbody, td, th, thead, tr } from "./lib/html.js";
 import { svg, title, use } from "./lib/svg.js";
@@ -82,9 +82,8 @@ export default Object.assign(base, {
 			: data.canClaim ? button({ "click": () => claimDir(path).then(() => load(path)) }, "Claim") : []);
 
 		const manualActions: SizeCountTime = { count: 0n, size: 0n, mtime: 0 };
-		ManualBackupTypes.forEach((backup) => {
+		ManualBackupTypes.forEach(backup => {
 			manualActions.count += BigInt(data.actions[backup]?.count ?? 0);
-			manualActions.mtime += data.actions[backup]?.mtime ?? 0;
 			manualActions.size += BigInt(data.actions[backup]?.size ?? 0);
 		});
 

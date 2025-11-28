@@ -6,7 +6,8 @@ import { action, confirm, formatBytes, secondsInDay, setAndReturn } from "./lib/
 import { createRule, getTree, removeRule, setDirDetails, updateRule, uploadFOFN, setExists, user, getDirectories } from "./rpc.js";
 import {
 	BackupIBackup, BackupManualIBackup, BackupNone, ManualBackupStrings, ManualBackupString, BackupManualGit, BackupManualUnchecked,
-	BackupManualPrefect, ManualBackupDisplay
+	BackupManualPrefect, ManualBackupDisplay,
+	ManualBackupTypes
 } from "./consts.js"
 
 const createStuff = (backupType: BackupType, md: string, setText: string, closeFn: () => void) => {
@@ -316,8 +317,7 @@ export default Object.assign(base, {
 
 // verifyMetadata will return true if the metadata setName is valid and exists
 function verifyMetadata(dir: string, backupType: string, metadata: string): Promise<Boolean> {
-	const requireMeta = ["manualibackup", "manualgit", "manualprefect", "manualunchecked"];
-	if (!requireMeta.includes(backupType)) {
+	if (!ManualBackupStrings.includes(backupType)) {
 		return Promise.resolve(true);
 	}
 	if (metadata === "") return Promise.reject({ "message": "Metadata cannot be empty" });

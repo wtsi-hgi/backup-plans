@@ -321,7 +321,6 @@ getReportSummary().then(data => {
 		button({ "click": download }, "Download Report"),
 		button({
 			"click": () => {
-
 				const ods = ODS(parents.map(s => ({
 					"Programme": boms.get(s.group) ?? "",
 					"Faculty": owners.get(s.group) ?? "",
@@ -361,10 +360,5 @@ export default Object.assign(base, {
 });
 
 function getManualSize(s: ParentSummary) {
-	let total = 0n;
-	ManualBackupTypes.forEach((backup) => {
-		total += s.actions[backup]?.size ?? 0n;
-	});
-
-	return total;
+	return ManualBackupTypes.reduce((total, backup) => total + (s.actions[backup]?.size ?? 0n), 0n);
 }
