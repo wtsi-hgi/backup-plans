@@ -6,8 +6,7 @@ import { action, confirm, formatBytes, secondsInDay, setAndReturn } from "./lib/
 import { createRule, getTree, removeRule, setDirDetails, updateRule, uploadFOFN, setExists, user, getDirectories } from "./rpc.js";
 import {
 	BackupIBackup, BackupManualIBackup, BackupNone, ManualBackupStrings, ManualBackupString, BackupManualGit, BackupManualUnchecked,
-	BackupManualPrefect, ManualBackupDisplay,
-	ManualBackupTypes
+	BackupManualPrefect, ManualBackupDisplay
 } from "./consts.js"
 
 const createStuff = (backupType: BackupType, md: string, setText: string, closeFn: () => void) => {
