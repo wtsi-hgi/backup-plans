@@ -321,6 +321,7 @@ getReportSummary().then(data => {
 		button({ "click": download }, "Download Report"),
 		button({
 			"click": () => {
+
 				const ods = ODS(parents.map(s => ({
 					"Programme": boms.get(s.group) ?? "",
 					"Faculty": owners.get(s.group) ?? "",
@@ -330,7 +331,7 @@ getReportSummary().then(data => {
 					"Unplanned": s.actions[BackupWarn]?.size ?? 0n,
 					"NoBackup": s.actions[BackupNone]?.size ?? 0n,
 					"Backup": s.actions[BackupIBackup]?.size ?? 0n,
-					"ManualBackup": s.actions[BackupManual]?.size ?? 0n
+					"ManualBackup": getManualSize(s)
 				})));
 
 				a({ "href": URL.createObjectURL(new Blob([ods], { "type": "text/csv;charset=utf-8" })), "download": `backup-report-${new Date(now).toISOString()}.ods` }).click();
@@ -358,3 +359,12 @@ export default Object.assign(base, {
 		}
 	}
 });
+
+function getManualSize(s: ParentSummary) {
+	let total = 0n;
+	ManualBackupTypes.forEach((backup) => {
+		total += s.actions[backup]?.size ?? 0n;
+	});
+
+	return total;
+}

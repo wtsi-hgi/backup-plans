@@ -69,11 +69,8 @@ func Backup(planDB *db.DB, treeNode tree.Node, client *ibackup.MultiClient) ([]S
 			return
 		}
 
-		switch rule.BackupType {
-		case db.BackupNone, db.BackupManualIBackup, db.BackupManualGit,
-			db.BackupManualPrefect, db.BackupManualUnchecked:
+		if rule.BackupType != db.BackupIBackup {
 			return
-		default:
 		}
 
 		setFofns[rule.DirID()] = append(setFofns[rule.DirID()], string(fi.Path.AppendTo(nil))+string(fi.Name))
