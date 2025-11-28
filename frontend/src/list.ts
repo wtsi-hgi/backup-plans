@@ -1,14 +1,22 @@
 import type { DirectoryWithChildren } from './types.js';
 import { clearNode } from './lib/dom.js';
-import { table, tbody, td, th, thead, tr } from './lib/html.js';
+import { table, tbody, td, th, thead, tr, div } from './lib/html.js';
 import { formatBytes } from './lib/utils.js';
 
 const base = tbody();
 
-export default Object.assign(table({ "class": "prettyTable", "id": "dirlist" }, [
-	thead(tr([th("SubDirectory"), th("File Size"), th("File Count"), th("Last Modified")])),
-	base
-]), {
+export default Object.assign(
+	div({ class: "prettyTableContainer" }, [
+		table({ "class": "prettyTable", "id": "dirlist" }, [
+			thead(tr([
+				th("SubDirectory"),
+				th("File Size"),
+				th("File Count"),
+				th("Last Modified")
+			])),
+			base
+		])
+	]), {
 	"update": (path: string, data: DirectoryWithChildren, load: (path: string) => void) => clearNode(base, Object.entries(data.children).map(([name, child]) => {
 		return tr({ "style": child.unauthorised ? "cursor: not-allowed;" : "", "click": () => child.unauthorised || load(path + name) }, [
 			td(name),
