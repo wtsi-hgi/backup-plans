@@ -1,4 +1,4 @@
-import type { DirectoryWithChildren, SizeCountTime, SizeCount } from "./types.js";
+import type { DirectoryWithChildren, SizeCountTime } from "./types.js";
 import { clearNode } from "./lib/dom.js";
 import { br, button, dialog, input, label, table, tbody, td, th, thead, tr } from "./lib/html.js";
 import { svg, title, use } from "./lib/svg.js";
