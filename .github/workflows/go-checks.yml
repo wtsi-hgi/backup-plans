@@ -26,15 +26,20 @@ jobs:
       - name: Run Tests
         run: go test ./...
 
-  frontend-embed-check:
-    name: frontend embed check
+  frontend-compile-check:
+    name: frontend compile check
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v5
-      - name: Run embed check
-        run: bash -c '[ "$(stat -c %Y frontend/index.html.gz)" -ge "$(find frontend/src/ -type f -printf "%T@\n" | sort | tail -n1 | cut -d'.' -f1)" ]'
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Run compile check
+        working-directory: ./frontend/src/
+        run: go run vimagination.zapto.org/jspacker/cmd/jspacker@latest -i "/$(grep "<script" index.html | sed -e 's/.*src="\([^"]*\)".*/\1/')" -n > /dev/null
 
   golangci:
     name: lint
