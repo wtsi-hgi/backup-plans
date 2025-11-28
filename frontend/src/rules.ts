@@ -386,17 +386,17 @@ function parseFofn(result: string, dir: string, parentDirDetails: dirDetails, fo
 
 		// Allow relative paths
 		if (!line.startsWith("/")) {
-			// Disallow paths relative to parents
-			if (line.startsWith("../")) {
-				invalidTable.addLine("Outside of current dir ", line);
-
-				continue;
-			}
-
 			let originalInput = line;
 			// Allow paths relative to the current dir
 			if (line.startsWith("./")) {
 				line = line.slice(2);
+			}
+
+			// Disallow paths relative to parents
+			if (line.includes("/..") || line.includes("../")) {
+				invalidTable.addLine("Cannot use relative paths to reference parent directories ", line);
+
+				continue;
 			}
 
 			if (seen.has(dir + line)) {
