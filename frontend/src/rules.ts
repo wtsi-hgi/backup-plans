@@ -377,6 +377,42 @@ function parseFofn(result: string, dir: string, parentDirDetails: dirDetails, fo
 			continue;
 		}
 
+		// Check for invalid char 
+		if (line.includes("\0")) {
+			invalidTable.addLine("Invalid char in match ", line);
+
+			continue;
+		}
+
+		// Allow relative paths
+		if (!line.startsWith("/")) {
+			let originalInput = line;
+			// Allow paths relative to the current dir
+			if (line.startsWith("./")) {
+				line = line.slice(2);
+			}
+
+			// Disallow paths relative to parents
+			if (line.startsWith("../")) {
+				invalidTable.addLine("Outside of current dir ", line);
+
+				continue;
+			}
+
+			if (line.includes("/../") || line.endsWith("/..")) {
+				invalidTable.addLine("Cannot use relative paths to reference parent directories ", line);
+
+				continue;
+			}
+
+			if (seen.has(dir + line)) {
+				invalidTable.addLine("Duplicate ", originalInput);
+
+				continue;
+			}
+			line = dir + line;
+		}
+
 		seen.add(line);
 
 		// Check dir exists within current dir
@@ -384,11 +420,6 @@ function parseFofn(result: string, dir: string, parentDirDetails: dirDetails, fo
 			invalidTable.addLine("Outside of current dir ", line);
 
 			continue;
-		}
-
-		// Check for invalid char 
-		if (line.includes("\0")) {
-			invalidTable.addLine("Invalid char in match ", line);
 		}
 
 		const wci = line.indexOf("*"),
