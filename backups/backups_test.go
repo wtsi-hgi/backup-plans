@@ -176,7 +176,7 @@ func TestBackups(t *testing.T) {
 		testDB, _ := plandb.PopulateExamplePlanDB(t)
 		tr := exampleTree()
 
-		Convey("You can create ibackup sets for all automatic ibackup plans, excluding BackupNone and BackupManual", func() {
+		Convey("You can create ibackup sets for all automatic ibackup plans, excluding BackupNone and manual backup types", func() { //nolint:lll
 			setInfos, err := Backup(testDB, tr, ibackupClient)
 			So(err, ShouldBeNil)
 			So(setInfos, ShouldNotBeNil)

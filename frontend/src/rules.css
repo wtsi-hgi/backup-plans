@@ -152,10 +152,6 @@ details.rule-section>summary:not(:has(button:hover)):hover::marker {
 	display: none;
 }
 
-select:has(option:checked[value="manualbackup"])~#metadataInput {
-	display: unset;
-}
-
 #addEdit span+label {
 	width: auto;
 }

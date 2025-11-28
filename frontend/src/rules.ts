@@ -4,25 +4,58 @@ import { br, button, dialog, div, form, h2, h3, input, label, option, p, select,
 import { svg, title, use } from './lib/svg.js';
 import { action, confirm, formatBytes, secondsInDay, setAndReturn } from "./lib/utils.js";
 import { createRule, getTree, removeRule, setDirDetails, updateRule, uploadFOFN, setExists, user, getDirectories } from "./rpc.js";
-import { BackupIBackup, BackupManual, BackupNone } from "./types.js"
+import {
+	BackupIBackup, BackupManualIBackup, BackupNone, ManualBackupStrings, ManualBackupString, BackupManualGit, BackupManualUnchecked,
+	BackupManualPrefect, ManualBackupDisplay
+} from "./consts.js"
 
 const createStuff = (backupType: BackupType, md: string, setText: string, closeFn: () => void) => {
-	const metadata = input({ "id": "metadata", "type": "text", "value": md });
+	const metadata = input({ "id": "metadata", "type": "text", "value": md }),
+		metadataLabel = label({ "for": "metadata", "id": "metadataLabel" }, ""),
+		metadataInput = div({ "id": "metadataInput" }, [
+			metadataLabel,
+			metadata,
+			br(),
+		]),
+		backupSelect = select({
+			"id": "backupType", "change": () => {
+				const backupType = backupSelect.value;
+				let label = "Metadata:";
+				let show = false;
+				switch (backupType) {
+					case "manualibackup":
+						label = "Set Name";
+						show = true;
+						break;
+					case "manualgit":
+						label = "Git URL";
+						show = true;
+						break;
+					case "manualprefect":
+						label = "Prefect URL";
+						show = true;
+						break;
+					case "manualunchecked":
+						show = true;
+				}
+				metadataInput.style.display = show ? "block" : "none";
+				metadataLabel.textContent = label;
+			}
+		}, [
+			option({ "value": "backup", [backupType === BackupIBackup ? "selected" : "unselected"]: "" }, "Backup"),
+			option({ "value": ManualBackupString["ManualBackup"], [backupType === BackupManualIBackup ? "selected" : "unselected"]: "" }, ManualBackupDisplay["ManualBackup"]),
+			option({ "value": "nobackup", [backupType === BackupNone ? "selected" : "unselected"]: "" }, "No Backup"),
+			option({ "value": ManualBackupString["ManualGit"], [backupType === BackupManualGit ? "selected" : "unselected"]: "" }, ManualBackupDisplay["ManualGit"]),
+			option({ "value": ManualBackupString["ManualPrefect"], [backupType === BackupManualPrefect ? "selected" : "unselected"]: "" }, ManualBackupDisplay["ManualPrefect"]),
+			option({ "value": ManualBackupString["ManualUnchecked"], [backupType === BackupManualUnchecked ? "selected" : "unselected"]: "" }, ManualBackupDisplay["ManualUnchecked"])
+		]);
 
 	return [
-		select({ "id": "backupType" }, [
-			option({ "value": "backup", [backupType === BackupIBackup ? "selected" : "unselected"]: "" }, "Backup"),
-			option({ "value": "manualbackup", [backupType === BackupManual ? "selected" : "unselected"]: "" }, "Manual Backup"),
-			option({ "value": "nobackup", [backupType === BackupNone ? "selected" : "unselected"]: "" }, "No Backup")
-		]),
+		backupSelect,
 		button({ "value": "set" }, setText),
 		button({ "type": "button", "click": closeFn }, "Cancel"),
 		metadata,
-		div({ "id": "metadataInput" }, [
-			label({ "for": "metadata" }, "Metadata"),
-			metadata,
-			br(),
-		])
+		metadataInput,
 	] as const;
 },
 	addEditOverlay = (path: string, rule: Rule, load: (path: string) => void) => {
@@ -62,7 +95,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 								return;
 							}
 
-							return (rule.Match ? updateRule : createRule)(path, backupType.value, rule.Match || match.value || "*", backupType.value === "manualbackup" ? metadata.value : "")
+							return (rule.Match ? updateRule : createRule)(path, backupType.value, rule.Match || match.value || "*", ManualBackupStrings.includes(backupType.value) ? metadata.value : "")
 								.then(() => {
 									load(path);
 									overlay.remove();
@@ -283,12 +316,16 @@ export default Object.assign(base, {
 
 // verifyMetadata will return true if the metadata setName is valid and exists
 function verifyMetadata(dir: string, backupType: string, metadata: string): Promise<Boolean> {
-	if (backupType !== "manualbackup") {
+	if (!ManualBackupStrings.includes(backupType)) {
 		return Promise.resolve(true);
 	}
 	if (metadata === "") return Promise.reject({ "message": "Metadata cannot be empty" });
 
-	return setExists(dir, metadata);
+	if (backupType === "manualibackup") {
+		return setExists(dir, metadata);
+	}
+
+	return Promise.resolve(true);
 }
 
 function evalFOFN(fr: FileReader, fofnSection: HTMLElement, parentDirDetails: dirDetails, dir: string): Promise<FofnTable> {

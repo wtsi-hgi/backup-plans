@@ -5,7 +5,7 @@ import { a, br, button, details, div, fieldset, h1, h2, input, label, legend, li
 import { svg, title, use } from "./lib/svg.js";
 import { action, formatBytes, longAgo, secondsInWeek, setAndReturn } from "./lib/utils.js";
 import { getReportSummary } from "./rpc.js";
-import { BackupIBackup, BackupManual, BackupNone, BackupWarn } from "./types.js";
+import { BackupIBackup, BackupManualIBackup, BackupNone, BackupWarn, ManualBackupTypes } from "./consts.js";
 import { render } from "./disktree.js";
 import ODS from './odf.js';
 
@@ -22,6 +22,9 @@ class Summary {
 	}
 
 	add(action: BackupType, rule: Stats) {
+		if (ManualBackupTypes.includes(action)) {
+			action = BackupManualIBackup;
+		}
 		const sct = this.actions[action] ??= { size: 0n, count: 0n, mtime: 0 };
 
 		sct.count += BigInt(rule.Files);
@@ -162,6 +165,9 @@ class ChildSummary extends Summary {
 	}
 
 	addRule(match: string, action: BackupType, rule: Stats) {
+		if (ManualBackupTypes.includes(action)) {
+			action = BackupManualIBackup;
+		}
 		const r = this.rules.get(match) ?? setAndReturn(this.rules, match, { size: 0n, count: 0n, action });
 
 		r.count += BigInt(rule.Files);
@@ -324,7 +330,7 @@ getReportSummary().then(data => {
 					"Unplanned": s.actions[BackupWarn]?.size ?? 0n,
 					"NoBackup": s.actions[BackupNone]?.size ?? 0n,
 					"Backup": s.actions[BackupIBackup]?.size ?? 0n,
-					"ManualBackup": s.actions[BackupManual]?.size ?? 0n
+					"ManualBackup": getManualSize(s)
 				})));
 
 				a({ "href": URL.createObjectURL(new Blob([ods], { "type": "text/csv;charset=utf-8" })), "download": `backup-report-${new Date(now).toISOString()}.ods` }).click();
@@ -352,3 +358,7 @@ export default Object.assign(base, {
 		}
 	}
 });
+
+function getManualSize(s: ParentSummary) {
+	return ManualBackupTypes.reduce((total, backup) => total + (s.actions[backup]?.size ?? 0n), 0n);
+}

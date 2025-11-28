@@ -1,5 +1,4 @@
 //go:build !dev
-// +build !dev
 
 package frontend
 
@@ -16,8 +15,8 @@ import (
 var indexHTML []byte
 
 const (
-	uncompressedSize = 57750
-	lastModifiedTime = 1764250382
+	uncompressedSize = 52736
+	lastModifiedTime = 1764263373
 )
 
 var Index = httpembed.HandleBuffer("index.html", indexHTML, uncompressedSize, time.Unix(lastModifiedTime, 0)) //nolint:gochecknoglobals,lll

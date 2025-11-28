@@ -32,7 +32,6 @@ declare time="$(stat -c %Y index.html.gz)"
 
 cat > frontend.go <<HEREDOC
 //go:build !dev
-// +build !dev
 
 package frontend
 

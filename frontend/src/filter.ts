@@ -102,13 +102,13 @@ export default Object.assign(base, {
 		userList.append(...users.map(u => option({ "data-filter": JSON.stringify([u]), "label": "User: " + u }, u)));
 		groupSelect.append(...groupOpts);
 
-		for (const [bom, groups] of Object.entries(data.BOM)) {
+		for (const [bom, groups] of Object.entries(data.BOM ?? {})) {
 			boms.set(bom, groups);
 
 			groupList.append(option({ "label": "BOM: " + bom }, bom));
 		}
 
-		for (const [owner, groups] of Object.entries(data.Owners)) {
+		for (const [owner, groups] of Object.entries(data.Owners ?? {})) {
 			owners.set(owner, groups);
 
 			groupList.append(option({ "label": "Owner: " + owner }, owner));

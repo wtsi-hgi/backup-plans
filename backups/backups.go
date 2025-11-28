@@ -69,7 +69,7 @@ func Backup(planDB *db.DB, treeNode tree.Node, client *ibackup.MultiClient) ([]S
 			return
 		}
 
-		if rule.BackupType == db.BackupManual || rule.BackupType == db.BackupNone {
+		if rule.BackupType != db.BackupIBackup {
 			return
 		}
 
