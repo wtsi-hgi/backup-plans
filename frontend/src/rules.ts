@@ -393,7 +393,13 @@ function parseFofn(result: string, dir: string, parentDirDetails: dirDetails, fo
 			}
 
 			// Disallow paths relative to parents
-			if (line.includes("/..") || line.includes("../")) {
+			if (line.startsWith("../")) {
+				invalidTable.addLine("Outside of current dir ", line);
+
+				continue;
+			}
+
+			if (line.includes("/../") || line.endsWith("/..")) {
 				invalidTable.addLine("Cannot use relative paths to reference parent directories ", line);
 
 				continue;
