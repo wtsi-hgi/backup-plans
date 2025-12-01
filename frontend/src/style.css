@@ -145,6 +145,8 @@ input[type="checkbox"] {
 	max-height: 450px;
 	overflow-y: auto;
 	overflow-x: hidden;
+	scrollbar-width: thin;
+	scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 }
 
 .prettyTable thead th {
@@ -189,7 +191,7 @@ input[type="checkbox"] {
 }
 
 .prettyTable tbody tr:nth-child(even) {
-	background-color: var(--tableEventBG);
+	background-color: var(--tableEvenBG);
 	color: var(--tableEvenFont);
 }
 
@@ -257,12 +259,10 @@ input[type="checkbox"] {
 	border-top-left-radius: 0;
 	border-bottom-left-radius: 0;
 	width: calc(100vw - 200px - 3em - var(--scrollwidth, 0));
-	/* width: calc(100vw - 200px - 3em); */
 }
 
 .tabs:has(#filter:not([open])) #dirlist {
 	width: calc(100vw - 5em - var(--scrollwidth, 0));
-	/* width: calc(100vw - 5em); */
 }
 
 dialog label {
@@ -287,10 +287,6 @@ use {
 	color: var(--colour);
 }
 
-html {
-	--scrollWidth: 0px;
-}
-
 @media (prefers-color-scheme: light) {
 	html {
 		--colour: #000;
@@ -308,7 +304,7 @@ html {
 		--tableSelectedFont: currentColor;
 		--tableOddBG: var(--background);
 		--tableOddFont: currentColor;
-		--tableEventBG: #f9f9f9;
+		--tableEvenBG: #f9f9f9;
 		--tableOddFont: currentColor;
 
 		--diskTreeDetailsBG: #ddd;
@@ -352,6 +348,9 @@ html {
 		--button-colour-disabled: #888;
 
 		--button-colour-addEdit: #222;
+
+		/* --scrollbar-thumb: ##aaa;
+		--scrollbar-track: #f9f9f9; */
 	}
 }
 
@@ -372,7 +371,7 @@ html {
 		--tableSelectedFont: currentColor;
 		--tableOddBG: var(--background);
 		--tableOddFont: currentColor;
-		--tableEventBG: #333;
+		--tableEvenBG: #333;
 		--tableOddFont: currentColor;
 
 		--diskTreeDetailsBG: #444;
@@ -416,5 +415,8 @@ html {
 		--button-colour-disabled: #888;
 
 		--button-colour-addEdit: #222;
+
+		--scrollbar-thumb: #888;
+		--scrollbar-track: #333;
 	}
 }

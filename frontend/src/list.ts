@@ -37,6 +37,10 @@ export default Object.assign([container], {
 });
 
 window.addEventListener('resize', updateScrollWidth);
+const resizeObserver = new ResizeObserver(() => {
+	updateScrollWidth();
+});
+resizeObserver.observe(container);
 
 function isNumber(n: string): boolean {
 	return !isNaN(parseFloat(String(n))) && isFinite(Number(n));
