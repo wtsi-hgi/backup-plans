@@ -22,7 +22,7 @@ export default Object.assign(container, {
 	"update": (path: string, data: DirectoryWithChildren, load: (path: string) => void) => {
 		const entries = Object.entries(data.children);
 		if (entries.every(([name]) => isNumber(getDirFromEntry(name)))) {
-			entries.sort((a, b) => Number(getDirFromEntry(a[0])) - Number(getDirFromEntry(b[0])));
+			entries.sort(([a], [b]) => Number(getDirFromEntry(a)) - Number(getDirFromEntry(b)));
 		}
 		clearNode(base, entries.map(([name, child]) => {
 			return tr({ "style": child.unauthorised ? "cursor: not-allowed;" : "", "click": () => child.unauthorised || load(path + name) }, [
