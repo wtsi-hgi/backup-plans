@@ -3,7 +3,8 @@ import { clearNode } from './lib/dom.js';
 import { table, tbody, td, th, thead, tr } from './lib/html.js';
 import { formatBytes } from './lib/utils.js';
 
-const base = tbody();
+const base = tbody(),
+	dateFormat = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
 export default Object.assign(table({ "class": "prettyTable", "id": "dirlist" }, [
 	thead(tr([th("SubDirectory"), th("File Size"), th("File Count"), th("Last Modified")])),
@@ -14,7 +15,7 @@ export default Object.assign(table({ "class": "prettyTable", "id": "dirlist" }, 
 			td(name),
 			td({ "title": child.size.toLocaleString() }, formatBytes(child.size)),
 			td(child.count.toLocaleString()),
-			td(new Date(child.mtime * 1000).toLocaleString('en-GB', { timeZone: 'Europe/London', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }))
+			td(dateFormat.format(new Date(child.mtime * 1000)))
 		])
 	}))
 });
