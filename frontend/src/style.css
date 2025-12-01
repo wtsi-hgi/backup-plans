@@ -144,6 +144,7 @@ input[type="checkbox"] {
 .prettyTableContainer {
 	max-height: 450px;
 	overflow-y: auto;
+	overflow-x: hidden;
 }
 
 .prettyTable thead th {
@@ -255,13 +256,13 @@ input[type="checkbox"] {
 	border-left: 0;
 	border-top-left-radius: 0;
 	border-bottom-left-radius: 0;
-	/* width: calc(100vw - 200px - 3em - var(--scrollwidth, 0)); */
-	width: calc(100vw - 200px - 3em);
+	width: calc(100vw - 200px - 3em - var(--scrollwidth, 0));
+	/* width: calc(100vw - 200px - 3em); */
 }
 
 .tabs:has(#filter:not([open])) #dirlist {
-	/* width: calc(100vw - 5em - var(--scrollwidth, 0)); */
-	width: calc(100vw - 5em);
+	width: calc(100vw - 5em - var(--scrollwidth, 0));
+	/* width: calc(100vw - 5em); */
 }
 
 dialog label {
@@ -284,6 +285,10 @@ body>.tabs>details:not([open])> :not(summary),
 
 use {
 	color: var(--colour);
+}
+
+html {
+	--scrollWidth: 0px;
 }
 
 @media (prefers-color-scheme: light) {
