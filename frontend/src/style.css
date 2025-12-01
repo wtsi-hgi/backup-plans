@@ -141,9 +141,20 @@ input[type="checkbox"] {
 	border-radius: 4px;
 }
 
+.prettyTableContainer {
+	max-height: 80vh;
+	overflow-y: auto;
+	overflow-x: hidden;
+}
+
 .prettyTable thead th {
 	padding-right: 1.25em;
 	border-bottom: 1px solid var(--tableBorder);
+	background-color: var(--tableOddBG);
+}
+
+.prettyTable thead th:last-child {
+	border-top-right-radius: 4px;
 }
 
 .prettyTable thead th.sortable:hover {
@@ -178,7 +189,7 @@ input[type="checkbox"] {
 }
 
 .prettyTable tbody tr:nth-child(even) {
-	background-color: var(--tableEventBG);
+	background-color: var(--tableEvenBG);
 	color: var(--tableEvenFont);
 }
 
@@ -245,11 +256,11 @@ input[type="checkbox"] {
 	border-left: 0;
 	border-top-left-radius: 0;
 	border-bottom-left-radius: 0;
-	width: calc(100vw - 200px - 3em);
+	width: calc(100vw - 200px - 3em - var(--scrollwidth, 0));
 }
 
 .tabs:has(#filter:not([open])) #dirlist {
-	width: calc(100vw - 5em);
+	width: calc(100vw - 5em - var(--scrollwidth, 0));
 }
 
 dialog label {
@@ -291,7 +302,7 @@ use {
 		--tableSelectedFont: currentColor;
 		--tableOddBG: var(--background);
 		--tableOddFont: currentColor;
-		--tableEventBG: #f9f9f9;
+		--tableEvenBG: #f9f9f9;
 		--tableOddFont: currentColor;
 
 		--diskTreeDetailsBG: #ddd;
@@ -339,6 +350,10 @@ use {
 }
 
 @media (prefers-color-scheme: dark) {
+	:root {
+		color-scheme: dark;
+	}
+
 	html {
 		--colour: #fff;
 		--background: #222;
@@ -355,7 +370,7 @@ use {
 		--tableSelectedFont: currentColor;
 		--tableOddBG: var(--background);
 		--tableOddFont: currentColor;
-		--tableEventBG: #333;
+		--tableEvenBG: #333;
 		--tableOddFont: currentColor;
 
 		--diskTreeDetailsBG: #444;
