@@ -2,7 +2,6 @@ package ibackup
 
 import (
 	"io"
-	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -66,8 +65,6 @@ func NewTestIbackupServer(t *testing.T) (*server.Server, string, string, func() 
 	addr, dfn, err := gas.StartTestServer(s, certPath, keyPath)
 
 	time.Sleep(time.Second >> 1)
-
-	os.Setenv("XDG_STATE_HOME", "/")
 
 	return s, addr, certPath, dfn, err
 }

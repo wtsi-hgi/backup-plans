@@ -3,6 +3,7 @@ package ibackup_test
 import (
 	"errors"
 	"io"
+	"os"
 	"os/user"
 	"path/filepath"
 	"regexp"
@@ -103,6 +104,47 @@ func TestMultiIbackup(t *testing.T) {
 			So(mc, ShouldBeNil)
 			So(err, ShouldNotBeNil)
 			So(ibackup.IsOnlyConnectionErrors(err), ShouldBeFalse)
+		})
+
+		Convey("Connection works when token is in a read-only directory", func() {
+			readOnlyDir := t.TempDir()
+
+			firstServerDetails := servers["example_1"]
+			tokenContent, err := os.ReadFile(firstServerDetails.Token)
+			So(err, ShouldBeNil)
+
+			sharedTokenPath := filepath.Join(readOnlyDir, ".ibackup.token")
+			err = os.WriteFile(sharedTokenPath, tokenContent, 0600)
+			So(err, ShouldBeNil)
+
+			err = os.Chmod(readOnlyDir, 0555)
+			So(err, ShouldBeNil)
+
+			Reset(func() {
+				os.Chmod(readOnlyDir, 0755) //nolint:errcheck
+			})
+
+			sharedConfig := ibackup.Config{
+				Servers: map[string]ibackup.ServerDetails{
+					"shared_server": {
+						Addr:  firstServerDetails.Addr,
+						Cert:  firstServerDetails.Cert,
+						Token: sharedTokenPath,
+					},
+				},
+				PathToServer: map[string]ibackup.ServerTransformer{
+					"^/shared/": {
+						ServerName:  "shared_server",
+						Transformer: ib.CustomTransformer,
+					},
+				},
+			}
+
+			mc, err := ibackup.New(sharedConfig)
+			So(err, ShouldBeNil)
+			So(mc, ShouldNotBeNil)
+
+			mc.Stop()
 		})
 
 		Convey("Good config results in a valid MultiClient", func() {
