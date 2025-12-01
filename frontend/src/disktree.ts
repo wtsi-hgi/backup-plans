@@ -209,7 +209,7 @@ const phi = (1 + Math.sqrt(5)) / 2,
 		}
 
 		return svg({ "class": "treeMap", "width": width + "", "height": height + "", "viewBox": `0 0 ${width} ${height}`, "mouseout": onmouseout ?? (() => { }) },
-			buildTree(table, box)
+			buildTree(filteredTable, box)
 		)
 	},
 	secondsInSevenYears = 7 * 365 * 86400,
