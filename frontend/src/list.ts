@@ -18,11 +18,11 @@ const container = div({ class: "prettyTableContainer" }, [
 	])
 ]);
 
-export default Object.assign([container], {
+export default Object.assign(container, {
 	"update": (path: string, data: DirectoryWithChildren, load: (path: string) => void) => {
 		const entries = Object.entries(data.children);
-		if (entries.every(entry => isNumber(getDirFromEntry(entry)))) {
-			entries.sort((a, b) => Number(getDirFromEntry(a)) - Number(getDirFromEntry(b)));
+		if (entries.every(([name]) => isNumber(getDirFromEntry(name)))) {
+			entries.sort((a, b) => Number(getDirFromEntry(a[0])) - Number(getDirFromEntry(b[0])));
 		}
 		clearNode(base, entries.map(([name, child]) => {
 			return tr({ "style": child.unauthorised ? "cursor: not-allowed;" : "", "click": () => child.unauthorised || load(path + name) }, [
@@ -36,7 +36,6 @@ export default Object.assign([container], {
 	}
 });
 
-window.addEventListener('resize', updateScrollWidth);
 const resizeObserver = new ResizeObserver(() => {
 	updateScrollWidth();
 });
@@ -46,8 +45,8 @@ function isNumber(n: string): boolean {
 	return !isNaN(parseFloat(String(n))) && isFinite(Number(n));
 }
 
-function getDirFromEntry(entry: [string, Directory]): string {
-	return entry[0].slice(0, entry[0].length - 1);
+function getDirFromEntry(name: string): string {
+	return name.slice(0, name.length - 1);
 }
 
 function updateScrollWidth() {
