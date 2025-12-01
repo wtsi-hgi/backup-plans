@@ -18,12 +18,22 @@ export default Object.assign(
 			base
 		])
 	]), {
-	"update": (path: string, data: DirectoryWithChildren, load: (path: string) => void) => clearNode(base, Object.entries(data.children).map(([name, child]) => {
-		return tr({ "style": child.unauthorised ? "cursor: not-allowed;" : "", "click": () => child.unauthorised || load(path + name) }, [
-			td(name),
-			td({ "title": child.size.toLocaleString() }, formatBytes(child.size)),
-			td(child.count.toLocaleString()),
-			td(dateFormat.format(new Date(child.mtime * 1000)))
-		])
-	}))
+	"update": (path: string, data: DirectoryWithChildren, load: (path: string) => void) => {
+		const entries = Object.entries(data.children);
+		if (entries.every(entry => isNumber(entry[0].slice(0, entry[0].length - 1)))) {
+			entries.sort((a, b) => Number(a[0].slice(0, a[0].length - 1)) - Number(b[0].slice(0, b[0].length - 1)));
+		}
+		clearNode(base, entries.map(([name, child]) => {
+			return tr({ "style": child.unauthorised ? "cursor: not-allowed;" : "", "click": () => child.unauthorised || load(path + name) }, [
+				td(name),
+				td({ "title": child.size.toLocaleString() }, formatBytes(child.size)),
+				td(child.count.toLocaleString()),
+				td(dateFormat.format(new Date(child.mtime * 1000)))
+			])
+		}))
+	}
 });
+
+function isNumber(n: string): boolean {
+	return !isNaN(parseFloat(String(n))) && isFinite(Number(n));
+}
