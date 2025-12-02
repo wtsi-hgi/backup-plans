@@ -93,7 +93,7 @@ func TestCommands(t *testing.T) {
 				"ibackup set 'plan::/lustre/scratch123/humgen/a/b/' created for userA with 2 files\n")
 			So(err, ShouldBeNil)
 
-			ibackupClient, err := ibackup.Connect(addr, certPath)
+			ibackupClient, err := ibackup.Connect(addr, certPath, "")
 			So(err, ShouldBeNil)
 
 			sets, err := ibackupClient.GetSets("userA")

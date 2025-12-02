@@ -78,7 +78,7 @@ func NewClient(t *testing.T) *server.Client {
 
 	time.Sleep(time.Second >> 1)
 
-	client, err := ibackup.Connect(addr, certPath)
+	client, err := ibackup.Connect(addr, certPath, "")
 	So(err, ShouldBeNil)
 
 	Reset(func() {
@@ -122,7 +122,7 @@ func NewMultiClient(t *testing.T) *ibackup.MultiClient { //nolint:funlen
 	time.Sleep(time.Second >> 1)
 
 	Reset(func() {
-		client, errr := ibackup.Connect(addr, certPath)
+		client, errr := ibackup.Connect(addr, certPath, "")
 		So(errr, ShouldBeNil)
 
 		waitForSetsComplete(client)
