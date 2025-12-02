@@ -1,5 +1,10 @@
 export GOPATH := $(shell go env GOPATH)
 
+# We require CGO_ENABLED=1 for getting group information to work properly; the
+# pure go version doesn't work on all systems such as those using LDAP for
+# groups
+export CGO_ENABLED = 1
+
 default: install
 
 build:

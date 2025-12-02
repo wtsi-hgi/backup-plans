@@ -2,6 +2,8 @@ package ibackup
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"log/slog"
 	"maps"
@@ -101,7 +103,7 @@ func (s *serverClient) await(ctx context.Context, details ServerDetails) {
 		case <-time.After(time.Minute):
 		}
 
-		c, err := connect(details.Token+".jwt", details.Token, details.Addr, details.Cert)
+		c, err := connect(jwtBasename(details.Token), details.Token, details.Addr, details.Cert)
 		if err != nil {
 			continue
 		}
@@ -145,7 +147,7 @@ func createServers(ctx context.Context, c Config) (map[string]*serverClient, err
 	for name, details := range c.Servers {
 		var client serverClient
 
-		c, err := connect(details.Token+".jwt", details.Token, details.Addr, details.Cert)
+		c, err := connect(jwtBasename(details.Token), details.Token, details.Addr, details.Cert)
 		if err != nil {
 			errs = errors.Join(errs, &ServerConnectionError{name, err})
 
@@ -160,6 +162,17 @@ func createServers(ctx context.Context, c Config) (map[string]*serverClient, err
 	}
 
 	return servers, errs
+}
+
+// jwtBasename returns a unique JWT filename based on a hash of the token path.
+// This ensures JWTs for different servers don't conflict with each other, and
+// by returning a non-absolute path, gas.NewClientCLI will store it in TokenDir()
+// (the user's home directory), which avoids issues when the token file is in a
+// read-only directory shared by another user.
+func jwtBasename(tokenPath string) string {
+	hash := sha256.Sum256([]byte(tokenPath))
+
+	return ".ibackup." + hex.EncodeToString(hash[:8]) + ".jwt"
 }
 
 func createClients(servers map[string]*serverClient, c Config) (map[*regexp.Regexp]*clientTransformer, error) {
@@ -243,15 +256,12 @@ func (m *MultiClient) GetBackupActivity(path, setName, requester string) (*SetBa
 }
 
 // Connect returns a client that can talk to the given ibackup server using
-// the .ibackup.jwt and .ibackup.token files.
+// the token file next to the cert file. The JWT will be stored in the user's
+// XDG_STATE_HOME or home directory.
 func Connect(url, cert string) (*server.Client, error) {
-	base := filepath.Dir(cert)
+	tokenPath := filepath.Join(filepath.Dir(cert), ".ibackup.token")
 
-	return connect(
-		filepath.Join(base, ".ibackup.jwt"),
-		filepath.Join(base, ".ibackup.token"),
-		url, cert,
-	)
+	return connect(jwtBasename(tokenPath), tokenPath, url, cert)
 }
 
 func connect(jwtBasename, serverTokenBasename, url, cert string) (*server.Client, error) {
