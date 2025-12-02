@@ -29,7 +29,7 @@ var (
 // ServerDetails contains the connection details for a particular ibackup
 // server.
 type ServerDetails struct {
-	Addr, Cert, Token string
+	Addr, Cert, Token, Username string
 }
 
 // ServerTransformer combines a configured server name and a transformer to be
@@ -103,7 +103,10 @@ func (s *serverClient) await(ctx context.Context, details ServerDetails) {
 		case <-time.After(time.Minute):
 		}
 
-		c, err := connect(jwtBasename(details.Token), details.Token, details.Addr, details.Cert)
+		c, err := connect(
+			jwtBasename(details.Token),
+			details.Token, details.Addr, details.Cert, details.Username,
+		)
 		if err != nil {
 			continue
 		}
@@ -147,7 +150,10 @@ func createServers(ctx context.Context, c Config) (map[string]*serverClient, err
 	for name, details := range c.Servers {
 		var client serverClient
 
-		c, err := connect(jwtBasename(details.Token), details.Token, details.Addr, details.Cert)
+		c, err := connect(
+			jwtBasename(details.Token),
+			details.Token, details.Addr, details.Cert, details.Username,
+		)
 		if err != nil {
 			errs = errors.Join(errs, &ServerConnectionError{name, err})
 
@@ -258,14 +264,14 @@ func (m *MultiClient) GetBackupActivity(path, setName, requester string) (*SetBa
 // Connect returns a client that can talk to the given ibackup server using
 // the token file next to the cert file. The JWT will be stored in the user's
 // XDG_STATE_HOME or home directory.
-func Connect(url, cert string) (*server.Client, error) {
+func Connect(url, cert, username string) (*server.Client, error) {
 	tokenPath := filepath.Join(filepath.Dir(cert), ".ibackup.token")
 
-	return connect(jwtBasename(tokenPath), tokenPath, url, cert)
+	return connect(jwtBasename(tokenPath), tokenPath, url, cert, username)
 }
 
-func connect(jwtBasename, serverTokenBasename, url, cert string) (*server.Client, error) {
-	client, err := gas.NewClientCLI(jwtBasename, serverTokenBasename, url, cert, false)
+func connect(jwtBasename, serverTokenBasename, url, cert, username string) (*server.Client, error) {
+	client, err := gas.NewClientCLI(jwtBasename, serverTokenBasename, url, cert, false, username)
 	if err != nil {
 		return nil, err
 	}

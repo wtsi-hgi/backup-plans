@@ -11,7 +11,7 @@ require (
 	github.com/smartystreets/goconvey v1.8.1
 	github.com/spf13/cobra v1.10.1
 	github.com/ugorji/go/codec v1.3.1
-	github.com/wtsi-hgi/go-authserver v1.5.3
+	github.com/wtsi-hgi/go-authserver v1.5.4
 	github.com/wtsi-hgi/ibackup v1.13.0
 	github.com/wtsi-hgi/wrstat-ui v1.8.11
 	go.etcd.io/bbolt v1.4.3

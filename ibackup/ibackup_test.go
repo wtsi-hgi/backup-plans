@@ -208,7 +208,7 @@ func TestIbackup(t *testing.T) {
 		u, err := user.Current()
 		So(err, ShouldBeNil)
 
-		client, err := ibackup.Connect(addr, certPath)
+		client, err := ibackup.Connect(addr, certPath, "")
 		So(err, ShouldBeNil)
 
 		mockClient := newMockClient(client)
