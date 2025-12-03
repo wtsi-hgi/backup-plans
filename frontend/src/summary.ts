@@ -4,7 +4,7 @@ import { br, button, dialog, input, label, table, tbody, td, th, thead, tr } fro
 import { svg, title, use } from "./lib/svg.js";
 import { confirm, formatBytes } from "./lib/utils.js";
 import { claimDir, passDirClaim, revokeDirClaim, user } from "./rpc.js";
-import { BackupNone, BackupIBackup, BackupWarn, ManualBackupTypes } from './consts.js';
+import { BackupType } from './consts.js';
 
 const claimedByCell = td(),
 	totalCount = td(),
@@ -82,15 +82,16 @@ export default Object.assign(base, {
 			: data.canClaim ? button({ "click": () => claimDir(path).then(() => load(path)) }, "Claim") : []);
 
 		const manualActions: SizeCountTime = { count: 0n, size: 0n, mtime: 0 };
-		ManualBackupTypes.forEach(backup => {
-			manualActions.count += BigInt(data.actions[backup]?.count ?? 0);
-			manualActions.size += BigInt(data.actions[backup]?.size ?? 0);
+
+		BackupType.manual.forEach(backup => {
+			manualActions.count += data.actions[+backup]?.count ?? 0n;
+			manualActions.size += data.actions[+backup]?.size ?? 0n;
 		});
 
 		setSummary(data, totalCount, totalSize);
-		setSummary(data.actions[BackupWarn], warnCount, warnSize);
-		setSummary(data.actions[BackupNone], nobackupCount, nobackupSize);
-		setSummary(data.actions[BackupIBackup], backupCount, backupSize);
+		setSummary(data.actions[+BackupType.BackupWarn], warnCount, warnSize);
+		setSummary(data.actions[+BackupType.BackupNone], nobackupCount, nobackupSize);
+		setSummary(data.actions[+BackupType.BackupIBackup], backupCount, backupSize);
 		setSummary(manualActions, manualBackupCount, manualBackupSize);
 	}
 });
