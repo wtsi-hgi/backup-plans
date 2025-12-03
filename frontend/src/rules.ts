@@ -21,24 +21,17 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 			"id": "backupType", "change": () => {
 				const backupType = backupSelect.value;
 				let label = "Metadata:";
-				let show = false;
 				switch (backupType) {
 					case "manualibackup":
 						label = "Set Name";
-						show = true;
 						break;
 					case "manualgit":
 						label = "Git URL";
-						show = true;
 						break;
 					case "manualprefect":
 						label = "Prefect URL";
-						show = true;
 						break;
-					case "manualunchecked":
-						show = true;
 				}
-				metadataInput.style.display = show ? "block" : "none";
 				metadataLabel.textContent = label;
 			}
 		}, [
