@@ -12,6 +12,10 @@
 	width: 2em;
 }
 
+fieldset {
+	border: 1px solid currentColor;
+}
+
 #filter[open] {
 	width: 200px;
 }
