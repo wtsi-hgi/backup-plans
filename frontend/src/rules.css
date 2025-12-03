@@ -144,7 +144,7 @@ details.rule-section>summary:not(:has(button:hover)):hover::marker {
 	color: var(--action-ibackup-text);
 }
 
-.rule-badge .action-pill[data-action="Manual Backup"] {
+.rule-badge .action-pill {
 	background-color: var(--action-manual-bg);
 	color: var(--action-manual-text);
 }
