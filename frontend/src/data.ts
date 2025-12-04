@@ -92,6 +92,7 @@ export default (path: string) => getTree(path)
 			"ReviewDate": data.ReviewDate,
 			"RemoveDate": data.RemoveDate,
 			"ruleSummaries": data.RuleSummaries
+			// "testVar": 
 		},
 			rules = Object.entries(data.Rules)
 				.map(([dir, rules]) => Object.entries(rules).map(([id, rule]) => Object.assign(rule, { id, dir })))

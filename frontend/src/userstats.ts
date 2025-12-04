@@ -1,6 +1,6 @@
 import { clearNode } from './lib/dom.js';
 import { table, tbody, td, th, thead, tr, div } from './lib/html.js';
-import type { DirectoryWithChildren, SizeCount } from './types.js';
+import type { DirectoryWithChildren, SizeCountStats } from './types.js';
 
 const base = tbody();
 
@@ -8,38 +8,48 @@ const container = div({ class: "prettyTableContainer" }, [
     table({ "class": "summary", "id": "userStats" }, [
         thead(tr([
             th("User"),
-            th("File Size"),
-            th("File Count")
+            th("Total file Size"),
+            th("Total file Count"),
+            th("Unplanned Size"),
+            th("Unplanned count")
         ])),
         base
     ])
 ]);
 
+// TODO: In practice, this table will be VERY long, should it have an internal scroll bar?
+
 export default Object.assign(container, {
     "update": (_: string, data: DirectoryWithChildren, load: (path: string) => void) => {
         calculateUserStats(data);
 
-        clearNode(base, Array.from(userStats).map(([user, SizeCount]) => {
+        clearNode(base, Array.from(userStats).map(([user, SizeCountStats]) => {
             return tr({}, [
                 td(user),
-                td(SizeCount.size.toLocaleString()), // TODO: Where are the units? what if the size is given in different units? does this happen?
-                td(SizeCount.count.toLocaleString())
+                td(SizeCountStats.size.toLocaleString()), // TODO: Where are the units? what if the size is given in different units? does this happen?
+                td(SizeCountStats.count.toLocaleString()),
+                td(SizeCountStats.unplannedSize.toLocaleString()),
+                td(SizeCountStats.unplannedCount.toLocaleString())
             ])
         }))
     }
 });
 
-const userStats = new Map<string, SizeCount>();
+const userStats = new Map<string, SizeCountStats>();
 
 function calculateUserStats(dir: DirectoryWithChildren) {
-    console.log("Rule summaries: ", dir.ruleSummaries);
     for (const element of dir.ruleSummaries) {
         for (const user of element.Users) {
             const ustats = userStats.get(user.Name);
             if (!ustats) {
-                const totals: SizeCount = { size: BigInt(user.Size), count: BigInt(user.Files) };
+                const totals: SizeCountStats = user.ID === 0 ? { size: BigInt(user.Size), count: BigInt(user.Files), unplannedSize: 0n, unplannedCount: 0n }
+                    : { size: BigInt(user.Size), count: BigInt(user.Files), unplannedSize: BigInt(user.Size), unplannedCount: BigInt(user.Files) };
                 userStats.set(user.Name, totals);
             } else {
+                if (user.ID === 0) {
+                    ustats.unplannedSize += BigInt(user.Size);
+                    ustats.unplannedCount += BigInt(user.Files);
+                }
                 ustats.size += BigInt(user.Size);
                 ustats.count += BigInt(user.Files);
             }
