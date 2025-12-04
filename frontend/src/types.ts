@@ -55,6 +55,11 @@ export type SizeCountTime = SizeCount & {
 	mtime: number;
 };
 
+export type SizeCountStats = SizeCount & {
+	unplannedSize: bigint;
+	unplannedCount: bigint;
+}
+
 export type RuleStats = Rule & SizeCountTime;
 
 export type Directory = SizeCountTime & {
