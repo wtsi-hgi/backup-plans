@@ -1,10 +1,11 @@
 import type { DirectoryWithChildren, SizeCountTime } from "./types.js";
 import { clearNode } from "./lib/dom.js";
-import { br, button, dialog, input, label, table, tbody, td, th, thead, tr } from "./lib/html.js";
+import { br, button, dialog, input, label, table, tbody, td, th, thead, tr, div } from "./lib/html.js";
 import { svg, title, use } from "./lib/svg.js";
 import { confirm, formatBytes } from "./lib/utils.js";
 import { claimDir, passDirClaim, revokeDirClaim, user } from "./rpc.js";
 import { BackupType } from './consts.js';
+import UserStats from './userstats.js';
 
 const claimedByCell = td(),
 	totalCount = td(),
@@ -17,12 +18,16 @@ const claimedByCell = td(),
 	nobackupSize = td(),
 	backupSize = td(),
 	manualBackupSize = td(),
-	base = table({ "class": "summary" }, [
+	summaryTable = table({ "class": "summary" }, [
 		thead(tr([claimedByCell, th("Total"), th("Unplanned"), th("No Backup"), th("Backup"), th("Manual Backup")])),
 		tbody([
 			tr([th("File count"), totalCount, warnCount, nobackupCount, backupCount, manualBackupCount]),
 			tr([th("File size"), totalSize, warnSize, nobackupSize, backupSize, manualBackupSize])
 		])
+	]),
+	base = div([
+		summaryTable,
+		UserStats
 	]),
 	setSummary = (action: SizeCountTime, count: Element, size: Element) => {
 		clearNode(count, action?.count?.toLocaleString() ?? "0");
@@ -31,6 +36,7 @@ const claimedByCell = td(),
 
 export default Object.assign(base, {
 	"update": (path: string, data: DirectoryWithChildren, load: (path: string) => void) => {
+		UserStats.update(path, data, load);
 		clearNode(claimedByCell, data.claimedBy ?
 			[data.claimedBy, data.claimedBy === user ? data.rules[path]?.length ?
 				button({
