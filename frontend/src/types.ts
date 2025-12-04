@@ -69,6 +69,7 @@ export type DirectoryWithChildren = Directory & dirDetails & {
 	children: Record<string, Directory>;
 	claimedBy: string;
 	canClaim: boolean;
+	ruleSummaries: RuleSummary[];
 };
 
 export type ClaimedDir = DirSummary & {

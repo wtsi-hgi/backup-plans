@@ -84,7 +84,8 @@ export default (path: string) => getTree(path)
 			"canClaim": data.CanClaim,
 			"Frequency": data.Frequency,
 			"ReviewDate": data.ReviewDate,
-			"RemoveDate": data.RemoveDate
+			"RemoveDate": data.RemoveDate,
+			"ruleSummaries": data.RuleSummaries
 		},
 			rules = Object.entries(data.Rules)
 				.map(([dir, rules]) => Object.entries(rules).map(([id, rule]) => Object.assign(rule, { id, dir })))
