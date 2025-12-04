@@ -1,3 +1,4 @@
+import { BackupType } from "../consts.js";
 import type { Children } from "./dom.js";
 import { button, dialog, div } from "./html.js";
 
@@ -66,5 +67,5 @@ export const formatBytes = (size: bigint) => {
 
 		return v;
 	},
-	action = (backupType: number) => actions[backupType] ?? "Unknown",
+	action = (backupType: BackupType) => actions[+backupType] ?? "Unknown",
 	stringSort = new Intl.Collator().compare;

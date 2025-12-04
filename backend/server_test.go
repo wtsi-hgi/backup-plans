@@ -89,8 +89,8 @@ func TestEndpoints(t *testing.T) {
 				nil,
 			)
 
-			So(code, ShouldEqual, http.StatusNoContent)
-			So(resp, ShouldEqual, "")
+			So(code, ShouldEqual, http.StatusOK)
+			So(resp, ShouldEqual, "false\n")
 		})
 
 		Convey("You can check if a slice of paths refers to directories or files", func() {

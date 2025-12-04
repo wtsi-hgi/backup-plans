@@ -1,7 +1,7 @@
 import type { Directory, DirectoryWithChildren, DirSummary, Rule, RuleSummary, SizeCountTime, Stats, Tree } from './types.js';
 import { filter } from './filter.js';
 import { getTree } from "./rpc.js";
-import { BackupWarn } from "./consts.js";
+import { BackupType } from "./consts.js";
 
 
 type RulesWithDirs = Record<number, Rule & { dir: string }>;
@@ -37,7 +37,7 @@ const all = function* (rs: RuleSummary) {
 				"size": 0n,
 				"mtime": 0
 			}),
-				action = (d.actions[rule.BackupType] ??= {
+				action = (d.actions[+rule.BackupType] ??= {
 					"count": 0n,
 					"size": 0n,
 					"mtime": 0
@@ -70,6 +70,12 @@ export default (path: string) => getTree(path)
 		} as Tree;
 	})
 	.then(data => {
+		for (const rules of Object.values(data.Rules)) {
+			for (const rule of Object.values(rules)) {
+				rule.BackupType = BackupType.from(rule.BackupType);
+			}
+		}
+
 		const d: DirectoryWithChildren = {
 			"claimedBy": data.ClaimedBy,
 			"count": 0n,
@@ -84,7 +90,8 @@ export default (path: string) => getTree(path)
 			"canClaim": data.CanClaim,
 			"Frequency": data.Frequency,
 			"ReviewDate": data.ReviewDate,
-			"RemoveDate": data.RemoveDate
+			"RemoveDate": data.RemoveDate,
+			"ruleSummaries": data.RuleSummaries
 		},
 			rules = Object.entries(data.Rules)
 				.map(([dir, rules]) => Object.entries(rules).map(([id, rule]) => Object.assign(rule, { id, dir })))
@@ -93,7 +100,7 @@ export default (path: string) => getTree(path)
 			filterFn = filter.type === "users" ? users(filter.names) : filter.type === "groups" ? groups(filter.names) : all;
 
 		rules[0] = {
-			"BackupType": BackupWarn,
+			"BackupType": BackupType.BackupWarn,
 			"Metadata": "",
 			"Match": "*",
 			"dir": ""

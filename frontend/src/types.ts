@@ -1,3 +1,5 @@
+import { BackupType } from "./consts.js";
+
 export type Stats = {
 	ID: number;
 	Name: string;
@@ -31,8 +33,6 @@ export type DirectoryRules = {
 	ClaimedBy: string;
 	Rules: Record<string, Rule>;
 };
-
-export type BackupType = -1 | 0 | 1 | 2 | 3 | 4 | 5;
 
 export type Rule = {
 	BackupType: BackupType;
@@ -69,6 +69,7 @@ export type DirectoryWithChildren = Directory & dirDetails & {
 	children: Record<string, Directory>;
 	claimedBy: string;
 	canClaim: boolean;
+	ruleSummaries: RuleSummary[];
 };
 
 export type ClaimedDir = DirSummary & {

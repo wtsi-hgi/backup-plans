@@ -1,11 +1,11 @@
-import type { BackupStatus, BackupType, ClaimedDir, DirectoryWithChildren, ReportSummary, Rule, SizeCount, SizeCountTime, Stats, UserGroups } from "./types.js";
-import type { Children, PropertiesOrChildren } from "./lib/dom.js";
+import type { BackupStatus, ClaimedDir, DirectoryWithChildren, ReportSummary, Rule, SizeCount, SizeCountTime, Stats, UserGroups } from "./types.js";
+import type { Children } from "./lib/dom.js";
 import { amendNode } from "./lib/dom.js";
 import { a, br, button, details, div, fieldset, h1, h2, input, label, legend, li, summary, table, tbody, td, th, thead, tr, ul } from "./lib/html.js";
 import { svg, title, use } from "./lib/svg.js";
 import { action, formatBytes, longAgo, secondsInWeek, setAndReturn } from "./lib/utils.js";
 import { getReportSummary } from "./rpc.js";
-import { BackupIBackup, BackupManualIBackup, BackupNone, BackupWarn, ManualBackupTypes } from "./consts.js";
+import { BackupType } from "./consts.js";
 import { render } from "./disktree.js";
 import ODS from './odf.js';
 
@@ -22,10 +22,10 @@ class Summary {
 	}
 
 	add(action: BackupType, rule: Stats) {
-		if (ManualBackupTypes.includes(action)) {
-			action = BackupManualIBackup;
+		if (action.isManual()) {
+			action = BackupType.BackupManualIBackup;
 		}
-		const sct = this.actions[action] ??= { size: 0n, count: 0n, mtime: 0 };
+		const sct = this.actions[+action] ??= { size: 0n, count: 0n, mtime: 0 };
 
 		sct.count += BigInt(rule.Files);
 		sct.size += BigInt(rule.Size);
@@ -84,13 +84,13 @@ class ParentSummary extends Summary {
 
 	section() {
 		const childrenWithBackups = Array.from(this.children.entries())
-			.filter(([path]) => summaryData.Directories[path]?.some(rid => summaryData.Rules[rid].BackupType !== BackupNone));
+			.filter(([path]) => summaryData.Directories[path]?.some(rid => summaryData.Rules[rid].BackupType !== BackupType.BackupNone));
 
 		return fieldset({
 			"data-status": this.status(),
-			"data-warn-size": (this.actions[BackupWarn]?.size ?? 0) + "",
-			"data-nobackup-size": (this.actions[BackupNone]?.size ?? 0) + "",
-			"data-backup-size": (this.actions[BackupIBackup]?.size ?? 0) + "",
+			"data-warn-size": (this.actions[+BackupType.BackupWarn]?.size ?? 0) + "",
+			"data-nobackup-size": (this.actions[+BackupType.BackupNone]?.size ?? 0) + "",
+			"data-backup-size": (this.actions[+BackupType.BackupIBackup]?.size ?? 0) + "",
 			"data-name": this.path
 		}, [
 			legend(h1([
@@ -108,7 +108,7 @@ class ParentSummary extends Summary {
 			])),
 			ul([
 				this.backupStatus ? li("Requester: " + this.backupStatus.Requester) : [],
-				this.actions[BackupIBackup]?.mtime ? li("Last Activity in Backed-up Set: " + longAgo(this.actions[BackupIBackup]?.mtime ?? 0)) : [],
+				this.actions[+BackupType.BackupIBackup]?.mtime ? li("Last Activity in Backed-up Set: " + longAgo(this.actions[+BackupType.BackupIBackup]?.mtime ?? 0)) : [],
 				li("Last Activity: " + (this.lastestMTime ? longAgo(this.lastestMTime) : "--none--"))
 			]),
 			this.table(),
@@ -145,12 +145,12 @@ class ParentSummary extends Summary {
 
 	status() {
 		const now = (+new Date()) / 1000,
-			backupTime = this.actions[BackupIBackup]?.mtime ?? 0,
+			backupTime = this.actions[+BackupType.BackupIBackup]?.mtime ?? 0,
 			lastActivity = Math.max(now - this.lastestMTime, 0),
 			lastBackupActivity = Math.max(now - backupTime),
 			dt = lastBackupActivity - lastActivity;
 
-		return ((this.actions[BackupNone]?.count ?? 0n) !== this.count) ? dt < secondsInWeek ? "g" : dt < secondsInWeek * 3 ? "a" : "r" : "b"
+		return ((this.actions[+BackupType.BackupNone]?.count ?? 0n) !== this.count) ? dt < secondsInWeek ? "g" : dt < secondsInWeek * 3 ? "a" : "r" : "b"
 	}
 }
 
@@ -165,8 +165,8 @@ class ChildSummary extends Summary {
 	}
 
 	addRule(match: string, action: BackupType, rule: Stats) {
-		if (ManualBackupTypes.includes(action)) {
-			action = BackupManualIBackup;
+		if (action.isManual()) {
+			action = BackupType.BackupManualIBackup;
 		}
 		const r = this.rules.get(match) ?? setAndReturn(this.rules, match, { size: 0n, count: 0n, action });
 
@@ -182,7 +182,7 @@ class ChildSummary extends Summary {
 		tables.push(this.table());
 
 		const validRules = Array.from(this.rules.entries())
-			.filter(([_, rule]) => rule && rule.action !== -1);
+			.filter(([_, rule]) => rule && rule.action !== BackupType.BackupWarn);
 
 		// Only show extra table if there are rules to show
 		if (validRules.length === 0) {
@@ -272,11 +272,15 @@ getReportSummary().then(data => {
 		sortNoBackupSize = input({ "id": "sortNoBackupSize", "name": "sort", "type": "radio" }),
 		sortBackupSize = input({ "id": "sortBackupSize", "name": "sort", "type": "radio" });
 
+	for (const rule of Object.values(data.Rules)) {
+		rule.BackupType = BackupType.from(rule.BackupType);
+	}
+
 	for (const [dir, summary] of Object.entries(data.Summaries)) {
 		const dirSummary = new ParentSummary(dir, summary.Group, data.BackupStatus[dir]);
 
 		for (const rule of summary.RuleSummaries) {
-			const ruleType = data.Rules[rule.ID]?.BackupType ?? -1;
+			const ruleType = data.Rules[rule.ID]?.BackupType ?? BackupType.BackupWarn;
 
 			for (const user of rule.Users) {
 				overall.add(ruleType, user);
@@ -289,7 +293,7 @@ getReportSummary().then(data => {
 
 			for (const id of rules) {
 				for (const stats of summary.RuleSummaries.find(v => v.ID === id)?.Users ?? []) {
-					dirSummary.addChild(child, data.Rules[id] ?? { BackupType: -1, Match: "" }, stats, child === dir ? summary.ClaimedBy : childSummary.ClaimedBy ?? "", data.BackupStatus[child]);
+					dirSummary.addChild(child, data.Rules[id] ?? { BackupType: BackupType.BackupWarn, Match: "" }, stats, child === dir ? summary.ClaimedBy : childSummary.ClaimedBy ?? "", data.BackupStatus[child]);
 				}
 			}
 		}
@@ -327,9 +331,9 @@ getReportSummary().then(data => {
 					"Path": s.path,
 					"Group": s.group,
 					"Status": s.status(),
-					"Unplanned": s.actions[BackupWarn]?.size ?? 0n,
-					"NoBackup": s.actions[BackupNone]?.size ?? 0n,
-					"Backup": s.actions[BackupIBackup]?.size ?? 0n,
+					"Unplanned": s.actions[+BackupType.BackupWarn]?.size ?? 0n,
+					"NoBackup": s.actions[+BackupType.BackupNone]?.size ?? 0n,
+					"Backup": s.actions[+BackupType.BackupIBackup]?.size ?? 0n,
 					"ManualBackup": getManualSize(s)
 				})));
 
@@ -360,5 +364,5 @@ export default Object.assign(base, {
 });
 
 function getManualSize(s: ParentSummary) {
-	return ManualBackupTypes.reduce((total, backup) => total + (s.actions[backup]?.size ?? 0n), 0n);
+	return BackupType.manual.reduce((total, backup) => total + (s.actions[+backup]?.size ?? 0n), 0n);
 }
