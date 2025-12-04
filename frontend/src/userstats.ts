@@ -1,5 +1,6 @@
 import { clearNode } from './lib/dom.js';
 import { table, tbody, td, th, thead, tr, div } from './lib/html.js';
+import { formatBytes } from './lib/utils.js';
 import type { DirectoryWithChildren, SizeCountStats } from './types.js';
 
 const base = tbody();
@@ -26,9 +27,9 @@ export default Object.assign(container, {
         clearNode(base, Array.from(userStats).map(([user, SizeCountStats]) => {
             return tr({}, [
                 td(user),
-                td(SizeCountStats.size.toLocaleString()), // TODO: Where are the units? what if the size is given in different units? does this happen?
+                td({ "title": SizeCountStats.size.toLocaleString() }, formatBytes(SizeCountStats.size)),
                 td(SizeCountStats.count.toLocaleString()),
-                td(SizeCountStats.unplannedSize.toLocaleString()),
+                td({ "title": SizeCountStats.unplannedSize.toLocaleString() }, formatBytes(SizeCountStats.unplannedSize)),
                 td(SizeCountStats.unplannedCount.toLocaleString())
             ])
         }))
@@ -38,6 +39,7 @@ export default Object.assign(container, {
 const userStats = new Map<string, SizeCountStats>();
 
 function calculateUserStats(dir: DirectoryWithChildren) {
+    userStats.clear()
     for (const element of dir.ruleSummaries) {
         for (const user of element.Users) {
             const ustats = userStats.get(user.Name);
