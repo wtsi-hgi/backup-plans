@@ -36,9 +36,7 @@ export default Object.assign(container, {
 	}
 });
 
-const resizeObserver = new ResizeObserver(() => {
-	updateScrollWidth();
-});
+const resizeObserver = new ResizeObserver(updateScrollWidth);
 resizeObserver.observe(container);
 
 function isNumber(n: string): boolean {

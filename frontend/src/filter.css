@@ -6,8 +6,6 @@
 	border-bottom-left-radius: 1em;
 	margin-left: 1em;
 	align-self: stretch;
-	--tabSelectedBG: var(--subtleBG);
-	--background: var(--subtleBG);
 	overflow: hidden;
 	width: 2em;
 }
@@ -25,6 +23,7 @@ fieldset {
 }
 
 #filter>summary,
+#userStats>summary,
 #treeOptions>summary {
 	list-style: none;
 	text-align: center;

@@ -1,0 +1,27 @@
+#userStats summary {
+    list-style: none;
+}
+
+#userStats table {
+    width: 50vw !important;
+    margin: 2em;
+}
+
+#userStats td {
+    background-color: var(--background);
+}
+
+#userStats {
+    border: 1px solid var(--tableBorder);
+    background-color: var(--subtleBG);
+    border-bottom-left-radius: 1em;
+    border-bottom-right-radius: 1em;
+    margin-top: -1px;
+    margin-left: calc(3em - 1px);
+    box-sizing: border-box;
+    width: calc(100vw - 7em + 1px);
+}
+
+#dirlistTab[open]~#userStats {
+    width: calc(100vw - 5em + 1px);
+}

@@ -27,7 +27,6 @@ const claimedByCell = td(),
 	]),
 	base = div([
 		summaryTable,
-		UserStats
 	]),
 	setSummary = (action: SizeCountTime, count: Element, size: Element) => {
 		clearNode(count, action?.count?.toLocaleString() ?? "0");
@@ -36,7 +35,6 @@ const claimedByCell = td(),
 
 export default Object.assign(base, {
 	"update": (path: string, data: DirectoryWithChildren, load: (path: string) => void) => {
-		UserStats.update(path, data, load);
 		clearNode(claimedByCell, data.claimedBy ?
 			[data.claimedBy, data.claimedBy === user ? data.rules[path]?.length ?
 				button({

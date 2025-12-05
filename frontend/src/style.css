@@ -4,6 +4,7 @@
 @import url("report.css");
 @import url("rules.css");
 @import url("summary.css");
+@import url("userstats.css");
 
 html,
 body {
@@ -142,6 +143,7 @@ input[type="checkbox"] {
 }
 
 .prettyTableContainer {
+	/* min-height:  ; */
 	max-height: 80vh;
 	overflow-y: auto;
 	overflow-x: hidden;
@@ -256,6 +258,7 @@ input[type="checkbox"] {
 	border-left: 0;
 	border-top-left-radius: 0;
 	border-bottom-left-radius: 0;
+	border-bottom-right-radius: 0;
 	width: calc(100vw - 200px - 3em - var(--scrollwidth, 0));
 }
 

@@ -8,6 +8,7 @@ import Report from './report.js';
 import Rules from './rules.js';
 import RuleTree from './ruletree.js';
 import Summary from './summary.js';
+import UserStats from './userstats.js';
 import { symbols } from './symbols.js';
 import { getUserGroups } from './rpc.js';
 
@@ -19,6 +20,7 @@ const load = (path: string) => Load(path).then(data => {
 	Summary.update(path, data, load);
 	Rules.update(path, data, load);
 	RuleTree.update(path, data, load);
+	UserStats.update(path, data, load);
 
 	return data;
 });
@@ -43,10 +45,11 @@ const load = (path: string) => Load(path).then(data => {
 							summary("Directory Tree"),
 							DiskTree
 						]),
-						details({ "name": "dirtabs" }, [
+						details({ "id": "dirlistTab", "name": "dirtabs" }, [
 							summary("Directory List"),
 							List
-						])
+						]),
+						UserStats
 					]),
 					Summary,
 					Rules,
