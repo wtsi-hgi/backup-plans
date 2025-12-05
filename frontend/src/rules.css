@@ -57,7 +57,8 @@ button.actionButton svg {
 	background-color: var(--tableHoverBG);
 }
 
-details.rule-section>summary::marker {
+details.rule-section>summary:before {
+	display: inline-block;
 	content: "+";
 	text-align: center;
 	font-weight: bold;
@@ -69,7 +70,7 @@ details.rule-section>summary::marker {
 	transition: color 0.15s ease;
 }
 
-details[open].rule-section>summary::marker {
+details[open].rule-section>summary:before {
 	content: "–";
 }
 
@@ -143,7 +144,7 @@ details.rule-section>summary:not(:has(button:hover)):hover::marker {
 	color: var(--action-ibackup-text);
 }
 
-.rule-badge .action-pill[data-action="Manual Backup"] {
+.rule-badge .action-pill {
 	background-color: var(--action-manual-bg);
 	color: var(--action-manual-text);
 }
