@@ -16,7 +16,7 @@ const container = div({ class: "prettyTableContainer" }, [
 			th("Last Modified")
 		])),
 		base
-	]),
+	])
 ]);
 
 export default Object.assign(container, {
@@ -31,7 +31,7 @@ export default Object.assign(container, {
 					"style": child.unauthorised ? "cursor: not-allowed;" : "",
 					"click": () => child.unauthorised || load(path + name),
 					"mouseover": () => onHover(name),
-					"mouseout": onmouseout ?? (() => onHover("")),
+					"mouseout": () => onHover(""),
 				},
 				[
 					td(name),

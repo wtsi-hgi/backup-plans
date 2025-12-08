@@ -24,15 +24,12 @@ const claimedByCell = td(),
 			tr([th("File size"), totalSize, warnSize, nobackupSize, backupSize, manualBackupSize])
 		])
 	]),
-	base = div([
-		summaryTable,
-	]),
 	setSummary = (action: SizeCountTime, count: Element, size: Element) => {
 		clearNode(count, action?.count?.toLocaleString() ?? "0");
 		clearNode(size, { "title": (action?.size ?? 0).toLocaleString() }, formatBytes(action?.size ?? 0));
 	};
 
-export default Object.assign(base, {
+export default Object.assign(summaryTable, {
 	"update": (path: string, data: DirectoryWithChildren, load: (path: string) => void) => {
 		clearNode(claimedByCell, data.claimedBy ?
 			[data.claimedBy, data.claimedBy === user ? data.rules[path]?.length ?

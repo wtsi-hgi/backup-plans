@@ -35,13 +35,13 @@ export const onHover = (child: string) => {
 const updateChild = (data: ChildDirectory) => {
     const userStats = calculateUserStats(data);
 
-    clearNode(base, userStats.size > 0 ? Array.from(userStats).sort().map(([user, SizeCountStats]) => {
+    clearNode(base, userStats.size > 0 ? Array.from(userStats).sort().map(([user, sizeCountStats]) => {
         return tr([
             td(user),
-            td({ "title": SizeCountStats.size.toLocaleString() }, formatBytes(SizeCountStats.size)),
-            td(SizeCountStats.count.toLocaleString()),
-            td({ "title": SizeCountStats.unplannedSize.toLocaleString() }, formatBytes(SizeCountStats.unplannedSize)),
-            td(SizeCountStats.unplannedCount.toLocaleString())
+            td({ "title": sizeCountStats.size.toLocaleString() }, formatBytes(sizeCountStats.size)),
+            td(sizeCountStats.count.toLocaleString()),
+            td({ "title": sizeCountStats.unplannedSize.toLocaleString() }, formatBytes(sizeCountStats.unplannedSize)),
+            td(sizeCountStats.unplannedCount.toLocaleString())
         ])
     }) : tr(td({ "colspan": "5" }, "No files")));
 },
