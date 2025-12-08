@@ -1,7 +1,9 @@
+import data from './data.js';
+import { filter } from './filter.js';
 import { clearNode } from './lib/dom.js';
 import { table, tbody, td, th, thead, tr, div, details, summary } from './lib/html.js';
 import { formatBytes, setAndReturn } from './lib/utils.js';
-import type { DirectoryWithChildren, SizeCountStats } from './types.js';
+import type { ChildDirectory, Directory, DirectoryWithChildren, SizeCountStats } from './types.js';
 
 const base = tbody();
 
@@ -19,27 +21,49 @@ const container = details({ "id": "userStats" }, [
     ])
 ]);
 
-export default Object.assign(container, {
-    "update": (_: string, data: DirectoryWithChildren, load: (path: string) => void) => {
-        const userStats = calculateUserStats(data);
+let gdata: DirectoryWithChildren;
 
-        clearNode(base, userStats.size > 0 ? Array.from(userStats).map(([user, SizeCountStats]) => {
-            return tr([
-                td(user),
-                td({ "title": SizeCountStats.size.toLocaleString() }, formatBytes(SizeCountStats.size)),
-                td(SizeCountStats.count.toLocaleString()),
-                td({ "title": SizeCountStats.unplannedSize.toLocaleString() }, formatBytes(SizeCountStats.unplannedSize)),
-                td(SizeCountStats.unplannedCount.toLocaleString())
-            ])
-        }) : tr(td({ "colspan": "5" }, "No files")));
+export const diskTreeHover = (child: string) => {
+    if (child === "") {
+        updateChild(gdata);
+
+        return;
     }
-});
 
-function calculateUserStats(dir: DirectoryWithChildren) {
+    updateChild(gdata.children[child]);
+}
+
+const updateChild = (data: ChildDirectory) => {
+    const userStats = calculateUserStats(data);
+
+    clearNode(base, userStats.size > 0 ? Array.from(userStats).map(([user, SizeCountStats]) => {
+        return tr([
+            td(user),
+            td({ "title": SizeCountStats.size.toLocaleString() }, formatBytes(SizeCountStats.size)),
+            td(SizeCountStats.count.toLocaleString()),
+            td({ "title": SizeCountStats.unplannedSize.toLocaleString() }, formatBytes(SizeCountStats.unplannedSize)),
+            td(SizeCountStats.unplannedCount.toLocaleString())
+        ])
+    }) : tr(td({ "colspan": "5" }, "No files")));
+},
+    update = (_: string, data: DirectoryWithChildren, _load: (path: string) => void) => {
+        gdata = data;
+
+        updateChild(data);
+    };
+
+export default Object.assign(container, { update });
+
+function calculateUserStats(dir: ChildDirectory) {
     const userStats = new Map<string, SizeCountStats>();
 
     for (const rule of dir.ruleSummaries) {
         for (const user of rule.Users) {
+            if (filter["type"] === "users" && !filter["names"].includes(user.Name)) {
+                console.log("Username: ", user.Name, "is not in: ", filter["type"]);
+                continue;
+            }
+
             const ustats = userStats.get(user.Name) ?? setAndReturn(userStats, user.Name, { size: 0n, count: 0n, unplannedSize: 0n, unplannedCount: 0n });
 
             if (rule.ID === 0) {

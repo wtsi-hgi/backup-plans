@@ -70,12 +70,15 @@ export type Directory = SizeCountTime & {
 	unauthorised: boolean;
 };
 
-export type DirectoryWithChildren = Directory & dirDetails & {
-	children: Record<string, Directory>;
+export type DirectoryWithChildren = ChildDirectory & dirDetails & {
+	children: Record<string, ChildDirectory>;
 	claimedBy: string;
 	canClaim: boolean;
-	ruleSummaries: RuleSummary[];
 };
+
+export type ChildDirectory = Directory & {
+	ruleSummaries: RuleSummary[];
+}
 
 export type ClaimedDir = DirSummary & {
 	User: string;
