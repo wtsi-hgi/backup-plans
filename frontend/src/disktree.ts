@@ -4,7 +4,7 @@ import { clearNode } from './lib/dom.js';
 import { br, details, div, label, option, select, summary } from './lib/html.js';
 import { rect, svg, text, use } from './lib/svg.js';
 import { BackupType } from './consts.js';
-import UserStats, { diskTreeHover } from './userstats.js';
+import { diskTreeHover } from './userstats.js';
 
 export type Entry = {
 	name: string;

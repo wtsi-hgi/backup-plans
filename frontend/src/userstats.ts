@@ -1,9 +1,8 @@
-import data from './data.js';
 import { filter } from './filter.js';
 import { clearNode } from './lib/dom.js';
-import { table, tbody, td, th, thead, tr, div, details, summary } from './lib/html.js';
+import { table, tbody, td, th, thead, tr, details, summary } from './lib/html.js';
 import { formatBytes, setAndReturn } from './lib/utils.js';
-import type { ChildDirectory, Directory, DirectoryWithChildren, SizeCountStats } from './types.js';
+import type { ChildDirectory, DirectoryWithChildren, SizeCountStats } from './types.js';
 
 const base = tbody();
 
@@ -36,7 +35,7 @@ export const diskTreeHover = (child: string) => {
 const updateChild = (data: ChildDirectory) => {
     const userStats = calculateUserStats(data);
 
-    clearNode(base, userStats.size > 0 ? Array.from(userStats).map(([user, SizeCountStats]) => {
+    clearNode(base, userStats.size > 0 ? Array.from(userStats).sort().map(([user, SizeCountStats]) => {
         return tr([
             td(user),
             td({ "title": SizeCountStats.size.toLocaleString() }, formatBytes(SizeCountStats.size)),
@@ -60,7 +59,6 @@ function calculateUserStats(dir: ChildDirectory) {
     for (const rule of dir.ruleSummaries) {
         for (const user of rule.Users) {
             if (filter["type"] === "users" && !filter["names"].includes(user.Name)) {
-                console.log("Username: ", user.Name, "is not in: ", filter["type"]);
                 continue;
             }
 

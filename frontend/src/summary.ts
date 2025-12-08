@@ -5,7 +5,6 @@ import { svg, title, use } from "./lib/svg.js";
 import { confirm, formatBytes } from "./lib/utils.js";
 import { claimDir, passDirClaim, revokeDirClaim, user } from "./rpc.js";
 import { BackupType } from './consts.js';
-import UserStats from './userstats.js';
 
 const claimedByCell = td(),
 	totalCount = td(),
