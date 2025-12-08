@@ -517,6 +517,10 @@ func getRuleDetails(r *http.Request) (*db.Rule, error) { //nolint:cyclop,gocyclo
 		return nil, ErrInvalidMatch
 	}
 
+	if strings.HasSuffix(rule.Match, "/") {
+		rule.Match += "*"
+	}
+
 	return rule, nil
 }
 
