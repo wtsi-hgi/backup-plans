@@ -143,7 +143,6 @@ input[type="checkbox"] {
 }
 
 .prettyTableContainer {
-	/* min-height:  ; */
 	max-height: 80vh;
 	overflow-y: auto;
 	overflow-x: hidden;

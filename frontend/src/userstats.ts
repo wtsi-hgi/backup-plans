@@ -14,7 +14,7 @@ const container = details({ "id": "userStats" }, [
             th("Total file Size"),
             th("Total file Count"),
             th("Unplanned Size"),
-            th("Unplanned count")
+            th("Unplanned Count")
         ])),
         base
     ])
@@ -23,7 +23,6 @@ const container = details({ "id": "userStats" }, [
 let gdata: DirectoryWithChildren;
 
 export const onHover = (child: string) => {
-    console.log("onHover", child);
     if (child === "") {
         updateChild(gdata);
 

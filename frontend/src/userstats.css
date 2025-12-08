@@ -3,12 +3,16 @@
 }
 
 #userStats table {
-    width: 50vw !important;
-    margin: 2em;
+    min-width: 5vw !important;
+    word-break: break-all;
 }
 
 #userStats td {
     background-color: var(--background);
+}
+
+#userStats th {
+    padding: min(14px, 1vw);
 }
 
 #userStats {
