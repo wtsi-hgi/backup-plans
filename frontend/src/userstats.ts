@@ -22,7 +22,8 @@ const container = details({ "id": "userStats" }, [
 
 let gdata: DirectoryWithChildren;
 
-export const diskTreeHover = (child: string) => {
+export const onHover = (child: string) => {
+    console.log("onHover", child);
     if (child === "") {
         updateChild(gdata);
 

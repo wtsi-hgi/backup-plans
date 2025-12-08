@@ -4,7 +4,7 @@ import { clearNode } from './lib/dom.js';
 import { br, details, div, label, option, select, summary } from './lib/html.js';
 import { rect, svg, text, use } from './lib/svg.js';
 import { BackupType } from './consts.js';
-import { diskTreeHover } from './userstats.js';
+import { onHover } from './userstats.js';
 
 export type Entry = {
 	name: string;
@@ -295,14 +295,14 @@ export default Object.assign(base, {
 				"value": areaFns[areaFn](child),
 				"backgroundColour": colourFns[colourFn](child) + "",
 				"onclick": child.unauthorised ? undefined : () => load(path + dir),
-				"onmouseover": () => diskTreeHover(dir),
+				"onmouseover": () => onHover(dir),
 				"noauth": child.unauthorised
 			})
 		}
 
 		entries.sort((a, b) => b.value - a.value);
 
-		render = () => clearNode(svgBase, buildTreeMap(entries, lastWidth = svgBase.clientWidth || lastWidth, lastHeight = svgBase.clientHeight || lastHeight, data.unauthorised, () => diskTreeHover("")));
+		render = () => clearNode(svgBase, buildTreeMap(entries, lastWidth = svgBase.clientWidth || lastWidth, lastHeight = svgBase.clientHeight || lastHeight, data.unauthorised, () => onHover("")));
 
 		render();
 
