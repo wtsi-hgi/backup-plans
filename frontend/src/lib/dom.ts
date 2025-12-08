@@ -1,13 +1,13 @@
 export type Children = string | Element | DocumentFragment | Children[];
 
-export type Properties = Record<string, string | Function>;
+export type Properties = Record<string, string | Function | boolean>;
 
 export type PropertiesOrChildren = Properties | Children;
 
 export const amendNode = (node: Element, propertiesOrChildren: PropertiesOrChildren, children?: Children) => {
 	const [p, c] = typeof propertiesOrChildren === "string" || propertiesOrChildren instanceof Node || propertiesOrChildren instanceof Array ? [{}, propertiesOrChildren] : [propertiesOrChildren, children ?? []];
 
-	Object.entries(p).forEach(([key, value]) => node[value instanceof Function ? "addEventListener" : "setAttribute"](key, value as any));
+	Object.entries(p).forEach(([key, value]) => node[value instanceof Function ? "addEventListener" : typeof value === "string" ? "setAttribute" : "toggleAttribute"](key, value as never));
 	node.append(...[c as Element].flat(Infinity));
 
 	return node;

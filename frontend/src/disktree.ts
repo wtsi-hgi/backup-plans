@@ -3,7 +3,7 @@ import type { Children } from './lib/dom.js';
 import { clearNode } from './lib/dom.js';
 import { br, details, div, label, option, select, summary } from './lib/html.js';
 import { rect, svg, text, use } from './lib/svg.js';
-import { BackupIBackup, BackupNone, BackupWarn } from './consts.js';
+import { BackupType } from './consts.js';
 
 
 export type Entry = {
@@ -214,21 +214,21 @@ const phi = (1 + Math.sqrt(5)) / 2,
 	},
 	secondsInSevenYears = 7 * 365 * 86400,
 	colourFns = [
-		(dir: Directory) => dir.size ? 100 * Number(dir.size - (dir.actions[BackupWarn]?.size ?? 0n)) / Number(dir.size) : 100,
-		(dir: Directory) => dir.count ? 100 * Number(dir.count - (dir.actions[BackupWarn]?.count ?? 0n)) / Number(dir.count) : 100,
-		(dir: Directory) => dir.size ? 100 * Number(dir.actions[BackupIBackup]?.size ?? 0n) / Number(dir.size) : 100,
-		(dir: Directory) => dir.count ? 100 * Number(dir.actions[BackupIBackup]?.count ?? 0n) / Number(dir.count) : 100,
-		(dir: Directory) => dir.size ? 100 * Number(dir.actions[BackupNone]?.size ?? 0n) / Number(dir.size) : 100,
-		(dir: Directory) => dir.count ? 100 * Number(dir.actions[BackupNone]?.count ?? 0n) / Number(dir.count) : 100,
+		(dir: Directory) => dir.size ? 100 * Number(dir.size - (dir.actions[+BackupType.BackupWarn]?.size ?? 0n)) / Number(dir.size) : 100,
+		(dir: Directory) => dir.count ? 100 * Number(dir.count - (dir.actions[+BackupType.BackupWarn]?.count ?? 0n)) / Number(dir.count) : 100,
+		(dir: Directory) => dir.size ? 100 * Number(dir.actions[+BackupType.BackupIBackup]?.size ?? 0n) / Number(dir.size) : 100,
+		(dir: Directory) => dir.count ? 100 * Number(dir.actions[+BackupType.BackupIBackup]?.count ?? 0n) / Number(dir.count) : 100,
+		(dir: Directory) => dir.size ? 100 * Number(dir.actions[+BackupType.BackupNone]?.size ?? 0n) / Number(dir.size) : 100,
+		(dir: Directory) => dir.count ? 100 * Number(dir.actions[+BackupType.BackupNone]?.count ?? 0n) / Number(dir.count) : 100,
 		(dir: Directory) => Math.max(0, Math.min(100, 100 * (dir.mtime - (+new Date() / 1000) + secondsInSevenYears) / secondsInSevenYears))
 	],
 	areaFns = [
-		(dir: Directory) => Number(dir.actions[BackupWarn]?.size ?? 0),
-		(dir: Directory) => Number(dir.actions[BackupWarn]?.count ?? 0),
-		(dir: Directory) => Number(dir.actions[BackupIBackup]?.size ?? 0),
-		(dir: Directory) => Number(dir.actions[BackupIBackup]?.count ?? 0),
-		(dir: Directory) => Number(dir.actions[BackupNone]?.size ?? 0),
-		(dir: Directory) => Number(dir.actions[BackupNone]?.count ?? 0),
+		(dir: Directory) => Number(dir.actions[+BackupType.BackupWarn]?.size ?? 0),
+		(dir: Directory) => Number(dir.actions[+BackupType.BackupWarn]?.count ?? 0),
+		(dir: Directory) => Number(dir.actions[+BackupType.BackupIBackup]?.size ?? 0),
+		(dir: Directory) => Number(dir.actions[+BackupType.BackupIBackup]?.count ?? 0),
+		(dir: Directory) => Number(dir.actions[+BackupType.BackupNone]?.size ?? 0),
+		(dir: Directory) => Number(dir.actions[+BackupType.BackupNone]?.count ?? 0),
 		(dir: Directory) => Number(dir.size),
 		(dir: Directory) => Number(dir.count)
 	],

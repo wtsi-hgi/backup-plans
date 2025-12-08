@@ -157,11 +157,9 @@ func (s *Server) setExists(w http.ResponseWriter, r *http.Request) error {
 
 	got, err := s.cache.GetBackupActivity(dir, setName, user)
 	if err != nil {
-		if err.Error() == "set with that id does not exist" {
-			return nil
+		if err.Error() != "set with that id does not exist" {
+			return err
 		}
-
-		return err
 	}
 
 	w.Header().Set("Content-type", "application/json")

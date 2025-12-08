@@ -310,3 +310,7 @@ dialog {
 	border-radius: 0.7em;
 	border-color: var(--subtleBorder);
 }
+
+select:not(:has(option:checked[value="backup"])):not(:has(option:checked[value="nobackup"]))~#metadataInput {
+	display: unset;
+}
