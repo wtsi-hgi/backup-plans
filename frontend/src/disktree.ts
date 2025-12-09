@@ -292,7 +292,7 @@ export default Object.assign(base, {
 		for (const [dir, child] of Object.entries(data.children)) {
 			entries.push({
 				"name": dir.replace("/", ""),
-				"value": Math.max(areaFns[areaFn](child), 0.0001),
+				"value": areaFns[areaFn](child),
 				"backgroundColour": colourFns[colourFn](child) + "",
 				"onclick": child.unauthorised ? undefined : () => load(path + dir),
 				"onmouseover": () => { },
