@@ -803,19 +803,19 @@ frontend synthesizes a pseudo-rule with `BackupType = BackupWarn` for display.
 - [ ] Test rule CRUD operations with <1s UI refresh
 - [ ] Test FOFN upload with batch rule creation
 
-**Affected API endpoints (all must continue working unchanged):**
-- `POST /api/claimdir` - claim a directory
-- `POST /api/passdir` - pass claim to another user  
-- `POST /api/revokedir` - remove claim from directory
-- `POST /api/setdir` - set directory frequency/review/remove dates
-- `POST /api/createrule` - create rule on claimed directory
-- `POST /api/updaterule` - update existing rule
-- `POST /api/removerule` - remove rule
-- `POST /api/fofn` - bulk create rules from file list
-- `POST /api/directories` - check if paths are directories
+**Affected API endpoints (paths/methods must remain exactly as today):**
 - `GET /api/tree` - get directory tree with rule summaries
-- `GET /api/summary` - get report summary for all report roots
+- `GET /api/report/summary` - get report summary for all report roots
 - `GET /api/usergroups` - get all users/groups/owners/BOM
+- `GET /api/dir/claim` - claim a directory
+- `GET /api/dir/pass` - pass claim to another user  
+- `GET /api/dir/revoke` - remove claim from directory
+- `GET /api/dir/setdetails` - set directory frequency/review/remove dates
+- `GET /api/rules/create` - create rule on claimed directory
+- `GET /api/rules/update` - update existing rule
+- `GET /api/rules/remove` - remove rule
+- `GET /api/uploadfofn` - bulk create rules from file list (FOFN)
+- `POST /api/getDirectories` - check if paths are directories
 
 ### Phase 5: Backup Command
 - [ ] Implement ClickHouse-based file enumeration in `backups/` package
