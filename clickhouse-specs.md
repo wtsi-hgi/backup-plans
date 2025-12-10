@@ -49,9 +49,11 @@ CREATE TABLE rules (
 
 ### 1.2. Match Constraints
 
-- Must contain `*` (wildcard)
-- Must NOT contain `/` (filename-only patterns)
-- `*` matches recursively into subdirectories (via `group.StateMachine`)
+- UI-created rules (`CreateRule`/`UpdateRule`) must contain `*` (wildcard)
+- Rules must NOT contain `/` in `match` (filename-only patterns; the directory path is stored separately)
+- FOFN-imported rules are allowed to be exact filenames (no `*`) for individual paths
+- In all cases `match` is interpreted relative to the directory; the effective pattern the matcher sees is `dir.Path + match`
+- `*` currently matches recursively into subdirectories (via `group.StateMachine`)
 
 ### 1.3. Effective Rule Determination
 
@@ -90,7 +92,11 @@ ALTER TABLE rules ADD COLUMN priority  TINYINT NOT NULL DEFAULT 0;
 - `priority = 1`: Non-overridable (takes precedence even if child rules exist)
 
 **Migration:** Existing rules get `recursive = 1, priority = 0` to preserve behavior.
-The state machine builder must be updated to respect these flags.
+The state machine builder must be updated to respect these flags:
+
+- First resolve by `priority` (1 before 0)
+- Then apply the existing "most specific directory path wins" rule among matches of the same priority
+- `recursive = 0` patterns must *not* match descendants; the UI can expose this as `*` vs `**` semantics.
 
 ---
 
@@ -126,6 +132,13 @@ CREATE TABLE fs_files (
 PARTITION BY (fs_root, snapshot_id)
 ORDER BY (fs_root, snapshot_id, dir_path, name);
 ```
+
+**Path conventions:**
+
+- `fs_root` is the logical filesystem root as seen by the UI, e.g. `/lustre/scratch/`
+- `dir_path` is the path *relative* to `fs_root`, always starting and ending with `/`, e.g. `/project1/foo/`
+- The full absolute path used for rule matching is `fs_root || dir_path[2:] || name`
+- Plan DB directory paths (`directories.directory`) use the same absolute-path format so that `dir.Path + rule.Match` aligns with the ClickHouse paths
 
 **Storage estimate for 1.3B files:**
 - Average row: ~150 bytes (paths dominate)
@@ -219,7 +232,10 @@ The backend Server maintains these structures for fast `/api/tree` responses:
 
 - **`dirSummaries map[string]*DirSummary`** - Recursive stats per directory,
   built by walking `fs_dir_stats` and applying the state machine. Each summary
-  contains per-rule aggregates broken down by user/group.
+    contains per-rule aggregates broken down by user/group. The structure is
+    intentionally compatible with the existing `ruletree.DirSummary` so that
+    `/api/tree`, `/api/report/summary`, and `/api/usergroups` can keep their
+    JSON shapes unchanged.
 
 ### 4.2. Building Aggregates
 
@@ -232,20 +248,35 @@ At startup or when a new snapshot becomes current:
 2. **Query `fs_dir_stats`** ordered by `dir_path`. The ordering ensures we
    process directories in tree order (parents before deeply nested children).
 
-3. **For each directory row**, use the state machine to determine which rule
-   applies to files in that directory. The state machine is evaluated with
-   the directory path to get the effective rule.
+3. **For each `(dir_path, uid, gid)` row**, use the state machine to
+    determine which rule applies to files in that directory. The state machine
+    is evaluated with the full path prefix (`fs_root + dir_path`) to get the
+    effective rule.
 
-4. **Aggregate upward**: Add each directory's stats to all its ancestors.
-   Maintain a stack of ancestor builders; when the path prefix changes,
-   pop and finalize completed directories.
+4. **Populate `DirSummary` for that directory**:
+    - Look up/create `DirSummary` for `fs_root + dir_path`
+    - For the winning rule ID, update `RuleSummaries[ruleID].Users[uid]` and
+      `RuleSummaries[ruleID].Groups[gid]` (files, size, mtime)
+
+5. **Aggregate upward**: Add each directory's per-rule stats into all of its
+    ancestors (same rule IDs). Maintain a stack of ancestor builders; when the
+    path prefix changes, pop and finalize completed directories.
 
 **Performance:** ~2-5 min for 50M aggregated rows, depending on rule count
 and tree depth.
 
 ### 4.3. `/api/tree` Implementation
 
-Pure memory lookup + JSON serialization. **Latency:** < 10ms
+Pure memory lookup + JSON serialization from `dirSummaries` and
+`directoryRules` (plan DB). **Latency:** < 10ms.
+
+The handler must continue to return the existing `Tree` JSON structure
+(`frontend/src/types.ts`):
+
+- `RuleSummaries` and `Children` from `DirSummary`
+- `ClaimedBy`, `Rules[dir]`, and directory details (`Frequency`, `ReviewDate`,
+  `RemoveDate`) from the plan DB
+- `Unauthorised` and `CanClaim` computed using UID/GID and group membership
 
 ### 4.4. Incremental Updates
 
@@ -269,6 +300,23 @@ On rule create/update/remove:
 
 **Latency:** < 100ms for small directories, 1-5s for large project roots
 (100K+ subdirectories).
+
+### 4.5. Exact-Path Rules at Scale
+
+To support the possibility of **millions of explicit full-path rules** while
+keeping the automaton small, split rule handling into:
+
+- **Glob rules** (with `*` in `match`): compiled into the `stateMachine`
+- **Exact rules** (no `*` in `match`): kept in an in-memory hash
+    `map[string]*db.Rule` keyed by full path (`dir.Path + match`)
+
+When assigning a rule to a `(dir_path, uid, gid)` row or individual file:
+
+1. Check the exact-rule map for that full path first
+2. If no exact rule matches, fall back to the `stateMachine`
+
+This keeps state-machine size proportional only to the number of glob-style
+rules (thousands), while still allowing millions of explicit file-path rules.
 
 ---
 
