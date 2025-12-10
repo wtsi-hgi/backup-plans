@@ -50,9 +50,12 @@ CREATE TABLE rules (
 ### 1.2. Match Constraints
 
 - UI-created rules (`CreateRule`/`UpdateRule`) must contain `*` (wildcard)
-- Rules must NOT contain `/` in `match` (filename-only patterns; the directory path is stored separately)
-- FOFN-imported rules are allowed to be exact filenames (no `*`) for individual paths
-- In all cases `match` is interpreted relative to the directory; the effective pattern the matcher sees is `dir.Path + match`
+- UI rules must NOT contain `/` in `match` (filename-only patterns; the directory path is stored separately)
+- FOFN-imported rules can be exact filenames (no `*`) for individual file paths. The FOFN
+  handler uses `splitDir()` to extract the directory portion up to the last `/` before any `*`,
+  creating/claiming intermediate directories as needed. So `/data/project/subdir/file.txt` becomes
+  `directory.path = "/data/project/subdir/"` and `rule.match = "file.txt"`.
+- In all cases `match` is interpreted relative to the directory; the effective pattern is `dir.Path + rule.Match`
 - `*` currently matches recursively into subdirectories (via `group.StateMachine`)
 
 ### 1.3. Effective Rule Determination
@@ -77,26 +80,22 @@ Files:
   /other/path/file.txt          -> rule 0 (unplanned)
 ```
 
-### 1.4. Advanced Rule Semantics (`*` vs `**` and Priority)
+### 1.4. Advanced Rule Semantics (`*` vs `**` and Non-Overridable Rules)
 
 To support `.gitignore`-style semantics and non-overridable rules, the rule schema includes:
 
 ```sql
 ALTER TABLE rules ADD COLUMN recursive TINYINT NOT NULL DEFAULT 1;
-ALTER TABLE rules ADD COLUMN priority  TINYINT NOT NULL DEFAULT 0;
+ALTER TABLE rules ADD COLUMN no_override TINYINT NOT NULL DEFAULT 0;
 ```
 
-- `recursive = 0`: `*` matches only immediate directory (non-recursive)
+- `recursive = 0`: `*` matches only files in the immediate directory (non-recursive, like shell glob)
 - `recursive = 1`: `*` matches recursively into subdirectories (current behavior, `**` equivalent)
-- `priority = 0`: Normal rule (can be overridden by child rules)
-- `priority = 1`: Non-overridable (takes precedence even if child rules exist)
+- `no_override = 0`: Normal rule (can be overridden by more-specific child rules)
+- `no_override = 1`: Non-overridable rule; implemented by automatically creating
+  identical rules for all subdirectories during aggregation
 
-**Migration:** Existing rules get `recursive = 1, priority = 0` to preserve behavior.
-The state machine builder must be updated to respect these flags:
-
-- First resolve by `priority` (1 before 0)
-- Then apply the existing "most specific directory path wins" rule among matches of the same priority
-- `recursive = 0` patterns must *not* match descendants; the UI can expose this as `*` vs `**` semantics.
+**Migration:** Existing rules get `recursive = 1, no_override = 0` to preserve behavior.
 
 **State Machine Modifications:**
 
@@ -108,16 +107,16 @@ To support non-recursive matching:
    
 2. For rules with `recursive = 1` (default, current behavior), keep `*` matching `/`.
 
-3. For `priority = 1` rules, the state machine's "most specific wins" logic must be
-   extended to check priority first. Implementation options:
-   
-   a. **Separate state machines**: Build two state machines (high/low priority),
-      check high-priority first.
-   
-   b. **Modified group resolution**: Extend `group.PathGroup` to include priority,
-      modify `GetGroup` to prefer higher priority matches.
-   
-   Option (a) is simpler and avoids modifying the external `wrstat-ui` package.
+**Non-Overridable Rules Implementation:**
+
+When building the state machine, for each rule with `no_override = 1`:
+1. Query ClickHouse for all subdirectories under the rule's directory path
+2. Add a synthetic rule entry for each subdirectory with the same match pattern
+3. These synthetic entries ensure the rule "wins" at every level since it becomes
+   the most-specific match at each directory depth
+
+This approach requires no changes to the state machine logic itself—the existing
+"most specific directory wins" semantics naturally handle it.
 
 ---
 
@@ -227,6 +226,27 @@ roots may have newer snapshots. The web server and backup command must:
 1. Query `fs_snapshots FINAL WHERE is_current = 1` to get the active snapshot per root
 2. Join or filter queries by `(fs_root, snapshot_id)` pairs from step 1
 
+### 2.6. Mapping Paths to Roots
+
+Given an absolute path, determine which `fs_root` it belongs to by finding
+the longest matching prefix from `currentSnapshots`:
+
+```go
+func (c *CHRootDir) findRoot(absPath string) (fsRoot string, snapshotID uint32, ok bool) {
+    bestLen := 0
+    for root, snapID := range c.currentSnapshots {
+        if strings.HasPrefix(absPath, root) && len(root) > bestLen {
+            fsRoot, snapshotID, bestLen = root, snapID, len(root)
+        }
+    }
+    return fsRoot, snapshotID, bestLen > 0
+}
+```
+
+This is needed because claimed directories/rules use absolute paths like
+`/lustre/scratch123/project/` and we need to know which `(fs_root, snapshot_id)`
+to query in ClickHouse.
+
 ---
 
 ## 3. Ingestion
@@ -243,6 +263,13 @@ backup-plans ch-import --stats /path/to/stats.gz --ch-dsn "clickhouse://..." [--
 2. Batch insert to `fs_files` and `fs_dirs` (flush every 100k rows)
 3. Register snapshot in `fs_snapshots`
 4. If `--mark-current`, set `is_current = 1`
+
+**Determining `fs_root`:** The stats.gz file contains paths rooted at the
+filesystem mount point (e.g., `/lustre/scratch123/`). The `fs_root` is extracted
+from the first directory path encountered. In the current `cmd/db.go`, the
+`summary.NewSummariser` processes directories depth-first; the root is the
+first `DirectoryPath` with `Parent == nil`. The `ch-import` command should
+accept `--fs-root` as an explicit override, falling back to auto-detection.
 
 **Performance Target:** < 45 min for 1.3B files total.
 **Parallelism:** Since `stats.gz` files are per-filesystem, multiple `ch-import` processes can run in parallel for different roots to maximize throughput.
@@ -277,12 +304,15 @@ At startup or when a new snapshot becomes current:
 1. **Load current snapshots** - Query `fs_snapshots FINAL WHERE is_current = 1` to get
    active `(fs_root, snapshot_id)` pairs. Store in `currentSnapshots map[string]uint32`.
 
-2. **Rebuild state machine** from plan DB rules. Each rule becomes a
+2. **Load claimed directories and rules from plan DB** - Populate `directoryRules`,
+   `dirs`, and `rules` maps exactly as `backend.Server.loadRules()` does today.
+
+3. **Rebuild state machine** from plan DB rules. Each rule becomes a
    `PathGroup{Path: dir.Path + rule.Match, Group: rule}`. The state machine
    compiles these into an automaton. Also populate `exactRules map[string]*db.Rule`
    for rules without `*` in their match pattern.
 
-3. **Single-pass aggregation over files (only where rules exist)**:
+4. **Single-pass aggregation over files (only where rules exist)**:
     First build the minimal set of directory prefixes that need summaries,
     exactly as `ruletree` does today. Aggregation must read filenames because
     rule matching is filename-sensitive; `fs_dir_stats` alone is insufficient
@@ -308,7 +338,7 @@ At startup or when a new snapshot becomes current:
             `summary.FileInfo` (as the current implementation does) and call
             `stateMachine.GetGroup` to get the winning rule (or `nil` for
             "unplanned"). This preserves the existing
-            "most specific directory path + priority" semantics.
+            "most specific directory path wins" semantics.
 
      c. Determine the directory to attribute stats to (the file's parent,
             i.e. `dir_path`) and look up/create its `DirSummary`.
@@ -333,7 +363,7 @@ At startup or when a new snapshot becomes current:
      assigned to exactly one effective rule, as it is today, and that only
      rule-relevant subtrees are read from ClickHouse.
 
-4. **Aggregate upward**: After all files have been processed, walk directories
+5. **Aggregate upward**: After all files have been processed, walk directories
     deepest-first (reverse `dir_path` order). For each directory, add its
     per-rule stats into all ancestors, mirroring the current `ruletree`
     behaviour where a rule that matches files in a subtree contributes to all
@@ -368,11 +398,15 @@ type Tree = {
 };
 ```
 
-**Authorization logic** (same as current implementation):
-- User is authorized if: `uid == dir.uid` OR `gid in user.groups` OR `user.groups contains adminGroup`
-  OR user owns files within the subtree (check via RuleSummaries)
-- `CanClaim` is true if user is owner or in directory's group
-- `Unauthorised` lists child directory names where user lacks authorization
+**Authorization logic** (same as current implementation in `backend/tree.go`):
+- User is authorized to view a directory if ANY of:
+  - `uid == dir.uid` (user owns the directory)
+  - `dir.gid in user.groups` (user is in directory's group)
+  - `user.groups contains adminGroup` (user is admin)
+  - User's UID appears in any `RuleSummary.Users` for this directory (user owns files in subtree)
+  - Any of user's GIDs appear in any `RuleSummary.Groups` for this directory (user's group owns files)
+- `CanClaim` is true only if user owns the directory OR is in directory's group (not just file ownership)
+- `Unauthorised` lists child directory names where user lacks authorization (used to show lock icons)
 
 ### 4.4. Incremental Updates
 
@@ -381,7 +415,7 @@ On rule create/update/remove:
 1. **Persist to plan DB** - Insert/update/delete the rule row.
 
 2. **Rebuild state machine** (~100ms for thousands of rules) - The entire
-   automaton is rebuilt since rule changes can affect pattern priority.
+   automaton is rebuilt since rule changes can affect matching.
    Also rebuild `exactRules` map.
 
 3. **Re-query the affected subtree**
@@ -403,7 +437,39 @@ On rule create/update/remove:
 
 **Latency:** < 1s for typical updates.
 
-### 4.5. `/api/report/summary` Implementation
+### 4.5. Glob-to-Regex Conversion
+
+ClickHouse's `match(name, pattern)` uses RE2 regex syntax. Convert glob patterns:
+
+```go
+func globToRegex(glob string, recursive bool) string {
+    var b strings.Builder
+    b.WriteString("^")
+    for _, c := range glob {
+        switch c {
+        case '*':
+            if recursive {
+                b.WriteString(".*")  // matches any char including /
+            } else {
+                b.WriteString("[^/]*")  // matches any char except /
+            }
+        case '?':
+            b.WriteString(".")
+        case '.', '+', '(', ')', '[', ']', '{', '}', '^', '$', '|', '\\':
+            b.WriteString("\\")
+            b.WriteRune(c)
+        default:
+            b.WriteRune(c)
+        }
+    }
+    b.WriteString("$")
+    return b.String()
+}
+```
+
+For exact-path rules (no `*`), skip regex matching and use exact string comparison.
+
+### 4.6. `/api/report/summary` Implementation
 
 The report summary endpoint returns aggregated stats for all configured report roots:
 
@@ -422,7 +488,7 @@ Implementation:
 3. Collect all referenced rules into the `Rules` map
 4. Query ibackup cache for backup status per claimed directory
 
-### 4.6. Exact-Path Rules at Scale
+### 4.7. Exact-Path Rules at Scale
 
 To support the possibility of **millions of explicit full-path rules** (from FOFN imports)
 while keeping the automaton small, split rule handling into:
@@ -439,7 +505,13 @@ When assigning a rule to a file during aggregation or backup:
 This keeps state-machine size proportional only to the number of glob-style
 rules (thousands), while still allowing millions of explicit file-path rules.
 
-### 4.7. `/api/usergroups` Implementation
+**Note on exact-path rule precedence:** An exact-path rule is inherently the
+"most specific" match for that file. If both an exact rule and a glob rule
+could match, the exact rule wins (checked first). This matches the "most
+specific directory wins" semantics since the exact rule's directory is the
+file's immediate parent.
+
+### 4.8. `/api/usergroups` Implementation
 
 Returns all unique users and groups that have files in the filesystem:
 
@@ -491,33 +563,39 @@ func Backup(ctx context.Context, planDB *db.DBRO, chConn clickhouse.Conn,
     // 3. Collect files to backup, grouped by directory (for ibackup sets)
     setFofns := make(map[int64][]string)  // dirID -> list of file paths
     
-    // 4. For each claimed directory with BackupIBackup rules
-    for _, dir := range dirs {
-        for _, rule := range getRulesForDir(planDB, dir.ID()) {
-            if rule.BackupType != db.BackupIBackup {
-                continue
+    // 4. Build minimal prefix set for directories with BackupIBackup rules
+    prefixes := buildMinimalPrefixes(dirs, planDB)  // only dirs that can lead to ibackup
+    
+    // 5. Stream files under those prefixes
+    for _, prefix := range prefixes {
+        fsRoot, snapshotID := findSnapshot(snapshots, prefix)
+        streamFiles(ctx, chConn, fsRoot, snapshotID, prefix, func(dirPath, name string) {
+            fullPath := dirPath + name
+            
+            // Determine effective rule (same logic as web server aggregation)
+            var rule *db.Rule
+            if r, ok := exactRules[fullPath]; ok {
+                rule = r
+            } else {
+                rule = sm.GetGroupForPath(fullPath)  // may return nil
             }
             
-            // Determine which snapshot covers this directory
-            fsRoot, snapshotID := findSnapshot(snapshots, dir.Path)
-            if snapshotID == 0 {
-                continue  // No snapshot for this root
+            // Only backup if rule is BackupIBackup
+            if rule != nil && rule.BackupType == db.BackupIBackup {
+                setFofns[rule.DirID()] = append(setFofns[rule.DirID()], fullPath)
             }
-            
-            // Stream matching files
-            streamFiles(ctx, chConn, fsRoot, snapshotID, dir.Path, rule,
-                func(filePath string) {
-                    // Verify this file matches our rule (not overridden)
-                    if matchingRule := getEffectiveRule(exactRules, sm, filePath); 
-                       matchingRule != nil && matchingRule.ID() == rule.ID() {
-                        setFofns[dir.ID()] = append(setFofns[dir.ID()], filePath)
-                    }
-                })
-        }
+        })
     }
     
     return submitToIBackup(client, setFofns, dirs)
 }
+```
+
+**Why re-evaluate rules during streaming:** A file under `/data/project/` might match
+rule A at `/data/project/*`, but if rule B at `/data/project/subdir/*.txt` is more
+specific for that file, rule B wins. The backup command cannot simply trust that
+a directory's rule applies to all descendant files; it must apply the state machine
+to each file path, just like the aggregation phase does.
 ```
 
 ### 5.3. Performance & Optimization
@@ -541,7 +619,7 @@ Instead of streaming all files for every claimed directory, we use the rule defi
    ```sql
    SELECT ... FROM fs_files WHERE startsWith(dir_path, ?)
    ```
-3. **Exclusion Logic**: If the state machine indicates that a large subdirectory is fully covered by `BackupNone` (and no high-priority rules override it), we can exclude it from the query.
+3. **Exclusion Logic**: If the state machine indicates that a large subdirectory is fully covered by `BackupNone` (and no `no_override` rules override it), we can exclude it from the query.
    - *Implementation*: Walk the state machine to find "cut-off" paths where the rule is `BackupNone` and `recursive=1`. Add `AND NOT startsWith(dir_path, ?)` to the query.
 
 **Parallelism**: Run queries for different claimed directories in parallel (e.g., 10-20 concurrent workers).
@@ -614,6 +692,39 @@ type RootDir interface {
 }
 ```
 
+**Note on AddTree:** In the current implementation, `AddTree(file)` reads a
+pre-built tree database file. In the ClickHouse implementation, `AddTree` is
+replaced by signaling that a new snapshot is ready:
+
+```go
+// CHRootDir implementation
+func (c *CHRootDir) AddTree(file string) error {
+    // In ClickHouse mode, 'file' is ignored. Instead, we:
+    // 1. Query fs_snapshots to detect newly-current snapshots
+    // 2. Rebuild aggregates for any root with a changed snapshot_id
+    return c.RefreshSnapshots()
+}
+
+func (c *CHRootDir) RefreshSnapshots() error {
+    newSnapshots := c.loadCurrentSnapshots()  // query ClickHouse
+    
+    for root, newID := range newSnapshots {
+        if oldID, ok := c.currentSnapshots[root]; !ok || oldID != newID {
+            // Snapshot changed, rebuild aggregates for this root
+            if err := c.rebuildAggregatesForRoot(root, newID); err != nil {
+                return err
+            }
+        }
+    }
+    
+    c.currentSnapshots = newSnapshots
+    return nil
+}
+```
+
+The web server can call `RefreshSnapshots()` periodically (e.g., every 5 minutes)
+or expose an admin endpoint to trigger refresh after `ch-import` completes.
+
 ### 6.2. DirSummary Structure
 
 Must match the existing JSON output for frontend compatibility:
@@ -643,6 +754,11 @@ type Stats struct {
 }
 ```
 
+**Rule ID 0 (Unplanned/BackupWarn):** Files not matching any rule are attributed
+to rule ID 0. The frontend displays these as "Unplanned" in the summary. The
+`Rules` map returned by `/api/tree` does not include an entry for ID 0; the
+frontend synthesizes a pseudo-rule with `BackupType = BackupWarn` for display.
+
 ---
 
 ## 7. Implementation Checklist
@@ -665,7 +781,7 @@ type Stats struct {
 - [ ] Implement `buildAggregates()` - single pass over `fs_files` filtered to
     the minimal ruleDir prefixes (optionally seed catch-all rules from
     `fs_dir_stats` when filename is irrelevant)
-- [ ] Implement state machine integration with `recursive` and `priority` flags
+- [ ] Implement state machine integration with `recursive` and `no_override` flags
 - [ ] Implement `exactRules` hash map for non-glob rules
 - [ ] Implement `recomputeSubtree()` for incremental updates on rule changes
 - [ ] Benchmark: < 5 min aggregate build, < 1s rule update
@@ -677,6 +793,20 @@ type Stats struct {
 - [ ] Verify `/api/usergroups` works correctly  
 - [ ] Test rule CRUD operations with <1s UI refresh
 - [ ] Test FOFN upload with batch rule creation
+
+**Affected API endpoints (all must continue working unchanged):**
+- `POST /api/claimdir` - claim a directory
+- `POST /api/passdir` - pass claim to another user  
+- `POST /api/revokedir` - remove claim from directory
+- `POST /api/setdir` - set directory frequency/review/remove dates
+- `POST /api/createrule` - create rule on claimed directory
+- `POST /api/updaterule` - update existing rule
+- `POST /api/removerule` - remove rule
+- `POST /api/fofn` - bulk create rules from file list
+- `POST /api/directories` - check if paths are directories
+- `GET /api/tree` - get directory tree with rule summaries
+- `GET /api/summary` - get report summary for all report roots
+- `GET /api/usergroups` - get all users/groups/owners/BOM
 
 ### Phase 5: Backup Command
 - [ ] Implement ClickHouse-based file enumeration in `backups/` package
@@ -692,7 +822,7 @@ type Stats struct {
 
 ### Phase 7: UI Updates (Optional)
 - [ ] Add UI controls for `recursive` flag (`*` vs `**`)
-- [ ] Add UI controls for `priority` flag (non-overridable rules)
+- [ ] Add UI controls for `no_override` flag (non-overridable rules)
 
 ---
 
@@ -812,6 +942,20 @@ backup-plans ch-cleanup --keep-days 7 --ch-dsn "..."
 - Other roots can have newer snapshots (mixed dates)
 - UI should display snapshot dates per root to inform users of data freshness
 - Backup command proceeds with available snapshots
+
+**API Enhancement for Snapshot Visibility:**
+
+Add a new endpoint or extend existing responses to expose snapshot dates:
+
+```go
+// GET /api/snapshots - returns current snapshot info per root
+type SnapshotInfo struct {
+    Snapshots map[string]time.Time `json:"snapshots"`  // fs_root -> snapshot_date
+}
+```
+
+This allows the frontend to display "Data as of: /lustre/scratch123: Dec 9, /nfs/team: Dec 10"
+so users understand when different parts of the filesystem were last scanned.
 
 ### 10.2. ClickHouse Unavailability
 
