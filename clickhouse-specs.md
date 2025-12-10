@@ -283,8 +283,10 @@ At startup or when a new snapshot becomes current:
    for rules without `*` in their match pattern.
 
 3. **Single-pass aggregation over files (only where rules exist)**:
-     First build the minimal set of directory prefixes that need summaries,
-     exactly as `ruletree` does today:
+    First build the minimal set of directory prefixes that need summaries,
+    exactly as `ruletree` does today. Aggregation must read filenames because
+    rule matching is filename-sensitive; `fs_dir_stats` alone is insufficient
+    except for pure catch-all (`*`) rules.
 
      - Start from all directories in `directoryRules` (i.e. those that have at
          least one rule).
@@ -345,7 +347,9 @@ budget (tens of minutes for ~1.3B files).
 ### 4.3. `/api/tree` Implementation
 
 Pure memory lookup + JSON serialization from `dirSummaries` and
-`directoryRules` (plan DB). **Latency:** < 10ms.
+`directoryRules` (plan DB). **Latency:** < 10ms. The frontend applies
+user/group filters client-side, so the handler must always return full
+per-rule per-user/per-group stats.
 
 The handler must continue to return the existing `Tree` JSON structure
 (`frontend/src/types.ts`):
@@ -658,7 +662,9 @@ type Stats struct {
 
 ### Phase 3: Aggregates
 - [ ] Implement `CHRootDir` struct satisfying `RootDir` interface
-- [ ] Implement `buildAggregates()` - single pass over `fs_dir_stats`
+- [ ] Implement `buildAggregates()` - single pass over `fs_files` filtered to
+    the minimal ruleDir prefixes (optionally seed catch-all rules from
+    `fs_dir_stats` when filename is irrelevant)
 - [ ] Implement state machine integration with `recursive` and `priority` flags
 - [ ] Implement `exactRules` hash map for non-glob rules
 - [ ] Implement `recomputeSubtree()` for incremental updates on rule changes
@@ -698,16 +704,26 @@ SELECT fs_root, snapshot_id, snapshot_date
 FROM fs_snapshots FINAL 
 WHERE is_current = 1;
 
--- Directory stats for aggregation (single pass)
-SELECT dir_path, uid, gid, 
-       sum(file_count) AS file_count, 
-       sum(total_size) AS total_size, 
-       max(max_mtime) AS max_mtime
-FROM fs_dir_stats FINAL 
+-- Filename-sensitive aggregation (single pass over relevant prefixes)
+SELECT dir_path, name, uid, gid, size, mtime
+FROM fs_files
 WHERE (fs_root, snapshot_id) IN (
-    SELECT fs_root, snapshot_id FROM fs_snapshots FINAL WHERE is_current = 1
+        SELECT fs_root, snapshot_id FROM fs_snapshots FINAL WHERE is_current = 1
 )
-GROUP BY dir_path, uid, gid 
+    AND startsWith(dir_path, ?)   -- iterate over minimal ruleDir prefixes
+ORDER BY dir_path, name;
+
+-- Optional: seed pure catch-all rules from aggregates when filename is irrelevant
+SELECT dir_path, uid, gid,
+             sum(file_count) AS file_count,
+             sum(total_size) AS total_size,
+             max(max_mtime) AS max_mtime
+FROM fs_dir_stats FINAL
+WHERE (fs_root, snapshot_id) IN (
+        SELECT fs_root, snapshot_id FROM fs_snapshots FINAL WHERE is_current = 1
+)
+    AND startsWith(dir_path, ?)
+GROUP BY dir_path, uid, gid
 ORDER BY dir_path;
 
 -- Check directory exists (for IsDirectory)
@@ -783,7 +799,6 @@ VALUES (?, ?, ?, 1);
 
 Daily cron job to remove old snapshots:
 ```bash
-# Keep only snapshots from last 7 days per root
 backup-plans ch-cleanup --keep-days 7 --ch-dsn "..."
 ```
 
@@ -793,7 +808,6 @@ backup-plans ch-cleanup --keep-days 7 --ch-dsn "..."
 
 ### 10.1. Missing Snapshots
 
-If a stats.gz file is not generated for a filesystem on a given day:
 - The previous snapshot remains `is_current = 1` for that `fs_root`
 - Other roots can have newer snapshots (mixed dates)
 - UI should display snapshot dates per root to inform users of data freshness
