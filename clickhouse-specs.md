@@ -185,8 +185,10 @@ SELECT fs_root, snapshot_id, dir_path, uid, gid,
 FROM fs_files GROUP BY fs_root, snapshot_id, dir_path, uid, gid;
 ```
 
-**Usage:** This is the primary data source for building in-memory aggregates,
-avoiding full scans of the 1.3B-row `fs_files` table.
+**Usage:** Fast path for rules whose match is effectively "match everything"
+in a subtree (e.g. `*`/`**`) and for `IsDirectory`/ownership checks. It is
+*not* sufficient for filename-specific patterns (e.g. `*.bam`, `temp-*`); those
+still need per-file basenames from `fs_files` (see section 4.2).
 
 ### 2.5. Snapshot Lifecycle
 
@@ -248,19 +250,21 @@ At startup or when a new snapshot becomes current:
 2. **Query `fs_dir_stats`** ordered by `dir_path`. The ordering ensures we
    process directories in tree order (parents before deeply nested children).
 
-3. **For each `(dir_path, uid, gid)` row**, use the state machine to
-    determine which rule applies to files in that directory. The state machine
-    is evaluated with the full path prefix (`fs_root + dir_path`) to get the
-    effective rule.
+3. **Pick the data source per rule shape:**
+        - If `match` is the catch-all (`*`/`**`) use `fs_dir_stats` for that rule
+            (no filename filtering needed).
+        - Otherwise stream rows from `fs_files` filtered by the rule's directory
+            prefix and apply the glob/regex on `name` in Go. The rule count is small,
+            so per-rule filtered scans are acceptable and avoid a cross join.
 
 4. **Populate `DirSummary` for that directory**:
-    - Look up/create `DirSummary` for `fs_root + dir_path`
-    - For the winning rule ID, update `RuleSummaries[ruleID].Users[uid]` and
-      `RuleSummaries[ruleID].Groups[gid]` (files, size, mtime)
+        - Look up/create `DirSummary` for `fs_root + dir_path`
+        - For the winning rule ID, update `RuleSummaries[ruleID].Users[uid]` and
+            `RuleSummaries[ruleID].Groups[gid]` (files, size, mtime)
 
 5. **Aggregate upward**: Add each directory's per-rule stats into all of its
-    ancestors (same rule IDs). Maintain a stack of ancestor builders; when the
-    path prefix changes, pop and finalize completed directories.
+        ancestors (same rule IDs). Maintain a stack of ancestor builders; when the
+        path prefix changes, pop and finalize completed directories.
 
 **Performance:** ~2-5 min for 50M aggregated rows, depending on rule count
 and tree depth.
@@ -287,16 +291,14 @@ On rule create/update/remove:
 2. **Rebuild state machine** (~100ms for thousands of rules) - The entire
    automaton is rebuilt since rule changes can affect pattern priority.
 
-3. **Re-query `fs_dir_stats`** for the affected subtree only:
-   ```sql
-   SELECT dir_path, uid, gid, file_count, total_size, max_mtime
-   FROM fs_dir_stats FINAL
-   WHERE fs_root = ? AND snapshot_id = ? AND startsWith(dir_path, ?)
-   ORDER BY dir_path
-   ```
+3. **Re-query the affected subtree**
+    - For catch-all rules: use the `fs_dir_stats` query above.
+    - For filename-sensitive rules: stream `fs_files` for the subtree and apply
+      the rule glob to `name`, grouping to the same `(dir_path, uid, gid)` shape
+      as `fs_dir_stats` before merging into memory.
 
 4. **Propagate to ancestors** - Update parent directories' aggregates to
-   reflect the changed rule assignments.
+    reflect the changed rule assignments.
 
 **Latency:** < 100ms for small directories, 1-5s for large project roots
 (100K+ subdirectories).
@@ -449,6 +451,13 @@ SELECT uid, gid FROM fs_dirs WHERE fs_root = ? AND snapshot_id = ? AND dir_path 
 SELECT dir_path, name FROM fs_files
 WHERE fs_root = ? AND snapshot_id = ? AND startsWith(dir_path, ?)
 ORDER BY dir_path, name;
+
+-- Filename-sensitive rule recompute for a subtree
+SELECT dir_path, uid, gid, count() AS file_count, sum(size) AS total_size, max(mtime) AS max_mtime
+FROM fs_files
+WHERE fs_root = ? AND snapshot_id = ? AND startsWith(dir_path, ?) AND match(name, ?)
+GROUP BY dir_path, uid, gid
+ORDER BY dir_path;
 
 -- Delete old snapshot (instantaneous)
 ALTER TABLE fs_files DROP PARTITION (?, ?);
