@@ -344,17 +344,22 @@ On rule create/update/remove:
 
 3. **Re-query the affected subtree**
    - Identify the minimum subtree that could be affected: the rule's directory path
-   - For catch-all rules: re-aggregate from `fs_dir_stats` for that subtree
-   - For filename-sensitive rules: stream `fs_files` for the subtree and apply
-     the rule glob to `name`, grouping to the same `(dir_path, uid, gid)` shape
+   - **Optimization**: For catch-all rules (`*`), query `fs_dir_stats` (fast).
+   - **Optimization**: For filename-sensitive rules, use ClickHouse `match(name, pattern)` to aggregate directly in DB.
+     ```sql
+     SELECT dir_path, uid, gid, count(), sum(size), max(mtime)
+     FROM fs_files
+     WHERE fs_root = ? AND snapshot_id = ? AND startsWith(dir_path, ?) AND match(name, ?)
+     GROUP BY dir_path, uid, gid
+     ```
+     This avoids streaming millions of file rows to Go.
 
 4. **Subtract old rule's contribution, add new rule's contribution** in memory.
    This avoids full re-aggregation.
 
 5. **Propagate to ancestors** - Recompute ancestor aggregates by summing children.
 
-**Latency:** < 100ms for small directories, 1-5s for large project roots
-(100K+ subdirectories).
+**Latency:** < 1s for typical updates.
 
 ### 4.5. `/api/report/summary` Implementation
 
@@ -516,29 +521,14 @@ func streamFiles(ctx context.Context, conn clickhouse.Conn, fsRoot string,
                  WHERE fs_root = ? AND snapshot_id = ? AND dir_path = ?`
     }
     
-    rows, err := conn.Query(ctx, query, fsRoot, snapshotID, dirPath)
-    if err != nil { return err }
-    defer rows.Close()
-    
-    pattern := compileGlob(rule.Match)  // e.g., "*.bam" -> regex
-    
-    for rows.Next() {
-        var dp, name string
-        rows.Scan(&dp, &name)
-        if pattern.MatchString(name) {
-            cb(dp + name)
-        }
+    // Add regex filter for filename if it's not a catch-all *
+    if rule.Match != "*" {
+         query += " AND match(name, ?)"
+         // Pass converted regex pattern as argument
     }
-    return nil
-}
 
-// getEffectiveRule returns the rule that applies to a file path
-func getEffectiveRule(exactRules map[string]*db.Rule, 
-    sm group.StateMachine[db.Rule], filePath string) *db.Rule {
-    if rule, ok := exactRules[filePath]; ok {
-        return rule
-    }
-    return sm.GetGroup(buildFileInfo(filePath))
+    rows, err := conn.Query(ctx, query, fsRoot, snapshotID, dirPath, ...)
+    // ...
 }
 ```
 
