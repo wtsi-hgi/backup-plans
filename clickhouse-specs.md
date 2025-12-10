@@ -390,6 +390,12 @@ Pure memory lookup + JSON serialization from `dirSummaries` and
 user/group filters client-side, so the handler must always return full
 per-rule per-user/per-group stats.
 
+**Child listing:** The `Children` map in `DirSummary` must list every immediate
+child directory, even when that child currently contributes zero rule stats.
+Build the child list (names + uid/gid) from `fs_dirs` for the subtree being
+served so users can navigate and claim previously-unruled directories. Stats
+for such children can legitimately be empty/zeroed.
+
 The handler must continue to return the existing `Tree` JSON structure
 (`frontend/src/types.ts`):
 
@@ -802,20 +808,6 @@ frontend synthesizes a pseudo-rule with `BackupType = BackupWarn` for display.
 - [ ] Verify `/api/usergroups` works correctly  
 - [ ] Test rule CRUD operations with <1s UI refresh
 - [ ] Test FOFN upload with batch rule creation
-
-**Affected API endpoints (paths/methods must remain exactly as today):**
-- `GET /api/tree` - get directory tree with rule summaries
-- `GET /api/report/summary` - get report summary for all report roots
-- `GET /api/usergroups` - get all users/groups/owners/BOM
-- `GET /api/dir/claim` - claim a directory
-- `GET /api/dir/pass` - pass claim to another user  
-- `GET /api/dir/revoke` - remove claim from directory
-- `GET /api/dir/setdetails` - set directory frequency/review/remove dates
-- `GET /api/rules/create` - create rule on claimed directory
-- `GET /api/rules/update` - update existing rule
-- `GET /api/rules/remove` - remove rule
-- `GET /api/uploadfofn` - bulk create rules from file list (FOFN)
-- `POST /api/getDirectories` - check if paths are directories
 
 ### Phase 5: Backup Command
 - [ ] Implement ClickHouse-based file enumeration in `backups/` package
