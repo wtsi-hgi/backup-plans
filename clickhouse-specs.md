@@ -29,28 +29,24 @@ Current behaviour (from `backend/`, `ruletree/`, `backups/`, `frontend/`):
     - has a `Match` pattern relative to that directory (e.g. `*.txt`, `*`),
     - has a `BackupType` (enum: none / ibackup / manual‑* / warn),
     - can be created, updated (same `Match`), or removed.
-- A rule with `Match == ""` is normalized to `"*"` (match everything).
-- A `Match` ending in `/` is normalized to `<match>"*"`.
-- `validMatch` ensures there is at least one `*` and **no `/`** inside the
-    match string, so patterns are filename‑only, not multi‑segment paths.
+- A rule with `Match == ""` is normalized to "*" (match everything). A
+    `Match` ending in `/` is normalized to `<match>"*"`.
+- `validMatch` enforces **no `/`** inside the match, at least one `*`, and no
+    NUL bytes, so patterns are filename‑only, not multi‑segment paths.
 - Semantics of `*` today (via `wrstat-ui/summary/group`):
-    - `*` matches both the filename and *all sub‑directories recursively*
-        (i.e. `*` matches `/` in practice).
-    - User requirement: allow a future `.gitignore`‑style distinction between
-        non‑recursive `*` and recursive `**`, and introduce “non‑overridable”
-        rules at some point.
+    - `*` matches the filename and *all sub‑directories recursively* (i.e. `*`
+      effectively behaves like `**`).
+    - Requirement: allow future `.gitignore`‑style non‑recursive `*` vs
+      recursive `**` and “non‑overridable” rules.
 
-For any given file, exactly one rule is considered to apply at evaluation
-time:
+For any given file, exactly one rule is considered to apply:
 
 1. Find all rules whose directory is a prefix of the file path.
-2. Keep only those where the file’s leaf name matches `Match` (with
-     glob‑semantics).
+2. Keep only those where the file’s leaf name matches `Match` (glob semantics).
 3. Take the most specific rule (longest directory prefix). If none, treat as
-     “unplanned” (internal rule id `0`).
+   “unplanned” (internal rule id `0`).
 
-All aggregate stats in the UI and reports are in terms of this “effective
-rule”.
+All aggregate stats in the UI and reports are in terms of this effective rule.
 
 ### 1.2. Tree View (`/api/tree` → `frontend/src/data.ts`, `rules.ts`, `summary.ts`, `ruletree.ts`)
 
@@ -59,10 +55,10 @@ For a requested directory `D` (always absolute and ending in `/`):
 - Backend returns a JSON `Tree` (see `frontend/src/types.ts`):
     - `RuleSummaries []Rule` for `D` itself:
         - one entry per *rule id* (including id `0` for “unplanned”),
-        - each has aggregated `Users []Stats` and `Groups []Stats` where:
-            - `Stats` = { ID (uid/gid), Name, MTime, Files, Size } and represents
-                **all files under D’s entire subtree** for which the *effective rule
-                id* equals this rule id.
+        - each has aggregated `Users []Stats` and `Groups []Stats` where
+          `Stats` = { ID (uid/gid), Name, MTime, Files, Size } and represents
+          **all files under D’s entire subtree** whose *effective rule id*
+          equals this rule id.
     - `Children map[string]*DirSummary` for each immediate child directory
         `D/child/`, with its own `RuleSummaries` over that child’s subtree.
     - `ClaimedBy` (directory owner in plan DB) and `dirDetails` (Frequency,
@@ -74,12 +70,16 @@ For a requested directory `D` (always absolute and ending in `/`):
     - `CanClaim` flag, determined from underlying filesystem ownership, telling
         the user if they can claim `D`.
 - The frontend derives for each directory:
-    - total bytes and file counts per `BackupType` (`BackupWarn` / `BackupNone`
-        / `BackupIBackup` / manual types),
-    - per‑directory rule tables showing `Match`, action, file counts and sizes,
-    - a “rules affecting this subtree” tree view (`ruletree.ts`) which needs, for
-        every ancestor directory in the subtree, *rule summaries with non‑zero
-        counts*.
+    - total bytes and file counts per `BackupType`
+      (`BackupWarn`/`BackupNone`/`BackupIBackup`/manual), built client‑side from
+      per‑rule stats; manual types are grouped together for the summary row.
+    - per‑directory rule table (`rules.ts`) showing Match, action, file counts,
+      sizes, and edit/remove actions when the user is the claimant.
+    - a “rules affecting this subtree” tree view (`ruletree.ts`) which lists
+      *every ancestor directory in the subtree that has non‑zero rule stats*,
+      with quick navigation back to that directory.
+    - user/group filtering (`filter.ts` + `data.ts`) is applied on the client;
+      backend must always return per‑user and per‑group stats unfiltered.
 - The directory stats and rule summaries are filterable client‑side by user or
     group (see `frontend/src/filter.ts` and `data.ts`). The backend therefore
     must provide *per‑user and per‑group stats*; it must not pre‑apply those
@@ -161,7 +161,7 @@ ClickHouse must also support:
 - `RootDir.IsDirectory(path)` and `/api/getDirectories` → boolean per path.
 - `RootDir.GetOwner(path)` used for claim/permission checks.
 - `/api/usergroups` (Users/Groups/Owners/BOM) which today is derived from
-    `RootDir.Summary("")`.
+    `RootDir.Summary("")` over the current snapshot state.
 
 ---
 
@@ -171,7 +171,8 @@ The ClickHouse schema is snapshot‑oriented **per filesystem root**. Each
 `stats.gz` file corresponds to one filesystem mounted at some root path (e.g.
 `/lustre/scratch123/humgen/`). For each such root we may have multiple
 snapshots over time, and on any given day some roots may have a fresh snapshot
-while others are still using an older one.
+while others are still using an older one; the backend must tolerate mixed
+snapshot dates across roots transparently.
 
 The design therefore tracks snapshots *per root* and never assumes that the
 entire namespace shares a single global snapshot id or date.
@@ -326,7 +327,9 @@ for sub‑second `/api/tree` calls; those use in‑memory structures built from
 ## 3. Ingestion from `stats.gz`
 
 We replace `cmd/db.go`’s `treegen.NewTree` pipeline with a ClickHouse
-ingestion pipeline, but keep the same source (`stats.gz`).
+ingestion pipeline, but keep the same source (`stats.gz`). If a daily
+`stats.gz` for a root is missing, the previously current snapshot for that root
+remains active until the next import.
 
 ### 3.1. New Go command: `backup-plans ch-import`
 
@@ -361,8 +364,8 @@ Responsibilities:
     corresponding `snapshot_id` in `fs_files`, `fs_dirs`, `fs_dir_stats`, and
     `fs_rule_dir_cache`.
 - The ingestion job should be designed to complete in < 1 hour for 1.3B files
-    (this is roughly equivalent to the current `treegen` pipeline plus network
-    overhead).
+    (roughly equivalent to the current `treegen` pipeline plus network
+    overhead). Separate filesystem roots can be imported in parallel workers.
 
 ---
 
@@ -391,15 +394,17 @@ The state machine is reused both for:
 
 ### 4.2. Building the rule aggregates once per snapshot
 
-For the **current snapshot** only (from `fs_snapshots.is_current = 1`), we
-build an in‑memory tree equivalent to what `treegen` + `ruletree` provide
-today, but we use ClickHouse as the source.
+For each **current snapshot per filesystem root** (from
+`fs_snapshots.is_current = 1` per `fs_root`), build an in‑memory tree
+equivalent to what `treegen` + `ruletree` provide today, but using ClickHouse
+as the source. Roots may be on different snapshot dates; aggregates are built
+per root and merged into a single namespace keyed by absolute path.
 
 Algorithm sketch (single offline pass, run at startup or after a new
 snapshot is marked current):
 
-1. Query ClickHouse for all `fs_dir_stats` rows in the current snapshot,
-     ordered by `dir_path`.
+1. Query ClickHouse for all `fs_dir_stats` rows in the current snapshot for a
+    given `fs_root`, ordered by `dir_path`.
 2. Walk the directory paths in lexical order, maintaining a stack of
      ancestors.
 3. For each directory `D` and each `(uid,gid)` stats row:
@@ -412,9 +417,9 @@ snapshot is marked current):
          `ruletree.DirSummary`:
          - keyed by `dir_path`,
          - containing per‑rule aggregates split by user and group.
-4. While doing this, also compute global per‑rule, per‑directory aggregates
-     and flush them into `fs_rule_dir_cache` for later use by the report and
-     backup logic.
+4. While doing this, also compute global per‑rule, per‑directory aggregates and
+    flush them into `fs_rule_dir_cache` for later use by the report and backup
+    logic.
 
 This job can be implemented by reusing most of the logic already present in
 `ruletree/rulesDir`, but with the “tree” coming from a `dir_path`‑sorted scan
@@ -426,18 +431,19 @@ practically feasible as an offline step.
 
 ### 4.3. `/api/tree` implementation using the in‑memory aggregates
 
-Once the aggregates are built, the `/api/tree` handler becomes a pure in‑memory
-operation for the current snapshot:
+Once the aggregates are built, the `/api/tree` handler becomes a pure
+in‑memory operation for the current snapshot set:
 
-1. Look up the requested `dir` in a map `dirSummaries map[string]*DirSummary`.
+1. Look up the requested `dir` in a map `dirSummaries map[string]*DirSummary`
+    spanning all current roots.
 2. Copy the `DirSummary` for that directory (including `RuleSummaries` and
-     immediate `Children` entries) into the HTTP response payload structure
-     expected by the frontend (see `backend/tree.go`).
+    immediate `Children` entries) into the HTTP response payload structure
+    expected by the frontend (see `backend/tree.go`).
 3. Enrich it with:
-     - `ClaimedBy` and `dirDetails` from the plan DB / `s.directoryRules`.
-     - `Rules` map populated from `s.rules` (as done today).
-     - `Unauthorised` list based on `isAuthorised` checks.
-     - `CanClaim` derived from `RootDir.GetOwner` (`fs_dirs`) and the current
+      - `ClaimedBy` and `dirDetails` from the plan DB / `s.directoryRules`.
+      - `Rules` map populated from `s.rules` (as done today).
+      - `Unauthorised` list based on `isAuthorised` checks.
+      - `CanClaim` derived from `RootDir.GetOwner` (`fs_dirs`) and the current
          user’s uid/gid list.
 
 Because the heavy lifting was done offline, a tree request is now just a few
@@ -453,15 +459,15 @@ When a rule is created, updated, or removed via `/api/rules/*` or
      `s.rules` maps.
 3. Rebuild the state machine (cheap compared to snapshots).
 4. Recompute aggregates only for the affected subtree:
-     - Find the smallest directory `D` whose subtree covers all files that could
-         change effective rule as a result of this modification. For a simple rule
-         on `dir`, that is `dir` itself; for a FOFN upload, it may span a few
-         sibling directories.
-     - For `D` and all descendants, recompute per‑rule aggregates by replaying
-         the `fs_dir_stats` rows for those directories through the new state
-         machine.
-     - Update both the in‑memory `dirSummaries` and the corresponding rows in
-         `fs_rule_dir_cache`.
+         - Find the smallest directory `D` whose subtree covers all files that could
+             change effective rule as a result of this modification. For a simple rule
+             on `dir`, that is `dir` itself; for a FOFN upload it may span a handful of
+             sibling directories.
+         - For `D` and all descendants within the same `fs_root`, recompute
+             per‑rule aggregates by replaying the `fs_dir_stats` rows for those
+             directories through the new state machine.
+         - Update both the in‑memory `dirSummaries` and the corresponding rows in
+             `fs_rule_dir_cache`.
 
 Because `fs_dir_stats` is compact (one row per directory/uid/gid combination,
 not per file), and because rule changes are localised, this patching step is
