@@ -77,8 +77,8 @@ func TestTree(t *testing.T) {
 				"\"Groups\":["+
 				"{\"Name\":\""+users.Group(2)+"\",\"MTime\":6,\"Files\":2,\"Size\":8}]}"+
 				"],\"Children\":{\"ChildToClaim/\":{\"ClaimedBy\":\"\",\"RuleSummaries\""+
-				":[{\"ID\":0,\"Users\":[],\"Groups\":[]}],\"Children\":{}},\"ChildToNotClaim/\""+
-				":{\"ClaimedBy\":\"\",\"RuleSummaries\":[{\"ID\":0,\"Users\":[],\"Groups\":[]}],\""+
+				":[],\"Children\":{}},\"ChildToNotClaim/\""+
+				":{\"ClaimedBy\":\"\",\"RuleSummaries\":[],\""+
 				"Children\":{}}},\"ClaimedBy\":\"\",\"Rules\":{},\"Unauthorised\":[],\"CanClaim\""+
 				":true,\"Frequency\":0,\"ReviewDate\":0,\"RemoveDate\":0}\n")
 

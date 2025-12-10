@@ -123,7 +123,7 @@ func TestRuletree(t *testing.T) {
 					},
 				},
 				{
-					ID: 1,
+					ID: uint64(rules[0].ID()),
 					Users: RuleStats{
 						{
 							id:    1,
@@ -144,7 +144,7 @@ func TestRuletree(t *testing.T) {
 					},
 				},
 				{
-					ID: 2,
+					ID: uint64(rules[1].ID()),
 					Users: RuleStats{
 						{
 							id:    1,
@@ -165,7 +165,7 @@ func TestRuletree(t *testing.T) {
 					},
 				},
 				{
-					ID: 3,
+					ID: uint64(rules[2].ID()),
 					Users: RuleStats{
 						{
 							id:    21,
@@ -187,7 +187,7 @@ func TestRuletree(t *testing.T) {
 				},
 			}
 
-			s, err := root.Summary("")
+			s, err := root.Summary("/")
 			So(err, ShouldBeNil)
 			So(s, ShouldResemble, &DirSummary{
 				RuleSummaries: ruleExpectations,
@@ -198,7 +198,7 @@ func TestRuletree(t *testing.T) {
 				},
 			})
 
-			s, err = root.Summary("some/")
+			s, err = root.Summary("/some/")
 			So(err, ShouldBeNil)
 			So(s, ShouldResemble, &DirSummary{
 				RuleSummaries: ruleExpectations,
@@ -212,7 +212,7 @@ func TestRuletree(t *testing.T) {
 				},
 			})
 
-			s, err = root.Summary("some/path/")
+			s, err = root.Summary("/some/path/")
 			So(err, ShouldBeNil)
 			So(s, ShouldResemble, &DirSummary{
 				RuleSummaries: ruleExpectations,
@@ -232,7 +232,7 @@ func TestRuletree(t *testing.T) {
 				},
 			})
 
-			s, err = root.Summary("some/path/MyDir/")
+			s, err = root.Summary("/some/path/MyDir/")
 			So(err, ShouldBeNil)
 			So(s, ShouldResemble, &DirSummary{
 				RuleSummaries: []Rule{ruleExpectations[1], ruleExpectations[2]},

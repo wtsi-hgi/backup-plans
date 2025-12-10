@@ -65,7 +65,7 @@ func (s *Server) summary(w http.ResponseWriter, _ *http.Request) error { //nolin
 	s.rulesMu.RLock()
 
 	for _, root := range s.reportRoots {
-		ds, err := s.rootDir.Summary(root[1:])
+		ds, err := s.rootDir.Summary(root)
 		if errors.Is(err, ruletree.ErrNotFound) || errors.As(err, new(tree.ChildNotFoundError)) {
 			continue
 		} else if err != nil {
@@ -83,7 +83,7 @@ func (s *Server) summary(w http.ResponseWriter, _ *http.Request) error { //nolin
 
 		for _, dir := range s.dirs {
 			if strings.HasPrefix(dir.Path, root) && dir.Path != root {
-				child, err := s.rootDir.Summary(dir.Path[1:])
+				child, err := s.rootDir.Summary(dir.Path)
 				if err != nil {
 					continue
 				}
