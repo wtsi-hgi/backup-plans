@@ -18,7 +18,7 @@ database with ClickHouse, while keeping Go interfaces behaving the same.
 ### Key Design Decisions
 
 1. **ClickHouse stores filesystem stats only** - plan DB (SQLite/MySQL) remains source of truth for rules and directory claims
-2. **Per-root snapshots** - each filesystem root has independent snapshots
+2. **Per-root snapshots** - each filesystem root has independent snapshots; the system operates on the latest available snapshot for each root (mixed dates supported)
 3. **In-memory aggregates for interactive queries** - `/api/tree` uses pre-computed in-memory structures
 4. **State machine for rule matching** - reuse `wrstat-ui/summary/group` automaton for O(path-length) rule evaluation
 5. **Incremental updates** - rule changes trigger partial re-aggregation
@@ -75,9 +75,9 @@ Files:
   /other/path/file.txt          -> rule 0 (unplanned)
 ```
 
-### 1.4. Future Extension: `*` vs `**` and Non-Overridable Rules
+### 1.4. Advanced Rule Semantics (`*` vs `**` and Priority)
 
-To support `.gitignore`-style semantics, the rule schema can be extended:
+To support `.gitignore`-style semantics and non-overridable rules, the rule schema includes:
 
 ```sql
 ALTER TABLE rules ADD COLUMN recursive TINYINT NOT NULL DEFAULT 1;
@@ -85,11 +85,12 @@ ALTER TABLE rules ADD COLUMN priority  TINYINT NOT NULL DEFAULT 0;
 ```
 
 - `recursive = 0`: `*` matches only immediate directory (non-recursive)
-- `recursive = 1`: `*` matches recursively into subdirectories (current behavior)
+- `recursive = 1`: `*` matches recursively into subdirectories (current behavior, `**` equivalent)
 - `priority = 0`: Normal rule (can be overridden by child rules)
 - `priority = 1`: Non-overridable (takes precedence even if child rules exist)
 
 **Migration:** Existing rules get `recursive = 1, priority = 0` to preserve behavior.
+The state machine builder must be updated to respect these flags.
 
 ---
 
@@ -197,7 +198,8 @@ backup-plans ch-import --stats /path/to/stats.gz --ch-dsn "clickhouse://..." [--
 3. Register snapshot in `fs_snapshots`
 4. If `--mark-current`, set `is_current = 1`
 
-**Target:** < 45 min for 1.3B files
+**Performance Target:** < 45 min for 1.3B files total.
+**Parallelism:** Since `stats.gz` files are per-filesystem, multiple `ch-import` processes can run in parallel for different roots to maximize throughput.
 
 ---
 
@@ -318,16 +320,31 @@ func Backup(ctx context.Context, planDB *db.DB, chConn clickhouse.Conn,
 }
 ```
 
-### 5.3. Performance
+### 5.3. Performance & Optimization
 
-| Scale | Directories | Files | Time |
-|-------|-------------|-------|------|
-| Small | 10 | 100K | < 30s |
-| Medium | 100 | 10M | 2-5 min |
-| Large | 500 | 100M | 15-30 min |
-| Full | 1000 | 1B | 1-2 hours |
+| Scale | Directories | Files | Time (Naive) | Time (Optimized) |
+|-------|-------------|-------|--------------|------------------|
+| Small | 10 | 100K | < 30s | < 10s |
+| Medium | 100 | 10M | 2-5 min | < 1 min |
+| Large | 500 | 100M | 15-30 min | 2-5 min |
+| Full | 1000 | 1B | 1-2 hours | 10-20 min |
 
-**Optimization:** Parallel queries (10 concurrent), use `fs_rule_dir_cache` to skip empty directories.
+**Optimization Strategy: Smart Filtering**
+
+Instead of streaming all files for every claimed directory, we use the rule definitions to filter queries:
+
+1. **Non-recursive rules (`recursive=0`)**: Only query the immediate directory.
+   ```sql
+   SELECT ... FROM fs_files WHERE dir_path = ?
+   ```
+2. **Recursive rules (`recursive=1`)**: Query with `startsWith`.
+   ```sql
+   SELECT ... FROM fs_files WHERE startsWith(dir_path, ?)
+   ```
+3. **Exclusion Logic**: If the state machine indicates that a large subdirectory is fully covered by `BackupNone` (and no high-priority rules override it), we can exclude it from the query.
+   - *Implementation*: Walk the state machine to find "cut-off" paths where the rule is `BackupNone` and `recursive=1`. Add `AND NOT startsWith(dir_path, ?)` to the query.
+
+**Parallelism**: Run queries for different claimed directories in parallel (e.g., 10-20 concurrent workers).
 
 ---
 
@@ -358,10 +375,7 @@ func Backup(ctx context.Context, planDB *db.DB, chConn clickhouse.Conn,
 - [ ] Test identical results vs old implementation
 - [ ] Document migration procedure
 
-### Phase 7: Future Extensions
-- [ ] Implement `recursive` column for `*` vs `**` behavior
-- [ ] Implement `priority` column for non-overridable rules
-- [ ] Update state machine to respect new columns
+### Phase 7: UI Updates
 - [ ] Add UI controls for recursive/priority flags
 
 ---
