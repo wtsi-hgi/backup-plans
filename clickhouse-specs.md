@@ -354,8 +354,17 @@ At startup or when a new snapshot becomes current:
          the subtree are never scanned (they are invisible to the UI today as
          well).
      - All files under any directory that has rules (or whose descendants have
-         rules) are still scanned, so unplanned vs planned breakdown remains
-         correct for every directory that appears in the UI.
+         rules) are still scanned.
+
+     **Optimization for Recursive Rules:**
+     If a directory `D` has a recursive rule (`*`) and there are **no other rules** in its entire subtree (checked via the rule prefix set), we can skip streaming `fs_files` for this subtree. Instead, query `fs_dir_stats` to get pre-aggregated sums for `D` and all its descendants.
+     ```sql
+     SELECT dir_path, uid, gid, sum(file_count), sum(total_size), max(max_mtime)
+     FROM fs_dir_stats
+     WHERE fs_root = ? AND snapshot_id = ? AND startsWith(dir_path, ?)
+     GROUP BY dir_path, uid, gid
+     ```
+     This dramatically speeds up aggregation for large subtrees covered by a single policy.
 
      Implementations may choose to buffer per-directory aggregates in memory
      while streaming, or to shard the work by `(fs_root, snapshot_id)` and/or
@@ -420,7 +429,7 @@ On rule create/update/remove:
 
 3. **Re-query the affected subtree**
    - Identify the minimum subtree that could be affected: the rule's directory path
-   - **Optimization**: For catch-all rules (`*`), query `fs_dir_stats` (fast).
+   - **Optimization**: For catch-all rules (`*`) where no child rules exist in the subtree, query `fs_dir_stats` (fast).
    - **Optimization**: For filename-sensitive rules, use ClickHouse `match(name, pattern)` to aggregate directly in DB.
      ```sql
      SELECT dir_path, uid, gid, count(), sum(size), max(mtime)
