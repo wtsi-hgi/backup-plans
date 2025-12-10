@@ -40,28 +40,32 @@ func (r *RootDir) generateStatemachineFor(mount string, paths []string) (group.S
 
 type dirTreeRule struct {
 	dir   dirState
-	rules ruleState
+	rules map[string]*db.Rule
 }
 
-type dirTree struct {
-	children map[string]*dirTree
+type RuleTree struct {
+	children map[string]*RuleTree
 	dirTreeRule
 }
 
-func newDirTree(dirTreeRule dirTreeRule) *dirTree {
-	return &dirTree{
-		children:    make(map[string]*dirTree),
+func NewRuleTree(dirTreeRule dirTreeRule) *RuleTree {
+	if dirTreeRule.rules == nil {
+		dirTreeRule.rules = map[string]*db.Rule{}
+	}
+
+	return &RuleTree{
+		children:    make(map[string]*RuleTree),
 		dirTreeRule: dirTreeRule,
 	}
 }
 
-func (d *dirTree) set(path string, rs ruleState, changed bool) {
-	curr := d
+func (r *RuleTree) set(path string, rules map[string]*db.Rule, changed bool) {
+	curr := r
 
 	for part := range pathParts(path[1:]) {
 		next, ok := curr.children[part]
 		if !ok {
-			if changed && rs == 0 {
+			if changed && len(rules) == 0 {
 				curr.dir |= rulesChanged
 
 				break
@@ -73,7 +77,7 @@ func (d *dirTree) set(path string, rs ruleState, changed bool) {
 				new.dir |= parentRulesChanged
 			}
 
-			next = newDirTree(new)
+			next = NewRuleTree(new)
 			curr.children[part] = next
 		}
 
@@ -90,39 +94,198 @@ func (d *dirTree) set(path string, rs ruleState, changed bool) {
 		curr.dir |= rulesChanged
 	}
 
-	curr.rules = rs
+	curr.rules = maps.Clone(rules)
 }
+
+func (r *RuleTree) Get(path string) *RuleTree {
+	curr := r
+	for part := range pathParts(path[1:]) {
+		next, ok := curr.children[part]
+		if !ok {
+			return nil
+		}
+
+		curr = next
+	}
+
+	return curr
+}
+
+func (r *RuleTree) Canon() {
+	for _, child := range r.children {
+		child.Canon()
+	}
+
+	if r.resolveOverrides() {
+		r.recurseResolveSlashes()
+	} else {
+		r.resolveSlashes()
+	}
+}
+
+func (r *RuleTree) resolveOverrides() bool {
+	changed := r.dir&rulesChanged != 0
+
+	hasOverride := false
+
+	for match, rule := range r.rules {
+		if rule == nil || !rule.Override {
+			continue
+		}
+
+		hasOverride = true
+
+		for _, child := range r.children {
+			child.setOverride(match, rule, changed)
+		}
+
+		if !strings.HasPrefix(match, "*") {
+			r.setOverride("*/"+match, rule, changed)
+		}
+	}
+
+	return hasOverride
+}
+
+func (r *RuleTree) setOverride(match string, rule *db.Rule, changed bool) {
+	if _, ok := r.rules[match]; ok {
+		slash := strings.IndexByte(match, '/')
+		wildcard := strings.IndexByte(match, '*')
+
+		if wildcard < 0 || slash >= 0 && wildcard < slash {
+			return
+		}
+	} else {
+		r.rules[match] = rule
+
+		if changed {
+			r.dir |= rulesChanged
+		}
+	}
+
+	for _, child := range r.children {
+		child.setOverride(match, rule, changed)
+	}
+}
+
+func (r *RuleTree) recurseResolveSlashes() {
+	for _, child := range r.children {
+		child.recurseResolveSlashes()
+	}
+
+	r.resolveSlashes()
+}
+
+func (r *RuleTree) resolveSlashes() {
+	changed := r.dir&rulesChanged != 0
+
+	for match, rule := range r.rules {
+		preWildcard, _, _ := strings.Cut(match, "*")
+		slash := strings.LastIndexByte(preWildcard, '/')
+
+		if slash < 0 {
+			continue
+		}
+
+		delete(r.rules, match)
+
+		curr := r
+
+		for part := range pathParts(match[:slash+1]) {
+			next, ok := curr.children[part]
+			if !ok {
+				var new dirTreeRule
+
+				if changed || curr.dir&parentRulesChanged != 0 {
+					new.dir |= parentRulesChanged
+				}
+
+				next = NewRuleTree(new)
+				curr.children[part] = next
+			}
+
+			curr.dir |= hasChildWithRules
+
+			if changed {
+				curr.dir |= hasChildWithChangedRules
+			}
+
+			curr = next
+		}
+
+		newMatch := match[slash+1:]
+
+		if _, ok := curr.rules[newMatch]; !ok {
+			curr.rules[newMatch] = rule
+		}
+	}
+}
+
+var basicWildcard = map[string]*db.Rule{"*": nil}
 
 func (r *RootDir) buildDirRules(mount string, paths []string) []group.PathGroup[int64] {
 	dirs := slices.Collect(maps.Keys(r.directoryRules))
 
 	slices.Sort(dirs)
 
-	root := newDirTree(dirTreeRule{rules: simpleWildcard})
-	root.set(mount, simpleWildcard, false)
-	root.set("/", simpleWildcard, true)
+	root := NewRuleTree(dirTreeRule{})
+	root.set(mount, basicWildcard, false)
+	root.set("/", basicWildcard, true)
 
 	for _, dir := range dirs {
 		if !strings.HasPrefix(dir, mount) {
 			continue
 		}
 
-		root.set(dir, r.ruleState(dir), paths == nil || slices.Contains(paths, dir))
+		root.set(dir, r.directoryRules[dir].Rules, paths == nil || slices.Contains(paths, dir))
 	}
 
-	return r.buildRules(root, "/", nil, 0)
+	root.Canon()
+
+	return buildRules(root, "/", nil, 0)
 }
 
-func (r *RootDir) ruleState(dir string) ruleState {
-	var rs ruleState
+func buildRules(d *RuleTree, path string, rules []group.PathGroup[int64], wildcard int64) []group.PathGroup[int64] {
+	if len(d.rules) > 0 {
+		if wc, ok := d.rules["*"]; ok {
+			wildcard = wc.ID()
+		}
 
-	drs := r.directoryRules[dir]
+		for match, rule := range d.rules {
+			rules = addRule(rules, path+match, rule.ID())
+		}
+	}
 
-	if drs == nil {
+	switch ruleState := getRuleState(d.rules); ruleState {
+	case noRules:
+		rules = addNoRuleRules(rules, path, d.dir, wildcard)
+	case simpleWildcard:
+		rules = addSimpleWildcardRules(rules, path, d.dir, wildcard)
+	case simplePaths:
+		rules = addRule(rules, path, processRules)
+	case simpleWildcard | simplePaths:
+		rules = addSimpleRules(rules, path, d.dir, wildcard)
+	case complexWildcardWithPrefix, complexWildcardWithSuffix, complexWildcardWithPrefix | simplePaths, complexWildcardWithSuffix | simplePaths:
+		rules = addComplexRules(rules, path, d.dir, ruleState, wildcard, d.rules)
+	default:
+		rules = addComplexWithWildcardRules(rules, path, d.dir, ruleState, wildcard, d.rules)
+	}
+
+	for part, child := range d.children {
+		rules = buildRules(child, path+part, rules, wildcard)
+	}
+
+	return rules
+}
+
+func getRuleState(rules map[string]*db.Rule) ruleState {
+	if len(rules) == 0 {
 		return 0
 	}
 
-	for match := range drs.Rules {
+	var rs ruleState
+
+	for match := range rules {
 		if match == "*" {
 			rs |= simpleWildcard
 		} else if strings.Contains(match, "*") {
@@ -137,40 +300,6 @@ func (r *RootDir) ruleState(dir string) ruleState {
 	}
 
 	return rs
-}
-
-func (r *RootDir) buildRules(d *dirTree, path string, rules []group.PathGroup[int64], wildcard int64) []group.PathGroup[int64] {
-	drs, ok := r.directoryRules[path]
-	if ok {
-		if wc, ok := drs.Rules["*"]; ok {
-			wildcard = wc.ID()
-		}
-
-		for match, rule := range drs.Rules {
-			rules = addRule(rules, path+match, rule.ID())
-		}
-	}
-
-	switch d.rules {
-	case noRules:
-		rules = addNoRuleRules(rules, path, d.dir, wildcard)
-	case simpleWildcard:
-		rules = addSimpleWildcardRules(rules, path, d.dir, wildcard)
-	case simplePaths:
-		rules = addRule(rules, path, processRules)
-	case simpleWildcard | simplePaths:
-		rules = addSimpleRules(rules, path, d.dir, wildcard)
-	case complexWildcardWithPrefix, complexWildcardWithSuffix, complexWildcardWithPrefix | simplePaths, complexWildcardWithSuffix | simplePaths:
-		rules = addComplexRules(rules, path, d.dir, d.rules, wildcard, drs.Rules)
-	default:
-		rules = addComplexWithWildcardRules(rules, path, d.dir, d.rules, wildcard, drs.Rules)
-	}
-
-	for part, child := range d.children {
-		rules = r.buildRules(child, path+part, rules, wildcard)
-	}
-
-	return rules
 }
 
 func addRule(rules []group.PathGroup[int64], path string, rule int64) []group.PathGroup[int64] {
@@ -228,19 +357,25 @@ func addComplexChildRules(rules []group.PathGroup[int64], path string, ruleState
 	if ruleState&complexWildcardWithSuffix != 0 {
 		return addRule(rules, path+"*/", processRules)
 	} else if ruleState&simpleWildcard != 0 {
-		addRule(rules, path+"*/", -wildcard)
+		rules = addRule(rules, path+"*/", -wildcard)
 	}
 
-	todo := map[string]struct{}{}
+	todo := map[string]int64{}
 
-	for match := range rs {
+	for match, r := range rs {
 		if pos := strings.IndexByte(match, '*'); pos > 0 {
-			todo[match[:pos]] = struct{}{}
+			newMatch := match[:pos]
+
+			if _, ok := todo[newMatch]; ok || pos+1 < len(match) {
+				todo[newMatch] = processRules
+			} else {
+				todo[newMatch] = r.ID()
+			}
 		}
 	}
 
-	for part := range todo {
-		addRule(rules, path+part+"*/", processRules)
+	for part, id := range todo {
+		rules = addRule(rules, path+part+"*/", id)
 	}
 
 	return rules

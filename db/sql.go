@@ -45,10 +45,11 @@ var tables = [...]string{
 		"`directoryID` INTEGER NOT NULL, " +
 		"`type` INTEGER NOT NULL, " +
 		"`metadata` TEXT NOT NULL, " +
-		"`match` TEXT NOT NULL, " +
+		"`match` /*! MEDIUM*/TEXT NOT NULL, " +
 		"`matchHash` " + hashColumnStart + "`match`" + hashColumnEnd + ", " +
 		"`created` BIGINT NOT NULL, " +
 		"`modified` BIGINT NOT NULL, " +
+		"`override` BOOLEAN DEFAULT FALSE, " +
 		"UNIQUE(`directoryID`, `matchHash`), " +
 		"FOREIGN KEY(`directoryID`) REFERENCES `directories`(`id`) ON DELETE CASCADE" +
 		");",

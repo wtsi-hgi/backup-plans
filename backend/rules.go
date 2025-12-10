@@ -513,29 +513,13 @@ func getRuleDetails(r *http.Request) (*db.Rule, error) { //nolint:cyclop,gocyclo
 	rule.Match = r.FormValue("match")
 	if rule.Match == "" {
 		rule.Match = "*"
-	} else if !validMatch(rule.Match) || strings.Contains(rule.Match, "\x00") {
+	} else if strings.Contains(rule.Match, "\x00") {
 		return nil, ErrInvalidMatch
-	}
-
-	if strings.HasSuffix(rule.Match, "/") {
+	} else if strings.HasSuffix(rule.Match, "/") {
 		rule.Match += "*"
 	}
 
 	return rule, nil
-}
-
-func validMatch(match string) bool {
-	for _, c := range match {
-		if c == '*' {
-			return true
-		}
-
-		if c == '/' {
-			return false
-		}
-	}
-
-	return true
 }
 
 // UpdateRule allows the claimant of a directory to update a rule for that
