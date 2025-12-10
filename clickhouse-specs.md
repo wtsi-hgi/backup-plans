@@ -1043,130 +1043,340 @@ func (sm StateMachine[T]) GetGroup(info *summary.FileInfo) *T {
 
 ## 5. Backup Job with ClickHouse
 
-### 5.1. Approach Selection
+The `backup` command runs as a separate process on a different machine from
+the web server. It has **no access to in-memory caches** and must operate
+statelessly by querying the plan database and ClickHouse directly.
 
-Two approaches for backup generation:
+### 5.1. Architecture
 
-**A. Stateless ClickHouse Query (Recommended for accuracy)**
-- For each BackupIBackup rule, query ClickHouse for matching files
-- Handles all edge cases correctly
-- May be slower for broad rules
+```
+backup cmd
+    ├── connects to plan DB (rules + directories)
+    ├── connects to ClickHouse (file data)
+    ├── builds state machine from rules
+    ├── streams files from ClickHouse
+    ├── evaluates each file against state machine
+    └── submits matching files to ibackup
+```
 
-**B. In-Memory Walk (Recommended for speed)**
-- Use `fs_rule_dir_cache` to find directories with BackupIBackup files
-- Query only those specific directories from `fs_files`
-- Faster but requires cache to be up-to-date
+### 5.2. Implementation
 
-### 5.2. Implementation (Hybrid Approach)
+The backup package exposes a single function that replaces the current tree-walking
+implementation. It preserves the exact same `ibackup.MultiClient.Backup()` API:
 
 ```go
-func (s *Server) GenerateBackups(ctx context.Context, client *ibackup.MultiClient) error {
-    // 1. Find all directories with BackupIBackup rules
-    backupDirs := s.findBackupDirectories()
-    
-    // 2. For each directory, generate file list
-    for dir, rules := range backupDirs {
-        fofn, err := s.generateFOFN(ctx, dir, rules)
-        if err != nil {
-            return err
-        }
-        
-        // 3. Submit to ibackup
-        dirInfo := s.dirs[dir.ID]
-        err = client.Backup(
-            dirInfo.Path,
-            "plan::" + dirInfo.Path,
-            dirInfo.ClaimedBy,
-            fofn,
-            int(dirInfo.Frequency),
-            dirInfo.ReviewDate,
-            dirInfo.RemoveDate,
-        )
-        if err != nil {
-            log.Printf("backup failed for %s: %v", dirInfo.Path, err)
-        }
-    }
-    
-    return nil
+// backups/backups.go
+
+package backups
+
+import (
+    "context"
+    "fmt"
+
+    "github.com/ClickHouse/clickhouse-go/v2"
+    "github.com/wtsi-hgi/backup-plans/db"
+    "github.com/wtsi-hgi/backup-plans/ibackup"
+    "github.com/wtsi-hgi/wrstat-ui/summary"
+    "github.com/wtsi-hgi/wrstat-ui/summary/group"
+)
+
+type ruleGroup = group.PathGroup[db.Rule]
+
+const setNamePrefix = "plan::"
+
+// SetInfo contains the result of a successful backup submission.
+type SetInfo struct {
+    BackupSetName string
+    Requestor     string
+    FileCount     int
 }
 
-func (s *Server) generateFOFN(ctx context.Context, dir *db.Directory, rules []*db.Rule) ([]string, error) {
-    // Build WHERE clause from rules
-    // Each rule: dir.Path + rule.Match pattern
-    
-    var conditions []string
-    for _, rule := range rules {
+// Backup finds all files matching BackupIBackup rules and submits them to ibackup.
+// It operates statelessly by querying the plan DB and ClickHouse directly.
+func Backup(ctx context.Context, planDB *db.DB, chConn clickhouse.Conn,
+    fsRoot string, snapshotID uint32, client *ibackup.MultiClient) ([]SetInfo, error) {
+
+    // 1. Load directories and rules from plan DB
+    dirs := loadDirectories(planDB)
+    sm, dirPaths := buildStateMachine(planDB, dirs)
+
+    // 2. Collect files per directory
+    setFofns := make(map[int64][]string)
+
+    // 3. Stream files from ClickHouse for directories with rules
+    for dirPath := range dirPaths {
+        if err := streamFilesForDir(ctx, chConn, fsRoot, snapshotID,
+            dirPath, sm, dirs, setFofns); err != nil {
+            return nil, fmt.Errorf("streaming files for %s: %w", dirPath, err)
+        }
+    }
+
+    // 4. Submit to ibackup
+    return submitToIBackup(client, setFofns, dirs)
+}
+
+func loadDirectories(planDB *db.DB) map[int64]*db.Directory {
+    dirs := make(map[int64]*db.Directory)
+    for dir := range planDB.ReadDirectories().Iter {
+        dirs[dir.ID()] = dir
+    }
+    return dirs
+}
+
+func buildStateMachine(planDB *db.DB, dirs map[int64]*db.Directory) (
+    group.StateMachine[db.Rule], map[string]struct{}) {
+
+    rules := planDB.ReadRules()
+    var groups []ruleGroup
+    dirPaths := make(map[string]struct{})
+
+    rules.ForEach(func(rule *db.Rule) error {
+        path := dirs[rule.DirID()].Path
+        groups = append(groups, ruleGroup{
+            Path:  []byte(path + rule.Match),
+            Group: rule,
+        })
+        dirPaths[path] = struct{}{}
+        return nil
+    })
+
+    sm, _ := group.NewStatemachine(groups)
+    return sm, dirPaths
+}
+
+func streamFilesForDir(ctx context.Context, chConn clickhouse.Conn,
+    fsRoot string, snapshotID uint32, dirPath string,
+    sm group.StateMachine[db.Rule], dirs map[int64]*db.Directory,
+    setFofns map[int64][]string) error {
+
+    // Query all files under this directory
+    rows, err := chConn.Query(ctx, `
+        SELECT dir_path, name
+        FROM fs_files
+        WHERE fs_root = ? AND snapshot_id = ? AND startsWith(dir_path, ?)
+        ORDER BY dir_path, name
+    `, fsRoot, snapshotID, dirPath)
+    if err != nil {
+        return err
+    }
+    defer rows.Close()
+
+    for rows.Next() {
+        var fileDirPath, fileName string
+        if err := rows.Scan(&fileDirPath, &fileName); err != nil {
+            return err
+        }
+
+        // Build FileInfo for state machine evaluation
+        fi := buildFileInfo(fileDirPath, fileName)
+
+        // Evaluate against state machine to find matching rule
+        rule := sm.GetGroup(fi)
+        if rule == nil {
+            continue
+        }
+
+        // Only include files matched by BackupIBackup rules
         if rule.BackupType != db.BackupIBackup {
             continue
         }
-        
-        pattern := convertGlobToLike(rule.Match)
-        condition := fmt.Sprintf(
-            "(startsWith(dir_path, '%s') AND match(name, '%s'))",
-            escapeSQLString(dir.Path),
-            pattern,
-        )
-        conditions = append(conditions, condition)
+
+        // Add to the set for this rule's directory
+        fullPath := fileDirPath + fileName
+        setFofns[rule.DirID()] = append(setFofns[rule.DirID()], fullPath)
     }
-    
-    // Query matching files
-    query := fmt.Sprintf(`
-        SELECT concat(dir_path, name) AS path
-        FROM fs_files
-        WHERE fs_root = ? AND snapshot_id = ?
-          AND (%s)
-        ORDER BY path
-    `, strings.Join(conditions, " OR "))
-    
-    rows, _ := s.ch.Query(ctx, query, fsRoot, snapshotID)
-    
-    var files []string
-    for rows.Next() {
-        var path string
-        rows.Scan(&path)
-        
-        // Verify this file's effective rule is indeed BackupIBackup
-        // (handles override cases)
-        if s.effectiveRuleIs(path, db.BackupIBackup) {
-            files = append(files, path)
+
+    return rows.Err()
+}
+
+func buildFileInfo(dirPath, fileName string) *summary.FileInfo {
+    // Build DirectoryPath chain from dirPath
+    parts := splitPath(dirPath) // e.g., "/data/project/" -> ["data", "project"]
+    var parent *summary.DirectoryPath
+
+    for i, part := range parts {
+        parent = &summary.DirectoryPath{
+            Name:   part + "/",
+            Depth:  i,
+            Parent: parent,
         }
     }
-    
-    return files, nil
+
+    return &summary.FileInfo{
+        Path: parent,
+        Name: []byte(fileName),
+    }
+}
+
+func splitPath(path string) []string {
+    // Split "/data/project/" into ["data", "project"]
+    var parts []string
+    for _, p := range strings.Split(strings.Trim(path, "/"), "/") {
+        if p != "" {
+            parts = append(parts, p)
+        }
+    }
+    return parts
+}
+
+func submitToIBackup(client *ibackup.MultiClient, setFofns map[int64][]string,
+    dirs map[int64]*db.Directory) ([]SetInfo, error) {
+
+    var results []SetInfo
+    var errs error
+
+    for dirID, files := range setFofns {
+        dir := dirs[dirID]
+        setName := setNamePrefix + dir.Path
+
+        err := client.Backup(
+            dir.Path,              // path for client selection
+            setName,               // backup set name
+            dir.ClaimedBy,         // requestor
+            files,                 // file list
+            int(dir.Frequency),    // backup frequency
+            dir.ReviewDate,        // review date
+            dir.RemoveDate,        // remove date
+        )
+        if err != nil {
+            errs = errors.Join(errs, fmt.Errorf("backup %s: %w", dir.Path, err))
+            continue
+        }
+
+        results = append(results, SetInfo{
+            BackupSetName: setName,
+            Requestor:     dir.ClaimedBy,
+            FileCount:     len(files),
+        })
+    }
+
+    return results, errs
 }
 ```
 
-### 5.3. Performance Optimization
+### 5.3. Command Integration
 
-For very large directories, stream directly to ibackup:
+The `backup` command wires up the connections:
 
 ```go
-func (s *Server) streamBackup(ctx context.Context, dir *db.Directory, rules []*db.Rule, client *ibackup.MultiClient) error {
-    // Create streaming FOFN writer
-    writer := client.StartBackup(
-        "plan::" + dir.Path,
-        dir.ClaimedBy,
-        dir.Frequency,
-        dir.ReviewDate,
-        dir.RemoveDate,
-    )
-    defer writer.Close()
-    
-    // Stream files directly from ClickHouse
-    rows, _ := s.ch.Query(ctx, query, ...)
-    
-    for rows.Next() {
-        var path string
-        rows.Scan(&path)
-        
-        if s.effectiveRuleIs(path, db.BackupIBackup) {
-            writer.AddFile(path)
+// cmd/backup.go
+
+var backupCmd = &cobra.Command{
+    Use:   "backup",
+    Short: "Use iBackup to backup files matching BackupIBackup rules.",
+    RunE: func(cmd *cobra.Command, args []string) error {
+        ctx := context.Background()
+
+        // 1. Parse config and create ibackup client
+        config, err := parseConfig(configPath)
+        if err != nil {
+            return fmt.Errorf("parse config: %w", err)
         }
-    }
-    
-    return writer.Commit()
+
+        client, err := ibackup.New(config.IBackup)
+        if err != nil && !ibackup.IsOnlyConnectionErrors(err) {
+            return err
+        }
+
+        // 2. Connect to plan DB
+        planDB, err := db.Init(planDBConn)
+        if err != nil {
+            return fmt.Errorf("open plan db: %w", err)
+        }
+        defer planDB.Close()
+
+        // 3. Connect to ClickHouse
+        chConn, err := clickhouse.Open(&clickhouse.Options{
+            Addr: []string{chAddr},
+        })
+        if err != nil {
+            return fmt.Errorf("connect clickhouse: %w", err)
+        }
+        defer chConn.Close()
+
+        // 4. Get current snapshot
+        fsRoot, snapshotID, err := getCurrentSnapshot(ctx, chConn)
+        if err != nil {
+            return fmt.Errorf("get snapshot: %w", err)
+        }
+
+        // 5. Run backup
+        setInfos, err := backups.Backup(ctx, planDB, chConn, fsRoot, snapshotID, client)
+        if err != nil {
+            err = fmt.Errorf("backup: %w", err)
+        }
+
+        for _, info := range setInfos {
+            cliPrintf("ibackup set '%s' created for %s with %d files\n",
+                info.BackupSetName, info.Requestor, info.FileCount)
+        }
+
+        return err
+    },
+}
+
+func getCurrentSnapshot(ctx context.Context, chConn clickhouse.Conn) (string, uint32, error) {
+    var fsRoot string
+    var snapshotID uint32
+
+    err := chConn.QueryRow(ctx, `
+        SELECT fs_root, snapshot_id
+        FROM fs_snapshots
+        WHERE is_current = 1
+        LIMIT 1
+    `).Scan(&fsRoot, &snapshotID)
+
+    return fsRoot, snapshotID, err
 }
 ```
+
+### 5.4. Performance Characteristics
+
+**Query Strategy:**
+
+The implementation queries ClickHouse once per claimed directory with rules.
+For a typical deployment with hundreds of claimed directories:
+
+- ~100-500 ClickHouse queries (one per directory with rules)
+- Each query scans only the subtree under that directory
+- State machine evaluation is O(path-length) per file
+
+**Expected Performance:**
+
+| Scale | Directories | Files Evaluated | Time |
+|-------|-------------|-----------------|------|
+| Small | 10 | 100K | < 30s |
+| Medium | 100 | 10M | 2-5 min |
+| Large | 500 | 100M | 15-30 min |
+| Full | 1000 | 1B | 1-2 hours |
+
+**Optimization Options:**
+
+1. **Parallel queries**: Query multiple directories concurrently
+   ```go
+   sem := make(chan struct{}, 10) // 10 concurrent queries
+   for dirPath := range dirPaths {
+       sem <- struct{}{}
+       go func(dp string) {
+           defer func() { <-sem }()
+           streamFilesForDir(ctx, chConn, fsRoot, snapshotID, dp, sm, dirs, setFofns)
+       }(dirPath)
+   }
+   ```
+
+2. **Use fs_rule_dir_cache**: Skip directories with no BackupIBackup files
+   ```go
+   // Pre-filter directories that have BackupIBackup files
+   rows, _ := chConn.Query(ctx, `
+       SELECT DISTINCT dir_path
+       FROM fs_rule_dir_cache
+       WHERE fs_root = ? AND snapshot_id = ?
+         AND rule_id IN (SELECT id FROM rules WHERE backup_type = 1)
+   `, fsRoot, snapshotID)
+   ```
+
+3. **Batch file collection**: Accumulate files in memory-mapped buffer
+   to avoid repeated slice allocations
 
 ---
 
