@@ -209,10 +209,10 @@ SELECT fs_root, snapshot_id, dir_path, uid, gid,
 FROM fs_files GROUP BY fs_root, snapshot_id, dir_path, uid, gid;
 ```
 
-**Usage:** Fast path for rules whose match is effectively "match everything"
-in a subtree (e.g. `*`/`**`) and for `IsDirectory`/ownership checks. It is
-*not* sufficient for filename-specific patterns (e.g. `*.bam`, `temp-*`); those
-still need per-file basenames from `fs_files` (see section 4.2).
+**Usage:** Optional helper for quickly computing per-directory totals (for
+coarse reporting or sanity checks). Rule-aware aggregation and ownership checks
+still rely on `fs_files` (per-file paths) and `fs_dirs` (directory metadata);
+`fs_dir_stats` is *not* sufficient on its own for assigning files to rules.
 
 ### 2.5. Snapshot Lifecycle
 
@@ -264,7 +264,7 @@ The backend Server maintains these structures for fast `/api/tree` responses:
   Handles `*` wildcards and implements "most specific wins" semantics.
 
 - **`dirSummaries map[string]*DirSummary`** - Recursive stats per directory,
-  built by walking `fs_dir_stats` and applying the state machine. Each summary
+  built by streaming `fs_files` and applying the state machine. Each summary
     contains per-rule aggregates broken down by user/group. The structure is
     intentionally compatible with the existing `ruletree.DirSummary` so that
     `/api/tree`, `/api/report/summary`, and `/api/usergroups` can keep their
@@ -282,27 +282,65 @@ At startup or when a new snapshot becomes current:
    compiles these into an automaton. Also populate `exactRules map[string]*db.Rule`
    for rules without `*` in their match pattern.
 
-3. **Single-pass aggregation**: Stream all `fs_dir_stats` rows for current snapshots,
-   ordered by `dir_path`. For each `(dir_path, uid, gid, file_count, total_size, max_mtime)`:
-   
-   a. Determine the winning rule by evaluating the state machine with `dir_path + "*"`
-      (catch-all simulation). This gives the rule that would apply to files in this dir.
-   
-   b. Look up/create `DirSummary` for `dir_path`
-   
-   c. Update `RuleSummaries[ruleID].Users[uid]` and `RuleSummaries[ruleID].Groups[gid]`
+3. **Single-pass aggregation over files (only where rules exist)**:
+     First build the minimal set of directory prefixes that need summaries,
+     exactly as `ruletree` does today:
 
-4. **Handle filename-sensitive rules**: For rules with non-`*` patterns (e.g., `*.bam`, `temp-*`):
-   - Query `fs_files` for the rule's directory subtree
-   - Apply the glob pattern to `name` in Go
-   - Aggregate matching files into separate RuleSummary entries
-   - Subtract these from the catch-all rule's totals to avoid double-counting
+     - Start from all directories in `directoryRules` (i.e. those that have at
+         least one rule).
+     - For each such directory, add it and all ancestors up to the filesystem
+         root to a `ruleDirPrefixes map[string]bool`.
+     - Then compress this set so that no prefix is a descendant of another
+         (i.e. keep only minimal prefixes, so `/lustre/project/` implies we can
+         drop `/lustre/project/subdir/` from the scan set).
 
-5. **Aggregate upward**: Process directories deepest-first (reverse `dir_path` order).
-   For each directory, add its per-rule stats into all ancestors.
+     For each `(fs_root, snapshot_id)` in `currentSnapshots`, and for each
+     prefix `p` in this minimal set that lies under that root, stream only the
+     `fs_files` rows whose `dir_path` starts with `p`, ordered by
+     `(dir_path, name)`. For each file row
+     `(fs_root, snapshot_id, dir_path, name, size, mtime, uid, gid)`:
 
-**Performance:** ~2-5 min for 50M aggregated rows, depending on rule count
-and tree depth.
+     a. Build the full path `fullPath = dir_path || name`.
+
+     b. If `exactRules[fullPath]` exists, use that rule. Otherwise construct a
+            `summary.FileInfo` (as the current implementation does) and call
+            `stateMachine.GetGroup` to get the winning rule (or `nil` for
+            "unplanned"). This preserves the existing
+            "most specific directory path + priority" semantics.
+
+     c. Determine the directory to attribute stats to (the file's parent,
+            i.e. `dir_path`) and look up/create its `DirSummary`.
+
+     d. Update `RuleSummaries[ruleID].Users[uid]` and
+            `RuleSummaries[ruleID].Groups[gid]` by increasing `Files`/`Size` and
+            taking the max of `MTime`. For files with no matching rule, use
+            `ruleID = 0` (the "unplanned"/`BackupWarn` bucket).
+
+     This means:
+
+     - Files in parts of the filesystem where there are no rules anywhere in
+         the subtree are never scanned (they are invisible to the UI today as
+         well).
+     - All files under any directory that has rules (or whose descendants have
+         rules) are still scanned, so unplanned vs planned breakdown remains
+         correct for every directory that appears in the UI.
+
+     Implementations may choose to buffer per-directory aggregates in memory
+     while streaming, or to shard the work by `(fs_root, snapshot_id)` and/or
+     by prefix to exploit parallelism. The key requirement is that each file is
+     assigned to exactly one effective rule, as it is today, and that only
+     rule-relevant subtrees are read from ClickHouse.
+
+4. **Aggregate upward**: After all files have been processed, walk directories
+    deepest-first (reverse `dir_path` order). For each directory, add its
+    per-rule stats into all ancestors, mirroring the current `ruletree`
+    behaviour where a rule that matches files in a subtree contributes to all
+    parent directories.
+
+**Performance:** Linear in the number of files. In practice this should be
+dominated by ClickHouse scan speed; with streamed reads of `fs_files` and
+multi-core aggregation in Go, the goal is to stay within the existing rebuild
+budget (tens of minutes for ~1.3B files).
 
 ### 4.3. `/api/tree` Implementation
 
