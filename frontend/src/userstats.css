@@ -17,6 +17,7 @@
 
 #userStats {
     border: 1px solid var(--tableBorder);
+    border-top: none;
     background-color: var(--subtleBG);
     border-bottom-left-radius: 1em;
     border-bottom-right-radius: 1em;
@@ -24,4 +25,9 @@
     margin-left: 1em;
     box-sizing: border-box;
     width: calc(100vw - 3em);
+}
+
+#userStats:hover {
+    border-top: 1px solid var(--tableBorder);
+    margin-top: -2px;
 }

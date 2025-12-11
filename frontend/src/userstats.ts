@@ -6,7 +6,9 @@ import type { ChildDirectory, DirectoryWithChildren, SizeCountStats } from './ty
 
 const base = tbody();
 
-const container = details({ "id": "userStats" }, [
+const container = details({
+    "id": "userStats",
+}, [
     summary("User stats"),
     table({ "class": "summary" }, [
         thead(tr([
