@@ -3,7 +3,6 @@
 	background-color: var(--subtleBG);
 	box-sizing: border-box;
 	border-top-left-radius: 1em;
-	border-bottom-left-radius: 1em;
 	margin-left: 1em;
 	align-self: stretch;
 	overflow: hidden;

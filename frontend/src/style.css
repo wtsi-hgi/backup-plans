@@ -238,7 +238,6 @@ input[type="checkbox"] {
 	background-color: var(--subtleBG);
 	box-sizing: border-box;
 	border-top-right-radius: 1em;
-	border-bottom-right-radius: 1em;
 	align-self: stretch;
 	overflow: hidden;
 	width: 2em;
