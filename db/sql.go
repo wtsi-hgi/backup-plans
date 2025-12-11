@@ -100,6 +100,7 @@ const (
 		"`type`, " +
 		"`metadata`, " +
 		"`match`, " +
+		"`override`, " +
 		"`created`, " +
 		"`modified` " +
 		"FROM `rules`;"

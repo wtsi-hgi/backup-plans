@@ -119,9 +119,9 @@ func scanRule(scanner scanner) (*Rule, error) {
 		&rule.BackupType,
 		&rule.Metadata,
 		&rule.Match,
+		&rule.Override,
 		&rule.Created,
 		&rule.Modified,
-		&rule.Override,
 	); err != nil {
 		return nil, err
 	}
@@ -139,6 +139,7 @@ func (d *DB) UpdateRule(rule *Rule) error {
 		rule.Metadata,
 		rule.Match,
 		rule.Modified,
+		rule.Override,
 		rule.id,
 	)
 }
