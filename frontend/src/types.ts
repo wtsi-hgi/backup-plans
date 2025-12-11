@@ -38,6 +38,7 @@ export type Rule = {
 	BackupType: BackupType;
 	Metadata: string;
 	Match: string;
+	Override: boolean;
 };
 
 export type dirDetails = {

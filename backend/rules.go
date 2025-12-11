@@ -519,6 +519,8 @@ func getRuleDetails(r *http.Request) (*db.Rule, error) { //nolint:cyclop,gocyclo
 		rule.Match += "*"
 	}
 
+	rule.Override = r.FormValue("override") == "true"
+
 	return rule, nil
 }
 
