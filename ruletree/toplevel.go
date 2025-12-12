@@ -178,7 +178,7 @@ func (r *RootDir) RemoveRule(dir *db.Directory, rule *db.Rule) error {
 		return err
 	}
 
-	return r.regenRules(dir.Path)
+	return r.regenRules(r.getMountPoint(dir.Path), dir.Path)
 }
 
 func (r *RootDir) removeRule(dir *db.Directory, rule *db.Rule) error {

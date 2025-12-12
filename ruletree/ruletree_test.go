@@ -28,6 +28,7 @@ package ruletree
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -40,54 +41,28 @@ import (
 )
 
 func TestRuletree(t *testing.T) {
-	Convey("Given Tree DBs and rules", t, func() {
-		treeDBA := directories.NewRoot("/some/path/", time.Now().Unix())
-		directories.AddFile(&treeDBA.Directory, "MyDir/a.txt", 1, 2, 3, 4)
-		directories.AddFile(&treeDBA.Directory, "MyDir/b.csv", 1, 2, 5, 6)
-		directories.AddFile(&treeDBA.Directory, "YourDir/c.tsv", 21, 22, 15, 16)
-		directories.AddFile(&treeDBA.Directory, "OtherDir/a.file", 1, 22, 25, 26)
-		directories.AddFile(&treeDBA.Directory, "OtherDir/b.file", 1, 2, 35, 36)
-
-		treeDBB := directories.NewRoot("/some/other/path/", time.Now().Unix())
-
-		treeDBPathA := filepath.Join(t.TempDir(), "a.db")
-		treeDBPathB := filepath.Join(t.TempDir(), "b.db")
-
-		f, err := os.Create(treeDBPathA)
-		So(err, ShouldBeNil)
-		So(tree.Serialise(f, treeDBA), ShouldBeNil)
-		So(f.Close(), ShouldBeNil)
-
-		f, err = os.Create(treeDBPathB)
-		So(err, ShouldBeNil)
-		So(tree.Serialise(f, treeDBB), ShouldBeNil)
-		So(f.Close(), ShouldBeNil)
-
+	Convey("Given Tree DBs and a database", t, func() {
 		tdb := testdb.CreateTestDatabase(t)
 
-		dirs := []db.Directory{
-			{Path: "/some/path/MyDir/"},
-			{Path: "/some/path/YourDir/"},
-		}
-		rules := []db.Rule{
-			{Match: "*"},
-			{Match: "*.txt"},
-			{Match: "*"},
-		}
-
-		So(tdb.CreateDirectory(&dirs[0]), ShouldBeNil)
-		So(tdb.CreateDirectory(&dirs[1]), ShouldBeNil)
-
-		So(tdb.CreateDirectoryRule(&dirs[0], &rules[0]), ShouldBeNil)
-		So(tdb.CreateDirectoryRule(&dirs[0], &rules[1]), ShouldBeNil)
-		So(tdb.CreateDirectoryRule(&dirs[1], &rules[2]), ShouldBeNil)
-
 		Convey("You can create a RuleTree", func() {
-			root, err := NewRoot([]DirRule{
-				{Directory: &dirs[0], Rule: &rules[0]},
-				{Directory: &dirs[0], Rule: &rules[1]},
-				{Directory: &dirs[1], Rule: &rules[2]},
+			treeDBA := directories.NewRoot("/some/path/", time.Now().Unix())
+			directories.AddFile(&treeDBA.Directory, "MyDir/a.txt", 1, 2, 3, 4)
+			directories.AddFile(&treeDBA.Directory, "MyDir/b.csv", 1, 2, 5, 6)
+			directories.AddFile(&treeDBA.Directory, "YourDir/c.tsv", 21, 22, 15, 16)
+			directories.AddFile(&treeDBA.Directory, "OtherDir/a.file", 1, 22, 25, 26)
+			directories.AddFile(&treeDBA.Directory, "OtherDir/b.file", 1, 2, 35, 36)
+
+			treeDBB := directories.NewRoot("/some/other/path/", time.Now().Unix())
+
+			treeDBPathA := createTree(t, treeDBA)
+			treeDBPathB := createTree(t, treeDBB)
+
+			rules := genRules(t, tdb, map[string][]string{
+				"/some/path/MyDir/":   {"*", "*.txt"},
+				"/some/path/YourDir/": {"*"},
 			})
+
+			root, err := NewRoot(rules)
 			So(err, ShouldBeNil)
 
 			So(root.AddTree(treeDBPathA), ShouldBeNil)
@@ -123,7 +98,7 @@ func TestRuletree(t *testing.T) {
 					},
 				},
 				{
-					ID: uint64(rules[0].ID()),
+					ID: uint64(rules[0].Rule.ID()),
 					Users: RuleStats{
 						{
 							id:    1,
@@ -144,7 +119,7 @@ func TestRuletree(t *testing.T) {
 					},
 				},
 				{
-					ID: uint64(rules[1].ID()),
+					ID: uint64(rules[1].Rule.ID()),
 					Users: RuleStats{
 						{
 							id:    1,
@@ -165,7 +140,7 @@ func TestRuletree(t *testing.T) {
 					},
 				},
 				{
-					ID: uint64(rules[2].ID()),
+					ID: uint64(rules[2].Rule.ID()),
 					Users: RuleStats{
 						{
 							id:    21,
@@ -239,5 +214,239 @@ func TestRuletree(t *testing.T) {
 				Children:      map[string]*DirSummary{},
 			})
 		})
+
+		Convey("You can add and remove rules with basic wildcard matches", func() {
+			root, err := NewRoot(nil)
+			So(err, ShouldBeNil)
+
+			treeDB := buildTreeDB(t, []string{
+				"/path/wildcard/file.txt",
+				"/path/wildcard/sub/file.txt",
+				"/path/wildcard/sub2/file.txt",
+				"/path/wildcard/sub2/sub3/file.txt",
+			})
+
+			treeDBPath := createTree(t, treeDB)
+
+			So(root.AddTree(treeDBPath), ShouldBeNil)
+
+			wildcardRuleID := createRule(t, tdb, root, "/path/wildcard/", "*")
+
+			So(ruleIDCount(t, root, "/"), ShouldResemble, map[uint64]uint64{wildcardRuleID: 4})
+			So(ruleIDCount(t, root, "/path/wildcard/"), ShouldResemble, map[uint64]uint64{wildcardRuleID: 4})
+			So(ruleIDCount(t, root, "/path/wildcard/sub/"), ShouldResemble, map[uint64]uint64{wildcardRuleID: 1})
+
+			createRule(t, tdb, root, "/path/wildcard/", "file.txt.tsv")
+
+			So(ruleIDCount(t, root, "/"), ShouldResemble, map[uint64]uint64{wildcardRuleID: 4})
+			So(ruleIDCount(t, root, "/path/wildcard/"), ShouldResemble, map[uint64]uint64{wildcardRuleID: 4})
+			So(ruleIDCount(t, root, "/path/wildcard/sub/"), ShouldResemble, map[uint64]uint64{wildcardRuleID: 1})
+
+			wildcardRuleIDC := createRule(t, tdb, root, "/path/wildcard/", "file.txt")
+
+			So(ruleIDCount(t, root, "/"), ShouldResemble, map[uint64]uint64{wildcardRuleID: 3, wildcardRuleIDC: 1})
+			So(ruleIDCount(t, root, "/path/wildcard/"), ShouldResemble, map[uint64]uint64{wildcardRuleID: 3, wildcardRuleIDC: 1})
+			So(ruleIDCount(t, root, "/path/wildcard/sub/"), ShouldResemble, map[uint64]uint64{wildcardRuleID: 1})
+
+			wildcardRuleIDD := createRule(t, tdb, root, "/path/wildcard/sub2/", "*")
+
+			So(ruleIDCount(t, root, "/"), ShouldResemble, map[uint64]uint64{wildcardRuleID: 1, wildcardRuleIDC: 1, wildcardRuleIDD: 2})
+			So(ruleIDCount(t, root, "/path/wildcard/"), ShouldResemble, map[uint64]uint64{wildcardRuleID: 1, wildcardRuleIDC: 1, wildcardRuleIDD: 2})
+			So(ruleIDCount(t, root, "/path/wildcard/sub/"), ShouldResemble, map[uint64]uint64{wildcardRuleID: 1})
+			So(ruleIDCount(t, root, "/path/wildcard/sub2/"), ShouldResemble, map[uint64]uint64{wildcardRuleIDD: 2})
+			So(ruleIDCount(t, root, "/path/wildcard/sub2/sub3/"), ShouldResemble, map[uint64]uint64{wildcardRuleIDD: 1})
+
+			removeRule(t, tdb, root, "/path/wildcard/", "*")
+
+			So(ruleIDCount(t, root, "/"), ShouldResemble, map[uint64]uint64{0: 1, wildcardRuleIDC: 1, wildcardRuleIDD: 2})
+			So(ruleIDCount(t, root, "/path/wildcard/"), ShouldResemble, map[uint64]uint64{0: 1, wildcardRuleIDC: 1, wildcardRuleIDD: 2})
+			So(ruleIDCount(t, root, "/path/wildcard/sub/"), ShouldResemble, map[uint64]uint64{0: 1})
+			So(ruleIDCount(t, root, "/path/wildcard/sub2/"), ShouldResemble, map[uint64]uint64{wildcardRuleIDD: 2})
+			So(ruleIDCount(t, root, "/path/wildcard/sub2/sub3/"), ShouldResemble, map[uint64]uint64{wildcardRuleIDD: 1})
+		})
+
+		Convey("You can add and remove rules with complex matches", func() {
+			root, err := NewRoot(nil)
+			So(err, ShouldBeNil)
+
+			treeDB := buildTreeDB(t, []string{
+				"/path/temp/complex1a.txt",
+				"/path/temp/complex1b.txt",
+				"/path/temp/complex2a.log",
+				"/path/temp/complex2b.log",
+				"/path/temp/test/complex4a.txt",
+				"/path/temp/complexa/test.cram",
+			})
+
+			treeDBPath := createTree(t, treeDB)
+			So(root.AddTree(treeDBPath), ShouldBeNil)
+
+			createRule(t, tdb, root, "/path/temp/", "complex*a")
+			So(ruleIDCount(t, root, "/"), ShouldResemble, map[uint64]uint64{0: 6})
+			So(ruleIDCount(t, root, "/path/temp/"), ShouldResemble, map[uint64]uint64{0: 6})
+
+			complexRuleIDB := createRule(t, tdb, root, "/path/temp/", "complex*a*")
+			So(ruleIDCount(t, root, "/path/temp/"), ShouldResemble, map[uint64]uint64{0: 3, complexRuleIDB: 3})
+
+			complexRuleIDC := createRule(t, tdb, root, "/path/temp/", "*test*")
+			So(ruleIDCount(t, root, "/path/temp/"), ShouldResemble, map[uint64]uint64{0: 2, complexRuleIDB: 3, complexRuleIDC: 1})
+
+			removeRule(t, tdb, root, "/path/temp/", "complex*a*")
+			So(ruleIDCount(t, root, "/path/temp/"), ShouldResemble, map[uint64]uint64{0: 4, complexRuleIDC: 2})
+		})
+
+		Convey("You can add and remove rules with complex matches and simple wildcards", func() {
+			root, err := NewRoot(nil)
+			So(err, ShouldBeNil)
+
+			treeDB := buildTreeDB(t, []string{
+				"/path/dir/file1.txt",
+				"/path/dir/file2.log",
+				"/path/dir/subdir/file3.txt",
+				"/path/dir/subdir/file4.log",
+			})
+
+			treeDBPath := createTree(t, treeDB)
+			So(root.AddTree(treeDBPath), ShouldBeNil)
+
+			r1 := createRule(t, tdb, root, "/path/dir/", "f*")
+			So(ruleIDCount(t, root, "/path/dir/"), ShouldResemble, map[uint64]uint64{0: 2, r1: 2})
+
+			r2 := createRule(t, tdb, root, "/path/dir/", "*")
+			So(ruleIDCount(t, root, "/path/dir/"), ShouldResemble, map[uint64]uint64{r1: 2, r2: 2})
+
+			removeRule(t, tdb, root, "/path/dir/", "f*")
+			So(ruleIDCount(t, root, "/path/dir/"), ShouldResemble, map[uint64]uint64{r2: 4})
+		})
 	})
+}
+
+func buildTreeDB(t *testing.T, files []string) *directories.Root {
+	t.Helper()
+
+	const rootPath = "/path/"
+
+	treeDB := directories.NewRoot(rootPath, time.Now().Unix())
+
+	for _, file := range files {
+		directories.AddFile(&treeDB.Directory, strings.TrimPrefix(file, rootPath), 1, 2, 3, 4)
+	}
+
+	return treeDB
+}
+
+func createTree(t *testing.T, node tree.Node) string {
+	t.Helper()
+
+	treeDBPath := filepath.Join(t.TempDir(), "tree.db")
+
+	f, err := os.Create(treeDBPath)
+	So(err, ShouldBeNil)
+	So(tree.Serialise(f, node), ShouldBeNil)
+	So(f.Close(), ShouldBeNil)
+
+	return treeDBPath
+}
+
+func removeRule(t *testing.T, tdb *db.DB, root *RootDir, dirPath, match string) {
+	t.Helper()
+
+	directory := getDir(t, tdb, dirPath)
+	So(directory, ShouldNotBeNil)
+
+	rule := getRule(t, tdb, directory, match)
+
+	So(root.RemoveRule(directory, rule), ShouldBeNil)
+}
+
+func getRule(t *testing.T, tdb *db.DB, directory *db.Directory, match string) *db.Rule {
+	t.Helper()
+
+	var foundRule *db.Rule
+
+	So(tdb.ReadRules().ForEach(func(rule *db.Rule) error {
+		if rule.Match == match && rule.DirID() == directory.ID() {
+			foundRule = rule
+		}
+
+		return nil
+	}), ShouldBeNil)
+
+	So(foundRule, ShouldNotBeNil)
+
+	return foundRule
+}
+
+func getDir(t *testing.T, tdb *db.DB, dirPath string) *db.Directory {
+	t.Helper()
+
+	var directory *db.Directory
+
+	So(tdb.ReadDirectories().ForEach(func(dir *db.Directory) error {
+		if dir.Path == dirPath {
+			directory = dir
+		}
+
+		return nil
+	}), ShouldBeNil)
+
+	return directory
+}
+
+func createRule(t *testing.T, tdb *db.DB, root *RootDir, dirPath, match string) uint64 {
+	t.Helper()
+
+	directory := getDir(t, tdb, dirPath)
+
+	if directory == nil {
+		directory = &db.Directory{Path: dirPath}
+
+		So(tdb.CreateDirectory(directory), ShouldBeNil)
+	}
+
+	r := &db.Rule{Match: match}
+
+	So(tdb.CreateDirectoryRule(directory, r), ShouldBeNil)
+	So(root.AddRule(directory, r), ShouldBeNil)
+
+	return uint64(r.ID())
+}
+
+func genRules(t *testing.T, tdb *db.DB, rs map[string][]string) []DirRule {
+	t.Helper()
+
+	var rules []DirRule
+
+	for path, matches := range rs {
+		dir := &db.Directory{Path: path}
+
+		So(tdb.CreateDirectory(dir), ShouldBeNil)
+
+		for _, match := range matches {
+			rule := &db.Rule{Match: match}
+
+			So(tdb.CreateDirectoryRule(dir, rule), ShouldBeNil)
+
+			rules = append(rules, DirRule{Directory: dir, Rule: rule})
+		}
+	}
+
+	return rules
+}
+
+func ruleIDCount(t *testing.T, root *RootDir, path string) map[uint64]uint64 {
+	t.Helper()
+
+	s, err := root.Summary(path)
+	So(err, ShouldBeNil)
+
+	rules := make(map[uint64]uint64)
+
+	for _, rs := range s.RuleSummaries {
+		for _, r := range rs.Users {
+			rules[rs.ID] += r.Files
+		}
+	}
+
+	return rules
 }
