@@ -28,6 +28,7 @@ package ruletree
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -430,6 +431,15 @@ func genRules(t *testing.T, tdb *db.DB, rs map[string][]string) []DirRule {
 			rules = append(rules, DirRule{Directory: dir, Rule: rule})
 		}
 	}
+
+	slices.SortFunc(rules, func(a, b DirRule) int {
+		cmp := strings.Compare(a.Path, b.Path)
+		if cmp == 0 {
+			cmp = strings.Compare(a.Match, b.Match)
+		}
+
+		return cmp
+	})
 
 	return rules
 }
