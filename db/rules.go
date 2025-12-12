@@ -88,9 +88,9 @@ func (d *DB) CreateDirectoryRule(dir *Directory, rule *Rule) error {
 		rule.BackupType,
 		rule.Metadata,
 		rule.Match,
+		rule.Override,
 		rule.Created,
 		rule.Modified,
-		rule.Override,
 	)
 	if err != nil {
 		return err

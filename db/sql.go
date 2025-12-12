@@ -47,9 +47,9 @@ var tables = [...]string{
 		"`metadata` TEXT NOT NULL, " +
 		"`match` /*! MEDIUM*/TEXT NOT NULL, " +
 		"`matchHash` " + hashColumnStart + "`match`" + hashColumnEnd + ", " +
+		"`override` BOOLEAN DEFAULT FALSE, " +
 		"`created` BIGINT NOT NULL, " +
 		"`modified` BIGINT NOT NULL, " +
-		"`override` BOOLEAN DEFAULT FALSE, " +
 		"UNIQUE(`directoryID`, `matchHash`), " +
 		"FOREIGN KEY(`directoryID`) REFERENCES `directories`(`id`) ON DELETE CASCADE" +
 		");",
@@ -81,8 +81,8 @@ const (
 		"`modified`" +
 		") VALUES (?, ?, ?, ?, ?, ?, ?);"
 	createRule = "INSERT INTO `rules` " +
-		"(`directoryID`, `type`, `metadata`, `match`, `created`, `modified`) " +
-		"VALUES (?, ?, ?, ?, ?, ?);"
+		"(`directoryID`, `type`, `metadata`, `match`, `override`, `created`, `modified`) " +
+		"VALUES (?, ?, ?, ?, ?, ?, ?);"
 
 	selectAllDirectories = "SELECT " +
 		"`id`, " +
