@@ -12,8 +12,6 @@ import (
 	"vimagination.zapto.org/tree"
 )
 
-type ruleGroup = group.PathGroup[db.Rule]
-
 const (
 	setNamePrefix = "plan::"
 )
