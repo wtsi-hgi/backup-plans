@@ -98,6 +98,58 @@ func (f *file) ReadFrom(r io.Reader) (int64, error) {
 	return lr.Count, lr.Err
 }
 
+// ruleProcessor does the actual processing of the rules on a tree DB.
+//
+// Given a statemachine generated via a RuleTree, a Tree DB, and an optional
+// overlay DB, will efficiently traverse the tree calculating new rule values.
+//
+// The starting tree DB contains, for each file, its UID, GID, size, and mtime;
+// for each directory it contains its UID, GID, and a summary of *all* of the
+// files contained in that directory as well as all of its descendants.
+//
+// The overlay DB, will contain the results of a previous use of the
+// ruleProcessor. For each directory it will contain its UID, GID, and a summary
+// for each of the rules affecting files within it and its descendants.
+//
+// The directory summary data for the tree DB and overlay DB is identical, and
+// the tree DB summary is stored as rule 0, meaning unplanned. This allows for
+// certain optimisations later.
+//
+// The summaries contain two lists, users and groups, each of which specify the
+// ID of the user or group, the number of files matched, the total size of the
+// files matched, and the most recent mtime of the files matched.
+//
+// Reading a summary from the combined tree DB and overlay DB, requires
+// traversing both trees until the required directory is reached and reading the
+// data from either the overlay DB (if it exists) or the tree DB.
+//
+// As mentioned before, given that the directory data format between the tree
+// and overlay DBs is the same, one optimisation that can be done to save space
+// in the overlay DB is to not store any data for a directory (and its
+// descendants) if all files match a single rule, as long as we can calculate
+// what the rule should be when attempting to read the summary. As such, simple
+// wildcard matches ('*') will often result in no data written to the overlay
+// tree and will require a simple reverse directory lookup in the stored rules
+// to determine which rule ID the tree DBs 0 should be replaced with.
+//
+// For effecient re-calculating of rules, we only need to take into account
+// directories which will be affected by changed rules. The RuleTree produces a
+// set of rules that match on the directories themselves (as opposed to normal
+// rules which are only applied to files). These rules fall into one of three
+// categories:
+//
+//	ID = MinUint64: Process rules as normal, iterating through each file and
+//		sub-directory,  passing each file path through the statemachine to
+//		determine the rule matched against.
+//
+//
+//	ID >= 0: Read the tree DB summary for a sub-directory and add its summary to
+//		the current directory summary, swapping out the rule number with the ID
+//		on the directory.
+//
+//	ID < 0: Copy the overlay DB summary for a sub-directory, if it exists, or
+//		fall back to the previous category if it does not, negating the
+//		directory ID to get the wildcard ID.
 type ruleProcessor struct {
 	lowerNode, upperNode *tree.MemTree
 	sm                   group.State[int64]

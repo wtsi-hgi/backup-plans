@@ -50,6 +50,65 @@ type RuleTree struct {
 	HasBackup, HasChildWithBackup bool
 }
 
+// NewRuleTree creates a rule pre-processor to enable parent 'rule overrides' and matches containing
+// slashes.
+//
+// The RuleTree also calculates the directory level rules to determine effecient rule calculations.
+// The RuleTree keeps track of which directories have changed rules, or are affected by changed
+// rules.
+//
+// Specifically, it tracks whether a directory itself has changed, whether a parent has changed,
+// whether a child directory contains rules, and whether a child directory has changed.
+//
+// When building the statemachine, we also read all of the rules for a directory to determine the
+// type of rules it contains and how those rules affect it and child directories.
+//
+// These rules are put into four categories, SimplePaths (like 'abc.txt'), SimpleWildcard ('*'),
+// WildcardPrefix ('*.txt'), and WildcardSuffix ('abc.*').
+//
+// The combination of both the directory changed status and the rule types allows us to determine
+// how a particular directory needs to be processed. The following table spells out how the rules
+// are determined.
+//
+// | Dir Status   | NR | W       | SP | W + SP  | WP or WS | WS or WS + W | WP + W  |
+// |--------------|----|---------|----|---------|----------|--------------|---------|
+// | NC           | -  | -       | -  | -       | -        | -            | -       |
+// | NC + CP      | -  | CH      | P  | CH      | P => P   | CH           | CH      |
+// | NC + C       | -  | -       | -  | -       | -        | -            | -       |
+// | NC + C + CP  | -  | CH      | P  | CH      | P => P   | CH           | CH      |
+// | NC + CC      | P  | P => CH | P  | P => CH | P => CH  | P => CH      | P => CH |
+// | NC + CC + CP | P  | P => CH | P  | P => CH | P => P   | P => CH      | P => CH |
+// | DC           | AL | AL      | P  | P => AL | P => P   | P => S       | P => AL |
+// | DC + CP      | P  | AL      | P  | P => AL | P => P   | P => S       | P => AL |
+// | DC + C       | P  | P => AL | P  | P => AL | P => P   | P => S       | P => AL |
+// | DC + C + CP  | P  | P => AL | P  | P => AL | P => P   | P => S       | P => AL |
+// | DC + CC      | P  | P => AL | P  | P => AL | P => P   | P => S       | P => AL |
+// | DC + CC + CP | P  | P => AL | P  | P => AL | P => P   | P => S       | P => AL |
+//
+// Key:
+//
+//	NC = Directory rules Not Changed.
+//	CP = Directory has Parent with Changed rules.
+//	C  = Directory has Child with rules.
+//	CC = Directory has Child with Changed rules.
+//	DC = Directory has Changed rules.
+//
+//	NR: Directory has No Rules.
+//	W : Directory has SimpleWildcard rule ('*').
+//	SP: Directory has SimplePath rules ('abc.txt').
+//	WP: Directory has WildcardPrefix rules ('*.txt').
+//	WS: Directory has WildcardSuffix rules ('abc.*').
+//
+//	P : Process files in this directory as normal.
+//	AL: Add the data from the lower DB (tree DB), swapping out the rule ID with
+//	the wildcard ID.
+//	CH: Copy from the higher DB (overlay DB) if it exists, or fall back to AL.
+//	S : Special handling of WildcardSuffix rules, where we cut off after the first '*' and use that
+//	to match directores that match the text before (and including) the wildcard.  If a Wildcard is
+//	present, the AL rule is applied as normal.
+//
+// For each cell, it describes how rules are applied for that directory, and optionally how they are
+// applied to unknown subdirectores (=>).
 func NewRuleTree() *RuleTree {
 	return newRuleTree(dirTreeRule{})
 }
@@ -65,6 +124,8 @@ func newRuleTree(dirTreeRule dirTreeRule) *RuleTree {
 	}
 }
 
+// Set adds the rules for the given path. The changed flag should be set true if
+// this directory has had a rule changed (added, updated, or removed).
 func (r *RuleTree) Set(path string, rules map[string]*db.Rule, changed bool) {
 	curr := r
 
@@ -103,6 +164,8 @@ func (r *RuleTree) Set(path string, rules map[string]*db.Rule, changed bool) {
 	curr.Rules = maps.Clone(rules)
 }
 
+// Canon resolves the parent rule-override and slash containing rules, producing
+// a canonical rule tree.
 func (r *RuleTree) Canon() {
 	for _, child := range r.children {
 		child.Canon()
@@ -213,6 +276,11 @@ func (r *RuleTree) resolveSlashes() {
 	}
 }
 
+// MarkBackupDirs traverses the tree marking all directories that contain
+// ibackup rules, and marking parents of those directories.
+//
+// This is to allow for effecient tree traversal, only entering sub-trees that
+// contain relevant rules.
 func (r *RuleTree) MarkBackupDirs() {
 	for _, rule := range r.Rules {
 		if rule.BackupType == db.BackupIBackup {
@@ -231,6 +299,7 @@ func (r *RuleTree) MarkBackupDirs() {
 	}
 }
 
+// Iter iterates over the direct children for the current depth.
 func (r *RuleTree) Iter() iter.Seq2[string, *RuleTree] {
 	return maps.All(r.children)
 }
