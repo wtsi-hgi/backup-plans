@@ -17,17 +17,17 @@
 
 #userStats {
     border: 1px solid var(--tableBorder);
-    border-top: none;
+    border-top-width: 0;
     background-color: var(--subtleBG);
     border-bottom-left-radius: 1em;
     border-bottom-right-radius: 1em;
-    margin-top: -1px;
     margin-left: 1em;
     box-sizing: border-box;
     width: calc(100vw - 3em);
+    padding-top: 1px;
 }
 
 #userStats:hover {
-    border-top: 1px solid var(--tableBorder);
-    margin-top: -2px;
+    padding-top: 0;
+    border-top-width: 1px;
 }

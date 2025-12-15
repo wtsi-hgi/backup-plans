@@ -235,6 +235,7 @@ input[type="checkbox"] {
 
 #treeOptions {
 	border: 1px solid var(--tableBorder);
+	border-bottom-width: 0;
 	background-color: var(--subtleBG);
 	box-sizing: border-box;
 	border-top-right-radius: 1em;
