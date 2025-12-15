@@ -253,6 +253,10 @@ input[type="checkbox"] {
 	position: absolute;
 }
 
+#treeOptions[open]>div {
+	position: relative;
+}
+
 #treeOptions[open] {
 	width: 160px;
 	padding: 0 1em;
