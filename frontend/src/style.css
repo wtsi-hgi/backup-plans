@@ -255,11 +255,11 @@ input[type="checkbox"] {
 
 #treeOptions[open]>div {
 	position: relative;
+	padding: 0 1em;
 }
 
 #treeOptions[open] {
 	width: 160px;
-	padding: 0 1em;
 }
 
 #treeOptions:not([open]) {
