@@ -133,7 +133,7 @@ func (s *Server) summary(w http.ResponseWriter, _ *http.Request) error { //nolin
 
 	for dir, claimedBy := range dirClaims {
 		sba, err := s.cache.GetBackupActivity(dir, "plan::"+dir, claimedBy)
-		if err != nil && err.Error() != "set with that id does not exist" {
+		if err != nil && (errors.Is(err, ibackup.ErrUnknownClient) || err.Error() != "set with that id does not exist") {
 			return err
 		}
 
