@@ -18,8 +18,21 @@ fieldset {
 	width: 200px;
 }
 
+#filter {
+	position: relative;
+	overflow: hidden;
+}
+
 #filter[open] details>:not(summary) {
 	padding: 0 1em;
+}
+
+#filter[open]>summary:after {
+	content: " ";
+	display: block;
+	height: 100%;
+	width: 100%;
+	position: absolute;
 }
 
 #filter>summary,

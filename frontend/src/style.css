@@ -242,6 +242,15 @@ input[type="checkbox"] {
 	align-self: stretch;
 	overflow: hidden;
 	width: 2em;
+	position: relative;
+}
+
+#treeOptions[open]>summary:after {
+	content: " ";
+	display: block;
+	height: 100%;
+	width: 100%;
+	position: absolute;
 }
 
 #treeOptions[open] {
