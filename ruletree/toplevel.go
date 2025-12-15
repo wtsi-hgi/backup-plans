@@ -56,11 +56,12 @@ type DirRules struct {
 type RootDir struct {
 	topLevelDir
 
+	mu             sync.RWMutex
 	directoryRules map[string]*DirRules
 	wildcards      wildcards
+	closers        map[string]func()
 
-	mu      sync.RWMutex
-	closers map[string]func()
+	buildMu sync.Mutex
 }
 
 // DirRule is a combined Directory reference and Rule reference.
@@ -137,8 +138,8 @@ func (r *RootDir) getMountPoint(dir string) string {
 // AddRule adds the given rule to the given directory and regenerates the rule
 // summaries.
 func (r *RootDir) AddRule(dir *db.Directory, rule *db.Rule) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+	r.buildMu.Lock()
+	defer r.buildMu.Unlock()
 
 	if err := r.addRule(dir, rule); err != nil {
 		return err
@@ -148,6 +149,9 @@ func (r *RootDir) AddRule(dir *db.Directory, rule *db.Rule) error {
 }
 
 func (r *RootDir) addRule(dir *db.Directory, rule *db.Rule) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	existingDir, ok := r.directoryRules[dir.Path]
 	if !ok {
 		existingDir = &DirRules{
@@ -170,8 +174,8 @@ func (r *RootDir) addRule(dir *db.Directory, rule *db.Rule) error {
 // RemoveRule remove the given rule from the given directory and regenerates the
 // rule summaries.
 func (r *RootDir) RemoveRule(dir *db.Directory, rule *db.Rule) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+	r.buildMu.Lock()
+	defer r.buildMu.Unlock()
 
 	err := r.removeRule(dir, rule)
 	if err != nil {
@@ -182,6 +186,9 @@ func (r *RootDir) RemoveRule(dir *db.Directory, rule *db.Rule) error {
 }
 
 func (r *RootDir) removeRule(dir *db.Directory, rule *db.Rule) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	existingDir, ok := r.directoryRules[dir.Path]
 	if !ok {
 		return ErrNotFound
@@ -245,6 +252,9 @@ func (r *RootDir) regenRulesFor(t *topLevelDir, child *ruleOverlay, dirs []strin
 	}
 
 	child.upper = processed
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
 	defer r.buildWildcards()
 
@@ -388,13 +398,16 @@ func (r *RootDir) AddTree(file string) (err error) {
 		return err
 	}
 
-	r.mu.Lock()
-	defer r.mu.Unlock()
+	r.buildMu.Lock()
+	defer r.buildMu.Unlock()
 
 	processed, err := r.processRules(treeRoot, rootPath)
 	if err != nil {
 		return err
 	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
 	if err = createTopLevelDirs(processed, rootPath, &r.topLevelDir); err != nil {
 		return err

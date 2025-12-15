@@ -54,8 +54,8 @@ func TestStateMachine(t *testing.T) {
 			So(err, ShouldBeNil)
 
 			for n, test := range [...]struct {
-				Path, Dir, Match string
-				Process, NoRules bool
+				Path, Dir, Match       string
+				Process, NoRules, Copy bool
 			}{
 				{Path: "/", Process: true},
 				{Path: "/some/non/path/", NoRules: true},
@@ -92,6 +92,10 @@ func TestStateMachine(t *testing.T) {
 					id = processRules
 				} else if !test.NoRules {
 					id = getRule(t, tdb, getDir(t, tdb, test.Dir), test.Match).ID()
+				}
+
+				if test.Copy {
+					id = -id
 				}
 
 				SoMsg("Test: "+strconv.Itoa(n+1), *sm.GetStateString(test.Path).GetGroup(), ShouldEqual, id)
