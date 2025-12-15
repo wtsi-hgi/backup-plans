@@ -63,14 +63,11 @@ export default Object.assign(base, {
 			}
 
 			return rules.map((rule) => {
-				const fileType = rule.Match;
-				const count = rule.count.toLocaleString();
-				const size = formatBytes(rule.size);
 				const actionText = action(rule.BackupType);
 
-				return div({ "class": "rule-badge", "title": `${fileType}: ${count} files, ${size}, ${actionText}` }, [
-					span({ "class": "file-type" }, `${fileType}`),
-					span({ "class": "file-summary" }, ` ${count} files • ${size} `),
+				return div({ "class": "rule-badge" }, [
+					span({ "class": "file-type", "data-override": rule.Override }, rule.Match),
+					span({ "class": "file-summary" }, ` ${rule.count.toLocaleString()} files • ${formatBytes(rule.size)} `),
 					span({ "class": `action-pill`, "data-action": actionText }, actionText),
 				]);
 			});

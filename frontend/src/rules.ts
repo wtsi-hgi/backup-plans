@@ -265,7 +265,7 @@ export default Object.assign(base, {
 			data.claimedBy && data.rules[path]?.length ? table({ "id": "rules", "class": "summary" }, [
 				thead(tr([th("Match"), th("Action"), th("Files"), th("Size"), data.claimedBy === user ? td([addRule(path, load), addFOFN(path, load, data), addDirDetails(path, load, data)]) : []])),
 				tbody(Object.values(data.rules[path] ?? []).map(rule => tr([
-					td(rule.Match),
+					td({ "data-override": rule.Override }, rule.Match),
 					td(action(rule.BackupType)),
 					td(rule.count.toLocaleString()),
 					td({ "title": rule.size.toLocaleString() }, formatBytes(rule.size)),

@@ -318,3 +318,8 @@ dialog {
 select:not(:has(option:checked[value="backup"])):not(:has(option:checked[value="nobackup"]))~#metadataInput {
 	display: unset;
 }
+
+#rules td[data-override],
+.file-type[data-override] {
+	font-weight: bold;
+}
