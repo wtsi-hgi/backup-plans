@@ -1,13 +1,11 @@
 #filter {
 	border: 1px solid var(--tableBorder);
+	border-bottom-width: 0;
 	background-color: var(--subtleBG);
 	box-sizing: border-box;
 	border-top-left-radius: 1em;
-	border-bottom-left-radius: 1em;
 	margin-left: 1em;
 	align-self: stretch;
-	--tabSelectedBG: var(--subtleBG);
-	--background: var(--subtleBG);
 	overflow: hidden;
 	width: 2em;
 }
@@ -20,11 +18,25 @@ fieldset {
 	width: 200px;
 }
 
+#filter {
+	position: relative;
+	overflow: hidden;
+}
+
 #filter[open] details>:not(summary) {
 	padding: 0 1em;
 }
 
+#filter[open]>summary:after {
+	content: " ";
+	display: block;
+	height: 100%;
+	width: 100%;
+	position: absolute;
+}
+
 #filter>summary,
+#userStats>summary,
 #treeOptions>summary {
 	list-style: none;
 	text-align: center;

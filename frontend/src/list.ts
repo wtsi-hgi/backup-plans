@@ -1,7 +1,8 @@
-import type { Directory, DirectoryWithChildren } from './types.js';
+import type { DirectoryWithChildren } from './types.js';
 import { clearNode } from './lib/dom.js';
 import { table, tbody, td, th, thead, tr, div } from './lib/html.js';
 import { formatBytes } from './lib/utils.js';
+import { onHover } from './userstats.js';
 
 const base = tbody(),
 	dateFormat = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -25,20 +26,25 @@ export default Object.assign(container, {
 			entries.sort(([a], [b]) => Number(getDirFromEntry(a)) - Number(getDirFromEntry(b)));
 		}
 		clearNode(base, entries.map(([name, child]) => {
-			return tr({ "style": child.unauthorised ? "cursor: not-allowed;" : "", "click": () => child.unauthorised || load(path + name) }, [
-				td(name),
-				td({ "title": child.size.toLocaleString() }, formatBytes(child.size)),
-				td(child.count.toLocaleString()),
-				td(dateFormat.format(new Date(child.mtime * 1000)))
-			])
+			return tr(
+				{
+					"style": child.unauthorised ? "cursor: not-allowed;" : "",
+					"click": () => child.unauthorised || load(path + name),
+					"mouseover": () => onHover(name),
+					"mouseout": () => onHover(""),
+				},
+				[
+					td(name),
+					td({ "title": child.size.toLocaleString() }, formatBytes(child.size)),
+					td(child.count.toLocaleString()),
+					td(dateFormat.format(new Date(child.mtime * 1000)))
+				])
 		}))
 		updateScrollWidth();
 	}
 });
 
-const resizeObserver = new ResizeObserver(() => {
-	updateScrollWidth();
-});
+const resizeObserver = new ResizeObserver(updateScrollWidth);
 resizeObserver.observe(container);
 
 function isNumber(n: string): boolean {

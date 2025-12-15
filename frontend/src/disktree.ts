@@ -4,7 +4,7 @@ import { clearNode } from './lib/dom.js';
 import { br, details, div, label, option, select, summary } from './lib/html.js';
 import { rect, svg, text, use } from './lib/svg.js';
 import { BackupType } from './consts.js';
-
+import { onHover } from './userstats.js';
 
 export type Entry = {
 	name: string;
@@ -234,39 +234,41 @@ const phi = (1 + Math.sqrt(5)) / 2,
 	],
 	options = details({ "id": "treeOptions" }, [
 		summary("View Options"),
-		label({ "for": "colourBy" }, "Colour By"),
-		select({
-			"id": "colourBy", "change": function (this: HTMLSelectElement) {
-				colourFn = Math.max(0, Math.min(colourFns.length - 1, parseInt(this.value) || 0));
-				reload();
-			}
-		}, [
-			option({ "value": "0" }, "Planned Size %"),
-			option({ "value": "1" }, "Planned Files %"),
-			option({ "value": "2" }, "Backup Size %"),
-			option({ "value": "3" }, "Backup Files %"),
-			option({ "value": "4" }, "No Backup Size %"),
-			option({ "value": "5" }, "No Backup Files %"),
-			option({ "value": "6" }, "Modified Time")
-		]),
-		br(),
-		div({ "id": "spectrum" }),
-		br(),
-		label({ "for": "areaRepresents" }, "Area Represents"),
-		select({
-			"id": "areaRepresents", "change": function (this: HTMLSelectElement) {
-				areaFn = Math.max(0, Math.min(areaFns.length - 1, parseInt(this.value) || 0));
-				reload();
-			}
-		}, [
-			option({ "value": "0" }, "Unplanned Size"),
-			option({ "value": "1" }, "Unplanned Files"),
-			option({ "value": "2" }, "Backup Size"),
-			option({ "value": "3" }, "Backup Files"),
-			option({ "value": "4" }, "No Backup Size"),
-			option({ "value": "5" }, "No Backup Files"),
-			option({ "value": "6" }, "Total Size"),
-			option({ "value": "7" }, "Total Files"),
+		div([
+			label({ "for": "colourBy" }, "Colour By"),
+			select({
+				"id": "colourBy", "change": function (this: HTMLSelectElement) {
+					colourFn = Math.max(0, Math.min(colourFns.length - 1, parseInt(this.value) || 0));
+					reload();
+				}
+			}, [
+				option({ "value": "0" }, "Planned Size %"),
+				option({ "value": "1" }, "Planned Files %"),
+				option({ "value": "2" }, "Backup Size %"),
+				option({ "value": "3" }, "Backup Files %"),
+				option({ "value": "4" }, "No Backup Size %"),
+				option({ "value": "5" }, "No Backup Files %"),
+				option({ "value": "6" }, "Modified Time")
+			]),
+			br(),
+			div({ "id": "spectrum" }),
+			br(),
+			label({ "for": "areaRepresents" }, "Area Represents"),
+			select({
+				"id": "areaRepresents", "change": function (this: HTMLSelectElement) {
+					areaFn = Math.max(0, Math.min(areaFns.length - 1, parseInt(this.value) || 0));
+					reload();
+				}
+			}, [
+				option({ "value": "0" }, "Unplanned Size"),
+				option({ "value": "1" }, "Unplanned Files"),
+				option({ "value": "2" }, "Backup Size"),
+				option({ "value": "3" }, "Backup Files"),
+				option({ "value": "4" }, "No Backup Size"),
+				option({ "value": "5" }, "No Backup Files"),
+				option({ "value": "6" }, "Total Size"),
+				option({ "value": "7" }, "Total Files"),
+			])
 		])
 	]),
 	svgBase = div(),
@@ -295,14 +297,14 @@ export default Object.assign(base, {
 				"value": areaFns[areaFn](child),
 				"backgroundColour": colourFns[colourFn](child) + "",
 				"onclick": child.unauthorised ? undefined : () => load(path + dir),
-				"onmouseover": () => { },
+				"onmouseover": () => onHover(dir),
 				"noauth": child.unauthorised
 			})
 		}
 
 		entries.sort((a, b) => b.value - a.value);
 
-		render = () => clearNode(svgBase, buildTreeMap(entries, lastWidth = svgBase.clientWidth || lastWidth, lastHeight = svgBase.clientHeight || lastHeight, data.unauthorised, () => { }));
+		render = () => clearNode(svgBase, buildTreeMap(entries, lastWidth = svgBase.clientWidth || lastWidth, lastHeight = svgBase.clientHeight || lastHeight, data.unauthorised, () => onHover("")));
 
 		render();
 

@@ -1,4 +1,4 @@
-import type { Directory, DirectoryWithChildren, DirSummary, Rule, RuleSummary, SizeCountTime, Stats, Tree } from './types.js';
+import type { ChildDirectory, Directory, DirectoryWithChildren, DirSummary, Rule, RuleSummary, SizeCountTime, Stats, Tree } from './types.js';
 import { filter } from './filter.js';
 import { getTree } from "./rpc.js";
 import { BackupType } from "./consts.js";
@@ -107,7 +107,7 @@ export default (path: string) => getTree(path)
 		};
 
 		for (const [name, child] of Object.entries(data.Children)) {
-			const e: Directory = {
+			const e: ChildDirectory = {
 				"count": 0n,
 				"size": 0n,
 				"mtime": 0,
@@ -115,6 +115,7 @@ export default (path: string) => getTree(path)
 				"users": Array.from(child.RuleSummaries.map(rs => rs.Users).map(u => u.map(u => u.Name)).flat().reduce((s, u) => (s.add(u), s), new Set<string>()).keys()).sort(),
 				"groups": Array.from(child.RuleSummaries.map(rs => rs.Groups).map(g => g.map(g => g.Name)).flat().reduce((s, u) => (s.add(u), s), new Set<string>()).keys()).sort(),
 				"rules": {},
+				"ruleSummaries": child.RuleSummaries,
 				"unauthorised": data.Unauthorised.includes(name)
 			}
 

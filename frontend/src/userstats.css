@@ -1,0 +1,33 @@
+#userStats summary {
+    list-style: none;
+}
+
+#userStats table {
+    min-width: 5vw !important;
+    word-break: break-all;
+}
+
+#userStats td {
+    background-color: var(--background);
+}
+
+#userStats th {
+    padding: min(14px, 1vw);
+}
+
+#userStats {
+    border: 1px solid var(--tableBorder);
+    border-top-width: 0;
+    background-color: var(--subtleBG);
+    border-bottom-left-radius: 1em;
+    border-bottom-right-radius: 1em;
+    margin-left: 1em;
+    box-sizing: border-box;
+    width: calc(100vw - 3em);
+    padding-top: 1px;
+}
+
+#userStats:hover {
+    padding-top: 0;
+    border-top-width: 1px;
+}

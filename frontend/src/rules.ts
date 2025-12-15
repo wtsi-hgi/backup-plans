@@ -16,13 +16,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 		]),
 		backupSelect = select({
 			"id": "backupType", "change": () => metadataLabel.textContent = BackupType.from(backupSelect.value).metadataLabel()
-		},  // TODO: Function, shorten this
-			// option({ "value": "backup", [backupType === BackupIBackup ? "selected" : "unselected"]: "" }, "Backup"),
-			// option({ "value": ManualBackupString["ManualBackup"], [backupType === BackupManualIBackup ? "selected" : "unselected"]: "" }, ManualBackupDisplay["ManualBackup"]),
-			// option({ "value": "nobackup", [backupType === BackupNone ? "selected" : "unselected"]: "" }, "No Backup"),
-			// option({ "value": ManualBackupString["ManualGit"], [backupType === BackupManualGit ? "selected" : "unselected"]: "" }, ManualBackupDisplay["ManualGit"]),
-			// option({ "value": ManualBackupString["ManualPrefect"], [backupType === BackupManualPrefect ? "selected" : "unselected"]: "" }, ManualBackupDisplay["ManualPrefect"]),
-			// option({ "value": ManualBackupString["ManualUnchecked"], [backupType === BackupManualUnchecked ? "selected" : "unselected"]: "" }, ManualBackupDisplay["ManualUnchecked"])
+		},
 			BackupType.all.map(bt => option({ "value": bt.toString(), "selected": +backupType === +bt }, bt.optionLabel()))
 		);
 
