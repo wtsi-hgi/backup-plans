@@ -139,7 +139,6 @@ func (d *DB) UpdateRule(rule *Rule) error {
 		rule.Metadata,
 		rule.Match,
 		rule.Modified,
-		rule.Override,
 		rule.id,
 	)
 }
