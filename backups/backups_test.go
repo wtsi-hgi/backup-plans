@@ -27,19 +27,22 @@ func TestFileInfos(t *testing.T) {
 
 		var paths []string
 
-		sm, _ := group.NewStatemachine([]group.PathGroup[int64]{
+		sm, err := group.NewStatemachine([]group.PathGroup[int64]{
 			{Path: []byte("*"), Group: &hasBackups},
 		})
+		So(err, ShouldBeNil)
 
 		ctr := tr
 
 		for _, part := range [...]string{"/", "lustre/", "scratch123/", "humgen/", "a/", "b/"} {
-			ctr, _ = ctr.(*tree.MemTree).Child(part)
+			ctr, err = ctr.(*tree.MemTree).Child(part) //nolint:errcheck,forcetypeassert
+			So(err, ShouldBeNil)
 		}
 
-		figureOutFOFNs(ctr, sm.GetStateString("/lustre/scratch123/humgen/a/b/"), &summary.DirectoryPath{Name: "/lustre/scratch123/humgen/a/b/"}, func(path *summary.DirectoryPath, _ int64) {
-			paths = append(paths, string(path.AppendTo(nil)))
-		})
+		figureOutFOFNs(ctr, sm.GetStateString("/lustre/scratch123/humgen/a/b/"),
+			&summary.DirectoryPath{Name: "/lustre/scratch123/humgen/a/b/"}, func(path *summary.DirectoryPath, _ int64) {
+				paths = append(paths, string(path.AppendTo(nil)))
+			})
 
 		So(len(paths), ShouldEqual, 5)
 

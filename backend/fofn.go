@@ -52,7 +52,7 @@ func (s *Server) Fofn(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.fofn)
 }
 
-func (s *Server) fofn(_ http.ResponseWriter, r *http.Request) error {
+func (s *Server) fofn(_ http.ResponseWriter, r *http.Request) error { //nolint:funlen
 	rule, err := getRuleDetails(r)
 	if err != nil {
 		return err

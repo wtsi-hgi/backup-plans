@@ -99,7 +99,7 @@ func TestRuletree(t *testing.T) {
 					},
 				},
 				{
-					ID: uint64(rules[0].Rule.ID()),
+					ID: uint64(rules[0].Rule.ID()), //nolint:gosec
 					Users: RuleStats{
 						{
 							id:    1,
@@ -120,7 +120,7 @@ func TestRuletree(t *testing.T) {
 					},
 				},
 				{
-					ID: uint64(rules[1].Rule.ID()),
+					ID: uint64(rules[1].Rule.ID()), //nolint:gosec
 					Users: RuleStats{
 						{
 							id:    1,
@@ -141,7 +141,7 @@ func TestRuletree(t *testing.T) {
 					},
 				},
 				{
-					ID: uint64(rules[2].Rule.ID()),
+					ID: uint64(rules[2].Rule.ID()), //nolint:gosec
 					Users: RuleStats{
 						{
 							id:    21,
@@ -251,8 +251,12 @@ func TestRuletree(t *testing.T) {
 
 			wildcardRuleIDD := createRule(t, tdb, root, "/path/wildcard/sub2/", "*")
 
-			So(ruleIDCount(t, root, "/"), ShouldResemble, map[uint64]uint64{wildcardRuleID: 1, wildcardRuleIDC: 1, wildcardRuleIDD: 2})
-			So(ruleIDCount(t, root, "/path/wildcard/"), ShouldResemble, map[uint64]uint64{wildcardRuleID: 1, wildcardRuleIDC: 1, wildcardRuleIDD: 2})
+			So(ruleIDCount(t, root, "/"), ShouldResemble, map[uint64]uint64{
+				wildcardRuleID: 1, wildcardRuleIDC: 1, wildcardRuleIDD: 2,
+			})
+			So(ruleIDCount(t, root, "/path/wildcard/"), ShouldResemble, map[uint64]uint64{
+				wildcardRuleID: 1, wildcardRuleIDC: 1, wildcardRuleIDD: 2,
+			})
 			So(ruleIDCount(t, root, "/path/wildcard/sub/"), ShouldResemble, map[uint64]uint64{wildcardRuleID: 1})
 			So(ruleIDCount(t, root, "/path/wildcard/sub2/"), ShouldResemble, map[uint64]uint64{wildcardRuleIDD: 2})
 			So(ruleIDCount(t, root, "/path/wildcard/sub2/sub3/"), ShouldResemble, map[uint64]uint64{wildcardRuleIDD: 1})
@@ -260,7 +264,9 @@ func TestRuletree(t *testing.T) {
 			RemoveRule(t, tdb, root, "/path/wildcard/", "*")
 
 			So(ruleIDCount(t, root, "/"), ShouldResemble, map[uint64]uint64{0: 1, wildcardRuleIDC: 1, wildcardRuleIDD: 2})
-			So(ruleIDCount(t, root, "/path/wildcard/"), ShouldResemble, map[uint64]uint64{0: 1, wildcardRuleIDC: 1, wildcardRuleIDD: 2})
+			So(ruleIDCount(t, root, "/path/wildcard/"), ShouldResemble, map[uint64]uint64{
+				0: 1, wildcardRuleIDC: 1, wildcardRuleIDD: 2,
+			})
 			So(ruleIDCount(t, root, "/path/wildcard/sub/"), ShouldResemble, map[uint64]uint64{0: 1})
 			So(ruleIDCount(t, root, "/path/wildcard/sub2/"), ShouldResemble, map[uint64]uint64{wildcardRuleIDD: 2})
 			So(ruleIDCount(t, root, "/path/wildcard/sub2/sub3/"), ShouldResemble, map[uint64]uint64{wildcardRuleIDD: 1})
@@ -290,7 +296,9 @@ func TestRuletree(t *testing.T) {
 			So(ruleIDCount(t, root, "/path/temp/"), ShouldResemble, map[uint64]uint64{0: 3, complexRuleIDB: 3})
 
 			complexRuleIDC := createRule(t, tdb, root, "/path/temp/", "*test*")
-			So(ruleIDCount(t, root, "/path/temp/"), ShouldResemble, map[uint64]uint64{0: 2, complexRuleIDB: 3, complexRuleIDC: 1})
+			So(ruleIDCount(t, root, "/path/temp/"), ShouldResemble, map[uint64]uint64{
+				0: 2, complexRuleIDB: 3, complexRuleIDC: 1,
+			})
 
 			RemoveRule(t, tdb, root, "/path/temp/", "complex*a*")
 			So(ruleIDCount(t, root, "/path/temp/"), ShouldResemble, map[uint64]uint64{0: 4, complexRuleIDC: 2})
@@ -410,7 +418,7 @@ func createRule(t *testing.T, tdb *db.DB, root *RootDir, dirPath, match string) 
 	So(tdb.CreateDirectoryRule(directory, r), ShouldBeNil)
 	So(root.AddRule(directory, r), ShouldBeNil)
 
-	return uint64(r.ID())
+	return uint64(r.ID()) //nolint:gosec
 }
 
 func genRules(t *testing.T, tdb *db.DB, rs map[string][]string) []DirRule {

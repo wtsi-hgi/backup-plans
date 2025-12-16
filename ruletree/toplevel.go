@@ -141,7 +141,7 @@ func addRules(directoryRules map[string]*DirRules, dirRules []DirRule) ([]string
 			return nil, err
 		}
 
-		dirs = append(dirs, rule.Directory.Path)
+		dirs = append(dirs, rule.Path)
 	}
 
 	return dirs, nil
@@ -160,6 +160,11 @@ func (r *RootDir) getMountPoint(dir string) string {
 // AddRule adds the given rule to the given directory and regenerates the rule
 // summaries.
 func (r *RootDir) AddRule(dir *db.Directory, rule *db.Rule) error {
+	return r.updateRule(dir, rule, addRule)
+}
+
+func (r *RootDir) updateRule(dir *db.Directory, rule *db.Rule,
+	updateFn func(map[string]*DirRules, *db.Directory, *db.Rule) error) error {
 	r.buildMu.Lock()
 	defer r.buildMu.Unlock()
 
@@ -167,7 +172,7 @@ func (r *RootDir) AddRule(dir *db.Directory, rule *db.Rule) error {
 	directoryRules := maps.Clone(r.directoryRules)
 	r.mu.RUnlock()
 
-	if err := addRule(directoryRules, dir, rule); err != nil {
+	if err := updateFn(directoryRules, dir, rule); err != nil {
 		return err
 	}
 
@@ -206,27 +211,7 @@ func addRule(directoryRules map[string]*DirRules, dir *db.Directory, rule *db.Ru
 // RemoveRule remove the given rule from the given directory and regenerates the
 // rule summaries.
 func (r *RootDir) RemoveRule(dir *db.Directory, rule *db.Rule) error {
-	r.buildMu.Lock()
-	defer r.buildMu.Unlock()
-
-	r.mu.RLock()
-	directoryRules := maps.Clone(r.directoryRules)
-	r.mu.RUnlock()
-
-	if err := removeRule(directoryRules, dir, rule); err != nil {
-		return err
-	}
-
-	if err := r.regenRules(r.getMountPoint(dir.Path), directoryRules, dir.Path); err != nil {
-		return err
-	}
-
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	r.directoryRules = directoryRules
-
-	return nil
+	return r.updateRule(dir, rule, removeRule)
 }
 
 func removeRule(directoryRules map[string]*DirRules, dir *db.Directory, rule *db.Rule) error {
@@ -269,21 +254,18 @@ func (r *RootDir) regenRules(mount string, directoryRules map[string]*DirRules, 
 	return ErrNotFound
 }
 
-func (r *RootDir) regenRulesFor(t *topLevelDir, child *ruleOverlay, dirs []string, directoryRules map[string]*DirRules, mount, name string) error {
+func (r *RootDir) regenRulesFor(t *topLevelDir, child *ruleOverlay, dirs []string,
+	directoryRules map[string]*DirRules, mount, name string) error {
 	sm, err := generateStatemachineFor(mount, dirs, directoryRules)
 	if err != nil {
 		return err
 	}
 
-	rd := ruleProcessor{
-		lowerNode: child.lower,
-		upperNode: child.upper,
-		sm:        sm.GetStateString(mount),
-	}
+	rd := ruleProcessor{lowerNode: child.lower, upperNode: child.upper, sm: sm.GetStateString(mount)}
 
 	var buf bytes.Buffer
 
-	if err := tree.Serialise(&buf, &rd); err != nil {
+	if err = tree.Serialise(&buf, &rd); err != nil {
 		return err
 	}
 
@@ -424,7 +406,7 @@ func isDirectory(path string, getChild func(string) (summariser, string, string,
 // AddTree adds a tree database, specified by the given file path, to the
 // RootDir, possibly overriding an existing database if they share the same
 // root.
-func (r *RootDir) AddTree(file string) (err error) {
+func (r *RootDir) AddTree(file string) (err error) { //nolint:funlen
 	db, closer, err := openDB(file)
 	if err != nil {
 		return err
@@ -470,7 +452,7 @@ func (r *RootDir) AddTree(file string) (err error) {
 	return nil
 }
 
-func openDB(file string) (*tree.MemTree, func(), error) {
+func openDB(file string) (*tree.MemTree, func(), error) { //nolint:funlen
 	f, err := os.Open(file)
 	if err != nil {
 		return nil, nil, err
@@ -491,7 +473,7 @@ func openDB(file string) (*tree.MemTree, func(), error) {
 	}
 
 	fn := func() {
-		unix.Munmap(data)
+		unix.Munmap(data) //nolint:errcheck
 		f.Close()
 	}
 
@@ -517,7 +499,7 @@ func getRoot(db *tree.MemTree) (*tree.MemTree, string, error) {
 
 	db.Children()(func(path string, node tree.Node) bool {
 		rootPath = strings.Clone(path)
-		treeRoot = node.(*tree.MemTree)
+		treeRoot = node.(*tree.MemTree) //nolint:errcheck,forcetypeassert
 
 		return false
 	})
@@ -543,7 +525,7 @@ func (r *RootDir) processRules(treeRoot *tree.MemTree, rootPath string) (*ruleOv
 
 	var buf bytes.Buffer
 
-	if err := tree.Serialise(&buf, &rd); err != nil {
+	if err = tree.Serialise(&buf, &rd); err != nil {
 		return nil, err
 	}
 
@@ -555,13 +537,15 @@ func (r *RootDir) processRules(treeRoot *tree.MemTree, rootPath string) (*ruleOv
 	return &ruleOverlay{lower: treeRoot, upper: processed}, nil
 }
 
-func createTopLevelDirs(treeRoot *ruleOverlay, rootPath string, p *topLevelDir) error {
+func createTopLevelDirs(treeRoot *ruleOverlay, rootPath string, p *topLevelDir) error { //nolint:gocognit
 	for part := range pathParts(rootPath[1 : len(rootPath)-1]) {
 		np, ok := p.children[part]
 		if !ok {
 			np = newTopLevelDir(p)
 
-			p.setChild(part, np)
+			if err := p.setChild(part, np); err != nil {
+				return err
+			}
 		}
 
 		dir, ok := np.(*topLevelDir)
@@ -580,9 +564,7 @@ func createTopLevelDirs(treeRoot *ruleOverlay, rootPath string, p *topLevelDir) 
 		}
 	}
 
-	p.setChild(name, treeRoot)
-
-	return nil
+	return p.setChild(name, treeRoot)
 }
 
 func pathParts(path string) iter.Seq[string] {

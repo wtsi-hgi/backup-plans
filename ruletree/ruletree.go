@@ -37,7 +37,7 @@ import (
 	"vimagination.zapto.org/tree"
 )
 
-var emptyNode tree.MemTree
+var emptyNode tree.MemTree //nolint:gochecknoglobals
 
 // Rule contains the user and group summaries for a rule.
 type Rule struct {
@@ -87,8 +87,8 @@ type file struct {
 }
 
 func (f *file) readFrom(lr byteio.MemLittleEndian) {
-	f.uid = uint32(lr.ReadUintX())
-	f.gid = uint32(lr.ReadUintX())
+	f.uid = uint32(lr.ReadUintX()) //nolint:gosec
+	f.gid = uint32(lr.ReadUintX()) //nolint:gosec
 	f.mtime = lr.ReadUintX()
 	f.size = lr.ReadUintX()
 }
@@ -127,7 +127,7 @@ func (f *file) readFrom(lr byteio.MemLittleEndian) {
 // tree and will require a simple reverse directory lookup in the stored rules
 // to determine which rule ID the tree DBs 0 should be replaced with.
 //
-// For effecient re-calculating of rules, we only need to take into account
+// For efficient re-calculating of rules, we only need to take into account
 // directories which will be affected by changed rules. The RuleTree produces a
 // set of rules that match on the directories themselves (as opposed to normal
 // rules which are only applied to files). These rules fall into one of three
@@ -163,14 +163,10 @@ func (r *ruleProcessor) Children() iter.Seq2[string, tree.Node] {
 
 func (r *ruleProcessor) children(yield func(string, tree.Node) bool) {
 	for name, child := range r.lowerNode.Children() {
-		lowerChild := child.(*tree.MemTree) //nolint:errcheck
+		lowerChild := child.(*tree.MemTree) //nolint:errcheck,forcetypeassert
 
 		if !strings.HasSuffix(name, "/") {
-			if err := r.processFile(name, lowerChild.Data()); err != nil {
-				yield(name, tree.NewChildrenError(err))
-
-				return
-			}
+			r.processFile(name, lowerChild.Data())
 
 			continue
 		}
@@ -180,7 +176,7 @@ func (r *ruleProcessor) children(yield func(string, tree.Node) bool) {
 
 		var cont bool
 
-		if ruleID := *state.GetGroup(); ruleID == processRules {
+		if ruleID := *state.GetGroup(); ruleID == processRules { //nolint:nestif
 			cont = r.processDir(name, state, lowerChild, upperChild, yield)
 		} else if ruleID < 0 {
 			cont = r.copyUpperOrAddLower(name, -ruleID, lowerChild, upperChild, yield)
@@ -194,7 +190,7 @@ func (r *ruleProcessor) children(yield func(string, tree.Node) bool) {
 	}
 }
 
-func (r *ruleProcessor) processFile(name string, data []byte) error {
+func (r *ruleProcessor) processFile(name string, data []byte) {
 	var f file
 
 	f.readFrom(data)
@@ -206,8 +202,6 @@ func (r *ruleProcessor) processFile(name string, data []byte) error {
 	}
 
 	r.setRule(ruleID, &f)
-
-	return nil
 }
 
 func (r *ruleProcessor) setRule(ruleID int64, f *file) {
@@ -218,10 +212,10 @@ func (r *ruleProcessor) setRule(ruleID int64, f *file) {
 }
 
 func (r *ruleProcessor) getRulePos(ruleID int64) int {
-	newRule := Rule{ID: uint64(ruleID)}
+	newRule := Rule{ID: uint64(ruleID)} //nolint:gosec
 
 	pos, ok := slices.BinarySearchFunc(r.Rules, newRule, func(a, b Rule) int {
-		return int(a.ID - b.ID)
+		return int(a.ID) - int(b.ID) //nolint:gosec
 	})
 	if !ok {
 		r.Rules = slices.Insert(r.Rules, pos, newRule)
@@ -230,7 +224,8 @@ func (r *ruleProcessor) getRulePos(ruleID int64) int {
 	return pos
 }
 
-func (r *ruleProcessor) processDir(name string, state group.State[int64], lowerChild, upperChild *tree.MemTree, yield func(string, tree.Node) bool) bool {
+func (r *ruleProcessor) processDir(name string, state group.State[int64],
+	lowerChild, upperChild *tree.MemTree, yield func(string, tree.Node) bool) bool {
 	childProcessor := ruleProcessor{
 		lowerNode: lowerChild,
 		upperNode: cmp.Or(upperChild, &emptyNode),
@@ -248,7 +243,7 @@ func (r *ruleProcessor) processDir(name string, state group.State[int64], lowerC
 
 func (r *ruleProcessor) mergeChild(child *ruleProcessor) {
 	for _, rule := range child.Rules {
-		pos := r.getRulePos(int64(rule.ID))
+		pos := r.getRulePos(int64(rule.ID)) //nolint:gosec
 
 		for _, user := range rule.Users {
 			r.Rules[pos].Users.add(user.id, user.MTime, user.Files, user.Size)
@@ -260,7 +255,8 @@ func (r *ruleProcessor) mergeChild(child *ruleProcessor) {
 	}
 }
 
-func (r *ruleProcessor) copyUpperOrAddLower(name string, ruleID int64, lowerChild, upperChild *tree.MemTree, yield func(string, tree.Node) bool) bool {
+func (r *ruleProcessor) copyUpperOrAddLower(name string, ruleID int64,
+	lowerChild, upperChild *tree.MemTree, yield func(string, tree.Node) bool) bool {
 	if upperChild == nil {
 		return r.addLower(ruleID, lowerChild)
 	}
@@ -273,8 +269,8 @@ func (r *ruleProcessor) copyUpperOrAddLower(name string, ruleID int64, lowerChil
 	for range sr.ReadUintX() {
 		ruleID := sr.ReadUintX()
 
-		readArray(&sr, int64(ruleID), r.addUserData)
-		readArray(&sr, int64(ruleID), r.addGroupData)
+		readArray(&sr, int64(ruleID), r.addUserData)  //nolint:gosec
+		readArray(&sr, int64(ruleID), r.addGroupData) //nolint:gosec
 	}
 
 	return yield(name, upperChild)
@@ -282,7 +278,7 @@ func (r *ruleProcessor) copyUpperOrAddLower(name string, ruleID int64, lowerChil
 
 func readArray(sr *byteio.MemLittleEndian, ruleID int64, fn func(uint32, int64, uint64, uint64, uint64)) {
 	for range sr.ReadUintX() {
-		id := uint32(sr.ReadUintX())
+		id := uint32(sr.ReadUintX()) //nolint:gosec
 		mtime := sr.ReadUintX()
 		files := sr.ReadUintX()
 		size := sr.ReadUintX()

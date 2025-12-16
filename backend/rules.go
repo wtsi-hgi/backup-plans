@@ -426,7 +426,7 @@ func (s *Server) CreateRule(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.createRule)
 }
 
-func (s *Server) createRule(w http.ResponseWriter, r *http.Request) error { //nolint:funlen,gocyclo
+func (s *Server) createRule(w http.ResponseWriter, r *http.Request) error { //nolint:funlen
 	dir, err := getDir(r)
 	if err != nil {
 		return err
@@ -450,8 +450,10 @@ func (s *Server) createRule(w http.ResponseWriter, r *http.Request) error { //no
 	}
 
 	s.rulesMu.Lock()
+
 	directory.Rules[rule.Match] = rule
 	s.rules[uint64(rule.ID())] = rule //nolint:gosec
+
 	s.rulesMu.Unlock()
 
 	if err := s.rootDir.AddRule(directory.Directory, rule); err != nil {
@@ -525,7 +527,7 @@ func getRuleDetails(r *http.Request) (*db.Rule, error) { //nolint:cyclop,gocyclo
 	}
 
 	rule.Match = r.FormValue("match")
-	if rule.Match == "" {
+	if rule.Match == "" { //nolint:gocritic,nestif
 		rule.Match = "*"
 	} else if strings.Contains(rule.Match, "\x00") {
 		return nil, ErrInvalidMatch
@@ -600,7 +602,7 @@ func (s *Server) RemoveRule(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.removeRule)
 }
 
-func (s *Server) removeRule(w http.ResponseWriter, r *http.Request) error { //nolint:funlen
+func (s *Server) removeRule(w http.ResponseWriter, r *http.Request) error {
 	dir, err := getDir(r)
 	if err != nil {
 		return err

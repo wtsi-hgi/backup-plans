@@ -33,7 +33,8 @@ const (
 	noRules ruleState = 0
 )
 
-func generateStatemachineFor(mount string, paths []string, directoryRules map[string]*DirRules) (group.StateMachine[int64], error) {
+func generateStatemachineFor(mount string, paths []string,
+	directoryRules map[string]*DirRules) (group.StateMachine[int64], error) {
 	rules := buildDirRules(mount, paths, directoryRules)
 
 	return group.NewStatemachine(rules)
@@ -53,7 +54,7 @@ type RuleTree struct {
 // NewRuleTree creates a rule pre-processor to enable parent 'rule overrides' and matches containing
 // slashes.
 //
-// The RuleTree also calculates the directory level rules to determine effecient rule calculations.
+// The RuleTree also calculates the directory level rules to determine efficient rule calculations.
 // The RuleTree keeps track of which directories have changed rules, or are affected by changed
 // rules.
 //
@@ -104,7 +105,7 @@ type RuleTree struct {
 //	the wildcard ID.
 //	CH: Copy from the higher DB (overlay DB) if it exists, or fall back to AL.
 //	S : Special handling of WildcardSuffix rules, where we cut off after the first '*' and use that
-//	to match directores that match the text before (and including) the wildcard.  If a Wildcard is
+//	to match directories that match the text before (and including) the wildcard.  If a Wildcard is
 //	present, the AL rule is applied as normal.
 //
 // For each cell, it describes how rules are applied for that directory, and optionally how they are
@@ -126,25 +127,25 @@ func newRuleTree(dirTreeRule dirTreeRule) *RuleTree {
 
 // Set adds the rules for the given path. The changed flag should be set true if
 // this directory has had a rule changed (added, updated, or removed).
-func (r *RuleTree) Set(path string, rules map[string]*db.Rule, changed bool) {
+func (r *RuleTree) Set(path string, rules map[string]*db.Rule, changed bool) { //nolint:gocognit,gocyclo,funlen
 	curr := r
 
 	for part := range pathParts(path[1:]) {
 		next, ok := curr.children[part]
-		if !ok {
+		if !ok { //nolint:nestif
 			if changed && len(rules) == 0 {
 				curr.Dir |= RulesChanged
 
 				break
 			}
 
-			var new dirTreeRule
+			var newDT dirTreeRule
 
 			if curr.Dir&RulesChanged != 0 || curr.Dir&ParentRulesChanged != 0 {
-				new.Dir |= ParentRulesChanged
+				newDT.Dir |= ParentRulesChanged
 			}
 
-			next = newRuleTree(new)
+			next = newRuleTree(newDT)
 			curr.children[part] = next
 		}
 
@@ -203,7 +204,7 @@ func (r *RuleTree) resolveOverrides() bool {
 }
 
 func (r *RuleTree) setOverride(match string, rule *db.Rule, changed bool) {
-	if _, ok := r.Rules[match]; ok {
+	if _, ok := r.Rules[match]; ok { //nolint:nestif
 		slash := strings.IndexByte(match, '/')
 		wildcard := strings.IndexByte(match, '*')
 
@@ -231,7 +232,7 @@ func (r *RuleTree) recurseResolveSlashes() {
 	r.resolveSlashes()
 }
 
-func (r *RuleTree) resolveSlashes() {
+func (r *RuleTree) resolveSlashes() { //nolint:gocognit,gocyclo,funlen
 	changed := r.Dir&RulesChanged != 0
 
 	for match, rule := range r.Rules {
@@ -249,13 +250,13 @@ func (r *RuleTree) resolveSlashes() {
 		for part := range pathParts(match[:slash+1]) {
 			next, ok := curr.children[part]
 			if !ok {
-				var new dirTreeRule
+				var newDT dirTreeRule
 
 				if changed || curr.Dir&ParentRulesChanged != 0 {
-					new.Dir |= ParentRulesChanged
+					newDT.Dir |= ParentRulesChanged
 				}
 
-				next = newRuleTree(new)
+				next = newRuleTree(newDT)
 				curr.children[part] = next
 			}
 
@@ -279,7 +280,7 @@ func (r *RuleTree) resolveSlashes() {
 // MarkBackupDirs traverses the tree marking all directories that contain
 // ibackup rules, and marking parents of those directories.
 //
-// This is to allow for effecient tree traversal, only entering sub-trees that
+// This is to allow for efficient tree traversal, only entering sub-trees that
 // contain relevant rules.
 func (r *RuleTree) MarkBackupDirs() {
 	for _, rule := range r.Rules {
@@ -304,7 +305,7 @@ func (r *RuleTree) Iter() iter.Seq2[string, *RuleTree] {
 	return maps.All(r.children)
 }
 
-var basicWildcard = map[string]*db.Rule{"*": nil}
+var basicWildcard = map[string]*db.Rule{"*": nil} //nolint:gochecknoglobals
 
 func buildDirRules(mount string, paths []string, directoryRules map[string]*DirRules) []group.PathGroup[int64] {
 	dirs := slices.Collect(maps.Keys(directoryRules))
@@ -328,7 +329,8 @@ func buildDirRules(mount string, paths []string, directoryRules map[string]*DirR
 	return buildRules(root, "/", nil, 0)
 }
 
-func buildRules(d *RuleTree, path string, rules []group.PathGroup[int64], wildcard int64) []group.PathGroup[int64] {
+func buildRules(d *RuleTree, path string, rules []group.PathGroup[int64], //nolint:gocyclo,cyclop,funlen
+	wildcard int64) []group.PathGroup[int64] {
 	if len(d.Rules) > 0 {
 		if wc, ok := d.Rules["*"]; ok {
 			wildcard = wc.ID()
@@ -339,7 +341,7 @@ func buildRules(d *RuleTree, path string, rules []group.PathGroup[int64], wildca
 		}
 	}
 
-	switch ruleState := getRuleState(d.Rules); ruleState {
+	switch rs := getRuleState(d.Rules); rs {
 	case noRules:
 		rules = addNoRuleRules(rules, path, d.Dir, wildcard)
 	case SimpleWildcard:
@@ -348,10 +350,11 @@ func buildRules(d *RuleTree, path string, rules []group.PathGroup[int64], wildca
 		rules = addRuleToList(rules, path, processRules)
 	case SimpleWildcard | SimplePaths:
 		rules = addSimpleRules(rules, path, d.Dir, wildcard)
-	case ComplexWildcardWithPrefix, ComplexWildcardWithSuffix, ComplexWildcardWithPrefix | SimplePaths, ComplexWildcardWithSuffix | SimplePaths:
-		rules = addComplexRules(rules, path, d.Dir, ruleState, wildcard, d.Rules)
+	case ComplexWildcardWithPrefix, ComplexWildcardWithSuffix,
+		ComplexWildcardWithPrefix | SimplePaths, ComplexWildcardWithSuffix | SimplePaths:
+		rules = addComplexRules(rules, path, d.Dir, rs, wildcard, d.Rules)
 	default:
-		rules = addComplexWithWildcardRules(rules, path, d.Dir, ruleState, wildcard, d.Rules)
+		rules = addComplexWithWildcardRules(rules, path, d.Dir, rs, wildcard, d.Rules)
 	}
 
 	for part, child := range d.children {
@@ -361,7 +364,7 @@ func buildRules(d *RuleTree, path string, rules []group.PathGroup[int64], wildca
 	return rules
 }
 
-func getRuleState(rules map[string]*db.Rule) ruleState {
+func getRuleState(rules map[string]*db.Rule) ruleState { //nolint:gocognit
 	if len(rules) == 0 {
 		return 0
 	}
@@ -369,7 +372,7 @@ func getRuleState(rules map[string]*db.Rule) ruleState {
 	var rs ruleState
 
 	for match := range rules {
-		if match == "*" {
+		if match == "*" { //nolint:gocritic,nestif
 			rs |= SimpleWildcard
 		} else if strings.Contains(match, "*") {
 			if match[0] == '*' {
@@ -392,7 +395,8 @@ func addRuleToList(rules []group.PathGroup[int64], path string, rule int64) []gr
 	})
 }
 
-func addNoRuleRules(rules []group.PathGroup[int64], path string, dirState dirState, wildcard int64) []group.PathGroup[int64] {
+func addNoRuleRules(rules []group.PathGroup[int64], path string, dirState dirState,
+	wildcard int64) []group.PathGroup[int64] {
 	process := processRules
 
 	if dirState&RulesChanged != 0 && dirState&HasChildWithRules == 0 && dirState&ParentRulesChanged == 0 {
@@ -402,13 +406,14 @@ func addNoRuleRules(rules []group.PathGroup[int64], path string, dirState dirSta
 	return addRuleToList(rules, path, process)
 }
 
-func addSimpleWildcardRules(rules []group.PathGroup[int64], path string, dirState dirState, wildcard int64) []group.PathGroup[int64] {
-	if dirState&RulesChanged != 0 {
+func addSimpleWildcardRules(rules []group.PathGroup[int64], path string, dirState dirState,
+	wildcard int64) []group.PathGroup[int64] {
+	if dirState&RulesChanged != 0 { //nolint:nestif
 		if dirState&HasChildWithRules != 0 {
 			return addRuleToList(addRuleToList(rules, path, processRules), path+"*/", wildcard)
-		} else {
-			return addRuleToList(rules, path, wildcard)
 		}
+
+		return addRuleToList(rules, path, wildcard)
 	} else if dirState&HasChildWithChangedRules != 0 {
 		return addRuleToList(addRuleToList(rules, path, processRules), path+"*/", -wildcard)
 	}
@@ -416,7 +421,8 @@ func addSimpleWildcardRules(rules []group.PathGroup[int64], path string, dirStat
 	return addRuleToList(rules, path, -wildcard)
 }
 
-func addSimpleRules(rules []group.PathGroup[int64], path string, dirState dirState, wildcard int64) []group.PathGroup[int64] {
+func addSimpleRules(rules []group.PathGroup[int64], path string, dirState dirState,
+	wildcard int64) []group.PathGroup[int64] {
 	if dirState&RulesChanged != 0 {
 		return addRuleToList(addRuleToList(rules, path, processRules), path+"*/", wildcard)
 	} else if dirState&HasChildWithChangedRules != 0 {
@@ -426,7 +432,8 @@ func addSimpleRules(rules []group.PathGroup[int64], path string, dirState dirSta
 	return addRuleToList(rules, path, -wildcard)
 }
 
-func addComplexRules(rules []group.PathGroup[int64], path string, dirState dirState, ruleState ruleState, wildcard int64, rs map[string]*db.Rule) []group.PathGroup[int64] {
+func addComplexRules(rules []group.PathGroup[int64], path string, dirState dirState,
+	ruleState ruleState, wildcard int64, rs map[string]*db.Rule) []group.PathGroup[int64] {
 	rules = addRuleToList(rules, path, processRules)
 
 	if dirState&RulesChanged == 0 && dirState&ParentRulesChanged == 0 {
@@ -436,7 +443,8 @@ func addComplexRules(rules []group.PathGroup[int64], path string, dirState dirSt
 	return addComplexChildRules(rules, path, ruleState, wildcard, rs)
 }
 
-func addComplexChildRules(rules []group.PathGroup[int64], path string, ruleState ruleState, wildcard int64, rs map[string]*db.Rule) []group.PathGroup[int64] {
+func addComplexChildRules(rules []group.PathGroup[int64], path string, ruleState ruleState, //nolint:gocognit,gocyclo
+	wildcard int64, rs map[string]*db.Rule) []group.PathGroup[int64] {
 	if ruleState&ComplexWildcardWithSuffix != 0 {
 		return addRuleToList(rules, path+"*/", processRules)
 	} else if ruleState&SimpleWildcard != 0 {
@@ -446,7 +454,7 @@ func addComplexChildRules(rules []group.PathGroup[int64], path string, ruleState
 	todo := map[string]int64{}
 
 	for match, r := range rs {
-		if pos := strings.IndexByte(match, '*'); pos > 0 {
+		if pos := strings.IndexByte(match, '*'); pos > 0 { //nolint:nestif
 			newMatch := match[:pos]
 
 			if _, ok := todo[newMatch]; ok || pos+1 < len(match) {
@@ -464,13 +472,14 @@ func addComplexChildRules(rules []group.PathGroup[int64], path string, ruleState
 	return rules
 }
 
-func addComplexWithWildcardRules(rules []group.PathGroup[int64], path string, dirState dirState, ruleState ruleState, wildcard int64, rs map[string]*db.Rule) []group.PathGroup[int64] {
+func addComplexWithWildcardRules(rules []group.PathGroup[int64], path string, dirState dirState,
+	ruleState ruleState, wildcard int64, rs map[string]*db.Rule) []group.PathGroup[int64] {
 	if dirState&RulesChanged == 0 {
 		if dirState&HasChildWithChangedRules != 0 {
 			return addRuleToList(addRuleToList(rules, path, processRules), path+"*/", -wildcard)
-		} else {
-			return addRuleToList(rules, path, -wildcard)
 		}
+
+		return addRuleToList(rules, path, -wildcard)
 	}
 
 	rules = addRuleToList(rules, path, processRules)

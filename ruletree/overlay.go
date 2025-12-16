@@ -179,7 +179,7 @@ func (r *ruleOverlay) getSummary(wildcard int64) *DirSummary {
 	}
 
 	if len(ds.RuleSummaries) == 1 && ds.RuleSummaries[0].ID == 0 {
-		ds.RuleSummaries[0].ID = uint64(wildcard)
+		ds.RuleSummaries[0].ID = uint64(wildcard) //nolint:gosec
 	}
 
 	return ds
@@ -206,8 +206,8 @@ func (s *Stats) ID() uint32 {
 
 func (s *Stats) writeTo(sw *byteio.StickyLittleEndianWriter) {
 	sw.WriteUintX(uint64(s.id))
-	sw.WriteUintX(uint64(s.MTime))
-	sw.WriteUintX(uint64(s.Files))
+	sw.WriteUintX(s.MTime)
+	sw.WriteUintX(s.Files)
 	sw.WriteUintX(s.Size)
 }
 

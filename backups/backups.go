@@ -25,7 +25,7 @@ type SetInfo struct {
 // Backup will back up all files in the given treeNode that match rules in the
 // given planDB, using the given ibackup client. It returns a list of the set IDs
 // created.
-func Backup(planDB *db.DB, treeNode tree.Node, client *ibackup.MultiClient) ([]SetInfo, error) {
+func Backup(planDB *db.DB, treeNode tree.Node, client *ibackup.MultiClient) ([]SetInfo, error) { //nolint:funlen
 	mountpoint, err := readMountpoint(treeNode)
 	if err != nil {
 		return nil, err
@@ -123,7 +123,7 @@ func readDirRules(planDB *db.DB, mountpoint string) (map[int64]*dirRules, map[in
 	return dirs, rules, nil
 }
 
-var hasBackups int64 = -1
+var hasBackups int64 = -1 //nolint:gochecknoglobals
 
 func collectRuleGroups(root *ruletree.RuleTree, path string, rules []group.PathGroup[int64]) []group.PathGroup[int64] {
 	if !root.HasBackup && !root.HasChildWithBackup {
@@ -158,7 +158,8 @@ func collectRuleGroups(root *ruletree.RuleTree, path string, rules []group.PathG
 	return rules
 }
 
-func figureOutFOFNs(node tree.Node, sm group.State[int64], path *summary.DirectoryPath, cb func(*summary.DirectoryPath, int64)) {
+func figureOutFOFNs(node tree.Node, sm group.State[int64], path *summary.DirectoryPath,
+	cb func(*summary.DirectoryPath, int64)) {
 	for name, child := range node.Children() {
 		state := sm.GetStateString(name)
 		newPath := &summary.DirectoryPath{Parent: path, Name: name}

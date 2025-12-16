@@ -105,6 +105,8 @@ func TestStateMachine(t *testing.T) {
 }
 
 func createDirRules(t *testing.T, tdb *db.DB, rules map[string][]*db.Rule) []DirRule {
+	t.Helper()
+
 	var dirRules []DirRule
 
 	for dir, rs := range rules {
