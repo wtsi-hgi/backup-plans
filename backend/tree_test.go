@@ -118,7 +118,7 @@ func TestTree(t *testing.T) {
 				"[],\"Children\":{}},\"ChildToNotClaim/\""+
 				":{\"ClaimedBy\":\"\",\"RuleSummaries\":[],\"Children\":{}}},\"ClaimedBy\":\"root\",\"Rules\":{"+
 				"\"/some/path/MyDir/\":{\"1\":{\"BackupType\":1,\"Metadata\":\"\","+
-				"\"Match\":\"*.txt\",\"Created\":0,\"Modified\":0}}},"+
+				"\"Match\":\"*.txt\",\"Override\":false,\"Created\":0,\"Modified\":0}}},"+
 				"\"Unauthorised\":[],\"CanClaim\":true,"+
 				"\"Frequency\":7,\"ReviewDate\":0,\"RemoveDate\":0}\n")
 		})

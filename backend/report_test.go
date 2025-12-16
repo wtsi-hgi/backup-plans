@@ -235,8 +235,6 @@ func TestReport(t *testing.T) {
 						"/lustre/scratch123/humgen/a/c/":        {3, 6},
 					},
 					BackupStatus: map[string]*ibackup.SetBackupActivity{
-						"/lustre/scratch123/humgen/a/b/":        nil,
-						"/lustre/scratch123/humgen/a/b/newdir/": nil,
 						"/lustre/scratch123/humgen/a/c/": {
 							Name:      "plan::/lustre/scratch123/humgen/a/c/",
 							Requester: "userB",
