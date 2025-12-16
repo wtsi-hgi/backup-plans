@@ -28,6 +28,7 @@ package backend
 import (
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"slices"
 	"strings"
@@ -133,8 +134,10 @@ func (s *Server) summary(w http.ResponseWriter, _ *http.Request) error { //nolin
 
 	for dir, claimedBy := range dirClaims {
 		sba, err := s.cache.GetBackupActivity(dir, "plan::"+dir, claimedBy)
-		if err != nil && (errors.Is(err, ibackup.ErrUnknownClient) || err.Error() != "set with that id does not exist") {
-			return err
+		if err != nil {
+			slog.Error("error querying ibackup status", "dir", dir, "err", err)
+
+			continue
 		}
 
 		dirSummary.BackupStatus[dir] = sba
