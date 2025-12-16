@@ -26,7 +26,6 @@
 package ruletree
 
 import (
-	"bytes"
 	"cmp"
 	"slices"
 	"strings"
@@ -134,7 +133,7 @@ func (r *ruleOverlay) GetOwner(path string) (uint32, uint32, error) {
 }
 
 func (r *ruleOverlay) getOwner() (uint32, uint32) {
-	sr := byteio.StickyLittleEndianReader{Reader: bytes.NewReader(cmp.Or(r.upper, r.lower).Data())}
+	sr := byteio.MemLittleEndian(cmp.Or(r.upper, r.lower).Data())
 
 	return uint32(sr.ReadUintX()), uint32(sr.ReadUintX()) //nolint:gosec
 }
@@ -163,7 +162,7 @@ func (r *ruleOverlay) getSummaryWithChildren(wildcard *wildcards) *DirSummary {
 
 func (r *ruleOverlay) getSummary(wildcard int64) *DirSummary {
 	layer := cmp.Or(r.upper, r.lower)
-	sr := byteio.StickyLittleEndianReader{Reader: bytes.NewReader(layer.Data())}
+	sr := byteio.MemLittleEndian(layer.Data())
 	ds := &DirSummary{
 		Children: make(map[string]*DirSummary),
 	}
@@ -212,7 +211,7 @@ func (s *Stats) writeTo(sw *byteio.StickyLittleEndianWriter) {
 	sw.WriteUintX(s.Size)
 }
 
-func readStats(br *byteio.StickyLittleEndianReader, name func(uint32) string) []Stats {
+func readStats(br *byteio.MemLittleEndian, name func(uint32) string) []Stats {
 	stats := make([]Stats, br.ReadUintX())
 
 	for n := range stats {

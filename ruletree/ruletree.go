@@ -26,7 +26,6 @@
 package ruletree
 
 import (
-	"bytes"
 	"cmp"
 	"io"
 	"iter"
@@ -87,15 +86,11 @@ type file struct {
 	size     uint64
 }
 
-func (f *file) ReadFrom(r io.Reader) (int64, error) {
-	lr := byteio.StickyLittleEndianReader{Reader: r}
-
+func (f *file) readFrom(lr byteio.MemLittleEndian) {
 	f.uid = uint32(lr.ReadUintX())
 	f.gid = uint32(lr.ReadUintX())
 	f.mtime = lr.ReadUintX()
 	f.size = lr.ReadUintX()
-
-	return lr.Count, lr.Err
 }
 
 // ruleProcessor does the actual processing of the rules on a tree DB.
@@ -158,7 +153,7 @@ type ruleProcessor struct {
 }
 
 func (r *ruleProcessor) Children() iter.Seq2[string, tree.Node] {
-	sr := byteio.StickyLittleEndianReader{Reader: bytes.NewReader(r.lowerNode.Data())}
+	sr := byteio.MemLittleEndian(r.lowerNode.Data())
 
 	r.UID = uint32(sr.ReadUintX()) //nolint:gosec
 	r.GID = uint32(sr.ReadUintX()) //nolint:gosec
@@ -202,9 +197,7 @@ func (r *ruleProcessor) children(yield func(string, tree.Node) bool) {
 func (r *ruleProcessor) processFile(name string, data []byte) error {
 	var f file
 
-	if _, err := f.ReadFrom(bytes.NewReader(data)); err != nil {
-		return err
-	}
+	f.readFrom(data)
 
 	var ruleID int64
 
@@ -272,7 +265,7 @@ func (r *ruleProcessor) copyUpperOrAddLower(name string, ruleID int64, lowerChil
 		return r.addLower(ruleID, lowerChild)
 	}
 
-	sr := byteio.StickyLittleEndianReader{Reader: bytes.NewReader(upperChild.Data())}
+	sr := byteio.MemLittleEndian(upperChild.Data())
 
 	sr.ReadUintX()
 	sr.ReadUintX()
@@ -287,7 +280,7 @@ func (r *ruleProcessor) copyUpperOrAddLower(name string, ruleID int64, lowerChil
 	return yield(name, upperChild)
 }
 
-func readArray(sr *byteio.StickyLittleEndianReader, ruleID int64, fn func(uint32, int64, uint64, uint64, uint64)) {
+func readArray(sr *byteio.MemLittleEndian, ruleID int64, fn func(uint32, int64, uint64, uint64, uint64)) {
 	for range sr.ReadUintX() {
 		id := uint32(sr.ReadUintX())
 		mtime := sr.ReadUintX()
@@ -311,7 +304,7 @@ func (r *ruleProcessor) addGroupData(gid uint32, ruleID int64, mtime, files, siz
 }
 
 func (r *ruleProcessor) addLower(ruleID int64, lowerChild *tree.MemTree) bool {
-	sr := byteio.StickyLittleEndianReader{Reader: bytes.NewReader(lowerChild.Data())}
+	sr := byteio.MemLittleEndian(lowerChild.Data())
 
 	sr.ReadUintX()
 	sr.ReadUintX()
