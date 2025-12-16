@@ -33,8 +33,8 @@ const (
 	noRules ruleState = 0
 )
 
-func (r *RootDir) generateStatemachineFor(mount string, paths []string) (group.StateMachine[int64], error) {
-	rules := r.buildDirRules(mount, paths)
+func generateStatemachineFor(mount string, paths []string, directoryRules map[string]*DirRules) (group.StateMachine[int64], error) {
+	rules := buildDirRules(mount, paths, directoryRules)
 
 	return group.NewStatemachine(rules)
 }
@@ -306,8 +306,8 @@ func (r *RuleTree) Iter() iter.Seq2[string, *RuleTree] {
 
 var basicWildcard = map[string]*db.Rule{"*": nil}
 
-func (r *RootDir) buildDirRules(mount string, paths []string) []group.PathGroup[int64] {
-	dirs := slices.Collect(maps.Keys(r.directoryRules))
+func buildDirRules(mount string, paths []string, directoryRules map[string]*DirRules) []group.PathGroup[int64] {
+	dirs := slices.Collect(maps.Keys(directoryRules))
 
 	slices.Sort(dirs)
 
@@ -320,7 +320,7 @@ func (r *RootDir) buildDirRules(mount string, paths []string) []group.PathGroup[
 			continue
 		}
 
-		root.Set(dir, r.directoryRules[dir].Rules, paths == nil || slices.Contains(paths, dir))
+		root.Set(dir, directoryRules[dir].Rules, paths == nil || slices.Contains(paths, dir))
 	}
 
 	root.Canon()
@@ -335,7 +335,7 @@ func buildRules(d *RuleTree, path string, rules []group.PathGroup[int64], wildca
 		}
 
 		for match, rule := range d.Rules {
-			rules = addRule(rules, path+match, rule.ID())
+			rules = addRuleToList(rules, path+match, rule.ID())
 		}
 	}
 
@@ -345,7 +345,7 @@ func buildRules(d *RuleTree, path string, rules []group.PathGroup[int64], wildca
 	case SimpleWildcard:
 		rules = addSimpleWildcardRules(rules, path, d.Dir, wildcard)
 	case SimplePaths:
-		rules = addRule(rules, path, processRules)
+		rules = addRuleToList(rules, path, processRules)
 	case SimpleWildcard | SimplePaths:
 		rules = addSimpleRules(rules, path, d.Dir, wildcard)
 	case ComplexWildcardWithPrefix, ComplexWildcardWithSuffix, ComplexWildcardWithPrefix | SimplePaths, ComplexWildcardWithSuffix | SimplePaths:
@@ -385,7 +385,7 @@ func getRuleState(rules map[string]*db.Rule) ruleState {
 	return rs
 }
 
-func addRule(rules []group.PathGroup[int64], path string, rule int64) []group.PathGroup[int64] {
+func addRuleToList(rules []group.PathGroup[int64], path string, rule int64) []group.PathGroup[int64] {
 	return append(rules, group.PathGroup[int64]{
 		Path:  []byte(path),
 		Group: &rule,
@@ -399,38 +399,38 @@ func addNoRuleRules(rules []group.PathGroup[int64], path string, dirState dirSta
 		process = wildcard
 	}
 
-	return addRule(rules, path, process)
+	return addRuleToList(rules, path, process)
 }
 
 func addSimpleWildcardRules(rules []group.PathGroup[int64], path string, dirState dirState, wildcard int64) []group.PathGroup[int64] {
 	if dirState&RulesChanged != 0 {
 		if dirState&HasChildWithRules != 0 {
-			return addRule(addRule(rules, path, processRules), path+"*/", wildcard)
+			return addRuleToList(addRuleToList(rules, path, processRules), path+"*/", wildcard)
 		} else {
-			return addRule(rules, path, wildcard)
+			return addRuleToList(rules, path, wildcard)
 		}
 	} else if dirState&HasChildWithChangedRules != 0 {
-		return addRule(addRule(rules, path, processRules), path+"*/", -wildcard)
+		return addRuleToList(addRuleToList(rules, path, processRules), path+"*/", -wildcard)
 	}
 
-	return addRule(rules, path, -wildcard)
+	return addRuleToList(rules, path, -wildcard)
 }
 
 func addSimpleRules(rules []group.PathGroup[int64], path string, dirState dirState, wildcard int64) []group.PathGroup[int64] {
 	if dirState&RulesChanged != 0 {
-		return addRule(addRule(rules, path, processRules), path+"*/", wildcard)
+		return addRuleToList(addRuleToList(rules, path, processRules), path+"*/", wildcard)
 	} else if dirState&HasChildWithChangedRules != 0 {
-		return addRule(addRule(rules, path, processRules), path+"*/", -wildcard)
+		return addRuleToList(addRuleToList(rules, path, processRules), path+"*/", -wildcard)
 	}
 
-	return addRule(rules, path, -wildcard)
+	return addRuleToList(rules, path, -wildcard)
 }
 
 func addComplexRules(rules []group.PathGroup[int64], path string, dirState dirState, ruleState ruleState, wildcard int64, rs map[string]*db.Rule) []group.PathGroup[int64] {
-	rules = addRule(rules, path, processRules)
+	rules = addRuleToList(rules, path, processRules)
 
 	if dirState&RulesChanged == 0 && dirState&ParentRulesChanged == 0 {
-		return addRule(rules, path+"*/", -wildcard)
+		return addRuleToList(rules, path+"*/", -wildcard)
 	}
 
 	return addComplexChildRules(rules, path, ruleState, wildcard, rs)
@@ -438,9 +438,9 @@ func addComplexRules(rules []group.PathGroup[int64], path string, dirState dirSt
 
 func addComplexChildRules(rules []group.PathGroup[int64], path string, ruleState ruleState, wildcard int64, rs map[string]*db.Rule) []group.PathGroup[int64] {
 	if ruleState&ComplexWildcardWithSuffix != 0 {
-		return addRule(rules, path+"*/", processRules)
+		return addRuleToList(rules, path+"*/", processRules)
 	} else if ruleState&SimpleWildcard != 0 {
-		rules = addRule(rules, path+"*/", -wildcard)
+		rules = addRuleToList(rules, path+"*/", -wildcard)
 	}
 
 	todo := map[string]int64{}
@@ -458,7 +458,7 @@ func addComplexChildRules(rules []group.PathGroup[int64], path string, ruleState
 	}
 
 	for part, id := range todo {
-		rules = addRule(rules, path+part+"*/", id)
+		rules = addRuleToList(rules, path+part+"*/", id)
 	}
 
 	return rules
@@ -467,13 +467,13 @@ func addComplexChildRules(rules []group.PathGroup[int64], path string, ruleState
 func addComplexWithWildcardRules(rules []group.PathGroup[int64], path string, dirState dirState, ruleState ruleState, wildcard int64, rs map[string]*db.Rule) []group.PathGroup[int64] {
 	if dirState&RulesChanged == 0 {
 		if dirState&HasChildWithChangedRules != 0 {
-			return addRule(addRule(rules, path, processRules), path+"*/", -wildcard)
+			return addRuleToList(addRuleToList(rules, path, processRules), path+"*/", -wildcard)
 		} else {
-			return addRule(rules, path, -wildcard)
+			return addRuleToList(rules, path, -wildcard)
 		}
 	}
 
-	rules = addRule(rules, path, processRules)
+	rules = addRuleToList(rules, path, processRules)
 
 	return addComplexChildRules(rules, path, ruleState, wildcard, rs)
 }

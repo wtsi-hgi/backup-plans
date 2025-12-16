@@ -50,7 +50,7 @@ func TestStateMachine(t *testing.T) {
 		So(err, ShouldBeNil)
 
 		Convey("You can build and test a statemachine", func() {
-			sm, err := root.generateStatemachineFor("/", nil)
+			sm, err := generateStatemachineFor("/", nil, root.directoryRules)
 			So(err, ShouldBeNil)
 
 			for n, test := range [...]struct {

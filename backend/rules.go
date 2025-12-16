@@ -437,28 +437,22 @@ func (s *Server) createRule(w http.ResponseWriter, r *http.Request) error { //no
 		return err
 	}
 
-	s.rulesMu.Lock()
-	defer s.rulesMu.Unlock()
+	s.buildMu.Lock()
+	defer s.buildMu.Unlock()
 
-	directory, ok := s.directoryRules[dir]
-	if !ok {
-		return ErrInvalidDir
-	}
-
-	if directory.ClaimedBy != s.getUser(r) {
-		return ErrInvalidUser
-	}
-
-	if _, ok := directory.Rules[rule.Match]; ok {
-		return ErrRuleExists
+	directory, err := s.checkAddRule(r, dir, rule.Match)
+	if err != nil {
+		return err
 	}
 
 	if err := s.rulesDB.CreateDirectoryRule(directory.Directory, rule); err != nil {
 		return err
 	}
 
+	s.rulesMu.Lock()
 	directory.Rules[rule.Match] = rule
 	s.rules[uint64(rule.ID())] = rule //nolint:gosec
+	s.rulesMu.Unlock()
 
 	if err := s.rootDir.AddRule(directory.Directory, rule); err != nil {
 		return err
@@ -467,6 +461,26 @@ func (s *Server) createRule(w http.ResponseWriter, r *http.Request) error { //no
 	w.WriteHeader(http.StatusNoContent)
 
 	return nil
+}
+
+func (s *Server) checkAddRule(r *http.Request, dir, match string) (*ruletree.DirRules, error) {
+	s.rulesMu.RLock()
+	defer s.rulesMu.RUnlock()
+
+	directory, ok := s.directoryRules[dir]
+	if !ok {
+		return nil, ErrInvalidDir
+	}
+
+	if directory.ClaimedBy != s.getUser(r) {
+		return nil, ErrInvalidUser
+	}
+
+	if _, ok := directory.Rules[match]; ok {
+		return nil, ErrRuleExists
+	}
+
+	return directory, nil
 }
 
 func (s *Server) addRuleToDir(directory *ruletree.DirRules, rule *db.Rule) error {
@@ -592,38 +606,52 @@ func (s *Server) removeRule(w http.ResponseWriter, r *http.Request) error { //no
 		return err
 	}
 
-	s.rulesMu.Lock()
-	defer s.rulesMu.Unlock()
+	s.buildMu.Lock()
+	defer s.buildMu.Unlock()
 
-	directory, ok := s.directoryRules[dir]
-	if !ok {
-		return ErrDirectoryNotClaimed
-	}
-
-	if directory.ClaimedBy != s.getUser(r) {
-		return ErrInvalidUser
-	}
-
-	match := r.FormValue("match")
-
-	rule, ok := directory.Rules[match]
-	if !ok {
-		return ErrNoRule
+	directory, rule, err := s.getRuleToRemove(r, dir)
+	if err != nil {
+		return err
 	}
 
 	if err := s.rulesDB.RemoveRule(rule); err != nil {
 		return err
 	}
 
-	delete(directory.Rules, match)
-
 	if err := s.rootDir.RemoveRule(directory.Directory, rule); err != nil {
 		return err
 	}
 
+	s.rulesMu.Lock()
+	delete(directory.Rules, rule.Match)
+	s.rulesMu.Unlock()
+
 	w.WriteHeader(http.StatusNoContent)
 
 	return nil
+}
+
+func (s *Server) getRuleToRemove(r *http.Request, dir string) (*ruletree.DirRules, *db.Rule, error) {
+	s.rulesMu.RLock()
+	defer s.rulesMu.RUnlock()
+
+	directory, ok := s.directoryRules[dir]
+	if !ok {
+		return nil, nil, ErrDirectoryNotClaimed
+	}
+
+	if directory.ClaimedBy != s.getUser(r) {
+		return nil, nil, ErrInvalidUser
+	}
+
+	match := r.FormValue("match")
+
+	rule, ok := directory.Rules[match]
+	if !ok {
+		return nil, nil, ErrNoRule
+	}
+
+	return directory, rule, nil
 }
 
 func getDir(r *http.Request) (string, error) {

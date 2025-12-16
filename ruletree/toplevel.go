@@ -30,6 +30,7 @@ import (
 	"errors"
 	"fmt"
 	"iter"
+	"maps"
 	"os"
 	"strings"
 	"sync"
@@ -97,7 +98,7 @@ func NewRoot(rules []DirRule) (*RootDir, error) {
 	}
 
 	for _, dr := range rules {
-		if err := r.addRule(dr.Directory, dr.Rule); err != nil {
+		if err := addRule(r.directoryRules, dr.Directory, dr.Rule); err != nil {
 			return nil, err
 		}
 	}
@@ -109,20 +110,41 @@ func NewRoot(rules []DirRule) (*RootDir, error) {
 
 // AddRules adds the given rules and regenerates the tree from the top path.
 func (r *RootDir) AddRules(topPath string, dirRules []DirRule) error {
+	r.buildMu.Lock()
+	defer r.buildMu.Unlock()
+
+	r.mu.RLock()
+	directoryRules := maps.Clone(r.directoryRules)
+	r.mu.RUnlock()
+
+	dirs, err := addRules(directoryRules, dirRules)
+	if err != nil {
+		return err
+	}
+
+	if err := r.regenRules(r.getMountPoint(topPath), directoryRules, dirs...); err != nil {
+		return err
+	}
+
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
+	r.directoryRules = directoryRules
+
+	return nil
+}
+func addRules(directoryRules map[string]*DirRules, dirRules []DirRule) ([]string, error) {
 	dirs := make([]string, 0, len(dirRules))
 
 	for _, rule := range dirRules {
-		if err := r.addRule(rule.Directory, rule.Rule); err != nil {
-			return err
+		if err := addRule(directoryRules, rule.Directory, rule.Rule); err != nil {
+			return nil, err
 		}
 
 		dirs = append(dirs, rule.Directory.Path)
 	}
 
-	return r.regenRules(r.getMountPoint(topPath), dirs...)
+	return dirs, nil
 }
 
 func (r *RootDir) getMountPoint(dir string) string {
@@ -141,25 +163,35 @@ func (r *RootDir) AddRule(dir *db.Directory, rule *db.Rule) error {
 	r.buildMu.Lock()
 	defer r.buildMu.Unlock()
 
-	if err := r.addRule(dir, rule); err != nil {
+	r.mu.RLock()
+	directoryRules := maps.Clone(r.directoryRules)
+	r.mu.RUnlock()
+
+	if err := addRule(directoryRules, dir, rule); err != nil {
 		return err
 	}
 
-	return r.regenRules(r.getMountPoint(dir.Path), dir.Path)
-}
+	if err := r.regenRules(r.getMountPoint(dir.Path), directoryRules, dir.Path); err != nil {
+		return err
+	}
 
-func (r *RootDir) addRule(dir *db.Directory, rule *db.Rule) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	existingDir, ok := r.directoryRules[dir.Path]
+	r.directoryRules = directoryRules
+
+	return nil
+}
+
+func addRule(directoryRules map[string]*DirRules, dir *db.Directory, rule *db.Rule) error {
+	existingDir, ok := directoryRules[dir.Path]
 	if !ok {
 		existingDir = &DirRules{
 			Directory: dir,
 			Rules:     make(map[string]*db.Rule),
 		}
 
-		r.directoryRules[dir.Path] = existingDir
+		directoryRules[dir.Path] = existingDir
 	}
 
 	if _, ruleExists := existingDir.Rules[rule.Match]; ruleExists {
@@ -177,19 +209,28 @@ func (r *RootDir) RemoveRule(dir *db.Directory, rule *db.Rule) error {
 	r.buildMu.Lock()
 	defer r.buildMu.Unlock()
 
-	err := r.removeRule(dir, rule)
-	if err != nil {
+	r.mu.RLock()
+	directoryRules := maps.Clone(r.directoryRules)
+	r.mu.RUnlock()
+
+	if err := removeRule(directoryRules, dir, rule); err != nil {
 		return err
 	}
 
-	return r.regenRules(r.getMountPoint(dir.Path), dir.Path)
-}
+	if err := r.regenRules(r.getMountPoint(dir.Path), directoryRules, dir.Path); err != nil {
+		return err
+	}
 
-func (r *RootDir) removeRule(dir *db.Directory, rule *db.Rule) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	existingDir, ok := r.directoryRules[dir.Path]
+	r.directoryRules = directoryRules
+
+	return nil
+}
+
+func removeRule(directoryRules map[string]*DirRules, dir *db.Directory, rule *db.Rule) error {
+	existingDir, ok := directoryRules[dir.Path]
 	if !ok {
 		return ErrNotFound
 	}
@@ -203,7 +244,7 @@ func (r *RootDir) removeRule(dir *db.Directory, rule *db.Rule) error {
 	return nil
 }
 
-func (r *RootDir) regenRules(mount string, dirs ...string) error {
+func (r *RootDir) regenRules(mount string, directoryRules map[string]*DirRules, dirs ...string) error {
 	t := &r.topLevelDir
 	pos := 1
 
@@ -219,7 +260,7 @@ func (r *RootDir) regenRules(mount string, dirs ...string) error {
 		case *topLevelDir:
 			t = child
 		case *ruleOverlay:
-			return r.regenRulesFor(t, child, dirs, mount, part)
+			return r.regenRulesFor(t, child, dirs, directoryRules, mount, part)
 		default:
 			return ErrNotFound
 		}
@@ -228,8 +269,8 @@ func (r *RootDir) regenRules(mount string, dirs ...string) error {
 	return ErrNotFound
 }
 
-func (r *RootDir) regenRulesFor(t *topLevelDir, child *ruleOverlay, dirs []string, mount, name string) error {
-	sm, err := r.generateStatemachineFor(mount, dirs)
+func (r *RootDir) regenRulesFor(t *topLevelDir, child *ruleOverlay, dirs []string, directoryRules map[string]*DirRules, mount, name string) error {
+	sm, err := generateStatemachineFor(mount, dirs, directoryRules)
 	if err != nil {
 		return err
 	}
@@ -255,6 +296,8 @@ func (r *RootDir) regenRulesFor(t *topLevelDir, child *ruleOverlay, dirs []strin
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
+
+	r.directoryRules = directoryRules
 
 	defer r.buildWildcards()
 
@@ -401,7 +444,10 @@ func (r *RootDir) AddTree(file string) (err error) {
 	r.buildMu.Lock()
 	defer r.buildMu.Unlock()
 
+	r.mu.RLock()
 	processed, err := r.processRules(treeRoot, rootPath)
+	r.mu.RUnlock()
+
 	if err != nil {
 		return err
 	}
@@ -484,7 +530,7 @@ func getRoot(db *tree.MemTree) (*tree.MemTree, string, error) {
 }
 
 func (r *RootDir) processRules(treeRoot *tree.MemTree, rootPath string) (*ruleOverlay, error) {
-	sm, err := r.generateStatemachineFor(rootPath, nil)
+	sm, err := generateStatemachineFor(rootPath, nil, r.directoryRules)
 	if err != nil {
 		return nil, err
 	}
