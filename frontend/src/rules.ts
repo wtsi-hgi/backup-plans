@@ -46,7 +46,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 			enableInputs = () => {
 				if (!rule.Match) {
 					set.removeAttribute("disabled");
-					set.removeAttribute("override");
+					override.removeAttribute("disabled");
 				}
 
 				overlay.setAttribute("closedby", "any");

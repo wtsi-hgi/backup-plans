@@ -109,7 +109,7 @@ type RuleTree struct {
 //	present, the AL rule is applied as normal.
 //
 // For each cell, it describes how rules are applied for that directory, and optionally how they are
-// applied to unknown subdirectores (=>).
+// applied to unknown subdirectories (=>).
 func NewRuleTree() *RuleTree {
 	return newRuleTree(dirTreeRule{})
 }
