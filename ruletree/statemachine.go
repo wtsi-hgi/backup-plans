@@ -136,7 +136,7 @@ func (r *RuleTree) Set(path string, rules map[string]*db.Rule, changed bool) { /
 			if changed && len(rules) == 0 {
 				curr.Dir |= RulesChanged
 
-				break
+				return
 			}
 
 			var newDT dirTreeRule

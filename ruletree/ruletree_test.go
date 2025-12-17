@@ -327,6 +327,30 @@ func TestRuletree(t *testing.T) {
 			RemoveRule(t, tdb, root, "/path/dir/", "f*")
 			So(ruleIDCount(t, root, "/path/dir/"), ShouldResemble, map[uint64]uint64{r2: 4})
 		})
+
+		Convey("You can remove a child rule and numbers update correctly", func() {
+			root, err := NewRoot(nil)
+			So(err, ShouldBeNil)
+
+			treeDB := buildTreeDB(t, []string{
+				"/path/dir/file1.txt",
+				"/path/dir/file2.log",
+				"/path/dir/subdir/file3.txt",
+				"/path/dir/subdir/file4.log",
+			})
+
+			treeDBPath := createTree(t, treeDB)
+			So(root.AddTree(treeDBPath), ShouldBeNil)
+
+			r1 := createRule(t, tdb, root, "/path/dir/", "*.txt")
+			So(ruleIDCount(t, root, "/path/dir/"), ShouldResemble, map[uint64]uint64{0: 2, r1: 2})
+
+			r2 := createRule(t, tdb, root, "/path/dir/subdir/", "*")
+			So(ruleIDCount(t, root, "/path/dir/"), ShouldResemble, map[uint64]uint64{0: 1, r1: 1, r2: 2})
+
+			RemoveRule(t, tdb, root, "/path/dir/subdir/", "*")
+			So(ruleIDCount(t, root, "/path/dir/"), ShouldResemble, map[uint64]uint64{0: 2, r1: 2})
+		})
 	})
 }
 
