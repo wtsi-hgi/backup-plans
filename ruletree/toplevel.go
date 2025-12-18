@@ -169,7 +169,19 @@ func (r *RootDir) updateRule(dir *db.Directory, rule *db.Rule,
 	defer r.buildMu.Unlock()
 
 	r.mu.RLock()
-	directoryRules := maps.Clone(r.directoryRules)
+	directoryRules := make(map[string]*DirRules, len(r.directoryRules))
+
+	for path, dr := range r.directoryRules {
+		if len(dr.Rules) == 0 {
+			continue
+		}
+
+		directoryRules[path] = &DirRules{
+			Directory: dr.Directory,
+			Rules:     maps.Clone(dr.Rules),
+		}
+	}
+
 	r.mu.RUnlock()
 
 	if err := updateFn(directoryRules, dir, rule); err != nil {
