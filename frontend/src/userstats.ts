@@ -69,10 +69,10 @@ function calculateUserStats(dir: ChildDirectory) {
             if (rule.ID === 0) {
                 ustats.unplannedSize += BigInt(user.Size);
                 ustats.unplannedCount += BigInt(user.Files);
-            } else {
-                ustats.size += BigInt(user.Size);
-                ustats.count += BigInt(user.Files);
             }
+
+            ustats.size += BigInt(user.Size);
+            ustats.count += BigInt(user.Files);
         }
     }
 
