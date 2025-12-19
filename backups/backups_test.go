@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os/user"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -131,6 +132,10 @@ func TestCreateRuleGroups(t *testing.T) {
 			return nil
 		})
 
+		slices.SortFunc(rgs, func(a, b group.PathGroup[int64]) int {
+			return bytes.Compare(a.Path, b.Path)
+		})
+
 		So(rgs, ShouldResemble, []group.PathGroup[int64]{
 			{
 				Path:  []byte("/"),
@@ -157,12 +162,12 @@ func TestCreateRuleGroups(t *testing.T) {
 				Group: &hasBackups,
 			},
 			{
-				Path:  []byte("/lustre/scratch123/humgen/a/b/*/"),
-				Group: &hasBackups,
-			},
-			{
 				Path:  []byte("/lustre/scratch123/humgen/a/b/" + rules[0].Match),
 				Group: ptr(rules[0].ID()),
+			},
+			{
+				Path:  []byte("/lustre/scratch123/humgen/a/b/*/"),
+				Group: &hasBackups,
 			},
 			{
 				Path:  []byte("/lustre/scratch123/humgen/a/b/" + rules[1].Match),
