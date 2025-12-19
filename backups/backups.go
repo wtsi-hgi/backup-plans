@@ -2,45 +2,19 @@ package backups
 
 import (
 	"errors"
-	"path/filepath"
 	"strings"
 
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/ibackup"
+	"github.com/wtsi-hgi/backup-plans/ruletree"
 	"github.com/wtsi-hgi/wrstat-ui/summary"
 	"github.com/wtsi-hgi/wrstat-ui/summary/group"
 	"vimagination.zapto.org/tree"
 )
 
-type ruleGroup = group.PathGroup[db.Rule]
-
 const (
 	setNamePrefix = "plan::"
 )
-
-func createRuleGroups(planDB *db.DB, dirs map[int64]*db.Directory) ([]ruleGroup, map[string]struct{}) {
-	rules := planDB.ReadRules()
-
-	var groups []ruleGroup
-
-	ruleList := make(map[string]struct{})
-
-	rules.ForEach(func(rule *db.Rule) error { //nolint:errcheck
-		path := dirs[rule.DirID()].Path
-		newgroup := ruleGroup{
-			Path:  []byte(path + rule.Match),
-			Group: rule,
-		}
-
-		ruleList[path] = struct{}{}
-
-		groups = append(groups, newgroup)
-
-		return nil
-	})
-
-	return groups, ruleList
-}
 
 type SetInfo struct {
 	BackupSetName string
@@ -51,42 +25,170 @@ type SetInfo struct {
 // Backup will back up all files in the given treeNode that match rules in the
 // given planDB, using the given ibackup client. It returns a list of the set IDs
 // created.
-func Backup(planDB *db.DB, treeNode tree.Node, client *ibackup.MultiClient) ([]SetInfo, error) {
-	dirs := make(map[int64]*db.Directory)
-
-	for dir := range planDB.ReadDirectories().Iter {
-		dirs[dir.ID()] = dir
+func Backup(planDB *db.DB, treeNode tree.Node, client *ibackup.MultiClient) ([]SetInfo, error) { //nolint:funlen
+	mountpoint, err := readMountpoint(treeNode)
+	if err != nil {
+		return nil, err
 	}
 
-	groups, ruleList := createRuleGroups(planDB, dirs)
-	sm, _ := group.NewStatemachine(groups) //nolint:errcheck
+	dirs, rules, err := readDirRules(planDB, mountpoint)
+	if err != nil {
+		return nil, err
+	}
 
-	setFofns := make(map[int64][]string)
+	root := ruletree.NewRuleTree()
 
-	fileInfos(treeNode, ruleList, func(fi *summary.FileInfo) {
-		rule := sm.GetGroup(fi)
-		if rule == nil {
-			return
+	for _, dr := range dirs {
+		root.Set(dr.Path, dr.Rules, false)
+	}
+
+	root.Canon()
+	root.MarkBackupDirs()
+
+	groups := collectRuleGroups(root, "/", nil)
+
+	sm, err := group.NewStatemachine(groups)
+	if err != nil {
+		return nil, err
+	}
+
+	setFofns := make(map[*db.Directory][]string)
+
+	figureOutFOFNs(treeNode, sm.GetStateString(""), nil, func(path *summary.DirectoryPath, ruleID int64) {
+		rule := rules[ruleID]
+
+		if rule.RuleIDs[ruleID].BackupType == db.BackupIBackup {
+			setFofns[rule.Directory] = append(setFofns[rule.Directory], string(path.AppendTo(nil)))
 		}
-
-		if rule.BackupType != db.BackupIBackup {
-			return
-		}
-
-		setFofns[rule.DirID()] = append(setFofns[rule.DirID()], string(fi.Path.AppendTo(nil))+string(fi.Name))
 	})
 
-	return addFofnsToIBackup(client, setFofns, dirs)
+	return addFofnsToIBackup(client, setFofns)
 }
 
-func addFofnsToIBackup(client *ibackup.MultiClient, setFofns map[int64][]string,
-	dirs map[int64]*db.Directory) ([]SetInfo, error) {
+func readMountpoint(treeNode tree.Node) (string, error) {
+	var (
+		mountpoint string
+		err        error
+	)
+
+	treeNode.Children()(func(name string, n tree.Node) bool {
+		if cerr, ok := n.(tree.ChildrenError); ok {
+			err = cerr.Unwrap()
+		}
+
+		mountpoint = name
+
+		return false
+	})
+
+	return mountpoint, err
+}
+
+type dirRules struct {
+	*db.Directory
+	Rules   map[string]*db.Rule
+	RuleIDs map[int64]*db.Rule
+}
+
+func readDirRules(planDB *db.DB, mountpoint string) (map[int64]*dirRules, map[int64]*dirRules, error) {
+	dirs := make(map[int64]*dirRules)
+	rules := make(map[int64]*dirRules)
+
+	if err := planDB.ReadDirectories().ForEach(func(dir *db.Directory) error {
+		if strings.HasPrefix(dir.Path, mountpoint) {
+			dirs[dir.ID()] = &dirRules{
+				Directory: dir,
+				Rules:     make(map[string]*db.Rule),
+				RuleIDs:   make(map[int64]*db.Rule),
+			}
+		}
+
+		return nil
+	}); err != nil {
+		return nil, nil, err
+	}
+
+	if err := planDB.ReadRules().ForEach(func(rule *db.Rule) error {
+		if dir, ok := dirs[rule.DirID()]; ok {
+			dir.Rules[rule.Match] = rule
+			dir.RuleIDs[rule.ID()] = rule
+			rules[rule.ID()] = dir
+		}
+
+		return nil
+	}); err != nil {
+		return nil, nil, err
+	}
+
+	return dirs, rules, nil
+}
+
+var hasBackups int64 = -1 //nolint:gochecknoglobals
+
+func collectRuleGroups(root *ruletree.RuleTree, path string, rules []group.PathGroup[int64]) []group.PathGroup[int64] {
+	if !root.HasBackup && !root.HasChildWithBackup {
+		return rules
+	}
+
+	rules = append(rules, group.PathGroup[int64]{
+		Path:  []byte(path),
+		Group: &hasBackups,
+	})
+
+	if root.HasBackup {
+		rules = append(rules, group.PathGroup[int64]{
+			Path:  []byte(path + "*/"),
+			Group: &hasBackups,
+		})
+	}
+
+	for _, rule := range root.Rules {
+		id := rule.ID()
+
+		rules = append(rules, group.PathGroup[int64]{
+			Path:  []byte(path + rule.Match),
+			Group: &id,
+		})
+	}
+
+	for name, rt := range root.Iter() {
+		rules = collectRuleGroups(rt, path+name, rules)
+	}
+
+	return rules
+}
+
+func figureOutFOFNs(node tree.Node, sm group.State[int64], path *summary.DirectoryPath,
+	cb func(*summary.DirectoryPath, int64)) {
+	for name, child := range node.Children() {
+		state := sm.GetStateString(name)
+		newPath := &summary.DirectoryPath{Parent: path, Name: name}
+		group := state.GetGroup()
+
+		if group == nil {
+			continue
+		}
+
+		if !strings.HasSuffix(name, "/") {
+			cb(newPath, *group)
+
+			continue
+		}
+
+		if *group != hasBackups {
+			continue
+		}
+
+		figureOutFOFNs(child, state, newPath, cb)
+	}
+}
+
+func addFofnsToIBackup(client *ibackup.MultiClient, setFofns map[*db.Directory][]string) ([]SetInfo, error) {
 	backupSetInfos := make([]SetInfo, 0, len(setFofns))
 
 	var errs error
 
-	for dirID, fofns := range setFofns {
-		setInfo := dirs[dirID]
+	for setInfo, fofns := range setFofns {
 		backupSetName := setNamePrefix + setInfo.Path
 
 		err := client.Backup(setInfo.Path, backupSetName, setInfo.ClaimedBy, fofns,
@@ -105,83 +207,4 @@ func addFofnsToIBackup(client *ibackup.MultiClient, setFofns map[int64][]string,
 	}
 
 	return backupSetInfos, nil
-}
-
-// fileInfos calls the given cb with every absolute file path nested under the
-// given root node for which there is a matching rule.
-// Directory paths are not returned.
-func fileInfos(root tree.Node, ruleList map[string]struct{}, cb func(path *summary.FileInfo)) {
-	dirsWithRules := make(map[string]bool)
-
-	for rule := range ruleList {
-		pathToAdd := strings.TrimRight(rule, "/")
-		for {
-			if pathToAdd == "/" {
-				dirsWithRules[pathToAdd] = true
-
-				break
-			}
-
-			if dirsWithRules[pathToAdd+"/"] {
-				break
-			}
-
-			dirsWithRules[pathToAdd+"/"] = true
-			pathToAdd = filepath.Dir(pathToAdd)
-		}
-	}
-
-	findRuleDir(root, dirsWithRules, ruleList, nil, cb)
-}
-
-// findRuleDir will recursively traverse only the tree directories with rules
-// in them (dirsWithRules). When a directory in the ruleList is found, it will
-// call callCBOnAllSubdirs on that node.
-func findRuleDir(node tree.Node, dirsWithRules map[string]bool,
-	ruleList map[string]struct{}, parent *summary.DirectoryPath,
-	cb func(path *summary.FileInfo)) {
-	for name, childnode := range node.Children() {
-		depth := 0
-		if parent != nil {
-			depth = parent.Depth + 1
-		}
-
-		current := &summary.DirectoryPath{
-			Name:   name,
-			Depth:  depth,
-			Parent: parent,
-		}
-
-		dirPath := string(current.AppendTo(nil))
-		if _, exists := ruleList[dirPath]; exists {
-			callCBOnAllSubdirs(childnode, current, cb)
-
-			continue
-		} else if dirsWithRules[dirPath] {
-			findRuleDir(childnode, dirsWithRules, ruleList, current, cb)
-		}
-	}
-}
-
-// callCBOnAllSubdirs will create a FileInfo for every file in every directory
-// nested under the given node, and return it to cb.
-func callCBOnAllSubdirs(node tree.Node, parent *summary.DirectoryPath, cb func(path *summary.FileInfo)) {
-	for name, childnode := range node.Children() {
-		if strings.HasSuffix(name, "/") {
-			current := &summary.DirectoryPath{
-				Name:   name,
-				Depth:  parent.Depth + 1,
-				Parent: parent,
-			}
-
-			callCBOnAllSubdirs(childnode, current, cb)
-		} else {
-			fi := &summary.FileInfo{
-				Path: parent,
-				Name: []byte(name),
-			}
-
-			cb(fi)
-		}
-	}
 }

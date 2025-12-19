@@ -26,7 +26,6 @@
 package ruletree
 
 import (
-	"bytes"
 	"cmp"
 	"slices"
 	"strings"
@@ -85,26 +84,26 @@ type ruleOverlay struct {
 	lower, upper *tree.MemTree
 }
 
-func (r *ruleOverlay) Summary(path string) (*DirSummary, error) {
+func (r *ruleOverlay) Summary(path string, wildcard *wildcards) (*DirSummary, error) {
 	if path == "" {
-		return r.getSummaryWithChildren(), nil
+		return r.getSummaryWithChildren(wildcard), nil
 	}
 
-	cr, rest, err := r.getChild(path)
+	cr, child, rest, err := r.getChild(path)
 	if err != nil {
 		return nil, err
 	}
 
-	return cr.Summary(rest)
+	return cr.Summary(rest, wildcard.Child(child))
 }
 
-func (r *ruleOverlay) getChild(path string) (summariser, string, error) {
+func (r *ruleOverlay) getChild(path string) (summariser, string, string, error) {
 	pos := strings.IndexByte(path, '/')
 	child := path[:pos+1]
 
 	lower, err := r.lower.Child(child)
 	if err != nil {
-		return nil, "", err
+		return nil, "", "", err
 	}
 
 	var upper *tree.MemTree
@@ -115,7 +114,7 @@ func (r *ruleOverlay) getChild(path string) (summariser, string, error) {
 
 	cr := &ruleOverlay{lower, upper}
 
-	return cr, path[pos+1:], nil
+	return cr, path[:pos+1], path[pos+1:], nil
 }
 
 func (r *ruleOverlay) GetOwner(path string) (uint32, uint32, error) {
@@ -125,7 +124,7 @@ func (r *ruleOverlay) GetOwner(path string) (uint32, uint32, error) {
 		return uid, gid, nil
 	}
 
-	cr, rest, err := r.getChild(path)
+	cr, _, rest, err := r.getChild(path)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -134,13 +133,13 @@ func (r *ruleOverlay) GetOwner(path string) (uint32, uint32, error) {
 }
 
 func (r *ruleOverlay) getOwner() (uint32, uint32) {
-	sr := byteio.StickyLittleEndianReader{Reader: bytes.NewReader(cmp.Or(r.upper, r.lower).Data())}
+	sr := byteio.MemLittleEndian(cmp.Or(r.upper, r.lower).Data())
 
 	return uint32(sr.ReadUintX()), uint32(sr.ReadUintX()) //nolint:gosec
 }
 
-func (r *ruleOverlay) getSummaryWithChildren() *DirSummary {
-	ds := r.getSummary()
+func (r *ruleOverlay) getSummaryWithChildren(wildcard *wildcards) *DirSummary {
+	ds := r.getSummary(wildcard.Wildcard())
 
 	for name, lower := range r.lower.Children() {
 		if !strings.HasSuffix(name, "/") {
@@ -155,15 +154,15 @@ func (r *ruleOverlay) getSummaryWithChildren() *DirSummary {
 
 		cr := ruleOverlay{lower.(*tree.MemTree), upper} //nolint:errcheck,forcetypeassert
 
-		ds.Children[name] = cr.getSummary()
+		ds.Children[name] = cr.getSummary(wildcard.Child(name).Wildcard())
 	}
 
 	return ds
 }
 
-func (r *ruleOverlay) getSummary() *DirSummary {
+func (r *ruleOverlay) getSummary(wildcard int64) *DirSummary {
 	layer := cmp.Or(r.upper, r.lower)
-	sr := byteio.StickyLittleEndianReader{Reader: bytes.NewReader(layer.Data())}
+	sr := byteio.MemLittleEndian(layer.Data())
 	ds := &DirSummary{
 		Children: make(map[string]*DirSummary),
 	}
@@ -177,6 +176,10 @@ func (r *ruleOverlay) getSummary() *DirSummary {
 		ds.RuleSummaries[n].ID = sr.ReadUintX()
 		ds.RuleSummaries[n].Users = readStats(&sr, users.Username)
 		ds.RuleSummaries[n].Groups = readStats(&sr, users.Group)
+	}
+
+	if len(ds.RuleSummaries) == 1 && ds.RuleSummaries[0].ID == 0 {
+		ds.RuleSummaries[0].ID = uint64(wildcard) //nolint:gosec
 	}
 
 	return ds
@@ -208,7 +211,7 @@ func (s *Stats) writeTo(sw *byteio.StickyLittleEndianWriter) {
 	sw.WriteUintX(s.Size)
 }
 
-func readStats(br *byteio.StickyLittleEndianReader, name func(uint32) string) []Stats {
+func readStats(br *byteio.MemLittleEndian, name func(uint32) string) []Stats {
 	stats := make([]Stats, br.ReadUintX())
 
 	for n := range stats {

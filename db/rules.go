@@ -48,6 +48,7 @@ type Rule struct {
 	BackupType  BackupType
 	Metadata    string // requester:name for manual
 	Match       string
+	Override    bool
 
 	Created, Modified int64
 }
@@ -87,6 +88,7 @@ func (d *DB) CreateDirectoryRule(dir *Directory, rule *Rule) error {
 		rule.BackupType,
 		rule.Metadata,
 		rule.Match,
+		rule.Override,
 		rule.Created,
 		rule.Modified,
 	)
@@ -117,6 +119,7 @@ func scanRule(scanner scanner) (*Rule, error) {
 		&rule.BackupType,
 		&rule.Metadata,
 		&rule.Match,
+		&rule.Override,
 		&rule.Created,
 		&rule.Modified,
 	); err != nil {

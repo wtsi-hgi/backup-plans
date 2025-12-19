@@ -44,6 +44,7 @@ import (
 type Server struct {
 	getUser func(r *http.Request) string
 
+	buildMu        sync.Mutex
 	rulesMu        sync.RWMutex
 	rulesDB        *db.DB
 	directoryRules map[string]*ruletree.DirRules

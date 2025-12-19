@@ -45,8 +45,9 @@ var tables = [...]string{
 		"`directoryID` INTEGER NOT NULL, " +
 		"`type` INTEGER NOT NULL, " +
 		"`metadata` TEXT NOT NULL, " +
-		"`match` TEXT NOT NULL, " +
+		"`match` /*! MEDIUM*/TEXT NOT NULL, " +
 		"`matchHash` " + hashColumnStart + "`match`" + hashColumnEnd + ", " +
+		"`override` BOOLEAN DEFAULT FALSE, " +
 		"`created` BIGINT NOT NULL, " +
 		"`modified` BIGINT NOT NULL, " +
 		"UNIQUE(`directoryID`, `matchHash`), " +
@@ -80,8 +81,8 @@ const (
 		"`modified`" +
 		") VALUES (?, ?, ?, ?, ?, ?, ?);"
 	createRule = "INSERT INTO `rules` " +
-		"(`directoryID`, `type`, `metadata`, `match`, `created`, `modified`) " +
-		"VALUES (?, ?, ?, ?, ?, ?);"
+		"(`directoryID`, `type`, `metadata`, `match`, `override`, `created`, `modified`) " +
+		"VALUES (?, ?, ?, ?, ?, ?, ?);"
 
 	selectAllDirectories = "SELECT " +
 		"`id`, " +
@@ -99,6 +100,7 @@ const (
 		"`type`, " +
 		"`metadata`, " +
 		"`match`, " +
+		"`override`, " +
 		"`created`, " +
 		"`modified` " +
 		"FROM `rules`;"

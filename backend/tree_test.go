@@ -77,8 +77,8 @@ func TestTree(t *testing.T) {
 				"\"Groups\":["+
 				"{\"Name\":\""+users.Group(2)+"\",\"MTime\":6,\"Files\":2,\"Size\":8}]}"+
 				"],\"Children\":{\"ChildToClaim/\":{\"ClaimedBy\":\"\",\"RuleSummaries\""+
-				":[{\"ID\":0,\"Users\":[],\"Groups\":[]}],\"Children\":{}},\"ChildToNotClaim/\""+
-				":{\"ClaimedBy\":\"\",\"RuleSummaries\":[{\"ID\":0,\"Users\":[],\"Groups\":[]}],\""+
+				":[],\"Children\":{}},\"ChildToNotClaim/\""+
+				":{\"ClaimedBy\":\"\",\"RuleSummaries\":[],\""+
 				"Children\":{}}},\"ClaimedBy\":\"\",\"Rules\":{},\"Unauthorised\":[],\"CanClaim\""+
 				":true,\"Frequency\":0,\"ReviewDate\":0,\"RemoveDate\":0}\n")
 
@@ -118,7 +118,7 @@ func TestTree(t *testing.T) {
 				"[],\"Children\":{}},\"ChildToNotClaim/\""+
 				":{\"ClaimedBy\":\"\",\"RuleSummaries\":[],\"Children\":{}}},\"ClaimedBy\":\"root\",\"Rules\":{"+
 				"\"/some/path/MyDir/\":{\"1\":{\"BackupType\":1,\"Metadata\":\"\","+
-				"\"Match\":\"*.txt\",\"Created\":0,\"Modified\":0}}},"+
+				"\"Match\":\"*.txt\",\"Override\":false,\"Created\":0,\"Modified\":0}}},"+
 				"\"Unauthorised\":[],\"CanClaim\":true,"+
 				"\"Frequency\":7,\"ReviewDate\":0,\"RemoveDate\":0}\n")
 		})

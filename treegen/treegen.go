@@ -112,6 +112,11 @@ func (d *Directory) WriteTo(w io.Writer) (int64, error) {
 
 	sw.WriteUintX(uint64(d.UID))
 	sw.WriteUintX(uint64(d.GID))
+
+	if len(d.Users) == 0 {
+		return sw.Count, sw.Err
+	}
+
 	sw.WriteUint8(1) // 1 rule
 	sw.WriteUint8(0) // rule ID 0 (warn)
 	writeIDTimes(&sw, getSortedIDTimes(d.Users))

@@ -28,6 +28,7 @@ package backend
 import (
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"slices"
 	"strings"
@@ -65,7 +66,7 @@ func (s *Server) summary(w http.ResponseWriter, _ *http.Request) error { //nolin
 	s.rulesMu.RLock()
 
 	for _, root := range s.reportRoots {
-		ds, err := s.rootDir.Summary(root[1:])
+		ds, err := s.rootDir.Summary(root)
 		if errors.Is(err, ruletree.ErrNotFound) || errors.As(err, new(tree.ChildNotFoundError)) {
 			continue
 		} else if err != nil {
@@ -83,7 +84,7 @@ func (s *Server) summary(w http.ResponseWriter, _ *http.Request) error { //nolin
 
 		for _, dir := range s.dirs {
 			if strings.HasPrefix(dir.Path, root) && dir.Path != root {
-				child, err := s.rootDir.Summary(dir.Path[1:])
+				child, err := s.rootDir.Summary(dir.Path)
 				if err != nil {
 					continue
 				}
@@ -133,8 +134,10 @@ func (s *Server) summary(w http.ResponseWriter, _ *http.Request) error { //nolin
 
 	for dir, claimedBy := range dirClaims {
 		sba, err := s.cache.GetBackupActivity(dir, "plan::"+dir, claimedBy)
-		if err != nil && (errors.Is(err, ibackup.ErrUnknownClient) || err.Error() != "set with that id does not exist") {
-			return err
+		if err != nil {
+			slog.Error("error querying ibackup status", "dir", dir, "err", err)
+
+			continue
 		}
 
 		dirSummary.BackupStatus[dir] = sba

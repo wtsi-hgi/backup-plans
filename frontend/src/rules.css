@@ -178,6 +178,10 @@ button+button {
 	margin-left: 3px;
 }
 
+label+input[type=checkbox] {
+	margin-left: 0;
+}
+
 #addEdit button:hover,
 #confirm button:hover,
 #addEdit select:hover {
@@ -313,4 +317,9 @@ dialog {
 
 select:not(:has(option:checked[value="backup"])):not(:has(option:checked[value="nobackup"]))~#metadataInput {
 	display: unset;
+}
+
+#rules td[data-override],
+.file-type[data-override] {
+	font-weight: bold;
 }

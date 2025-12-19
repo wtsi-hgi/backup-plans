@@ -82,7 +82,7 @@ func (s *Server) tree(w http.ResponseWriter, r *http.Request) error { //nolint:f
 	s.rulesMu.RLock()
 	defer s.rulesMu.RUnlock()
 
-	summary, err := s.rootDir.Summary(dir[1:])
+	summary, err := s.rootDir.Summary(dir)
 	if err != nil {
 		return err
 	}

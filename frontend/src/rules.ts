@@ -30,10 +30,12 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 },
 	addEditOverlay = (path: string, rule: Rule, load: (path: string) => void) => {
 		const [backupType, set, cancel, metadata, metadataSection] = createStuff(rule.BackupType, rule.Metadata, rule.Match ? "Update" : "Add", () => overlay.close()),
-			match = input({ "id": "match", "type": "text", "value": rule.Match, [rule.Match ? "disabled" : "enabled"]: "" }),
+			match = input({ "id": "match", "type": "text", "value": rule.Match, "disabled": !!rule.Match }),
+			override = input({ "id": "override", "type": "checkbox", "checked": rule.Override, "disabled": !!rule.Match }),
 			disableInputs = () => {
 				if (!rule.Match) {
 					set.toggleAttribute("disabled", true);
+					override.toggleAttribute("disabled", true);
 				}
 
 				overlay.setAttribute("closedby", "none");
@@ -44,6 +46,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 			enableInputs = () => {
 				if (!rule.Match) {
 					set.removeAttribute("disabled");
+					override.removeAttribute("disabled");
 				}
 
 				overlay.setAttribute("closedby", "any");
@@ -66,7 +69,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 								return;
 							}
 
-							return (rule.Match ? updateRule : createRule)(path, backupType.value, rule.Match || match.value || "*", BackupType.from(backupType.value).isManual() ? metadata.value : "")
+							return (rule.Match ? updateRule : createRule)(path, backupType.value, rule.Match || match.value || "*", BackupType.from(backupType.value).isManual() ? metadata.value : "", override.checked)
 								.then(() => {
 									load(path);
 									overlay.remove();
@@ -79,6 +82,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 				}
 			}, [
 				label({ "for": "match" }, "Match"), match, br(),
+				label({ "for": "override" }, "Override Child Rules"), override, br(),
 				label({ "for": "backupType" }, "Backup Type"), backupType, br(),
 				metadataSection,
 				set,
@@ -241,7 +245,8 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 		"click": () => addEditOverlay(path, {
 			"BackupType": BackupType.BackupIBackup,
 			"Metadata": "",
-			"Match": ""
+			"Match": "",
+			"Override": false
 		}, load),
 	}, "Add Rule"),
 	addFOFN = (path: string, load: (path: string) => void, dirDetails: dirDetails) => button({
@@ -260,7 +265,7 @@ export default Object.assign(base, {
 			data.claimedBy && data.rules[path]?.length ? table({ "id": "rules", "class": "summary" }, [
 				thead(tr([th("Match"), th("Action"), th("Files"), th("Size"), data.claimedBy === user ? td([addRule(path, load), addFOFN(path, load, data), addDirDetails(path, load, data)]) : []])),
 				tbody(Object.values(data.rules[path] ?? []).map(rule => tr([
-					td(rule.Match),
+					td({ "data-override": rule.Override }, rule.Match),
 					td(action(rule.BackupType)),
 					td(rule.count.toLocaleString()),
 					td({ "title": rule.size.toLocaleString() }, formatBytes(rule.size)),

@@ -14,7 +14,9 @@ import (
 	internal "github.com/wtsi-hgi/backup-plans/internal/ibackup"
 	"github.com/wtsi-hgi/backup-plans/internal/plandb"
 	"github.com/wtsi-hgi/backup-plans/internal/testirods"
+	"github.com/wtsi-hgi/backup-plans/ruletree"
 	"github.com/wtsi-hgi/wrstat-ui/summary"
+	"github.com/wtsi-hgi/wrstat-ui/summary/group"
 	_ "modernc.org/sqlite"
 	"vimagination.zapto.org/tree"
 )
@@ -23,48 +25,51 @@ func TestFileInfos(t *testing.T) {
 	Convey("Given a tree of wrstat info you can get all the file infos", t, func() {
 		tr := exampleTree()
 
-		var paths []*summary.FileInfo
+		var paths []string
 
-		ruleList := map[string]struct{}{
-			"/lustre/scratch123/humgen/a/b/": {},
+		sm, err := group.NewStatemachine([]group.PathGroup[int64]{
+			{Path: []byte("*"), Group: &hasBackups},
+		})
+		So(err, ShouldBeNil)
+
+		ctr := tr
+
+		for _, part := range [...]string{"/", "lustre/", "scratch123/", "humgen/", "a/", "b/"} {
+			ctr, err = ctr.(*tree.MemTree).Child(part) //nolint:errcheck,forcetypeassert
+			So(err, ShouldBeNil)
 		}
 
-		fileInfos(tr, ruleList, func(path *summary.FileInfo) {
-			paths = append(paths, path)
-		})
+		figureOutFOFNs(ctr, sm.GetStateString("/lustre/scratch123/humgen/a/b/"),
+			&summary.DirectoryPath{Name: "/lustre/scratch123/humgen/a/b/"}, func(path *summary.DirectoryPath, _ int64) {
+				paths = append(paths, string(path.AppendTo(nil)))
+			})
 
 		So(len(paths), ShouldEqual, 5)
 
-		humgenDir := []string{"a/", "humgen/", "scratch123/", "lustre/", "/"}
+		So(paths, ShouldResemble, []string{
+			"/lustre/scratch123/humgen/a/b/1.jpg",
+			"/lustre/scratch123/humgen/a/b/2.jpg",
+			"/lustre/scratch123/humgen/a/b/3.txt",
+			"/lustre/scratch123/humgen/a/b/temp.jpg",
+			"/lustre/scratch123/humgen/a/b/testdir/test.txt",
+		})
 
-		tests := []struct {
-			index   int
-			name    string
-			depth   int
-			dir     string
-			parents []string
-		}{
-			{0, "1.jpg", 5, "b/", humgenDir},
-			{1, "2.jpg", 5, "b/", humgenDir},
-			{2, "3.txt", 5, "b/", humgenDir},
-			{3, "temp.jpg", 5, "b/", humgenDir},
-			{4, "test.txt", 6, "testdir/", append([]string{"b/"}, humgenDir...)},
-		}
+		paths = paths[:0]
 
-		for _, test := range tests {
-			path := paths[test.index]
-			dir := path.Path
+		figureOutFOFNs(tr, sm.GetStateString(""), nil, func(path *summary.DirectoryPath, _ int64) {
+			paths = append(paths, string(path.AppendTo(nil)))
+		})
 
-			So(string(path.Name), ShouldEqual, test.name)
-			So(dir.Name, ShouldEqual, test.dir)
-			So(dir.Depth, ShouldEqual, test.depth)
+		So(len(paths), ShouldEqual, 6)
 
-			parent := dir.Parent
-			for _, actual := range test.parents {
-				So(parent.Name, ShouldEqual, actual)
-				parent = parent.Parent
-			}
-		}
+		So(paths, ShouldResemble, []string{
+			"/lustre/scratch123/humgen/a/b/1.jpg",
+			"/lustre/scratch123/humgen/a/b/2.jpg",
+			"/lustre/scratch123/humgen/a/b/3.txt",
+			"/lustre/scratch123/humgen/a/b/temp.jpg",
+			"/lustre/scratch123/humgen/a/b/testdir/test.txt",
+			"/lustre/scratch123/humgen/a/c/4.txt",
+		})
 	})
 }
 
@@ -97,16 +102,24 @@ func exampleTree() tree.Node { //nolint:ireturn,nolintlint
 func TestCreateRuleGroups(t *testing.T) {
 	Convey("Given a plan database, you can create a slice of ruleGroups", t, func() {
 		testDB, _ := plandb.PopulateExamplePlanDB(t)
+		mountpoint := "/"
 
-		dirs := make(map[int64]*db.Directory)
+		dirs, ruleList, err := readDirRules(testDB, mountpoint)
+		So(err, ShouldBeNil)
 
-		for dir := range testDB.ReadDirectories().Iter {
-			dirs[dir.ID()] = dir
+		root := ruletree.NewRuleTree()
+
+		for _, dr := range dirs {
+			root.Set(dr.Path, dr.Rules, false)
 		}
 
-		rgs, ruleList := createRuleGroups(testDB, dirs)
-		So(len(rgs), ShouldEqual, 3)
-		So(len(ruleList), ShouldEqual, 2)
+		root.Canon()
+		root.MarkBackupDirs()
+
+		rgs := collectRuleGroups(root, "/", nil)
+
+		So(len(rgs), ShouldEqual, 9)
+		So(len(ruleList), ShouldEqual, 3)
 
 		var rules []*db.Rule
 
@@ -118,26 +131,49 @@ func TestCreateRuleGroups(t *testing.T) {
 			return nil
 		})
 
-		So(rgs, ShouldResemble, []ruleGroup{
+		So(rgs, ShouldResemble, []group.PathGroup[int64]{
+			{
+				Path:  []byte("/"),
+				Group: &hasBackups,
+			},
+			{
+				Path:  []byte("/lustre/"),
+				Group: &hasBackups,
+			},
+			{
+				Path:  []byte("/lustre/scratch123/"),
+				Group: &hasBackups,
+			},
+			{
+				Path:  []byte("/lustre/scratch123/humgen/"),
+				Group: &hasBackups,
+			},
+			{
+				Path:  []byte("/lustre/scratch123/humgen/a/"),
+				Group: &hasBackups,
+			},
+			{
+				Path:  []byte("/lustre/scratch123/humgen/a/b/"),
+				Group: &hasBackups,
+			},
+			{
+				Path:  []byte("/lustre/scratch123/humgen/a/b/*/"),
+				Group: &hasBackups,
+			},
 			{
 				Path:  []byte("/lustre/scratch123/humgen/a/b/" + rules[0].Match),
-				Group: rules[0],
+				Group: ptr(rules[0].ID()),
 			},
 			{
 				Path:  []byte("/lustre/scratch123/humgen/a/b/" + rules[1].Match),
-				Group: rules[1],
+				Group: ptr(rules[1].ID()),
 			},
-			{
-				Path:  []byte("/lustre/scratch123/humgen/a/c/" + rules[2].Match),
-				Group: rules[2],
-			},
-		})
-
-		So(ruleList, ShouldResemble, map[string]struct{}{
-			"/lustre/scratch123/humgen/a/b/": {},
-			"/lustre/scratch123/humgen/a/c/": {},
 		})
 	})
+}
+
+func ptr[T any](n T) *T {
+	return &n
 }
 
 func TestBackups(t *testing.T) {

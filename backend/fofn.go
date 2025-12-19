@@ -52,7 +52,7 @@ func (s *Server) Fofn(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.fofn)
 }
 
-func (s *Server) fofn(_ http.ResponseWriter, r *http.Request) error {
+func (s *Server) fofn(_ http.ResponseWriter, r *http.Request) error { //nolint:funlen
 	rule, err := getRuleDetails(r)
 	if err != nil {
 		return err
@@ -78,15 +78,23 @@ func (s *Server) fofn(_ http.ResponseWriter, r *http.Request) error {
 
 	slices.Sort(files)
 
-	return s.validateAndApplyFofn(user, dir, files, *rule)
+	s.buildMu.Lock()
+	defer s.buildMu.Unlock()
+
+	rulesToAdd, err := s.validateAndApplyFofn(user, dir, files, *rule)
+	if err != nil {
+		return err
+	}
+
+	return s.rootDir.AddRules(dir, rulesToAdd)
 }
 
-func (s *Server) validateAndApplyFofn(user, dir string, files []string, rule db.Rule) error {
+func (s *Server) validateAndApplyFofn(user, dir string, files []string, rule db.Rule) ([]ruletree.DirRule, error) {
 	s.rulesMu.Lock()
 	defer s.rulesMu.Unlock()
 
 	if err := s.validateFofn(user, dir, files); err != nil {
-		return err
+		return nil, err
 	}
 
 	var dirDetails dirDetails
@@ -101,10 +109,10 @@ func (s *Server) validateAndApplyFofn(user, dir string, files []string, rule db.
 
 	rulesToAdd, err := s.createRulesToAdd(user, rule, files, dirDetails)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return s.rootDir.AddRules(dir, rulesToAdd)
+	return rulesToAdd, nil
 }
 
 func (s *Server) validateFofn(user, dir string, files []string) error {
