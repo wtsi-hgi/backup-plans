@@ -21,7 +21,7 @@ const container = div({ class: "prettyTableContainer" }, [
 
 export default Object.assign(container, {
 	"update": (path: string, data: DirectoryWithChildren, load: (path: string) => void) => {
-		const entries = Object.entries(data.children);
+		const entries = Object.entries(data.children).filter(([, child]) => child.count !== 0n);
 		if (entries.every(([name]) => isNumber(getDirFromEntry(name)))) {
 			entries.sort(([a], [b]) => Number(getDirFromEntry(a)) - Number(getDirFromEntry(b)));
 		}
