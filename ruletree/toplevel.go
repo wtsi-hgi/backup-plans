@@ -275,7 +275,7 @@ func (r *RootDir) regenRules(mount string, directoryRules map[string]*DirRules, 
 	return ErrNotFound
 }
 
-func (r *RootDir) regenRulesFor(t *topLevelDir, child *ruleOverlay, dirs []string,
+func (r *RootDir) regenRulesFor(t *topLevelDir, child *ruleOverlay, dirs []string, //nolint:funlen
 	directoryRules map[string]*DirRules, mount, name string) error {
 	sm, wcs, err := generateStatemachineFor(mount, dirs, directoryRules)
 	if err != nil {
@@ -283,6 +283,7 @@ func (r *RootDir) regenRulesFor(t *topLevelDir, child *ruleOverlay, dirs []strin
 	}
 
 	rd := ruleProcessor{lowerNode: child.lower, upperNode: child.upper, sm: sm.GetStateString(mount)}
+
 	var buf bytes.Buffer
 
 	if err = tree.Serialise(&buf, &rd); err != nil {
@@ -301,7 +302,7 @@ func (r *RootDir) regenRulesFor(t *topLevelDir, child *ruleOverlay, dirs []strin
 	r.directoryRules = directoryRules
 	r.wildcards[mount] = wcs.GetState(nil)
 
-	if err := t.setChild(name, child); err != nil {
+	if err = t.setChild(name, child); err != nil {
 		return err
 	}
 
