@@ -31,6 +31,7 @@ import (
 	"strings"
 
 	"github.com/wtsi-hgi/backup-plans/users"
+	"github.com/wtsi-hgi/wrstat-ui/summary/group"
 	"vimagination.zapto.org/byteio"
 	"vimagination.zapto.org/tree"
 )
@@ -84,7 +85,7 @@ type ruleOverlay struct {
 	lower, upper *tree.MemTree
 }
 
-func (r *ruleOverlay) Summary(path string, wildcard *wildcards) (*DirSummary, error) {
+func (r *ruleOverlay) Summary(path string, wildcard group.State[int64]) (*DirSummary, error) {
 	if path == "" {
 		return r.getSummaryWithChildren(wildcard), nil
 	}
@@ -94,7 +95,7 @@ func (r *ruleOverlay) Summary(path string, wildcard *wildcards) (*DirSummary, er
 		return nil, err
 	}
 
-	return cr.Summary(rest, wildcard.Child(child))
+	return cr.Summary(rest, wildcard.GetStateString(child))
 }
 
 func (r *ruleOverlay) getChild(path string) (summariser, string, string, error) {
@@ -138,8 +139,8 @@ func (r *ruleOverlay) getOwner() (uint32, uint32) {
 	return uint32(sr.ReadUintX()), uint32(sr.ReadUintX()) //nolint:gosec
 }
 
-func (r *ruleOverlay) getSummaryWithChildren(wildcard *wildcards) *DirSummary {
-	ds := r.getSummary(wildcard.Wildcard())
+func (r *ruleOverlay) getSummaryWithChildren(wildcard group.State[int64]) *DirSummary {
+	ds := r.getSummary(wcIDFromGroup(wildcard))
 
 	for name, lower := range r.lower.Children() {
 		if !strings.HasSuffix(name, "/") {
@@ -154,10 +155,18 @@ func (r *ruleOverlay) getSummaryWithChildren(wildcard *wildcards) *DirSummary {
 
 		cr := ruleOverlay{lower.(*tree.MemTree), upper} //nolint:errcheck,forcetypeassert
 
-		ds.Children[name] = cr.getSummary(wildcard.Child(name).Wildcard())
+		ds.Children[name] = cr.getSummary(wcIDFromGroup(wildcard.GetStateString(name)))
 	}
 
 	return ds
+}
+
+func wcIDFromGroup(wildcard group.State[int64]) int64 {
+	if wc := wildcard.GetGroup(); wc != nil {
+		return *wc
+	}
+
+	return 0
 }
 
 func (r *ruleOverlay) getSummary(wildcard int64) *DirSummary {

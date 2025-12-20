@@ -34,10 +34,20 @@ const (
 )
 
 func generateStatemachineFor(mount string, paths []string,
-	directoryRules map[string]*DirRules) (group.StateMachine[int64], error) {
-	rules := buildDirRules(mount, paths, directoryRules)
+	directoryRules map[string]*DirRules) (group.StateMachine[int64], group.StateMachine[int64], error) {
+	rules, wildcards := buildDirRules(mount, paths, directoryRules)
 
-	return group.NewStatemachine(rules)
+	sm, err := group.NewStatemachine(rules)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	wcs, err := group.NewStatemachine(wildcards)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return sm, wcs, nil
 }
 
 type dirTreeRule struct {
@@ -307,7 +317,8 @@ func (r *RuleTree) Iter() iter.Seq2[string, *RuleTree] {
 
 var basicWildcard = map[string]*db.Rule{"*": nil} //nolint:gochecknoglobals
 
-func buildDirRules(mount string, paths []string, directoryRules map[string]*DirRules) []group.PathGroup[int64] {
+func buildDirRules(mount string, paths []string,
+	directoryRules map[string]*DirRules) ([]group.PathGroup[int64], []group.PathGroup[int64]) {
 	dirs := slices.Collect(maps.Keys(directoryRules))
 
 	slices.Sort(dirs)
@@ -326,7 +337,7 @@ func buildDirRules(mount string, paths []string, directoryRules map[string]*DirR
 
 	root.Canon()
 
-	return buildRules(root, "/", nil, 0)
+	return buildRules(root, "/", nil, 0), buildWildcards(root, "/", "", nil)
 }
 
 func buildRules(d *RuleTree, path string, rules []group.PathGroup[int64], //nolint:gocyclo,cyclop,funlen
@@ -485,4 +496,31 @@ func addComplexWithWildcardRules(rules []group.PathGroup[int64], path string, di
 	rules = addRuleToList(rules, path, processRules)
 
 	return addComplexChildRules(rules, path, ruleState, wildcard, rs)
+}
+
+func buildWildcards(d *RuleTree, path, name string, rules []group.PathGroup[int64]) []group.PathGroup[int64] {
+	thisPath := path + name
+
+	if wc, ok := d.Rules["*"]; ok { //nolint:nestif
+		id := wc.ID()
+
+		if id != 0 {
+			rules = append(rules,
+				group.PathGroup[int64]{Path: []byte(thisPath), Group: &id},
+				group.PathGroup[int64]{Path: []byte(thisPath + "*/"), Group: &id},
+			)
+
+			if wc.Override {
+				rules = append(rules,
+					group.PathGroup[int64]{Path: []byte(path + "*/" + name), Group: &id},
+				)
+			}
+		}
+	}
+
+	for part, child := range d.children {
+		rules = buildWildcards(child, path+name, part, rules)
+	}
+
+	return rules
 }
