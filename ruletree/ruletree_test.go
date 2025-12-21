@@ -506,6 +506,8 @@ func genRules(t *testing.T, tdb *db.DB, rs map[string][]string) []DirRule {
 
 	paths := slices.Collect(maps.Keys(rs))
 
+	slices.Sort(paths)
+
 	for _, path := range paths {
 		matches := rs[path]
 
