@@ -13,6 +13,10 @@ import (
 
 const processRules int64 = math.MinInt64
 
+// Rules is a list of rule paths and IDs ready to be compiled into a
+// StateMachine.
+type Rules = []group.PathGroup[int64]
+
 type dirState uint8
 
 const (
@@ -315,10 +319,10 @@ func (r *RuleTree) Iter() iter.Seq2[string, *RuleTree] {
 	return maps.All(r.children)
 }
 
-var basicWildcard = map[string]*db.Rule{"*": nil} //nolint:gochecknoglobals
+var basicWildcard = map[string]*db.Rule{"*": {Match: "*"}} //nolint:gochecknoglobals
 
 func buildDirRules(mount string, paths []string,
-	directoryRules map[string]*DirRules) ([]group.PathGroup[int64], []group.PathGroup[int64]) {
+	directoryRules map[string]*DirRules) (Rules, Rules) {
 	dirs := slices.Collect(maps.Keys(directoryRules))
 
 	slices.Sort(dirs)
@@ -337,11 +341,10 @@ func buildDirRules(mount string, paths []string,
 
 	root.Canon()
 
-	return buildRules(root, "/", nil, 0), buildWildcards(root, "/", "", nil)
+	return buildRules(root, "/", nil, 0), buildWildcards(root, "/", nil)
 }
 
-func buildRules(d *RuleTree, path string, rules []group.PathGroup[int64], //nolint:gocyclo,cyclop,funlen
-	wildcard int64) []group.PathGroup[int64] {
+func buildRules(d *RuleTree, path string, rules Rules, wildcard int64) Rules { //nolint:gocyclo,cyclop,funlen
 	if len(d.Rules) > 0 {
 		if wc, ok := d.Rules["*"]; ok {
 			wildcard = wc.ID()
@@ -399,15 +402,15 @@ func getRuleState(rules map[string]*db.Rule) ruleState { //nolint:gocognit
 	return rs
 }
 
-func addRuleToList(rules []group.PathGroup[int64], path string, rule int64) []group.PathGroup[int64] {
+func addRuleToList(rules Rules, path string, rule int64) Rules {
 	return append(rules, group.PathGroup[int64]{
 		Path:  []byte(path),
 		Group: &rule,
 	})
 }
 
-func addNoRuleRules(rules []group.PathGroup[int64], path string, dirState dirState,
-	wildcard int64) []group.PathGroup[int64] {
+func addNoRuleRules(rules Rules, path string, dirState dirState,
+	wildcard int64) Rules {
 	process := processRules
 
 	if dirState&RulesChanged != 0 && dirState&HasChildWithRules == 0 && dirState&ParentRulesChanged == 0 {
@@ -417,8 +420,8 @@ func addNoRuleRules(rules []group.PathGroup[int64], path string, dirState dirSta
 	return addRuleToList(rules, path, process)
 }
 
-func addSimpleWildcardRules(rules []group.PathGroup[int64], path string, dirState dirState,
-	wildcard int64) []group.PathGroup[int64] {
+func addSimpleWildcardRules(rules Rules, path string, dirState dirState,
+	wildcard int64) Rules {
 	if dirState&RulesChanged != 0 { //nolint:nestif
 		if dirState&HasChildWithRules != 0 {
 			return addRuleToList(addRuleToList(rules, path, processRules), path+"*/", wildcard)
@@ -432,8 +435,8 @@ func addSimpleWildcardRules(rules []group.PathGroup[int64], path string, dirStat
 	return addRuleToList(rules, path, -wildcard)
 }
 
-func addSimpleRules(rules []group.PathGroup[int64], path string, dirState dirState,
-	wildcard int64) []group.PathGroup[int64] {
+func addSimpleRules(rules Rules, path string, dirState dirState,
+	wildcard int64) Rules {
 	if dirState&RulesChanged != 0 {
 		return addRuleToList(addRuleToList(rules, path, processRules), path+"*/", wildcard)
 	} else if dirState&HasChildWithChangedRules != 0 {
@@ -443,8 +446,8 @@ func addSimpleRules(rules []group.PathGroup[int64], path string, dirState dirSta
 	return addRuleToList(rules, path, -wildcard)
 }
 
-func addComplexRules(rules []group.PathGroup[int64], path string, dirState dirState,
-	ruleState ruleState, wildcard int64, rs map[string]*db.Rule) []group.PathGroup[int64] {
+func addComplexRules(rules Rules, path string, dirState dirState,
+	ruleState ruleState, wildcard int64, rs map[string]*db.Rule) Rules {
 	rules = addRuleToList(rules, path, processRules)
 
 	if dirState&RulesChanged == 0 && dirState&ParentRulesChanged == 0 {
@@ -454,8 +457,8 @@ func addComplexRules(rules []group.PathGroup[int64], path string, dirState dirSt
 	return addComplexChildRules(rules, path, ruleState, wildcard, rs)
 }
 
-func addComplexChildRules(rules []group.PathGroup[int64], path string, ruleState ruleState, //nolint:gocognit,gocyclo
-	wildcard int64, rs map[string]*db.Rule) []group.PathGroup[int64] {
+func addComplexChildRules(rules Rules, path string, ruleState ruleState, //nolint:gocognit,gocyclo
+	wildcard int64, rs map[string]*db.Rule) Rules {
 	if ruleState&ComplexWildcardWithSuffix != 0 {
 		return addRuleToList(rules, path+"*/", processRules)
 	} else if ruleState&SimpleWildcard != 0 {
@@ -483,8 +486,8 @@ func addComplexChildRules(rules []group.PathGroup[int64], path string, ruleState
 	return rules
 }
 
-func addComplexWithWildcardRules(rules []group.PathGroup[int64], path string, dirState dirState,
-	ruleState ruleState, wildcard int64, rs map[string]*db.Rule) []group.PathGroup[int64] {
+func addComplexWithWildcardRules(rules Rules, path string, dirState dirState,
+	ruleState ruleState, wildcard int64, rs map[string]*db.Rule) Rules {
 	if dirState&RulesChanged == 0 {
 		if dirState&HasChildWithChangedRules != 0 {
 			return addRuleToList(addRuleToList(rules, path, processRules), path+"*/", -wildcard)
@@ -498,28 +501,24 @@ func addComplexWithWildcardRules(rules []group.PathGroup[int64], path string, di
 	return addComplexChildRules(rules, path, ruleState, wildcard, rs)
 }
 
-func buildWildcards(d *RuleTree, path, name string, rules []group.PathGroup[int64]) []group.PathGroup[int64] {
-	thisPath := path + name
+func buildWildcards(d *RuleTree, path string, rules Rules) Rules { //nolint:gocyclo
+	for match, rule := range d.Rules {
+		id := rule.ID()
 
-	if wc, ok := d.Rules["*"]; ok { //nolint:nestif
-		id := wc.ID()
-
-		if id != 0 {
+		if match == "*" && id != 0 {
 			rules = append(rules,
-				group.PathGroup[int64]{Path: []byte(thisPath), Group: &id},
-				group.PathGroup[int64]{Path: []byte(thisPath + "*/"), Group: &id},
+				group.PathGroup[int64]{Path: []byte(path), Group: &id},
+				group.PathGroup[int64]{Path: []byte(path + "*/"), Group: &id},
 			)
-
-			if wc.Override {
-				rules = append(rules,
-					group.PathGroup[int64]{Path: []byte(path + "*/" + name), Group: &id},
-				)
-			}
+		} else if rule.Override && !strings.HasPrefix(rule.Match, "*") && strings.HasSuffix(rule.Match, "/*") {
+			rules = append(rules,
+				group.PathGroup[int64]{Path: []byte(path + "*/" + strings.TrimSuffix(rule.Match, "*")), Group: &id},
+			)
 		}
 	}
 
 	for part, child := range d.children {
-		rules = buildWildcards(child, path+name, part, rules)
+		rules = buildWildcards(child, path+part, rules)
 	}
 
 	return rules

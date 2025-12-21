@@ -376,6 +376,35 @@ func TestRuletree(t *testing.T) {
 			So(ruleIDCount(t, root, "/path/dir/a/"), ShouldResemble, map[uint64]uint64{r1: 1, r2: 1})
 			So(ruleIDCount(t, root, "/path/dir/a/b/"), ShouldResemble, map[uint64]uint64{r1: 1})
 		})
+
+		Convey("Override wildcard rules with two or more levels of depth are correctly handled in a summary", func() {
+			root, err := NewRoot(nil)
+			So(err, ShouldBeNil)
+
+			treeDB := buildTreeDB(t, []string{
+				"/path/dir/a/file1.txt",
+				"/path/dir/a/b/file2.txt",
+				"/path/dir/a/b/c/file3.txt",
+				"/path/dir/a/c/file4.txt",
+			})
+
+			treeDBPath := createTree(t, treeDB)
+			So(root.AddTree(treeDBPath), ShouldBeNil)
+
+			r1 := createRule(t, tdb, root, "/path/dir/", "b/c/*", true)
+			So(ruleIDCount(t, root, "/path/dir/"), ShouldResemble, map[uint64]uint64{0: 3, r1: 1})
+			So(ruleIDCount(t, root, "/path/dir/a/"), ShouldResemble, map[uint64]uint64{0: 3, r1: 1})
+			So(ruleIDCount(t, root, "/path/dir/a/b/"), ShouldResemble, map[uint64]uint64{0: 1, r1: 1})
+			So(ruleIDCount(t, root, "/path/dir/a/b/c/"), ShouldResemble, map[uint64]uint64{r1: 1})
+			So(ruleIDCount(t, root, "/path/dir/a/c/"), ShouldResemble, map[uint64]uint64{0: 1})
+
+			r2 := createRule(t, tdb, root, "/path/dir/a/", "*")
+			So(ruleIDCount(t, root, "/path/dir/"), ShouldResemble, map[uint64]uint64{r1: 1, r2: 3})
+			So(ruleIDCount(t, root, "/path/dir/a/"), ShouldResemble, map[uint64]uint64{r1: 1, r2: 3})
+			So(ruleIDCount(t, root, "/path/dir/a/b/"), ShouldResemble, map[uint64]uint64{r1: 1, r2: 1})
+			So(ruleIDCount(t, root, "/path/dir/a/b/c/"), ShouldResemble, map[uint64]uint64{r1: 1})
+			So(ruleIDCount(t, root, "/path/dir/a/c/"), ShouldResemble, map[uint64]uint64{r2: 1})
+		})
 	})
 }
 
