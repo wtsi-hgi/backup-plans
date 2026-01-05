@@ -125,7 +125,7 @@ func readDirRules(planDB *db.DB, mountpoint string) (map[int64]*dirRules, map[in
 
 var hasBackups int64 = -1 //nolint:gochecknoglobals
 
-func collectRuleGroups(root *ruletree.RuleTree, path string, rules []group.PathGroup[int64]) []group.PathGroup[int64] {
+func collectRuleGroups(root *ruletree.RuleTree, path string, rules ruletree.Rules) ruletree.Rules {
 	if !root.HasBackup && !root.HasChildWithBackup {
 		return rules
 	}

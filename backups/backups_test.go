@@ -28,7 +28,7 @@ func TestFileInfos(t *testing.T) {
 
 		var paths []string
 
-		sm, err := group.NewStatemachine([]group.PathGroup[int64]{
+		sm, err := group.NewStatemachine(ruletree.Rules{
 			{Path: []byte("*"), Group: &hasBackups},
 		})
 		So(err, ShouldBeNil)
@@ -136,7 +136,7 @@ func TestCreateRuleGroups(t *testing.T) {
 			return bytes.Compare(a.Path, b.Path)
 		})
 
-		So(rgs, ShouldResemble, []group.PathGroup[int64]{
+		So(rgs, ShouldResemble, ruletree.Rules{
 			{
 				Path:  []byte("/"),
 				Group: &hasBackups,

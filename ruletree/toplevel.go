@@ -36,12 +36,15 @@ import (
 	"sync"
 
 	"github.com/wtsi-hgi/backup-plans/db"
+	"github.com/wtsi-hgi/wrstat-ui/summary/group"
 	"golang.org/x/sys/unix"
 	"vimagination.zapto.org/tree"
 )
 
+var emptyWildcard = make(group.StateMachine[int64], 2).GetState(nil) //nolint:gochecknoglobals,mnd
+
 type summariser interface {
-	Summary(path string, wildcard *wildcards) (*DirSummary, error)
+	Summary(path string, wildcard group.State[int64]) (*DirSummary, error)
 	GetOwner(path string) (uint32, uint32, error)
 	IsDirectory(path string) bool
 }
@@ -59,7 +62,7 @@ type RootDir struct {
 
 	mu             sync.RWMutex
 	directoryRules map[string]*DirRules
-	wildcards      wildcards
+	wildcards      map[string]group.State[int64]
 	closers        map[string]func()
 
 	buildMu sync.Mutex
@@ -95,6 +98,7 @@ func NewRoot(rules []DirRule) (*RootDir, error) {
 				RuleSummaries: make([]Rule, 0),
 			},
 		},
+		wildcards: make(map[string]group.State[int64]),
 	}
 
 	for _, dr := range rules {
@@ -102,8 +106,6 @@ func NewRoot(rules []DirRule) (*RootDir, error) {
 			return nil, err
 		}
 	}
-
-	r.buildWildcards()
 
 	return r, nil
 }
@@ -273,9 +275,9 @@ func (r *RootDir) regenRules(mount string, directoryRules map[string]*DirRules, 
 	return ErrNotFound
 }
 
-func (r *RootDir) regenRulesFor(t *topLevelDir, child *ruleOverlay, dirs []string,
+func (r *RootDir) regenRulesFor(t *topLevelDir, child *ruleOverlay, dirs []string, //nolint:funlen
 	directoryRules map[string]*DirRules, mount, name string) error {
-	sm, err := generateStatemachineFor(mount, dirs, directoryRules)
+	sm, wcs, err := generateStatemachineFor(mount, dirs, directoryRules)
 	if err != nil {
 		return err
 	}
@@ -293,16 +295,18 @@ func (r *RootDir) regenRulesFor(t *topLevelDir, child *ruleOverlay, dirs []strin
 		return err
 	}
 
-	child.upper = processed
-
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
+	child.upper = processed
 	r.directoryRules = directoryRules
+	r.wildcards[mount] = wcs.GetState(nil)
 
-	defer r.buildWildcards()
+	if err = t.setChild(name, child); err != nil {
+		return err
+	}
 
-	return t.setChild(name, child)
+	return nil
 }
 
 // Summary returns a Dirsummary for the directory denoted by the given path.
@@ -310,7 +314,12 @@ func (r *RootDir) Summary(path string) (*DirSummary, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	return r.topLevelDir.Summary(strings.TrimPrefix(path, "/"), &r.wildcards)
+	wcs, ok := r.wildcards[r.getMountPoint(path)]
+	if !ok {
+		wcs = emptyWildcard
+	}
+
+	return r.topLevelDir.Summary(strings.TrimPrefix(path, "/"), wcs.GetStateString("/"))
 }
 
 // GetOwner returns the UID and GID for the directory denoted by the given path.
@@ -349,7 +358,7 @@ func (t *topLevelDir) Update() error {
 	t.summary.RuleSummaries = t.summary.RuleSummaries[:0]
 
 	for name, child := range t.children {
-		s, err := child.Summary("", nil)
+		s, err := child.Summary("", emptyWildcard)
 		if err != nil {
 			return err
 		}
@@ -367,7 +376,7 @@ func (t *topLevelDir) Update() error {
 	return nil
 }
 
-func (t *topLevelDir) Summary(path string, wildcard *wildcards) (*DirSummary, error) {
+func (t *topLevelDir) Summary(path string, wildcard group.State[int64]) (*DirSummary, error) {
 	if path == "" {
 		return &t.summary, nil
 	}
@@ -377,7 +386,7 @@ func (t *topLevelDir) Summary(path string, wildcard *wildcards) (*DirSummary, er
 		return nil, err
 	}
 
-	return child.Summary(rest, wildcard.Child(name))
+	return child.Summary(rest, wildcard.GetStateString(name))
 }
 
 func (t *topLevelDir) getChild(path string) (summariser, string, string, error) {
@@ -446,7 +455,7 @@ func (r *RootDir) AddTree(file string) (err error) { //nolint:funlen
 	defer r.buildMu.Unlock()
 
 	r.mu.RLock()
-	processed, err := r.processRules(treeRoot, rootPath)
+	processed, wcs, err := r.processRules(treeRoot, rootPath)
 	r.mu.RUnlock()
 
 	if err != nil {
@@ -466,7 +475,7 @@ func (r *RootDir) AddTree(file string) (err error) { //nolint:funlen
 
 	r.closers[rootPath] = closer
 
-	r.buildWildcards()
+	r.wildcards[rootPath] = wcs.GetState(nil)
 
 	return nil
 }
@@ -530,10 +539,11 @@ func getRoot(db *tree.MemTree) (*tree.MemTree, string, error) {
 	return treeRoot, rootPath, nil
 }
 
-func (r *RootDir) processRules(treeRoot *tree.MemTree, rootPath string) (*ruleOverlay, error) {
-	sm, err := generateStatemachineFor(rootPath, nil, r.directoryRules)
+func (r *RootDir) processRules(treeRoot *tree.MemTree, rootPath string) (*ruleOverlay,
+	group.StateMachine[int64], error) {
+	sm, wcs, err := generateStatemachineFor(rootPath, nil, r.directoryRules)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	rd := ruleProcessor{
@@ -545,15 +555,15 @@ func (r *RootDir) processRules(treeRoot *tree.MemTree, rootPath string) (*ruleOv
 	var buf bytes.Buffer
 
 	if err = tree.Serialise(&buf, &rd); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	processed, err := tree.OpenMem(buf.Bytes())
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return &ruleOverlay{lower: treeRoot, upper: processed}, nil
+	return &ruleOverlay{lower: treeRoot, upper: processed}, wcs, nil
 }
 
 func createTopLevelDirs(treeRoot *ruleOverlay, rootPath string, p *topLevelDir) error { //nolint:gocognit

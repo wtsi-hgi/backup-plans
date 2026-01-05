@@ -26,6 +26,7 @@
 package ruletree
 
 import (
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -165,6 +166,7 @@ func TestRuletree(t *testing.T) {
 
 			s, err := root.Summary("/")
 			So(err, ShouldBeNil)
+
 			So(s, ShouldResemble, &DirSummary{
 				RuleSummaries: ruleExpectations,
 				Children: map[string]*DirSummary{
@@ -351,6 +353,63 @@ func TestRuletree(t *testing.T) {
 			RemoveRule(t, tdb, root, "/path/dir/subdir/", "*")
 			So(ruleIDCount(t, root, "/path/dir/"), ShouldResemble, map[uint64]uint64{0: 2, r1: 2})
 		})
+
+		Convey("Override wildcard rules are correctly handled in a summary", func() {
+			root, err := NewRoot(nil)
+			So(err, ShouldBeNil)
+
+			treeDB := buildTreeDB(t, []string{
+				"/path/dir/a/file1.txt",
+				"/path/dir/a/b/file2.txt",
+			})
+
+			treeDBPath := createTree(t, treeDB)
+			So(root.AddTree(treeDBPath), ShouldBeNil)
+
+			r1 := createRule(t, tdb, root, "/path/dir/", "b/*", true)
+			So(ruleIDCount(t, root, "/path/dir/"), ShouldResemble, map[uint64]uint64{0: 1, r1: 1})
+			So(ruleIDCount(t, root, "/path/dir/a/"), ShouldResemble, map[uint64]uint64{0: 1, r1: 1})
+			So(ruleIDCount(t, root, "/path/dir/a/b/"), ShouldResemble, map[uint64]uint64{r1: 1})
+
+			r2 := createRule(t, tdb, root, "/path/dir/a/", "*")
+			So(ruleIDCount(t, root, "/path/dir/"), ShouldResemble, map[uint64]uint64{r1: 1, r2: 1})
+			So(ruleIDCount(t, root, "/path/dir/a/"), ShouldResemble, map[uint64]uint64{r1: 1, r2: 1})
+			So(ruleIDCount(t, root, "/path/dir/a/b/"), ShouldResemble, map[uint64]uint64{r1: 1})
+		})
+
+		Convey("Override wildcard rules with two or more levels of depth are correctly handled in a summary", func() {
+			root, err := NewRoot(nil)
+			So(err, ShouldBeNil)
+
+			treeDB := buildTreeDB(t, []string{
+				"/path/dir/a/file1.txt",
+				"/path/dir/a/b/file2.txt",
+				"/path/dir/a/b/c/file3.txt",
+				"/path/dir/a/c/file4.txt",
+			})
+
+			treeDBPath := createTree(t, treeDB)
+			So(root.AddTree(treeDBPath), ShouldBeNil)
+
+			r1 := createRule(t, tdb, root, "/path/dir/", "b/c/*", true)
+			So(ruleIDCount(t, root, "/path/dir/"), ShouldResemble, map[uint64]uint64{0: 3, r1: 1})
+			So(ruleIDCount(t, root, "/path/dir/a/"), ShouldResemble, map[uint64]uint64{0: 3, r1: 1})
+			So(ruleIDCount(t, root, "/path/dir/a/b/"), ShouldResemble, map[uint64]uint64{0: 1, r1: 1})
+			So(ruleIDCount(t, root, "/path/dir/a/b/c/"), ShouldResemble, map[uint64]uint64{r1: 1})
+			So(ruleIDCount(t, root, "/path/dir/a/c/"), ShouldResemble, map[uint64]uint64{0: 1})
+
+			r2 := createRule(t, tdb, root, "/path/dir/a/", "*")
+			So(ruleIDCount(t, root, "/path/dir/"), ShouldResemble, map[uint64]uint64{r1: 1, r2: 3})
+			So(ruleIDCount(t, root, "/path/dir/a/"), ShouldResemble, map[uint64]uint64{r1: 1, r2: 3})
+			So(ruleIDCount(t, root, "/path/dir/a/b/"), ShouldResemble, map[uint64]uint64{r1: 1, r2: 1})
+			So(ruleIDCount(t, root, "/path/dir/a/b/c/"), ShouldResemble, map[uint64]uint64{r1: 1})
+			So(ruleIDCount(t, root, "/path/dir/a/c/"), ShouldResemble, map[uint64]uint64{r2: 1})
+
+			r3 := createRule(t, tdb, root, "/path/dir/a/b/c/", "*.txt")
+			So(ruleIDCount(t, root, "/path/dir/a/"), ShouldResemble, map[uint64]uint64{r2: 3, r3: 1})
+			So(ruleIDCount(t, root, "/path/dir/a/b/"), ShouldResemble, map[uint64]uint64{r2: 1, r3: 1})
+			So(ruleIDCount(t, root, "/path/dir/a/b/c/"), ShouldResemble, map[uint64]uint64{r3: 1})
+		})
 	})
 }
 
@@ -426,7 +485,7 @@ func getDir(t *testing.T, tdb *db.DB, dirPath string) *db.Directory {
 	return directory
 }
 
-func createRule(t *testing.T, tdb *db.DB, root *RootDir, dirPath, match string) uint64 {
+func createRule(t *testing.T, tdb *db.DB, root *RootDir, dirPath, match string, override ...bool) uint64 {
 	t.Helper()
 
 	directory := getDir(t, tdb, dirPath)
@@ -437,7 +496,7 @@ func createRule(t *testing.T, tdb *db.DB, root *RootDir, dirPath, match string) 
 		So(tdb.CreateDirectory(directory), ShouldBeNil)
 	}
 
-	r := &db.Rule{Match: match}
+	r := &db.Rule{Match: match, Override: len(override) > 0 && override[0]}
 
 	So(tdb.CreateDirectoryRule(directory, r), ShouldBeNil)
 	So(root.AddRule(directory, r), ShouldBeNil)
@@ -450,7 +509,13 @@ func genRules(t *testing.T, tdb *db.DB, rs map[string][]string) []DirRule {
 
 	var rules []DirRule
 
-	for path, matches := range rs {
+	paths := slices.Collect(maps.Keys(rs))
+
+	slices.Sort(paths)
+
+	for _, path := range paths {
+		matches := rs[path]
+
 		dir := &db.Directory{Path: path}
 
 		So(tdb.CreateDirectory(dir), ShouldBeNil)
