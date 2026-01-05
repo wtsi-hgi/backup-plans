@@ -4,7 +4,7 @@ import { br, button, dialog, div, form, h2, h3, input, label, option, p, select,
 import { image, svg, title, use } from './lib/svg.js';
 import { action, confirm, formatBytes, secondsInDay, setAndReturn } from "./lib/utils.js";
 import { createRule, getTree, removeRule, setDirDetails, updateRule, uploadFOFN, setExists, user, getDirectories } from "./rpc.js";
-import { BackupType } from "./consts.js"
+import { BackupType, helpText } from "./consts.js"
 
 const createStuff = (backupType: BackupType, md: string, setText: string, closeFn: () => void) => {
 	const metadata = input({ "id": "metadata", "type": "text", "value": md }),
@@ -25,14 +25,14 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 		button({ "value": "set" }, setText),
 		button({ "type": "button", "click": closeFn }, "Cancel"),
 		metadata,
-		metadataInput,
+		metadataInput
 	] as const;
 },
 	addEditOverlay = (path: string, rule: Rule, load: (path: string) => void) => {
 		const [backupType, set, cancel, metadata, metadataSection] = createStuff(rule.BackupType, rule.Metadata, rule.Match ? "Update" : "Add", () => overlay.close()),
 			match = input({ "id": "match", "type": "text", "value": rule.Match, "disabled": !!rule.Match }),
 			override = input({ "id": "override", "type": "checkbox", "checked": rule.Override, "disabled": !!rule.Match }),
-			helpIcon = span({ "id": "hoverable", "title": "test hoverable text :)" }, ` ? `),
+			helpIcon = span({ "class": "hoverable", "title": helpText.addEdit }, ` ? `),
 			disableInputs = () => {
 				if (!rule.Match) {
 					set.toggleAttribute("disabled", true);
@@ -87,7 +87,8 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 				label({ "for": "backupType" }, "Backup Type"), backupType, br(),
 				metadataSection,
 				set,
-				cancel, helpIcon
+				cancel,
+				helpIcon
 			])));
 
 		overlay.showModal();
@@ -105,6 +106,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 					fr.readAsText(fofn.files![0]);
 				}
 			}),
+			helpIcon = span({ "class": "hoverable", "title": helpText.fofn }, ` ? `),
 			fofnButton = button({ "type": "button", "click": () => fofn.click() }, "Upload file"),
 			fofnPaste = button({
 				"type": "button", "click": () => {
@@ -183,6 +185,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 				fofnSection,
 				set,
 				cancel,
+				helpIcon
 			])));
 
 		overlay.showModal();
@@ -193,6 +196,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 			remove = input({ "id": "remove", "type": "date", "value": new Date(dirDetails.RemoveDate * 1000).toISOString().substring(0, 10) }),
 			set = button({ "value": "set" }, "Set"),
 			cancel = button({ "type": "button", "click": () => overlay.close() }, "Cancel"),
+			helpIcon = span({ "class": "hoverable", "title": helpText.dirDetail }, ` ? `),
 			disableInputs = () => {
 				overlay.setAttribute("closedby", "none");
 				set.toggleAttribute("disabled", true);
@@ -238,6 +242,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 				label({ "for": "remove" }, "Remove Date"), remove, br(),
 				set,
 				cancel,
+				helpIcon
 			])));
 
 		overlay.showModal();

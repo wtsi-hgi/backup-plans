@@ -324,7 +324,7 @@ select:not(:has(option:checked[value="backup"])):not(:has(option:checked[value="
 	font-weight: bold;
 }
 
-#hoverable {
+.hoverable {
 	color: var(--colour);
 	font-family: Arial Black;
 	font-weight: bold;
@@ -333,6 +333,6 @@ select:not(:has(option:checked[value="backup"])):not(:has(option:checked[value="
 	text-align: right;
 	cursor: default;
 	position: absolute;
-	bottom: 10px;
+	/* bottom: 10px; */
 	right: 10px;
 }
