@@ -404,6 +404,11 @@ func TestRuletree(t *testing.T) {
 			So(ruleIDCount(t, root, "/path/dir/a/b/"), ShouldResemble, map[uint64]uint64{r1: 1, r2: 1})
 			So(ruleIDCount(t, root, "/path/dir/a/b/c/"), ShouldResemble, map[uint64]uint64{r1: 1})
 			So(ruleIDCount(t, root, "/path/dir/a/c/"), ShouldResemble, map[uint64]uint64{r2: 1})
+
+			r3 := createRule(t, tdb, root, "/path/dir/a/b/c/", "*.txt")
+			So(ruleIDCount(t, root, "/path/dir/a/"), ShouldResemble, map[uint64]uint64{r2: 3, r3: 1})
+			So(ruleIDCount(t, root, "/path/dir/a/b/"), ShouldResemble, map[uint64]uint64{r2: 1, r3: 1})
+			So(ruleIDCount(t, root, "/path/dir/a/b/c/"), ShouldResemble, map[uint64]uint64{r3: 1})
 		})
 	})
 }
