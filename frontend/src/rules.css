@@ -326,9 +326,13 @@ select:not(:has(option:checked[value="backup"])):not(:has(option:checked[value="
 
 #hoverable {
 	color: var(--colour);
-	border-radius: 50%;
-	border-width: 1px;
-	border-color: white;
-	width: 16px;
-	height: 16px;
+	font-family: Arial Black;
+	font-weight: bold;
+	font-size: 18px;
+	opacity: 0.7;
+	text-align: right;
+	cursor: default;
+	position: absolute;
+	bottom: 10px;
+	right: 10px;
 }

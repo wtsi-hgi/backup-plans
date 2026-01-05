@@ -32,7 +32,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 		const [backupType, set, cancel, metadata, metadataSection] = createStuff(rule.BackupType, rule.Metadata, rule.Match ? "Update" : "Add", () => overlay.close()),
 			match = input({ "id": "match", "type": "text", "value": rule.Match, "disabled": !!rule.Match }),
 			override = input({ "id": "override", "type": "checkbox", "checked": rule.Override, "disabled": !!rule.Match }),
-			hoverableIcon = span({ "id": "hoverable", "title": "test hoverable text :)" }, ` ? `),
+			helpIcon = span({ "id": "hoverable", "title": "test hoverable text :)" }, ` ? `),
 			disableInputs = () => {
 				if (!rule.Match) {
 					set.toggleAttribute("disabled", true);
@@ -87,8 +87,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 				label({ "for": "backupType" }, "Backup Type"), backupType, br(),
 				metadataSection,
 				set,
-				cancel,
-				hoverableIcon
+				cancel, helpIcon
 			])));
 
 		overlay.showModal();
