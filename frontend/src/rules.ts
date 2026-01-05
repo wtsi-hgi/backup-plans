@@ -1,7 +1,7 @@
 import type { dirDetails, DirectoryWithChildren, Rule } from "./types.js"
 import { clearNode } from "./lib/dom.js";
-import { br, button, dialog, div, form, h2, h3, input, label, option, p, select, table, tbody, td, textarea, th, thead, tr } from './lib/html.js';
-import { svg, title, use } from './lib/svg.js';
+import { br, button, dialog, div, form, h2, h3, input, label, option, p, select, table, tbody, td, textarea, th, thead, tr, span } from './lib/html.js';
+import { image, svg, title, use } from './lib/svg.js';
 import { action, confirm, formatBytes, secondsInDay, setAndReturn } from "./lib/utils.js";
 import { createRule, getTree, removeRule, setDirDetails, updateRule, uploadFOFN, setExists, user, getDirectories } from "./rpc.js";
 import { BackupType } from "./consts.js"
@@ -32,6 +32,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 		const [backupType, set, cancel, metadata, metadataSection] = createStuff(rule.BackupType, rule.Metadata, rule.Match ? "Update" : "Add", () => overlay.close()),
 			match = input({ "id": "match", "type": "text", "value": rule.Match, "disabled": !!rule.Match }),
 			override = input({ "id": "override", "type": "checkbox", "checked": rule.Override, "disabled": !!rule.Match }),
+			hoverableIcon = span({ "id": "hoverable", "title": "test hoverable text :)" }, ` ? `),
 			disableInputs = () => {
 				if (!rule.Match) {
 					set.toggleAttribute("disabled", true);
@@ -87,6 +88,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 				metadataSection,
 				set,
 				cancel,
+				hoverableIcon
 			])));
 
 		overlay.showModal();

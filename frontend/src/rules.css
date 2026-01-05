@@ -323,3 +323,12 @@ select:not(:has(option:checked[value="backup"])):not(:has(option:checked[value="
 .file-type[data-override] {
 	font-weight: bold;
 }
+
+#hoverable {
+	color: var(--colour);
+	border-radius: 50%;
+	border-width: 1px;
+	border-color: white;
+	width: 16px;
+	height: 16px;
+}
