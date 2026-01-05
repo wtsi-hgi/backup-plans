@@ -98,31 +98,22 @@ export const helpText = {
     "addEdit": ` 
     Match: The format that filenames should match for the instruction to apply.
         Eg: *, *.txt
-
     Override Child Rules: If selected, this rule will apply to all matched files in all child directories, regardless of their rules (unless their rules are more specific).
-
     Backup type: The type of backup that will/has been completed to backup all matched files.
-
     Metadata: For unchecked backup types, put any relevant URL/information.
-
 
     For more information, please see the relevant documentation on the 'How to backup your lustre data' page.
     `,
     "fofn": `
     Add the same rule to multiple files in one by providing a FOFN.
-
     Paths can be full or relative.
 
-    
     For more information, please see the relevant documentation on the 'How to backup your lustre data' page.
     `,
     "dirDetail": `
     Frequency: Backup frequency in days.
-
     Review date: Date at which a reminder will be issued to check if the plan is still up to date.
-
     Remove date: Date at which the backup data will be automatically removed.
-    
 
     For more information, please see the relevant documentation on the 'How to backup your lustre data' page.
     `
