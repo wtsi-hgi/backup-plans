@@ -1,7 +1,7 @@
 import type { dirDetails, DirectoryWithChildren, Rule } from "./types.js"
 import { clearNode } from "./lib/dom.js";
 import { br, button, dialog, div, form, h2, h3, input, label, option, p, select, table, tbody, td, textarea, th, thead, tr, span } from './lib/html.js';
-import { feColorMatrix, svg, title, use } from './lib/svg.js';
+import { svg, title, use } from './lib/svg.js';
 import { action, confirm, formatBytes, secondsInDay, setAndReturn } from "./lib/utils.js";
 import { createRule, getTree, removeRule, setDirDetails, updateRule, uploadFOFN, setExists, user, getDirectories } from "./rpc.js";
 import { BackupType, helpText } from "./consts.js"
@@ -18,8 +18,9 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 		]),
 		backupSelect = select({
 			"id": "backupType", "change": () => {
-				metadataLabel.textContent = BackupType.from(backupSelect.value).metadataLabel();
-				metadataHelpIcon.setAttribute("data-tooltip", BackupType.from(backupSelect.value).metadataToolTip());
+				backupType = BackupType.from(backupSelect.value);
+				metadataLabel.textContent = backupType.metadataLabel();
+				metadataHelpIcon.setAttribute("data-tooltip", backupType.metadataToolTip());
 			}
 		},
 			BackupType.all.map(bt => option({ "value": bt.toString(), "selected": +backupType === +bt }, bt.optionLabel()))
@@ -30,8 +31,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 		button({ "value": "set" }, setText),
 		button({ "type": "button", "click": closeFn }, "Cancel"),
 		metadata,
-		metadataInput,
-		metadataHelpIcon
+		metadataInput
 	] as const;
 },
 	getHelpIcon = (str: string) => {
