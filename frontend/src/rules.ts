@@ -18,7 +18,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 		]),
 		backupSelect = select({
 			"id": "backupType", "change": () => {
-				backupType = BackupType.from(backupSelect.value);
+				const backupType = BackupType.from(backupSelect.value);
 				metadataLabel.textContent = backupType.metadataLabel();
 				metadataHelpIcon.setAttribute("data-tooltip", backupType.metadataToolTip());
 			}

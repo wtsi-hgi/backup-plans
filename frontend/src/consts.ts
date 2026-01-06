@@ -1,4 +1,3 @@
-import { circle, svg, path, rect } from './lib/svg.js';
 export class BackupType extends Number {
     static BackupWarn = new BackupType(-1);
     static BackupNone = new BackupType(0);
