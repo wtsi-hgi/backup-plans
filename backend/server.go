@@ -31,10 +31,9 @@ import (
 	"errors"
 	"net/http"
 	"sync"
-	"time"
 
+	"github.com/wtsi-hgi/backup-plans/config"
 	"github.com/wtsi-hgi/backup-plans/db"
-	"github.com/wtsi-hgi/backup-plans/ibackup"
 	"github.com/wtsi-hgi/backup-plans/ruletree"
 	"vimagination.zapto.org/httpbuffer"
 	_ "vimagination.zapto.org/httpbuffer/gzip" //
@@ -50,11 +49,8 @@ type Server struct {
 	directoryRules map[string]*ruletree.DirRules
 	dirs           map[uint64]*db.Directory
 	rules          map[uint64]*db.Rule
-	reportRoots    []string
-	adminGroup     uint32
-	cache          *ibackup.MultiCache
-	owners         map[string][]string
-	bom            map[string][]string
+
+	config *config.Config
 
 	rootDir *ruletree.RootDir
 }
@@ -70,21 +66,11 @@ type Server struct {
 // BOM:
 //
 //	GroupName,BOMName
-func New(db *db.DB, getUser func(r *http.Request) string, reportRoots []string,
-	ibackupclient *ibackup.MultiClient, owners, bom string) (*Server, error) {
+func New(db *db.DB, getUser func(r *http.Request) string, c *config.Config) (*Server, error) {
 	s := &Server{
-		getUser:     getUser,
-		rulesDB:     db,
-		reportRoots: reportRoots,
-		cache:       ibackup.NewMultiCache(ibackupclient, time.Hour),
-	}
-
-	if err := s.loadOwners(owners); err != nil {
-		return nil, err
-	}
-
-	if err := s.loadBOM(bom); err != nil {
-		return nil, err
+		getUser: getUser,
+		rulesDB: db,
+		config:  c,
 	}
 
 	rules, err := s.loadRules()
@@ -98,10 +84,6 @@ func New(db *db.DB, getUser func(r *http.Request) string, reportRoots []string,
 	}
 
 	return s, nil
-}
-
-func (s *Server) SetAdminGroup(gid uint32) {
-	s.adminGroup = gid
 }
 
 // WhoAmI is an HTTP endpoint that returns the result of the getUser func that
@@ -156,7 +138,7 @@ func (s *Server) setExists(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	got, err := s.cache.GetBackupActivity(dir, setName, user)
+	got, err := s.config.GetCachedIBackupClient().GetBackupActivity(dir, setName, user)
 	if err != nil {
 		if err.Error() != "set with that id does not exist" {
 			return err

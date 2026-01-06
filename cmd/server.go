@@ -29,14 +29,13 @@ package cmd
 import (
 	"encoding/base64"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/wtsi-hgi/backup-plans/config"
 	"github.com/wtsi-hgi/backup-plans/db"
-	"github.com/wtsi-hgi/backup-plans/ibackup"
 	"github.com/wtsi-hgi/backup-plans/server"
 )
 
@@ -90,9 +89,9 @@ to maintain password security.
 		return checkEnvVarFlags(cmd, envMap)
 	},
 	RunE: func(_ *cobra.Command, args []string) error {
-		config, err := parseConfig(configPath)
+		config, err := config.ParseConfig(configPath)
 		if err != nil {
-			return fmt.Errorf("failed to parse config file: %w", err)
+			return fmt.Errorf("failed to process config file: %w", err)
 		}
 
 		d, err := db.Init(planDB)
@@ -100,16 +99,7 @@ to maintain password security.
 			return err
 		}
 
-		client, err := ibackup.New(config.IBackup)
-		if err != nil {
-			if !ibackup.IsOnlyConnectionErrors(err) {
-				return err
-			}
-
-			slog.Warn("ibackup connection errors", "errs", err)
-		}
-
-		return server.Start(fmt.Sprintf(":%d", serverPort), d, getUser, reportRoots, adminGroup, client, owners, bom, args...)
+		return server.Start(fmt.Sprintf(":%d", serverPort), d, getUser, config, args...)
 	},
 }
 

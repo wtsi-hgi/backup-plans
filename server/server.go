@@ -36,9 +36,9 @@ import (
 	"time"
 
 	"github.com/wtsi-hgi/backup-plans/backend"
+	"github.com/wtsi-hgi/backup-plans/config"
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/frontend"
-	"github.com/wtsi-hgi/backup-plans/ibackup"
 	wrs "github.com/wtsi-hgi/wrstat-ui/server"
 )
 
@@ -48,24 +48,22 @@ var ErrNoTrees = errors.New("no tree dbs specified")
 
 // Start creates and start a new server after loading the trees given.
 func Start(listen string, d *db.DB, getUser func(*http.Request) string,
-	report []string, adminGroup uint32, client *ibackup.MultiClient, owners, bom string, initialTrees ...string) error {
+	config *config.Config, initialTrees ...string) error {
 	l, err := net.Listen("tcp", listen) //nolint:noctx
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
 	}
 	defer l.Close()
 
-	return start(l, d, getUser, report, adminGroup, client, owners, bom, initialTrees...)
+	return start(l, d, getUser, config, initialTrees...)
 }
 
 func start(listen net.Listener, d *db.DB, getUser func(*http.Request) string,
-	report []string, adminGroup uint32, client *ibackup.MultiClient, owners, bom string, initialTrees ...string) error {
-	b, err := backend.New(d, getUser, report, client, owners, bom)
+	config *config.Config, initialTrees ...string) error {
+	b, err := backend.New(d, getUser, config)
 	if err != nil {
 		return err
 	}
-
-	b.SetAdminGroup(adminGroup)
 
 	err = loadTrees(initialTrees, b)
 	if err != nil {

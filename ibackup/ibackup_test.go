@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"sync/atomic"
 	"testing"
@@ -179,7 +178,7 @@ func TestMultiIbackup(t *testing.T) {
 					So(err, ShouldBeNil)
 					So(ba, ShouldResemble, baa)
 
-					for _, client := range *(*map[*regexp.Regexp]**atomic.Pointer[server.Client])(unsafe.Pointer(mc)) {
+					for _, client := range *(*map[string]**atomic.Pointer[server.Client])(unsafe.Pointer(mc)) {
 						*(*string)(unsafe.Pointer((*client).Load())) = ""
 					}
 

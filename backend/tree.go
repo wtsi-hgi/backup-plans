@@ -88,8 +88,9 @@ func (s *Server) tree(w http.ResponseWriter, r *http.Request) error { //nolint:f
 	}
 
 	duid, dgid := summary.IDs()
+	adminGroup := s.config.GetAdminGroup()
 
-	if !isAuthorised(summary, uid, groups, s.adminGroup) {
+	if !isAuthorised(summary, uid, groups, adminGroup) {
 		return ErrNotAuthorised
 	}
 
@@ -102,7 +103,7 @@ func (s *Server) tree(w http.ResponseWriter, r *http.Request) error { //nolint:f
 	t.CanClaim = isOwner(uid, groups, duid, dgid)
 
 	for name, child := range summary.Children {
-		if !isAuthorised(child, uid, groups, s.adminGroup) {
+		if !isAuthorised(child, uid, groups, adminGroup) {
 			t.Unauthorised = append(t.Unauthorised, name)
 		}
 	}

@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
-	"regexp"
 	"slices"
 	"strings"
 	"sync/atomic"
@@ -18,7 +17,7 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/ibackup"
-	ib "github.com/wtsi-hgi/backup-plans/internal/ibackup"
+	"github.com/wtsi-hgi/backup-plans/internal/config"
 	"github.com/wtsi-hgi/backup-plans/internal/plandb"
 	"github.com/wtsi-hgi/backup-plans/internal/testirods"
 	"github.com/wtsi-hgi/backup-plans/ruletree"
@@ -51,13 +50,12 @@ func TestReport(t *testing.T) {
 
 		So(testirods.AddPseudoIRODsToolsToPathIfRequired(t), ShouldBeNil)
 
-		client := ib.NewMultiClient(t)
 		roots := []string{
 			"/lustre/scratch123/humgen/a/c/",
 			"/lustre/scratch123/humgen/a/b/",
 		}
 
-		srv, err := New(testDB, func(_ *http.Request) string { return "test" }, roots, client, "", "")
+		srv, err := New(testDB, func(_ *http.Request) string { return "test" }, config.NewConfig(t, nil, nil, roots, 0))
 		So(err, ShouldBeNil)
 		err = srv.AddTree(path)
 		So(err, ShouldBeNil)
@@ -68,7 +66,7 @@ func TestReport(t *testing.T) {
 			Transformer: "prefix=/:/remote/",
 		}
 
-		single := getSingleClientFromMultiClient(t, client)
+		single := getSingleClientFromMultiClient(t, srv.config.GetIBackupClient())
 
 		err = single.AddOrUpdateSet(exampleSet)
 		So(err, ShouldBeNil)
@@ -270,7 +268,7 @@ func copyRule(rule *db.Rule) *db.Rule {
 func getSingleClientFromMultiClient(t *testing.T, client *ibackup.MultiClient) *server.Client {
 	t.Helper()
 
-	clientMap := *(*map[*regexp.Regexp]**atomic.Pointer[server.Client])(unsafe.Pointer(client))
+	clientMap := *(*map[string]**atomic.Pointer[server.Client])(unsafe.Pointer(client))
 	So(len(clientMap), ShouldEqual, 1)
 
 	singleClient := *slices.Collect(maps.Values(clientMap))[0]
