@@ -9,7 +9,7 @@ import { BackupType, helpText } from "./consts.js"
 const createStuff = (backupType: BackupType, md: string, setText: string, closeFn: () => void) => {
 	const metadata = input({ "id": "metadata", "type": "text", "value": md }),
 		metadataLabel = label({ "for": "metadata", "id": "metadataLabel" }, backupType.metadataLabel()),
-		metadataHelpIcon = getHelpIcon(""),
+		metadataHelpIcon = getHelpIcon(backupType.metadataToolTip()),
 		metadataInput = div({ "id": "metadataInput" }, [
 			metadataLabel,
 			metadataHelpIcon,
