@@ -1,7 +1,7 @@
 import type { dirDetails, DirectoryWithChildren, Rule } from "./types.js"
 import { clearNode } from "./lib/dom.js";
 import { br, button, dialog, div, form, h2, h3, input, label, option, p, select, table, tbody, td, textarea, th, thead, tr, span } from './lib/html.js';
-import { image, svg, title, use } from './lib/svg.js';
+import { feColorMatrix, svg, title, use } from './lib/svg.js';
 import { action, confirm, formatBytes, secondsInDay, setAndReturn } from "./lib/utils.js";
 import { createRule, getTree, removeRule, setDirDetails, updateRule, uploadFOFN, setExists, user, getDirectories } from "./rpc.js";
 import { BackupType, helpText } from "./consts.js"
@@ -9,13 +9,18 @@ import { BackupType, helpText } from "./consts.js"
 const createStuff = (backupType: BackupType, md: string, setText: string, closeFn: () => void) => {
 	const metadata = input({ "id": "metadata", "type": "text", "value": md }),
 		metadataLabel = label({ "for": "metadata", "id": "metadataLabel" }, backupType.metadataLabel()),
+		metadataHelpIcon = getHelpIcon(""),
 		metadataInput = div({ "id": "metadataInput" }, [
 			metadataLabel,
+			metadataHelpIcon,
 			metadata,
 			br(),
 		]),
 		backupSelect = select({
-			"id": "backupType", "change": () => metadataLabel.textContent = BackupType.from(backupSelect.value).metadataLabel()
+			"id": "backupType", "change": () => {
+				metadataLabel.textContent = BackupType.from(backupSelect.value).metadataLabel();
+				metadataHelpIcon.setAttribute("data-tooltip", BackupType.from(backupSelect.value).metadataToolTip());
+			}
 		},
 			BackupType.all.map(bt => option({ "value": bt.toString(), "selected": +backupType === +bt }, bt.optionLabel()))
 		);
@@ -25,14 +30,17 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 		button({ "value": "set" }, setText),
 		button({ "type": "button", "click": closeFn }, "Cancel"),
 		metadata,
-		metadataInput
+		metadataInput,
+		metadataHelpIcon
 	] as const;
 },
+	getHelpIcon = (str: string) => {
+		return span({ "class": "tooltip", "data-tooltip": str }, svg(use({ "href": "#helpIcon" })))
+	},
 	addEditOverlay = (path: string, rule: Rule, load: (path: string) => void) => {
 		const [backupType, set, cancel, metadata, metadataSection] = createStuff(rule.BackupType, rule.Metadata, rule.Match ? "Update" : "Add", () => overlay.close()),
 			match = input({ "id": "match", "type": "text", "value": rule.Match, "disabled": !!rule.Match }),
 			override = input({ "id": "override", "type": "checkbox", "checked": rule.Override, "disabled": !!rule.Match }),
-			helpIcon = span({ "class": "hoverable", "title": helpText.addEdit }, ` ? `),
 			disableInputs = () => {
 				if (!rule.Match) {
 					set.toggleAttribute("disabled", true);
@@ -82,13 +90,12 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 						});
 				}
 			}, [
-				label({ "for": "match" }, "Match"), match, br(),
-				label({ "for": "override" }, "Override Child Rules"), override, br(),
-				label({ "for": "backupType" }, "Backup Type"), backupType, br(),
+				label({ "for": "match" }, "Match"), getHelpIcon(helpText.Match), match, br(),
+				label({ "for": "override" }, "Override Child Rules"), getHelpIcon(helpText.Override), override, br(),
+				label({ "for": "backupType" }, "Backup Type"), getHelpIcon(helpText.BackupType), backupType, br(),
 				metadataSection,
 				set,
-				cancel,
-				helpIcon
+				cancel
 			])));
 
 		overlay.showModal();
@@ -106,7 +113,6 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 					fr.readAsText(fofn.files![0]);
 				}
 			}),
-			helpIcon = span({ "class": "hoverable", "title": helpText.fofn }, ` ? `),
 			fofnButton = button({ "type": "button", "click": () => fofn.click() }, "Upload file"),
 			fofnPaste = button({
 				"type": "button", "click": () => {
@@ -132,6 +138,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 			}, "Paste as plain text"),
 			matchFofnSection = div({ "id": "matchfofn" }, [
 				label({ "for": "fofn" }, "Add FOFN"),
+				getHelpIcon(helpText.FOFN),
 				fofnButton,
 				fofn,
 				" or ",
@@ -180,12 +187,11 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 				}
 			}, [
 				matchFofnSection,
-				label({ "for": "backupType" }, "Backup Type"), backupType, br(),
+				label({ "for": "backupType" }, "Backup Type"), getHelpIcon(helpText.BackupType), backupType, br(),
 				metadataSection,
 				fofnSection,
 				set,
-				cancel,
-				helpIcon
+				cancel
 			])));
 
 		overlay.showModal();
@@ -196,7 +202,6 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 			remove = input({ "id": "remove", "type": "date", "value": new Date(dirDetails.RemoveDate * 1000).toISOString().substring(0, 10) }),
 			set = button({ "value": "set" }, "Set"),
 			cancel = button({ "type": "button", "click": () => overlay.close() }, "Cancel"),
-			helpIcon = span({ "class": "hoverable", "title": helpText.dirDetail }, ` ? `),
 			disableInputs = () => {
 				overlay.setAttribute("closedby", "none");
 				set.toggleAttribute("disabled", true);
@@ -237,12 +242,11 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 						});
 				}
 			}, [
-				label({ "for": "frequency" }, "Frequency (days)"), frequency, br(),
-				label({ "for": "review" }, "Review Date"), review, br(),
-				label({ "for": "remove" }, "Remove Date"), remove, br(),
+				label({ "for": "frequency" }, "Frequency"), getHelpIcon(helpText.Frequency), frequency, br(),
+				label({ "for": "review" }, "Review Date"), getHelpIcon(helpText.Review), review, br(),
+				label({ "for": "remove" }, "Remove Date"), getHelpIcon(helpText.Remove), remove, br(),
 				set,
-				cancel,
-				helpIcon
+				cancel
 			])));
 
 		overlay.showModal();

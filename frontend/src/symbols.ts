@@ -1,4 +1,4 @@
-import { circle, path, polyline, svg, symbol } from './lib/svg.js';
+import { circle, path, polyline, svg, symbol, rect } from './lib/svg.js';
 
 export const symbols = svg({ "style": `width: 0; height: 0` }, [
 	symbol({ "id": "ok", "viewBox": "0 0 100 100" }, [
@@ -82,5 +82,15 @@ export const symbols = svg({ "style": `width: 0; height: 0` }, [
 	symbol({ "id": "folder", "viewBox": "0 0 24 24" }, path({
 		"d": "M3,4 h5 l2,3 h11 v13 h-18 z",
 		"fill": "#F4B400",
-	}))
+	})),
+	symbol(
+		{
+			"id": "helpIcon",
+			"viewBox": "0 0 84 84"
+		},
+		[
+			circle({ "r": "38", "cx": "42", "cy": "42", "fill": "none", "stroke": "#000", "stroke-width": "6" }),
+			path({ "d": "M27,33 v-2 a1,1 0,0,1 30,0 c0,10 -15,10 -15,20 v7", "stroke": "#000", "fill": "none", "stroke-width": "10" }),
+			rect({ "x": "37", "y": "60", "width": "10", "height": "10", "fill": "#000", "stroke-width": "2" })
+		])
 ]);

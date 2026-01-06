@@ -324,14 +324,25 @@ select:not(:has(option:checked[value="backup"])):not(:has(option:checked[value="
 	font-weight: bold;
 }
 
-.hoverable {
-	color: var(--colour);
-	font-family: Arial Black;
-	font-weight: bold;
-	font-size: 18px;
-	opacity: 0.7;
-	text-align: right;
-	cursor: default;
+#addEdit svg {
+	width: 0.9em;
+	height: 0.9em;
+	padding-right: 1em;
+}
+
+#addEdit {
+	overflow: unset;
+}
+
+.tooltip:hover::after {
+	content: attr(data-tooltip);
+	background-color: var(--background);
 	position: absolute;
-	right: 10px;
+	border: 1px solid var(--subtleBorder);
+	display: block;
+	z-index: 100;
+	padding: 0.5em;
+	white-space: pre-wrap;
+	max-width: 90vw;
+	pointer-events: none;
 }

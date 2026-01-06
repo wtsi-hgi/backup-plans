@@ -430,4 +430,8 @@ use {
 
 		--button-colour-addEdit: #222;
 	}
+
+	#addEdit svg {
+		filter: invert(1);
+	}
 }

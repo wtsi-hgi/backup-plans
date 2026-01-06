@@ -1,3 +1,4 @@
+import { circle, svg, path, rect } from './lib/svg.js';
 export class BackupType extends Number {
     static BackupWarn = new BackupType(-1);
     static BackupNone = new BackupType(0);
@@ -85,7 +86,22 @@ export class BackupType extends Number {
                 return "Prefect URL";
         }
 
-        return "aaa";
+        return "";
+    }
+
+    metadataToolTip() {
+        switch (+this) {
+            case +BackupType.BackupManualIBackup:
+                return helpText.MetadataSetName;
+            case +BackupType.BackupManualGit:
+                return helpText.MetadataGit;
+            case +BackupType.BackupManualUnchecked:
+                return helpText.MetadataUnchecked;
+            case +BackupType.BackupManualPrefect:
+                return helpText.MetadataPrefect;
+        }
+
+        return "Error";
     }
 
     isManual() {
@@ -95,26 +111,21 @@ export class BackupType extends Number {
 }
 
 export const helpText = {
-    "addEdit": ` 
-    Match: The format that filenames should match for the instruction to apply.
-        Eg: *, *.txt
-    Override Child Rules: If selected, this rule will apply to all matched files in all child directories, regardless of their rules (unless their rules are more specific).
-    Backup type: The type of backup that will/has been completed to backup all matched files.
-    Metadata: For unchecked backup types, put any relevant URL/information.
+    "Match": `The format that filenames should match for the instruction to apply.
+    Eg: *, *.txt`,
+    "Override": `If selected, this rule will apply to all matched files in all child 
+directories, regardless of their rules (unless their rules are more specific).`,
+    "BackupType": `The type of backup that will/has been completed to backup all matched files.`,
+    "MetadataSetName": `Provide the iBackup set name that you used to manually backup the matched files.`,
+    "MetadataGit": `Provide the URL to the Git repository where you backup the matched files.`,
+    "MetadataPrefect": `Provide the URL to the Prefect repository where you backup the matched files.`,
+    "MetadataUnchecked": `Provide a relevant URL or any information you deep appropriate to identify the backup you have created for the matched files.`,
+    "FOFN": `Add the same rule to multiple files in one by providing a FOFN.
+Paths can be full or relative.
 
-    For more information, please see the relevant documentation on the 'How to backup your lustre data' page.
-    `,
-    "fofn": `
-    Add the same rule to multiple files in one by providing a FOFN.
-    Paths can be full or relative.
-
-    For more information, please see the relevant documentation on the 'How to backup your lustre data' page.
-    `,
-    "dirDetail": `
-    Frequency: Backup frequency in days.
-    Review date: Date at which a reminder will be issued to check if the plan is still up to date.
-    Remove date: Date at which the backup data will be automatically removed.
-
-    For more information, please see the relevant documentation on the 'How to backup your lustre data' page.
-    `
+For more information, please see the relevant documentation on the 'How to backup your lustre data' HGI documentation page.
+`,
+    "Frequency": `How often all files in this directory, matched with an iBackup rule, will be backed up. Measured in days.`,
+    "Review": `Date at which a reminder will be issued to check if the plan is still up to date.`,
+    "Remove": `Date at which the backup data will be automatically removed.`
 }
