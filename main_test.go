@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
-	"github.com/wtsi-hgi/backup-plans/cmd"
 	"github.com/wtsi-hgi/backup-plans/ibackup"
 	ibackup_test "github.com/wtsi-hgi/backup-plans/internal/ibackup"
 	"github.com/wtsi-hgi/backup-plans/internal/plandb"
@@ -36,6 +35,11 @@ func TestMain(m *testing.M) {
 	m.Run()
 }
 
+type cmdConfig struct {
+	IBackup        ibackup.Config
+	ReportingRoots []string
+}
+
 func TestCommands(t *testing.T) {
 	mysqlConnection := os.Getenv("BACKUP_PLANS_CONNECTION_TEST")
 
@@ -58,7 +62,7 @@ func TestCommands(t *testing.T) {
 		f, err := os.Create(config)
 		So(err, ShouldBeNil)
 
-		So(yaml.NewEncoder(f).Encode(&cmd.Config{
+		So(yaml.NewEncoder(f).Encode(&cmdConfig{
 			IBackup: ibackup.Config{
 				Servers: map[string]ibackup.ServerDetails{
 					"": {
