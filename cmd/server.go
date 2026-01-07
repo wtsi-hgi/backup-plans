@@ -162,13 +162,9 @@ func init() {
 	// flags specific to this sub-command
 	serverCmd.Flags().Uint16VarP(&serverPort, "listen", "l", defaultPort,
 		"port to start server on")
-	serverCmd.Flags().Uint32VarP(&adminGroup, "admin", "a", 0, "admin group that can see the entire tree")
-	serverCmd.Flags().StringSliceVarP(&reportRoots, "report", "r", nil, "reporting root, can be supplied more than once")
 	serverCmd.Flags().StringVarP(&planDB, "plan", "p", os.Getenv("BACKUP_PLANS_CONNECTION"),
 		"sql connection string for your plan database")
 	serverCmd.Flags().StringVarP(&configPath, "config", "c", "", "ibackup config")
-	serverCmd.Flags().StringVarP(&owners, "owners", "o", owners, "path to owners CSV file")
-	serverCmd.Flags().StringVarP(&bom, "bom", "b", bom, "path to bom area CSV file")
 
 	serverCmd.MarkFlagRequired("tree")   //nolint:errcheck
 	serverCmd.MarkFlagRequired("config") //nolint:errcheck
