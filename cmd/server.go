@@ -94,12 +94,12 @@ ibackup:
     ^/some/o*/path/:
       servername: serverName2
       transformer: prefix=/some/:/remote/
-IBackupCacheDuration: 3600
-BOMFile: /path/to//bom.areas
-OwnersFile: /path/to/owners
-AdminGroup: 15770
-ReloadTime: 3600
-ReportingRoots:
+ibackupcacheduration: 3600
+bomfile: /path/to//bom.areas
+ownersfile: /path/to/owners
+admingroup: 15770
+reloadtime: 3600
+reportingroots:
  - /path/to/be/reported/
  - /other-path/to/be/reported/
 
