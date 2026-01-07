@@ -10,7 +10,7 @@ import RuleTree from './ruletree.js';
 import Summary from './summary.js';
 import UserStats from './userstats.js';
 import { symbols } from './symbols.js';
-import { getUserGroups } from './rpc.js';
+import { getUserGroups, userGroups } from './rpc.js';
 
 const load = (path: string) => Load(path).then(data => {
 	Breadcrumbs.update(path, load);
@@ -26,10 +26,9 @@ const load = (path: string) => Load(path).then(data => {
 });
 
 (document.readyState === "complete" ? Promise.resolve() : new Promise(successFn => window.addEventListener("load", successFn, { "once": true })))
-	.then(() => getUserGroups())
-	.then(ug => {
-		Filter.init(ug);
-		Report.init(ug, load);
+	.then(() => {
+		Filter.init();
+		Report.init(load);
 	})
 	.then(() => load("/"))
 	.then(() => {

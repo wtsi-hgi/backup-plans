@@ -1,6 +1,7 @@
 import type { DirectoryWithChildren, UserGroups } from './types.js';
 import { br, button, datalist, details, div, input, option, select, summary } from './lib/html.js';
 import { stringSort } from './lib/utils.js';
+import { userGroups } from './rpc.js';
 
 const userOpts: HTMLOptionElement[] = [],
 	groupOpts: HTMLOptionElement[] = [],
@@ -88,9 +89,9 @@ export default Object.assign(base, {
 	"update": (path: string, _: DirectoryWithChildren, load: (path: string) => void) => {
 		loadFiltered = () => load(path);
 	},
-	"init": (data: UserGroups) => {
-		const users = data.Users.filter(u => u.trim()),
-			groups = data.Groups.filter(g => g.trim());
+	"init": () => {
+		const users = userGroups.Users.filter(u => u.trim()),
+			groups = userGroups.Groups.filter(g => g.trim());
 
 		users.sort(stringSort);
 		groups.sort(stringSort);
@@ -102,15 +103,11 @@ export default Object.assign(base, {
 		userList.append(...users.map(u => option({ "data-filter": JSON.stringify([u]), "label": "User: " + u }, u)));
 		groupSelect.append(...groupOpts);
 
-		for (const [bom, groups] of Object.entries(data.BOM ?? {})) {
-			boms.set(bom, groups);
-
+		for (const [bom, groups] of Object.entries(userGroups.BOM ?? {})) {
 			groupList.append(option({ "label": "BOM: " + bom }, bom));
 		}
 
-		for (const [owner, groups] of Object.entries(data.Owners ?? {})) {
-			owners.set(owner, groups);
-
+		for (const [owner, groups] of Object.entries(userGroups.Owners ?? {})) {
 			groupList.append(option({ "label": "Owner: " + owner }, owner));
 		}
 

@@ -1,13 +1,14 @@
 import type { BackupStatus, ClaimedDir, DirectoryWithChildren, ReportSummary, Rule, SizeCount, SizeCountTime, Stats, UserGroups } from "./types.js";
 import type { Children } from "./lib/dom.js";
 import { amendNode } from "./lib/dom.js";
-import { a, br, button, details, div, fieldset, h1, h2, input, label, legend, li, summary, table, tbody, td, th, thead, tr, ul } from "./lib/html.js";
+import { a, br, button, datalist, details, div, fieldset, h1, h2, input, label, legend, li, select, summary, table, tbody, td, th, thead, tr, ul } from "./lib/html.js";
 import { svg, title, use } from "./lib/svg.js";
 import { action, formatBytes, longAgo, secondsInWeek, setAndReturn } from "./lib/utils.js";
-import { getReportSummary } from "./rpc.js";
+import { getReportSummary, userGroups } from "./rpc.js";
 import { BackupType } from "./consts.js";
 import { render } from "./disktree.js";
 import ODS from './odf.js';
+import { boms, owners } from './userGroups.js';
 
 class Summary {
 	actions: SizeCountTime[] = [];
@@ -91,7 +92,10 @@ class ParentSummary extends Summary {
 			"data-warn-size": (this.actions[+BackupType.BackupWarn]?.size ?? 0) + "",
 			"data-nobackup-size": (this.actions[+BackupType.BackupNone]?.size ?? 0) + "",
 			"data-backup-size": (this.actions[+BackupType.BackupIBackup]?.size ?? 0) + "",
-			"data-name": this.path
+			"data-name": this.path,
+			"data-group": this.group,
+			"data-bom": boms.get(this.group)!,
+			"data-owner": owners.get(this.group)!,
 		}, [
 			legend(h1([
 				this.path,
@@ -214,13 +218,32 @@ const base = div({ "id": "report" }),
 			"nobackupSize": parseInt(child.dataset.nobackupSize!),
 			"backupSize": parseInt(child.dataset.backupSize!),
 			"status": child.dataset.status!,
+			"owner": child.dataset.owner || null,
+			"bom": child.dataset.bom || null,
+			"group": child.dataset.group || null,
 		})),
 			stringSort = new Intl.Collator().compare,
 			filterData = { "name": "", "status": "" },
 			filter = (key: "name" | "status", value: string) => {
-				filterData[key] = value.toLowerCase();
+				filterData[key] = value;
 				for (const project of projects) {
-					project.elem.classList.toggle("h", !project.name.includes(filterData["name"]) || !project.status.includes(filterData["status"]));
+					console.log(project, filterData);
+					let hideProject = false;
+					let skipName = false;
+					if (!project.status.includes(filterData["status"])) {
+						hideProject = true;
+					}
+
+					if (project.owner === filterData['name'] ||
+						project.bom === filterData['name'] ||
+						project.group === filterData['name']
+					) { skipName = true; }
+
+					if (!skipName && !project.name.toLowerCase().includes(filterData['name'].toLowerCase())) {
+						hideProject = true;
+					}
+
+					project.elem.classList.toggle("h", hideProject);
 				}
 			},
 			sort = (key: "name" | "warnSize" | "nobackupSize" | "backupSize") => {
@@ -246,116 +269,116 @@ const base = div({ "id": "report" }),
 <html lang="en"><head><title>Backup Report - ${new Date(now).toLocaleString()}</title><style type="text/css">${Array.from(document.styleSheets, getCSS).reduce((a, b) => a + b, "")}</style><script type="module">(document.readyState === "complete" ? Promise.resolve() : new Promise(successFn => window.addEventListener("load", successFn, { "once": true }))).then(() => (${initFilterSort.toString().replace(/\n\t/g, "")})(document.getElementById("report"), Array.from(document.getElementsByTagName("fieldset")).filter(f => f.dataset.name), document.getElementsByTagName("input")));</script></head><body>${base.outerHTML}</body></html>`;
 
 		a({ "href": URL.createObjectURL(new Blob([html], { "type": "text/html;charset=utf-8" })), "download": `backup-report-${new Date(now).toISOString()}.html` }).click();
-	},
-	owners = new Map<string, string>(),
-	boms = new Map<string, string>();
+	};
 
 let now = 0,
 	load: (path: string) => Promise<DirectoryWithChildren>,
 	summaryData: ReportSummary;
 
-getReportSummary().then(data => {
-	summaryData = data;
-	now = +new Date();
+getReportSummary()
+	.then(data => {
+		userGroups
+		summaryData = data;
+		now = +new Date();
 
-	const children: Children = ["", "", ""],
-		parents: ParentSummary[] = [],
-		overall = new Summary(""),
-		filterProject = input({ "placeholder": "Name" }),
-		filterAll = input({ "id": "filterAll", "name": "filter", "type": "radio", "checked": "checked" }),
-		filterR = input({ "id": "filterRed", "name": "filter", "type": "radio" }),
-		filterA = input({ "id": "filterAmber", "name": "filter", "type": "radio" }),
-		filterG = input({ "id": "filterGreen", "name": "filter", "type": "radio" }),
-		filterB = input({ "id": "filterBlue", "name": "filter", "type": "radio" }),
-		sortName = input({ "id": "sortName", "name": "sort", "type": "radio", "checked": "checked" }),
-		sortWarnSize = input({ "id": "sortWarnSize", "name": "sort", "type": "radio" }),
-		sortNoBackupSize = input({ "id": "sortNoBackupSize", "name": "sort", "type": "radio" }),
-		sortBackupSize = input({ "id": "sortBackupSize", "name": "sort", "type": "radio" });
+		const children: Children = ["", "", ""],
+			parents: ParentSummary[] = [],
+			overall = new Summary(""),
+			filterProject = input({ "placeholder": "Name", "list": "groupList" }), // TODO: Add ability to select BOM/group here like in Rule Tree
+			filterAll = input({ "id": "filterAll", "name": "filter", "type": "radio", "checked": "checked" }),
+			filterR = input({ "id": "filterRed", "name": "filter", "type": "radio" }),
+			filterA = input({ "id": "filterAmber", "name": "filter", "type": "radio" }),
+			filterG = input({ "id": "filterGreen", "name": "filter", "type": "radio" }),
+			filterB = input({ "id": "filterBlue", "name": "filter", "type": "radio" }),
+			sortName = input({ "id": "sortName", "name": "sort", "type": "radio", "checked": "checked" }),
+			sortWarnSize = input({ "id": "sortWarnSize", "name": "sort", "type": "radio" }),
+			sortNoBackupSize = input({ "id": "sortNoBackupSize", "name": "sort", "type": "radio" }),
+			sortBackupSize = input({ "id": "sortBackupSize", "name": "sort", "type": "radio" });
 
-	for (const rule of Object.values(data.Rules)) {
-		rule.BackupType = BackupType.from(rule.BackupType);
-	}
-
-	for (const [dir, summary] of Object.entries(data.Summaries)) {
-		const dirSummary = new ParentSummary(dir, summary.Group, data.BackupStatus[dir]);
-
-		for (const rule of summary.RuleSummaries) {
-			const ruleType = data.Rules[rule.ID]?.BackupType ?? BackupType.BackupWarn;
-
-			for (const user of rule.Users) {
-				overall.add(ruleType, user);
-				dirSummary.add(ruleType, user);
-			}
+		for (const rule of Object.values(data.Rules)) {
+			rule.BackupType = BackupType.from(rule.BackupType);
 		}
 
-		for (const [child, childSummary] of [[dir, summary] as [string, ClaimedDir]].concat(Array.from(Object.entries(summary.Children)))) {
-			const rules = data.Directories[child] ?? [0];
+		for (const [dir, summary] of Object.entries(data.Summaries)) {
+			const dirSummary = new ParentSummary(dir, summary.Group, data.BackupStatus[dir]);
 
-			for (const id of rules) {
-				for (const stats of summary.RuleSummaries.find(v => v.ID === id)?.Users ?? []) {
-					dirSummary.addChild(child, data.Rules[id] ?? { BackupType: BackupType.BackupWarn, Match: "" }, stats, child === dir ? summary.ClaimedBy : childSummary.ClaimedBy ?? "", data.BackupStatus[child]);
+			for (const rule of summary.RuleSummaries) {
+				const ruleType = data.Rules[rule.ID]?.BackupType ?? BackupType.BackupWarn;
+
+				for (const user of rule.Users) {
+					overall.add(ruleType, user);
+					dirSummary.add(ruleType, user);
 				}
 			}
+
+			for (const [child, childSummary] of [[dir, summary] as [string, ClaimedDir]].concat(Array.from(Object.entries(summary.Children)))) {
+				const rules = data.Directories[child] ?? [0];
+
+				for (const id of rules) {
+					for (const stats of summary.RuleSummaries.find(v => v.ID === id)?.Users ?? []) {
+						dirSummary.addChild(child, data.Rules[id] ?? { BackupType: BackupType.BackupWarn, Match: "" }, stats, child === dir ? summary.ClaimedBy : childSummary.ClaimedBy ?? "", data.BackupStatus[child]);
+					}
+				}
+			}
+
+			children.push(dirSummary.section());
+			parents.push(dirSummary);
 		}
 
-		children.push(dirSummary.section());
-		parents.push(dirSummary);
-	}
+		children[0] = overall.table();
+		children[1] = fieldset([
+			legend("Filter"),
+			filterProject,
+			br(),
+			label({ "for": "filterAll" }, "All"), filterAll,
+			label({ "for": "filterRed" }, "No backup in 6 weeks"), filterR,
+			label({ "for": "filterAmber" }, "No backup in 2 weeks"), filterA,
+			label({ "for": "filterGreen" }, "Backup within 2 weeks"), filterG,
+			label({ "for": "filterBlue" }, "No files to backup"), filterB
+		]);
+		children[2] = fieldset([
+			legend("Sort"),
+			label({ "for": "sortName" }, "Name"), sortName,
+			label({ "for": "sortWarnSize" }, "Unplanned size"), sortWarnSize,
+			label({ "for": "sortNoBackupSize" }, "No Backup Size"), sortNoBackupSize,
+			label({ "for": "sortBackupSize" }, "Backup Size"), sortBackupSize
+		]);
 
-	children[0] = overall.table();
-	children[1] = fieldset([
-		legend("Filter"),
-		filterProject,
-		br(),
-		label({ "for": "filterAll" }, "All"), filterAll,
-		label({ "for": "filterRed" }, "No backup in 6 weeks"), filterR,
-		label({ "for": "filterAmber" }, "No backup in 2 weeks"), filterA,
-		label({ "for": "filterGreen" }, "Backup within 2 weeks"), filterG,
-		label({ "for": "filterBlue" }, "No files to backup"), filterB
-	]);
-	children[2] = fieldset([
-		legend("Sort"),
-		label({ "for": "sortName" }, "Name"), sortName,
-		label({ "for": "sortWarnSize" }, "Unplanned size"), sortWarnSize,
-		label({ "for": "sortNoBackupSize" }, "No Backup Size"), sortNoBackupSize,
-		label({ "for": "sortBackupSize" }, "Backup Size"), sortBackupSize
-	]);
+		(children[0].firstChild?.firstChild?.firstChild as HTMLElement)?.append(
+			button({ "click": download }, "Download Report"),
+			button({
+				"click": () => {
+					const ods = ODS(parents.map(s => ({
+						"Programme": boms.get(s.group) ?? "",
+						"Faculty": owners.get(s.group) ?? "",
+						"Path": s.path,
+						"Group": s.group,
+						"Status": s.status(),
+						"Unplanned": s.actions[+BackupType.BackupWarn]?.size ?? 0n,
+						"NoBackup": s.actions[+BackupType.BackupNone]?.size ?? 0n,
+						"Backup": s.actions[+BackupType.BackupIBackup]?.size ?? 0n,
+						"ManualBackup": getManualSize(s)
+					})));
 
-	(children[0].firstChild?.firstChild?.firstChild as HTMLElement)?.append(
-		button({ "click": download }, "Download Report"),
-		button({
-			"click": () => {
-				const ods = ODS(parents.map(s => ({
-					"Programme": boms.get(s.group) ?? "",
-					"Faculty": owners.get(s.group) ?? "",
-					"Path": s.path,
-					"Group": s.group,
-					"Status": s.status(),
-					"Unplanned": s.actions[+BackupType.BackupWarn]?.size ?? 0n,
-					"NoBackup": s.actions[+BackupType.BackupNone]?.size ?? 0n,
-					"Backup": s.actions[+BackupType.BackupIBackup]?.size ?? 0n,
-					"ManualBackup": getManualSize(s)
-				})));
-
-				a({ "href": URL.createObjectURL(new Blob([ods], { "type": "text/csv;charset=utf-8" })), "download": `backup-report-${new Date(now).toISOString()}.ods` }).click();
-			}
-		}, "Download Spreadsheet")
-	);
-	initFilterSort(base, children.slice(3) as HTMLFieldSetElement[], [filterProject, filterAll, filterR, filterA, filterG, filterB, sortName, sortWarnSize, sortNoBackupSize, sortBackupSize]);
-	amendNode(base, children);
-});
+					a({ "href": URL.createObjectURL(new Blob([ods], { "type": "text/csv;charset=utf-8" })), "download": `backup-report-${new Date(now).toISOString()}.ods` }).click();
+				}
+			}, "Download Spreadsheet")
+		);
+		initFilterSort(base, children.slice(3) as HTMLFieldSetElement[], [filterProject, filterAll, filterR, filterA, filterG, filterB, sortName, sortWarnSize, sortNoBackupSize, sortBackupSize]);
+		amendNode(base, children);
+	});
 
 export default Object.assign(base, {
-	"init": (usergroups: UserGroups, loadFn: (path: string) => Promise<DirectoryWithChildren>) => {
+	"init": (loadFn: (path: string) => Promise<DirectoryWithChildren>) => {
 		load = loadFn;
 
-		for (const [bom, groups] of Object.entries(usergroups.BOM ?? {})) {
+		for (const [bom, groups] of Object.entries(userGroups.BOM ?? {})) {
 			for (const group of groups) {
 				boms.set(group, bom);
 			}
 		}
 
-		for (const [owner, groups] of Object.entries(usergroups.Owners ?? {})) {
+		for (const [owner, groups] of Object.entries(userGroups.Owners ?? {})) {
 			for (const group of groups) {
 				owners.set(group, owner);
 			}

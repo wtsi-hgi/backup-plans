@@ -45,7 +45,7 @@ var tables = [...]string{
 		"`directoryID` INTEGER NOT NULL, " +
 		"`type` INTEGER NOT NULL, " +
 		"`metadata` TEXT NOT NULL, " +
-		"`match` /*! MEDIUM*/TEXT NOT NULL, " +
+		"`match` /*! MEDIUMTEXT -- */ TEXT\n/*! */ NOT NULL, " +
 		"`matchHash` " + hashColumnStart + "`match`" + hashColumnEnd + ", " +
 		"`override` BOOLEAN DEFAULT FALSE, " +
 		"`created` BIGINT NOT NULL, " +
