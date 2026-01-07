@@ -451,7 +451,9 @@ func NewCache(client Client, d time.Duration) *Cache {
 		stop:   fn,
 	}
 
-	go cache.runCache(ctx, d)
+	if d > 0 {
+		go cache.runCache(ctx, d)
+	}
 
 	return cache
 }
