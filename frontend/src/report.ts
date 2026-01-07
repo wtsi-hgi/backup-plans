@@ -1,9 +1,9 @@
 import type { BackupStatus, ClaimedDir, DirectoryWithChildren, ReportSummary, Rule, SizeCount, SizeCountTime, Stats, UserGroups } from "./types.js";
 import type { Children } from "./lib/dom.js";
 import { amendNode } from "./lib/dom.js";
-import { a, br, button, datalist, details, div, fieldset, h1, h2, input, label, legend, li, select, summary, table, tbody, td, th, thead, tr, ul } from "./lib/html.js";
+import { a, br, button, datalist, details, div, fieldset, h1, h2, input, label, legend, li, option, select, summary, table, tbody, td, th, thead, tr, ul } from "./lib/html.js";
 import { svg, title, use } from "./lib/svg.js";
-import { action, formatBytes, longAgo, secondsInWeek, setAndReturn } from "./lib/utils.js";
+import { action, formatBytes, longAgo, secondsInWeek, setAndReturn, stringSort } from "./lib/utils.js";
 import { getReportSummary, userGroups } from "./rpc.js";
 import { BackupType } from "./consts.js";
 import { render } from "./disktree.js";
@@ -209,7 +209,8 @@ class ChildSummary extends Summary {
 	}
 }
 
-const base = div({ "id": "report" }),
+const groupList = datalist({ "id": "groupList" }),
+	base = div({ "id": "report" }, groupList),
 	initFilterSort = (container: HTMLDivElement, children: HTMLFieldSetElement[], [filterProject, filterAll, filterR, filterA, filterG, filterB, sortName, sortWarnSize, sortNoBackupSize, sortBackupSize]: [HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement]) => {
 		const projects = children.map(child => ({
 			"elem": child,
@@ -284,7 +285,7 @@ getReportSummary()
 		const children: Children = ["", "", ""],
 			parents: ParentSummary[] = [],
 			overall = new Summary(""),
-			filterProject = input({ "placeholder": "Name", "list": "groupList" }), // TODO: Add ability to select BOM/group here like in Rule Tree
+			filterProject = input({ "placeholder": "Name", "list": "groupList" }),
 			filterAll = input({ "id": "filterAll", "name": "filter", "type": "radio", "checked": "checked" }),
 			filterR = input({ "id": "filterRed", "name": "filter", "type": "radio" }),
 			filterA = input({ "id": "filterAmber", "name": "filter", "type": "radio" }),
@@ -368,6 +369,8 @@ getReportSummary()
 		amendNode(base, children);
 	});
 
+
+
 export default Object.assign(base, {
 	"init": (loadFn: (path: string) => Promise<DirectoryWithChildren>) => {
 		load = loadFn;
@@ -383,6 +386,23 @@ export default Object.assign(base, {
 				owners.set(group, owner);
 			}
 		}
+
+		const groups = userGroups.Groups.filter(g => g.trim());
+
+		groups.sort(stringSort);
+		const gArr = [];
+
+		for (const [bom, groups] of Object.entries(userGroups.BOM ?? {})) {
+			gArr.push(["BOM: ", bom]);
+		}
+
+		for (const [owner] of Object.entries(userGroups.Owners ?? {})) {
+			gArr.push(["Owner :", owner]);
+		}
+
+		groups.forEach(g => gArr.push(["Group :", g]));
+		gArr.sort((a, b) => a[1].localeCompare(b[1]));
+		gArr.forEach(([k, v]) => groupList.append(option({ "label": k + v }, v)))
 	}
 });
 
