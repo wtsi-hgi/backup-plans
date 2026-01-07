@@ -11,7 +11,7 @@ import (
 	internalibackup "github.com/wtsi-hgi/backup-plans/internal/ibackup"
 )
 
-func NewConfig(t *testing.T, boms, owners map[string][]string, rr []string, ag uint32) *config.Config {
+func NewConfig(t *testing.T, boms, owners map[string][]string, rr []string, ag uint32) *config.Config { //nolint:funlen,lll
 	t.Helper()
 
 	mc := internalibackup.NewMultiClient(t)
@@ -33,7 +33,7 @@ func NewConfig(t *testing.T, boms, owners map[string][]string, rr []string, ag u
 	})(unsafe.Pointer(&c))
 
 	sc.mc = mc
-	sc.cc = ibackup.NewMultiCache(mc, 3600)
+	sc.cc = ibackup.NewMultiCache(mc, 3600) //nolint:mnd
 	sc.boms = boms
 	sc.owners = owners
 	sc.rr = rr

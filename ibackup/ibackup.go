@@ -589,7 +589,7 @@ func (m *MultiCache) Update(mc *MultiClient) {
 
 	for re, c := range mc.clients {
 		if exist, ok := m.caches[re]; ok {
-			exist.Cache.UpdateClient(c.client)
+			exist.UpdateClient(c.client)
 		} else {
 			m.caches[re] = reCache{re: c.re, Cache: NewCache(c.client, m.d)}
 		}

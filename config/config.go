@@ -129,9 +129,11 @@ func (c *Config) scheduleReload() {
 }
 
 func (c *Config) reload() {
-	time.Sleep(time.Second * time.Duration(c.yamlConfig.ReloadTime))
+	time.Sleep(time.Second * time.Duration(c.yamlConfig.ReloadTime)) //nolint:gosec
 
-	c.loadConfig()
+	if err := c.loadConfig(); err != nil {
+		slog.Warn("error reloading config", "errs", err)
+	}
 }
 
 func (c *Config) loadIBackup() error {
@@ -148,7 +150,7 @@ func (c *Config) loadIBackup() error {
 	}
 
 	if c.ibackupCachedClient == nil {
-		c.ibackupCachedClient = ibackup.NewMultiCache(mc, time.Second*time.Duration(c.yamlConfig.IBackupCacheDuration))
+		c.ibackupCachedClient = ibackup.NewMultiCache(mc, time.Second*time.Duration(c.yamlConfig.IBackupCacheDuration)) //nolint:gosec,lll
 	} else {
 		c.ibackupCachedClient.Update(mc)
 	}
