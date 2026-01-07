@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"errors"
 	"io"
+	"log/slog"
 	"os"
 	"strconv"
 	"sync"
@@ -139,7 +140,11 @@ func (c *Config) loadIBackup() error {
 
 	mc, err := ibackup.New(c.yamlConfig.IBackup)
 	if err != nil {
-		return err
+		if !ibackup.IsOnlyConnectionErrors(err) {
+			return err
+		}
+
+		slog.Warn("ibackup connection errors", "errs", err)
 	}
 
 	if c.ibackupCachedClient == nil {
