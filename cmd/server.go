@@ -68,18 +68,71 @@ It is recommended to use the environment variable "BACKUP_PLANS_CONNECTION" for 
 to maintain password security.
 
 --tree should be generated using the db command.
---admin specify admin group id to allow users of that group visibility permission
---report can be supplied multiple times, specifies root to be reported on.
 --listen server port to listen on
 
---ibackup ibackup server url
-	env: IBACKUP_SERVER_URL
+--config should be the location of a Yaml config file, which should have the
+following structure:
 
---cert ibackup server authentication certificate
-	env: IBACKUP_SERVER_CERT
+The following is the config structure:
 
---owners path to Owners CSV file containing two columns: GID,Owner
---bom path to BOM CSV file containing two columns: GroupName,BOM
+ibackup:
+  servers:
+    "serverName1":
+      addr: ibackup01.server:1234
+      cert: /path/to/cert/pem
+      username: admin1
+      token: /path/to/token
+	"serverName1":
+      addr: ibackup02.server:1234
+      cert: /path/to/cert2/pem
+      username: admin2
+      token: /path/to/token2
+  pathtoserver:
+    ^/some/path/:
+      servername: serverName1
+      transformer: prefix=/some/path/:/some/remote/path/
+    ^/some/o*/path/:
+      servername: serverName2
+      transformer: prefix=/some/:/remote/
+IBackupCacheDuration: 3600
+BOMFile: /path/to//bom.areas
+OwnersFile: /path/to/owners
+AdminGroup: 15770
+ReloadTime: 3600
+ReportingRoots:
+ - /path/to/be/reported/
+ - /other-path/to/be/reported/
+
+The key of the Servers map is the server name, as used in the PathToServer
+map.
+
+The key of the PathToServer map is a regexp string that will be matched
+against path; a matching path will use the server details associated with the
+regexp.
+
+The IBackupCacheDuration is a number of seconds until the ibackup set cache will
+be updated.
+
+OwnersFile and BOMFile strings are paths to CSV files with the following
+formats:
+
+Owners:
+
+	GID,OwnerName
+
+BOM:
+
+	GroupName,BOMName
+
+
+The AdminGroup is used to specify an admin group id to allow users of that group
+visibility permissions within the DiskTree.
+				
+If the ReloadTime setting is non-zero, the config will be reloaded after
+waiting that many seconds. Reloading the config will rebuild all structures,
+while keeping any caches intact.
+
+The ReportingRoots is a list of paths that will appear on the Top Level Report.
 `,
 	PreRunE: func(cmd *cobra.Command, _ []string) error {
 		envMap := map[string]string{

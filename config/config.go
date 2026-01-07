@@ -37,6 +37,48 @@ type Config struct {
 	yamlConfig          yamlConfig
 }
 
+// ParseConfig parses the Yaml file at the given path to get server config.
+//
+// If the ReloadTime setting is non-zero, the config will be reloaded after
+// waiting that many seconds. Reloading the config will rebuild all structures,
+// while keeping any caches intact.
+//
+// The following is the config structure:
+//
+//	{
+//	    IBackup struct {
+//	        Servers map[string]struct{
+//	            Addr, Cert, Token, Username string
+//	        }
+//	        PathToServer map[string]struct {
+//	            ServerName, Transformer string
+//	        }
+//	    }
+//	    IBackupCacheDuration uint64
+//	    BOMFile              string
+//	    OwnersFile           string
+//	    ReportingRoots       []string
+//	    AdminGroup           uint32
+//	    ReloadTime           uint64
+//	}
+//
+// The key of the Servers map is the server name, as used in the PathToServer
+// map.
+//
+// The key of the PathToServer map is a regexp string that will be matched
+// against path; a matching path will use the server details associated with the
+// regexp.
+//
+// OwnersFile and BOMFile strings are paths to CSV files with the following
+// formats:
+//
+// Owners:
+//
+//	GID,OwnerName
+//
+// BOM:
+//
+//	GroupName,BOMName
 func ParseConfig(path string) (*Config, error) {
 	c := &Config{path: path}
 
@@ -212,6 +254,8 @@ func parseOwners(r io.Reader) (map[string][]string, error) {
 	return ownersMap, nil
 }
 
+// GetIBackupClient returns an ibackup client that connects to multiple ibackup
+// servers.
 func (c *Config) GetIBackupClient() *ibackup.MultiClient {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -219,6 +263,8 @@ func (c *Config) GetIBackupClient() *ibackup.MultiClient {
 	return c.ibackupClient
 }
 
+// GetCachedIBackupClient returns an ibackup client that connects to multiple
+// ibackup servers, with cache-backed set information.
 func (c *Config) GetCachedIBackupClient() *ibackup.MultiCache {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -226,6 +272,7 @@ func (c *Config) GetCachedIBackupClient() *ibackup.MultiCache {
 	return c.ibackupCachedClient
 }
 
+// GetBOMs returns a map of BOMs to the groups owned.
 func (c *Config) GetBOMs() map[string][]string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -233,6 +280,7 @@ func (c *Config) GetBOMs() map[string][]string {
 	return c.boms
 }
 
+// GetOwners returns a map of owners to the groups owned.
 func (c *Config) GetOwners() map[string][]string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -240,6 +288,7 @@ func (c *Config) GetOwners() map[string][]string {
 	return c.owners
 }
 
+// GetReportingRoots returns the list of root paths to be reported on.
 func (c *Config) GetReportingRoots() []string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -247,6 +296,7 @@ func (c *Config) GetReportingRoots() []string {
 	return c.yamlConfig.ReportingRoots
 }
 
+// GetAdminGroup returns the configured admin group ID.
 func (c *Config) GetAdminGroup() uint32 {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
