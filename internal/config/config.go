@@ -9,10 +9,13 @@ import (
 	"github.com/wtsi-hgi/backup-plans/config"
 	"github.com/wtsi-hgi/backup-plans/ibackup"
 	internalibackup "github.com/wtsi-hgi/backup-plans/internal/ibackup"
+	"github.com/wtsi-hgi/backup-plans/internal/testirods"
 )
 
 func NewConfig(t *testing.T, boms, owners map[string][]string, rr []string, ag uint32) *config.Config { //nolint:funlen,lll
 	t.Helper()
+
+	So(testirods.AddPseudoIRODsToolsToPathIfRequired(t), ShouldBeNil)
 
 	mc := internalibackup.NewMultiClient(t)
 

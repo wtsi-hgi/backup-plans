@@ -37,10 +37,13 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/wtsi-hgi/backup-plans/ibackup"
 	ib "github.com/wtsi-hgi/backup-plans/internal/ibackup"
+	"github.com/wtsi-hgi/backup-plans/internal/testirods"
 )
 
 func TestConfig(t *testing.T) {
 	Convey("Given a valid YAML file and config files", t, func() {
+		So(testirods.AddPseudoIRODsToolsToPathIfRequired(t), ShouldBeNil)
+
 		servers := make(map[string]ibackup.ServerDetails)
 
 		for i := range 2 {
