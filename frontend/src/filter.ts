@@ -68,7 +68,6 @@ const userOpts: HTMLOptionElement[] = [],
 				div([
 					groupFilter,
 					groupSelect,
-					// groupList,
 					br(),
 					button({ "click": () => clearFilter(groupFilter, groupSelect, groupOpts) }, "Clear"),
 					button({ "click": () => setFilter("groups", groupSelect) }, "Filter")

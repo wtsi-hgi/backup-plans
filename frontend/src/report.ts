@@ -1,7 +1,7 @@
-import type { BackupStatus, ClaimedDir, DirectoryWithChildren, ReportSummary, Rule, SizeCount, SizeCountTime, Stats, UserGroups } from "./types.js";
+import type { BackupStatus, ClaimedDir, DirectoryWithChildren, ReportSummary, Rule, SizeCount, SizeCountTime, Stats } from "./types.js";
 import type { Children } from "./lib/dom.js";
 import { amendNode } from "./lib/dom.js";
-import { a, br, button, datalist, details, div, fieldset, h1, h2, input, label, legend, li, option, select, summary, table, tbody, td, th, thead, tr, ul } from "./lib/html.js";
+import { a, br, button, datalist, details, div, fieldset, h1, h2, input, label, legend, li, option, summary, table, tbody, td, th, thead, tr, ul } from "./lib/html.js";
 import { svg, title, use } from "./lib/svg.js";
 import { action, formatBytes, longAgo, secondsInWeek, setAndReturn, stringSort } from "./lib/utils.js";
 import { getReportSummary, userGroups } from "./rpc.js";
@@ -228,7 +228,6 @@ const groupList = datalist({ "id": "groupList" }),
 			filter = (key: "name" | "status", value: string) => {
 				filterData[key] = value;
 				for (const project of projects) {
-					console.log(project, filterData);
 					let hideProject = false;
 					let skipName = false;
 					if (!project.status.includes(filterData["status"])) {
@@ -285,7 +284,7 @@ getReportSummary()
 		const children: Children = ["", "", ""],
 			parents: ParentSummary[] = [],
 			overall = new Summary(""),
-			filterProject = input({ "placeholder": "Name", "list": "groupList" }),
+			filterProject = input({ "placeholder": "Name, BOM, Group, Owner", "list": "groupList" }),
 			filterAll = input({ "id": "filterAll", "name": "filter", "type": "radio", "checked": "checked" }),
 			filterR = input({ "id": "filterRed", "name": "filter", "type": "radio" }),
 			filterA = input({ "id": "filterAmber", "name": "filter", "type": "radio" }),
