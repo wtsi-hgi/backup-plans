@@ -42,13 +42,7 @@ import (
 const defaultPort = 8080
 
 // options for this cmd.
-var (
-	serverPort  uint16
-	adminGroup  uint32
-	reportRoots []string
-	owners      string
-	bom         string
-)
+var serverPort uint16
 
 // serverCmd represents the server command.
 var serverCmd = &cobra.Command{
