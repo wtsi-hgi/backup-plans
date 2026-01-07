@@ -10,7 +10,6 @@ import RuleTree from './ruletree.js';
 import Summary from './summary.js';
 import UserStats from './userstats.js';
 import { symbols } from './symbols.js';
-import { getUserGroups, userGroups } from './rpc.js';
 
 const load = (path: string) => Load(path).then(data => {
 	Breadcrumbs.update(path, load);
