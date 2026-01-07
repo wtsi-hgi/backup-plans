@@ -1,7 +1,7 @@
 import type { DirectoryWithChildren } from './types.js';
 import { br, button, datalist, details, div, input, option, select, summary } from './lib/html.js';
 import { stringSort } from './lib/utils.js';
-import { userGroups } from './rpc.js';
+import { userGroups } from './userGroups.js';
 
 const userOpts: HTMLOptionElement[] = [],
 	groupOpts: HTMLOptionElement[] = [],

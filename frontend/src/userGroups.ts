@@ -1,7 +1,8 @@
-import { userGroups } from "./rpc.js";
+import { getUserGroups } from "./rpc.js";
 
 export const boms = new Map<string, string>(),
-    owners = new Map<string, string>();
+    owners = new Map<string, string>(),
+    userGroups = await getUserGroups();
 
 for (const [bom, groups] of Object.entries(userGroups.BOM ?? {})) {
     for (const group of groups) {

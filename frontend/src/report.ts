@@ -4,11 +4,11 @@ import { amendNode } from "./lib/dom.js";
 import { a, br, button, datalist, details, div, fieldset, h1, h2, input, label, legend, li, option, summary, table, tbody, td, th, thead, tr, ul } from "./lib/html.js";
 import { svg, title, use } from "./lib/svg.js";
 import { action, formatBytes, longAgo, secondsInWeek, setAndReturn, stringSort } from "./lib/utils.js";
-import { getReportSummary, userGroups } from "./rpc.js";
+import { getReportSummary } from "./rpc.js";
 import { BackupType } from "./consts.js";
 import { render } from "./disktree.js";
 import ODS from './odf.js';
-import { boms, owners } from './userGroups.js';
+import { boms, owners, userGroups } from './userGroups.js';
 
 class Summary {
 	actions: SizeCountTime[] = [];
