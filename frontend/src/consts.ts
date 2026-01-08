@@ -117,12 +117,9 @@ directories, regardless of their rules (unless their rules are more specific).`,
     "BackupType": `The type of backup that will/has been completed to backup all matched files.`,
     "MetadataSetName": `Provide the iBackup set name that you used to manually backup the matched files.`,
     "MetadataGit": `Provide the URL to the Git repository where you backup the matched files.`,
-    "MetadataPrefect": `Provide the URL to the Prefect repository where you backup the matched files.`,
-    "MetadataUnchecked": `Provide a relevant URL or any information you deep appropriate to identify the backup you have created for the matched files.`,
-    "FOFN": `Add the same rule to multiple files in one by providing a FOFN.
-Paths can be full or relative.
-
-For more information, please see the relevant documentation on the 'How to backup your lustre data' HGI documentation page.
+    "MetadataPrefect": `Provide a Prefect URL related to the matched files.`,
+    "MetadataUnchecked": `Provide any information that could help you manually check the backup status of the matched files.`,
+    "FOFN": `Add the same rule to multiple files in one go by providing a FOFN. Paths can be full or relative.
 `,
     "Frequency": `How often all files in this directory, matched with an iBackup rule, will be backed up. Measured in days.`,
     "Review": `Date at which a reminder will be issued to check if the plan is still up to date.`,
