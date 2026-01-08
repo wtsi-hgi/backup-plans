@@ -36,7 +36,7 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/wtsi-hgi/backup-plans/backups"
-	ib "github.com/wtsi-hgi/backup-plans/internal/ibackup"
+	"github.com/wtsi-hgi/backup-plans/internal/config"
 	"github.com/wtsi-hgi/backup-plans/internal/plandb"
 	"github.com/wtsi-hgi/backup-plans/internal/testdb"
 	"github.com/wtsi-hgi/backup-plans/internal/testirods"
@@ -46,8 +46,6 @@ import (
 func TestEndpoints(t *testing.T) {
 	Convey("Given an ibackup server with backed up sets", t, func() {
 		So(testirods.AddPseudoIRODsToolsToPathIfRequired(t), ShouldBeNil)
-
-		ibackupClient := ib.NewMultiClient(t)
 
 		var u userHandler
 
@@ -61,13 +59,13 @@ func TestEndpoints(t *testing.T) {
 		So(tree.Serialise(f, tr), ShouldBeNil)
 		So(f.Close(), ShouldBeNil)
 
-		server, err := New(testdb.CreateTestDatabase(t), u.getUser, nil, ibackupClient, "", "")
+		server, err := New(testdb.CreateTestDatabase(t), u.getUser, config.NewConfig(t, nil, nil, nil, 0))
 		So(err, ShouldBeNil)
 
 		err = server.AddTree(treeFile)
 		So(err, ShouldBeNil)
 
-		setInfos, err := backups.Backup(testDB, tr, ibackupClient)
+		setInfos, err := backups.Backup(testDB, tr, server.config.GetIBackupClient())
 		So(err, ShouldBeNil)
 		So(setInfos, ShouldNotBeNil)
 

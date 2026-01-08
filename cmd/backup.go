@@ -28,13 +28,12 @@ package cmd
 
 import (
 	"fmt"
-	"log/slog"
 	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/wtsi-hgi/backup-plans/backups"
+	"github.com/wtsi-hgi/backup-plans/config"
 	"github.com/wtsi-hgi/backup-plans/db"
-	"github.com/wtsi-hgi/backup-plans/ibackup"
 	"golang.org/x/sys/unix"
 	"vimagination.zapto.org/tree"
 )
@@ -63,11 +62,35 @@ to maintain password security.
 
 --tree should be generated using the db command.
 
---ibackup ibackup server url
-	env: IBACKUP_SERVER_URL
+--config should be the location of a Yaml config file, which should have the
+following structure:
 
---cert ibackup server authentication certificate
-	env: IBACKUP_SERVER_CERT
+ibackup:
+  servers:
+    "serverName1":
+      addr: ibackup01.server:1234
+      cert: /path/to/cert/pem
+      username: admin1
+      token: /path/to/token
+    "serverName2":
+      addr: ibackup02.server:1234
+      cert: /path/to/cert2/pem
+      username: admin2
+      token: /path/to/token2
+  pathtoserver:
+    ^/some/path/:
+      servername: serverName1
+      transformer: prefix=/some/path/:/some/remote/path/
+    ^/some/o*/path/:
+      servername: serverName2
+      transformer: prefix=/some/:/remote/
+
+The key of the servers map is the server name, as used in the PathToServer
+map.
+
+The key of the pathtoserver map is a regexp string that will be matched
+against path; a matching path will use the server details associated with the
+regexp.
 `,
 	PreRunE: func(cmd *cobra.Command, _ []string) error {
 		envMap := map[string]string{
@@ -77,18 +100,9 @@ to maintain password security.
 		return checkEnvVarFlags(cmd, envMap)
 	},
 	RunE: func(_ *cobra.Command, _ []string) error {
-		config, err := parseConfig(configPath)
+		config, err := config.Parse(configPath)
 		if err != nil {
-			return fmt.Errorf("failed to parse config file: %w", err)
-		}
-
-		client, err := ibackup.New(config.IBackup)
-		if err != nil {
-			if !ibackup.IsOnlyConnectionErrors(err) {
-				return err
-			}
-
-			slog.Warn("ibackup connection errors", "errs", err)
+			return fmt.Errorf("failed to process config file: %w", err)
 		}
 
 		planDB, err := db.Init(planDB)
@@ -103,7 +117,7 @@ to maintain password security.
 		}
 		defer dfn()
 
-		setInfos, err := backups.Backup(planDB, treeNode, client)
+		setInfos, err := backups.Backup(planDB, treeNode, config.GetIBackupClient())
 		if err != nil {
 			err = fmt.Errorf("\n failed to back up files: %w", err)
 		}

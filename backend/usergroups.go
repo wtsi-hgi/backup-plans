@@ -26,115 +26,11 @@
 package backend
 
 import (
-	"encoding/csv"
 	"encoding/json"
-	"errors"
-	"io"
 	"maps"
 	"net/http"
-	"os"
 	"slices"
-	"strconv"
-
-	"github.com/wtsi-hgi/backup-plans/users"
 )
-
-const csvCols = 2
-
-func (s *Server) loadOwners(owners string) error {
-	if owners == "" {
-		return nil
-	}
-
-	f, err := os.Open(owners)
-	if err != nil {
-		return err
-	}
-
-	defer f.Close()
-
-	ownersMap, err := parseOwners(f)
-	if err != nil {
-		return err
-	}
-
-	s.rulesMu.Lock()
-	s.owners = ownersMap
-	s.rulesMu.Unlock()
-
-	return nil
-}
-
-func parseOwners(r io.Reader) (map[string][]string, error) {
-	ownersMap := make(map[string][]string)
-
-	cr := csv.NewReader(r)
-
-	for {
-		record, err := cr.Read()
-		if errors.Is(err, io.EOF) { //nolint:gocritic,nestif
-			break
-		} else if err != nil {
-			return nil, err
-		} else if len(record) < csvCols {
-			continue
-		}
-
-		gid, err := strconv.ParseUint(record[0], 10, 32)
-		if err != nil {
-			return nil, err
-		}
-
-		ownersMap[record[1]] = append(ownersMap[record[1]], users.Group(uint32(gid)))
-	}
-
-	return ownersMap, nil
-}
-
-func (s *Server) loadBOM(bom string) error {
-	if bom == "" {
-		return nil
-	}
-
-	f, err := os.Open(bom)
-	if err != nil {
-		return err
-	}
-
-	defer f.Close()
-
-	bomMap, err := parseBOM(f)
-	if err != nil {
-		return err
-	}
-
-	s.rulesMu.Lock()
-	s.bom = bomMap
-	s.rulesMu.Unlock()
-
-	return nil
-}
-
-func parseBOM(r io.Reader) (map[string][]string, error) {
-	bomMap := make(map[string][]string)
-
-	cr := csv.NewReader(r)
-
-	for {
-		record, err := cr.Read()
-		if errors.Is(err, io.EOF) { //nolint:gocritic,nestif
-			break
-		} else if err != nil {
-			return nil, err
-		} else if len(record) < csvCols {
-			continue
-		}
-
-		bomMap[record[1]] = append(bomMap[record[1]], record[0])
-	}
-
-	return bomMap, nil
-}
 
 type userGroupsBOM struct {
 	Users, Groups []string
@@ -167,10 +63,8 @@ func (s *Server) userGroups(w http.ResponseWriter, _ *http.Request) error {
 		}
 	}
 
-	s.rulesMu.RLock()
-	owners := s.owners
-	bom := s.bom
-	s.rulesMu.RUnlock()
+	owners := s.config.GetOwners()
+	bom := s.config.GetBOMs()
 
 	w.Header().Set("Content-Type", "application/json")
 

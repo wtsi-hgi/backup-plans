@@ -54,8 +54,10 @@ func (s *Server) Summary(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) summary(w http.ResponseWriter, _ *http.Request) error { //nolint:funlen,cyclop,gocognit,gocyclo
+	rr := s.config.GetReportingRoots()
+
 	dirSummary := summary{
-		Summaries:    make(map[string]*ruletree.DirSummary, len(s.reportRoots)),
+		Summaries:    make(map[string]*ruletree.DirSummary, len(rr)),
 		Rules:        make(map[uint64]*db.Rule),
 		Directories:  make(map[string][]uint64),
 		BackupStatus: make(map[string]*ibackup.SetBackupActivity),
@@ -65,7 +67,7 @@ func (s *Server) summary(w http.ResponseWriter, _ *http.Request) error { //nolin
 
 	s.rulesMu.RLock()
 
-	for _, root := range s.reportRoots {
+	for _, root := range rr {
 		ds, err := s.rootDir.Summary(root)
 		if errors.Is(err, ruletree.ErrNotFound) || errors.As(err, new(tree.ChildNotFoundError)) {
 			continue
@@ -133,7 +135,7 @@ func (s *Server) summary(w http.ResponseWriter, _ *http.Request) error { //nolin
 	s.rulesMu.RUnlock()
 
 	for dir, claimedBy := range dirClaims {
-		sba, err := s.cache.GetBackupActivity(dir, "plan::"+dir, claimedBy)
+		sba, err := s.config.GetCachedIBackupClient().GetBackupActivity(dir, "plan::"+dir, claimedBy)
 		if err != nil {
 			slog.Error("error querying ibackup status", "dir", dir, "err", err)
 

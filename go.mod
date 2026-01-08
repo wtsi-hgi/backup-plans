@@ -6,6 +6,7 @@ tool vimagination.zapto.org/jspacker/cmd/jspacker
 
 require (
 	github.com/go-sql-driver/mysql v1.9.3
+	github.com/goccy/go-yaml v1.19.0
 	github.com/inconshreveable/log15 v3.0.0-testing.5+incompatible
 	github.com/klauspost/pgzip v1.2.6
 	github.com/smartystreets/goconvey v1.8.1
@@ -71,7 +72,6 @@ require (
 	github.com/go-resty/resty/v2 v2.17.0 // indirect
 	github.com/go-stack/stack v1.8.1 // indirect
 	github.com/goccy/go-json v0.10.5 // indirect
-	github.com/goccy/go-yaml v1.19.0 // indirect
 	github.com/gofrs/uuid v4.4.0+incompatible // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang-jwt/jwt/v4 v4.5.2 // indirect

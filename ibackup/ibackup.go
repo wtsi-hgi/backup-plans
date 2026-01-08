@@ -40,6 +40,7 @@ type ServerTransformer struct {
 
 type clientTransformer struct {
 	client      *serverClient
+	re          *regexp.Regexp
 	transformer string
 }
 
@@ -58,7 +59,7 @@ func (u UnknownServerError) Error() string {
 
 // MultiClient contains multiple ibackup clients that can be selected by path.
 type MultiClient struct {
-	clients map[*regexp.Regexp]*clientTransformer
+	clients map[string]*clientTransformer
 	stop    func()
 }
 
@@ -181,8 +182,8 @@ func jwtBasename(tokenPath string) string {
 	return ".ibackup." + hex.EncodeToString(hash[:8]) + ".jwt"
 }
 
-func createClients(servers map[string]*serverClient, c Config) (map[*regexp.Regexp]*clientTransformer, error) {
-	clients := make(map[*regexp.Regexp]*clientTransformer, len(c.PathToServer))
+func createClients(servers map[string]*serverClient, c Config) (map[string]*clientTransformer, error) {
+	clients := make(map[string]*clientTransformer, len(c.PathToServer))
 
 	for re, server := range c.PathToServer {
 		s, ok := servers[server.ServerName]
@@ -195,7 +196,8 @@ func createClients(servers map[string]*serverClient, c Config) (map[*regexp.Rege
 			return nil, err
 		}
 
-		clients[r] = &clientTransformer{
+		clients[re] = &clientTransformer{
+			re:          r,
 			client:      s,
 			transformer: server.Transformer,
 		}
@@ -241,8 +243,8 @@ func (m *MultiClient) Backup(path string, setName, requester string, files []str
 }
 
 func (m *MultiClient) getClient(path string) *clientTransformer {
-	for re, c := range m.clients {
-		if re.MatchString(path) {
+	for _, c := range m.clients {
+		if c.re.MatchString(path) {
 			return c
 		}
 	}
@@ -449,7 +451,9 @@ func NewCache(client Client, d time.Duration) *Cache {
 		stop:   fn,
 	}
 
-	go cache.runCache(ctx, d)
+	if d > 0 {
+		go cache.runCache(ctx, d)
+	}
 
 	return cache
 }
@@ -490,12 +494,13 @@ func (c *Cache) runCache(ctx context.Context, d time.Duration) {
 
 		c.mu.RLock()
 		keys := slices.Collect(maps.Keys(c.cache))
+		client := c.client
 		c.mu.RUnlock()
 
 		updates := make(map[setRequester]*SetBackupActivity)
 
 		for _, set := range keys {
-			ba, err := GetBackupActivity(c.client, set.set, set.requester)
+			ba, err := GetBackupActivity(client, set.set, set.requester)
 			if err != nil {
 				continue
 			}
@@ -509,14 +514,30 @@ func (c *Cache) runCache(ctx context.Context, d time.Duration) {
 	}
 }
 
+// UpdateClient replaces the store client with the given one, keeping the stored
+// cache.
+func (c *Cache) UpdateClient(client Client) {
+	c.mu.Lock()
+	c.client = client
+	c.mu.Unlock()
+}
+
 // Stop stops the concurrent retrieval of backup statuses.
 func (c *Cache) Stop() {
 	c.stop()
 }
 
+type reCache struct {
+	re *regexp.Regexp
+	*Cache
+}
+
 // MultiCache contains multiple ibackup caches that can be selected by path.
 type MultiCache struct {
-	caches map[*regexp.Regexp]*Cache
+	d time.Duration
+
+	mu     sync.RWMutex
+	caches map[string]reCache
 }
 
 // NewMultiCache creates a new MultiClient from the given MultiClient, calling
@@ -525,13 +546,13 @@ type MultiCache struct {
 // The Stop() method must be before replacing (or otherwise losing this pointer
 // to) this cache.
 func NewMultiCache(mc *MultiClient, d time.Duration) *MultiCache {
-	caches := make(map[*regexp.Regexp]*Cache, len(mc.clients))
+	caches := make(map[string]reCache, len(mc.clients))
 
 	for re, c := range mc.clients {
-		caches[re] = NewCache(c.client, d)
+		caches[re] = reCache{re: c.re, Cache: NewCache(c.client, d)}
 	}
 
-	return &MultiCache{caches: caches}
+	return &MultiCache{caches: caches, d: d}
 }
 
 // GetBackupActivity retrieves a cache using the given path, and then calls the
@@ -546,13 +567,40 @@ func (m *MultiCache) GetBackupActivity(path, setName, requester string) (*SetBac
 }
 
 func (m *MultiCache) getClient(path string) *Cache {
-	for re, c := range m.caches {
-		if re.MatchString(path) {
-			return c
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	for _, c := range m.caches {
+		if c.re.MatchString(path) {
+			return c.Cache
 		}
 	}
 
 	return nil
+}
+
+// Update replaces the existing MultiClient with the given one, keeping the
+// existing caches where possible.
+//
+// Afterwards, the Stop method on the original MultiClient should be called.
+func (m *MultiCache) Update(mc *MultiClient) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	for re, c := range mc.clients {
+		if exist, ok := m.caches[re]; ok {
+			exist.UpdateClient(c.client)
+		} else {
+			m.caches[re] = reCache{re: c.re, Cache: NewCache(c.client, m.d)}
+		}
+	}
+
+	for re, cache := range m.caches {
+		if _, ok := mc.clients[re]; !ok {
+			cache.Stop()
+			delete(m.caches, re)
+		}
+	}
 }
 
 // Stop stops the concurrent retrieval backup statuses for each client.
