@@ -85,10 +85,43 @@ export class BackupType extends Number {
                 return "Prefect URL";
         }
 
-        return "aaa";
+        return "";
+    }
+
+    metadataToolTip() {
+        switch (+this) {
+            case +BackupType.BackupManualIBackup:
+                return helpText.MetadataSetName;
+            case +BackupType.BackupManualGit:
+                return helpText.MetadataGit;
+            case +BackupType.BackupManualUnchecked:
+                return helpText.MetadataUnchecked;
+            case +BackupType.BackupManualPrefect:
+                return helpText.MetadataPrefect;
+        }
+
+        return "Error";
     }
 
     isManual() {
         return +this >= +BackupType.BackupManualIBackup;
     }
+
+}
+
+export const helpText = {
+    "Match": `The format that filenames should match for the instruction to apply.
+    Eg: *, *.txt`,
+    "Override": `If selected, this rule will apply to all matched files in all child 
+directories, regardless of their rules (unless their rules are more specific).`,
+    "BackupType": `The type of backup that will/has been completed to backup all matched files.`,
+    "MetadataSetName": `Provide the iBackup set name that you used to manually backup the matched files.`,
+    "MetadataGit": `Provide the URL to the Git repository where you backup the matched files.`,
+    "MetadataPrefect": `Provide a Prefect URL related to the matched files.`,
+    "MetadataUnchecked": `Provide any information that could help you manually check the backup status of the matched files.`,
+    "FOFN": `Add the same rule to multiple files in one go by providing a FOFN. Paths can be full or relative.
+`,
+    "Frequency": `How often all files in this directory, matched with an iBackup rule, will be backed up. Measured in days.`,
+    "Review": `Date at which a reminder will be issued to check if the plan is still up to date.`,
+    "Remove": `Date at which the backup data will be automatically removed.`
 }

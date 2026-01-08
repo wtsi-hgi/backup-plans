@@ -323,3 +323,26 @@ select:not(:has(option:checked[value="backup"])):not(:has(option:checked[value="
 .file-type[data-override] {
 	font-weight: bold;
 }
+
+#addEdit svg {
+	width: 0.9em;
+	height: 0.9em;
+	padding-right: 1em;
+}
+
+#addEdit {
+	overflow: unset;
+}
+
+.tooltip:hover::after {
+	content: attr(data-tooltip);
+	background-color: var(--background);
+	position: absolute;
+	border: 1px solid var(--subtleBorder);
+	display: block;
+	z-index: 100;
+	padding: 0.5em;
+	white-space: pre-wrap;
+	max-width: 90vw;
+	pointer-events: none;
+}

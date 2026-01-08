@@ -1,21 +1,27 @@
 import type { dirDetails, DirectoryWithChildren, Rule } from "./types.js"
 import { clearNode } from "./lib/dom.js";
-import { br, button, dialog, div, form, h2, h3, input, label, option, p, select, table, tbody, td, textarea, th, thead, tr } from './lib/html.js';
+import { br, button, dialog, div, form, h2, h3, input, label, option, p, select, table, tbody, td, textarea, th, thead, tr, span } from './lib/html.js';
 import { svg, title, use } from './lib/svg.js';
 import { action, confirm, formatBytes, secondsInDay, setAndReturn } from "./lib/utils.js";
 import { createRule, getTree, removeRule, setDirDetails, updateRule, uploadFOFN, setExists, user, getDirectories } from "./rpc.js";
-import { BackupType } from "./consts.js"
+import { BackupType, helpText } from "./consts.js"
 
 const createStuff = (backupType: BackupType, md: string, setText: string, closeFn: () => void) => {
 	const metadata = input({ "id": "metadata", "type": "text", "value": md }),
 		metadataLabel = label({ "for": "metadata", "id": "metadataLabel" }, backupType.metadataLabel()),
+		metadataHelpIcon = getHelpIcon(backupType.metadataToolTip()),
 		metadataInput = div({ "id": "metadataInput" }, [
 			metadataLabel,
+			metadataHelpIcon,
 			metadata,
 			br(),
 		]),
 		backupSelect = select({
-			"id": "backupType", "change": () => metadataLabel.textContent = BackupType.from(backupSelect.value).metadataLabel()
+			"id": "backupType", "change": () => {
+				const backupType = BackupType.from(backupSelect.value);
+				metadataLabel.textContent = backupType.metadataLabel();
+				metadataHelpIcon.setAttribute("data-tooltip", backupType.metadataToolTip());
+			}
 		},
 			BackupType.all.map(bt => option({ "value": bt.toString(), "selected": +backupType === +bt }, bt.optionLabel()))
 		);
@@ -25,9 +31,12 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 		button({ "value": "set" }, setText),
 		button({ "type": "button", "click": closeFn }, "Cancel"),
 		metadata,
-		metadataInput,
+		metadataInput
 	] as const;
 },
+	getHelpIcon = (str: string) => {
+		return span({ "class": "tooltip", "data-tooltip": str }, svg(use({ "href": "#helpIcon" })))
+	},
 	addEditOverlay = (path: string, rule: Rule, load: (path: string) => void) => {
 		const [backupType, set, cancel, metadata, metadataSection] = createStuff(rule.BackupType, rule.Metadata, rule.Match ? "Update" : "Add", () => overlay.close()),
 			match = input({ "id": "match", "type": "text", "value": rule.Match, "disabled": !!rule.Match }),
@@ -81,12 +90,12 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 						});
 				}
 			}, [
-				label({ "for": "match" }, "Match"), match, br(),
-				label({ "for": "override" }, "Override Child Rules"), override, br(),
-				label({ "for": "backupType" }, "Backup Type"), backupType, br(),
+				label({ "for": "match" }, "Match"), getHelpIcon(helpText.Match), match, br(),
+				label({ "for": "override" }, "Override Child Rules"), getHelpIcon(helpText.Override), override, br(),
+				label({ "for": "backupType" }, "Backup Type"), getHelpIcon(helpText.BackupType), backupType, br(),
 				metadataSection,
 				set,
-				cancel,
+				cancel
 			])));
 
 		overlay.showModal();
@@ -129,6 +138,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 			}, "Paste as plain text"),
 			matchFofnSection = div({ "id": "matchfofn" }, [
 				label({ "for": "fofn" }, "Add FOFN"),
+				getHelpIcon(helpText.FOFN),
 				fofnButton,
 				fofn,
 				" or ",
@@ -177,11 +187,11 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 				}
 			}, [
 				matchFofnSection,
-				label({ "for": "backupType" }, "Backup Type"), backupType, br(),
+				label({ "for": "backupType" }, "Backup Type"), getHelpIcon(helpText.BackupType), backupType, br(),
 				metadataSection,
 				fofnSection,
 				set,
-				cancel,
+				cancel
 			])));
 
 		overlay.showModal();
@@ -232,11 +242,11 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 						});
 				}
 			}, [
-				label({ "for": "frequency" }, "Frequency (days)"), frequency, br(),
-				label({ "for": "review" }, "Review Date"), review, br(),
-				label({ "for": "remove" }, "Remove Date"), remove, br(),
+				label({ "for": "frequency" }, "Frequency"), getHelpIcon(helpText.Frequency), frequency, br(),
+				label({ "for": "review" }, "Review Date"), getHelpIcon(helpText.Review), review, br(),
+				label({ "for": "remove" }, "Remove Date"), getHelpIcon(helpText.Remove), remove, br(),
 				set,
-				cancel,
+				cancel
 			])));
 
 		overlay.showModal();
