@@ -1,6 +1,7 @@
-import type { DirectoryWithChildren, UserGroups } from './types.js';
+import type { DirectoryWithChildren } from './types.js';
 import { br, button, datalist, details, div, input, option, select, summary } from './lib/html.js';
 import { stringSort } from './lib/utils.js';
+import { userGroups } from './userGroups.js';
 
 const userOpts: HTMLOptionElement[] = [],
 	groupOpts: HTMLOptionElement[] = [],
@@ -28,7 +29,6 @@ const userOpts: HTMLOptionElement[] = [],
 		}
 	}),
 	userList = datalist({ "id": "userList" }),
-	groupList = datalist({ "id": "groupList" }),
 	getValues = (select: HTMLSelectElement) => Array.from(select.options).filter(opt => opt.selected).map(opt => opt.innerText),
 	setFilter = (type: string, select: HTMLSelectElement) => {
 		const names = getValues(select);
@@ -68,7 +68,6 @@ const userOpts: HTMLOptionElement[] = [],
 				div([
 					groupFilter,
 					groupSelect,
-					groupList,
 					br(),
 					button({ "click": () => clearFilter(groupFilter, groupSelect, groupOpts) }, "Clear"),
 					button({ "click": () => setFilter("groups", groupSelect) }, "Filter")
@@ -88,9 +87,9 @@ export default Object.assign(base, {
 	"update": (path: string, _: DirectoryWithChildren, load: (path: string) => void) => {
 		loadFiltered = () => load(path);
 	},
-	"init": (data: UserGroups) => {
-		const users = data.Users.filter(u => u.trim()),
-			groups = data.Groups.filter(g => g.trim());
+	"init": () => {
+		const users = userGroups.Users.filter(u => u.trim()),
+			groups = userGroups.Groups.filter(g => g.trim());
 
 		users.sort(stringSort);
 		groups.sort(stringSort);
@@ -101,19 +100,5 @@ export default Object.assign(base, {
 		userSelect.append(...userOpts);
 		userList.append(...users.map(u => option({ "data-filter": JSON.stringify([u]), "label": "User: " + u }, u)));
 		groupSelect.append(...groupOpts);
-
-		for (const [bom, groups] of Object.entries(data.BOM ?? {})) {
-			boms.set(bom, groups);
-
-			groupList.append(option({ "label": "BOM: " + bom }, bom));
-		}
-
-		for (const [owner, groups] of Object.entries(data.Owners ?? {})) {
-			owners.set(owner, groups);
-
-			groupList.append(option({ "label": "Owner: " + owner }, owner));
-		}
-
-		groupList.append(...groups.map(g => option({ "label": "Group: " + g }, g)));
 	}
 });

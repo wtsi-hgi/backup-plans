@@ -103,7 +103,8 @@ export default (path: string) => getTree(path)
 			"BackupType": BackupType.BackupWarn,
 			"Metadata": "",
 			"Match": "*",
-			"dir": ""
+			"dir": "",
+			"Override": false
 		};
 
 		for (const [name, child] of Object.entries(data.Children)) {
