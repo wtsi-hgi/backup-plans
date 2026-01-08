@@ -595,8 +595,9 @@ func (m *MultiCache) Update(mc *MultiClient) {
 		}
 	}
 
-	for re := range m.caches {
+	for re, cache := range m.caches {
 		if _, ok := mc.clients[re]; !ok {
+			cache.Stop()
 			delete(m.caches, re)
 		}
 	}

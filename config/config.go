@@ -1,3 +1,28 @@
+/*******************************************************************************
+ * Copyright (c) 2025 Genome Research Ltd.
+ *
+ * Author: Michael Woolnough <mw31@sanger.ac.uk>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included
+ * in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ ******************************************************************************/
+
 package config
 
 import (
@@ -27,6 +52,13 @@ type yamlConfig struct {
 	ReloadTime           uint64
 }
 
+// Config represents a parsed configuration file which can be automatically
+// updated on a timeout.
+//
+// The returned values from the Get* methods are not guaranteed to be constant
+// over time and should therefore not be stored.
+//
+// The returned map and slice values should not be mutated.
 type Config struct {
 	path string
 
@@ -38,7 +70,7 @@ type Config struct {
 	yamlConfig          yamlConfig
 }
 
-// ParseConfig parses the Yaml file at the given path to get server config.
+// Parse parses the Yaml file at the given path to get server config.
 //
 // If the ReloadTime setting is non-zero, the config will be reloaded after
 // waiting that many seconds. Reloading the config will rebuild all structures,
@@ -80,7 +112,7 @@ type Config struct {
 // BOM:
 //
 //	GroupName,BOMName
-func ParseConfig(path string) (*Config, error) {
+func Parse(path string) (*Config, error) {
 	c := &Config{path: path}
 
 	if err := c.loadConfig(); err != nil {
@@ -131,15 +163,15 @@ func (c *Config) scheduleReload() {
 func (c *Config) reload() {
 	time.Sleep(time.Second * time.Duration(c.yamlConfig.ReloadTime)) //nolint:gosec
 
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if err := c.loadConfig(); err != nil {
 		slog.Warn("error reloading config", "errs", err)
 	}
 }
 
 func (c *Config) loadIBackup() error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
 	mc, err := ibackup.New(c.yamlConfig.IBackup)
 	if err != nil {
 		if !ibackup.IsOnlyConnectionErrors(err) {
@@ -165,9 +197,6 @@ func (c *Config) loadIBackup() error {
 }
 
 func (c *Config) loadBOMs() error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
 	if c.yamlConfig.BOMFile == "" {
 		return nil
 	}
@@ -211,9 +240,6 @@ func parseBOM(r io.Reader) (map[string][]string, error) {
 }
 
 func (c *Config) loadOwners() error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
 	if c.yamlConfig.OwnersFile == "" {
 		return nil
 	}

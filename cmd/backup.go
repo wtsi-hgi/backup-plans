@@ -65,8 +65,6 @@ to maintain password security.
 --config should be the location of a Yaml config file, which should have the
 following structure:
 
-The following is the config structure:
-
 ibackup:
   servers:
     "serverName1":
@@ -74,7 +72,7 @@ ibackup:
       cert: /path/to/cert/pem
       username: admin1
       token: /path/to/token
-	"serverName1":
+    "serverName2":
       addr: ibackup02.server:1234
       cert: /path/to/cert2/pem
       username: admin2
@@ -102,7 +100,7 @@ regexp.
 		return checkEnvVarFlags(cmd, envMap)
 	},
 	RunE: func(_ *cobra.Command, _ []string) error {
-		config, err := config.ParseConfig(configPath)
+		config, err := config.Parse(configPath)
 		if err != nil {
 			return fmt.Errorf("failed to process config file: %w", err)
 		}

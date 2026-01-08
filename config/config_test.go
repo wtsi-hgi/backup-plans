@@ -98,7 +98,7 @@ func TestConfig(t *testing.T) {
 		So(os.WriteFile(y.BOMFile, []byte("group1,bomA\ngroup2,bomB\ngroup3,bomB"), 0600), ShouldBeNil)
 
 		Convey("You can parse the file into a Config type", func() {
-			config, err := ParseConfig(cfgFile)
+			config, err := Parse(cfgFile)
 			So(err, ShouldBeNil)
 
 			So(config.GetOwners(), ShouldResemble, map[string][]string{
@@ -112,7 +112,7 @@ func TestConfig(t *testing.T) {
 			So(config.GetReportingRoots(), ShouldResemble, y.ReportingRoots)
 			So(config.GetAdminGroup(), ShouldEqual, y.AdminGroup)
 
-			Convey("", func() {
+			Convey("You can use and query the ibackup clients", func() {
 				u, err := user.Current()
 				So(err, ShouldBeNil)
 

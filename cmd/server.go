@@ -67,8 +67,6 @@ to maintain password security.
 --config should be the location of a Yaml config file, which should have the
 following structure:
 
-The following is the config structure:
-
 ibackup:
   servers:
     "serverName1":
@@ -76,7 +74,7 @@ ibackup:
       cert: /path/to/cert/pem
       username: admin1
       token: /path/to/token
-	"serverName1":
+    "serverName2":
       addr: ibackup02.server:1234
       cert: /path/to/cert2/pem
       username: admin2
@@ -89,7 +87,7 @@ ibackup:
       servername: serverName2
       transformer: prefix=/some/:/remote/
 ibackupcacheduration: 3600
-bomfile: /path/to//bom.areas
+bomfile: /path/to/bom.areas
 ownersfile: /path/to/owners
 admingroup: 15770
 reloadtime: 3600
@@ -121,7 +119,7 @@ BOM:
 
 The AdminGroup is used to specify an admin group id to allow users of that group
 visibility permissions within the DiskTree.
-				
+
 If the ReloadTime setting is non-zero, the config will be reloaded after
 waiting that many seconds. Reloading the config will rebuild all structures,
 while keeping any caches intact.
@@ -136,7 +134,7 @@ The ReportingRoots is a list of paths that will appear on the Top Level Report.
 		return checkEnvVarFlags(cmd, envMap)
 	},
 	RunE: func(_ *cobra.Command, args []string) error {
-		config, err := config.ParseConfig(configPath)
+		config, err := config.Parse(configPath)
 		if err != nil {
 			return fmt.Errorf("failed to process config file: %w", err)
 		}
