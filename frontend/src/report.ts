@@ -334,12 +334,19 @@ getReportSummary()
 
 
 		const programmeCounts = new Map<string, Map<number, number[]>>();
+		const unknownGroups = new Map<string, number[]>();
 
 		for (const [group, typeCounts] of Object.entries(data.Counts)) {
 			const bom = boms.get(group) ?? "Unknown";
 
 			if (!programmeCounts.has(bom)) {
 				programmeCounts.set(bom, new Map<number, number[]>());
+			}
+
+			if (bom === "Unknown" || bom === "unknown") {
+				if (!unknownGroups.has(group)) {
+					unknownGroups.set(group, [0, 0]);
+				}
 			}
 
 			for (const [type, sizeCounts] of Object.entries(typeCounts)) {
@@ -354,7 +361,18 @@ getReportSummary()
 				const sizecount = counts.get(backupType)!;
 				sizecount[0] += sizeCounts[0];
 				sizecount[1] += sizeCounts[1];
+
+				if (bom === "Unknown" || bom === "unknown") {
+					const unknownCount = unknownGroups.get(group)!;
+					unknownCount[0] += sizeCounts[0];
+					unknownCount[1] += sizeCounts[1];
+				}
 			}
+		}
+
+		console.log("Groups with unknown Programme:");
+		for (const [group, counts] of unknownGroups.entries()) {
+			console.log(`  ${group}: ${counts[0].toLocaleString()} files, ${formatBytes(BigInt(counts[1]))}`);
 		}
 
 		const rows = Array.from(programmeCounts.entries()).map(([bom, counts]) => {
