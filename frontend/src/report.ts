@@ -325,44 +325,56 @@ getReportSummary()
 			parents.push(dirSummary);
 		}
 
-		const rows = Object.entries(data.Counts).map(([group, counts]) => {
+
+		const programmeCounts = new Map<string, Map<number, number[]>>();
+
+		for (const [group, typeCounts] of Object.entries(data.Counts)) {
+			const bom = boms.get(group) ?? "Unknown";
+
+			if (!programmeCounts.has(bom)) {
+				programmeCounts.set(bom, new Map<number, number[]>());
+			}
+
+			for (const [type, sizeCounts] of Object.entries(typeCounts)) {
+				const backupType = Number(type);
+
+				const counts = programmeCounts.get(bom)!;
+
+				if (!counts.has(backupType)) {
+					counts.set(backupType, [0, 0]);
+				}
+
+				const sizecount = counts.get(backupType)!;
+				sizecount[0] += sizeCounts[0];
+				sizecount[1] += sizeCounts[1];
+			}
+		}
+
+		const rows = Object.entries(programmeCounts).map(([group, counts]) => {
 			return tr([
 				th(group),
 				td(counts[-1]?.[0].toLocaleString() ?? "0"),
+				td({ "title": counts[-1]?.[1].toLocaleString() ?? "0" }, formatBytes(BigInt(counts[-1]?.[1] ?? 0n))),
 				td(counts[0]?.[0].toLocaleString() ?? "0"),
+				td({ "title": counts[0]?.[1].toLocaleString() ?? "0" }, formatBytes(BigInt(counts[0]?.[1] ?? 0n))),
 				td(counts[1]?.[0].toLocaleString() ?? "0"),
-				td(counts[2]?.[0].toLocaleString() ?? "0")
+				td({ "title": counts[1]?.[1].toLocaleString() ?? "0" }, formatBytes(BigInt(counts[1]?.[1] ?? 0n))),
+				td(counts[2]?.[0].toLocaleString() ?? "0"),
+				td({ "title": counts[2]?.[1].toLocaleString() ?? "0" }, formatBytes(BigInt(counts[2]?.[1] ?? 0n)))
 			]);
 		});
 
 		children[0] = table({ "class": "summary" }, [
 			thead(tr([
 				td(),
-				th("Unplanned"),
-				th("No Backup"),
-				th("Backup"),
-				th("Manual Backup")
+				th({ "colspan": "2" }, "Unplanned"),
+				th({ "colspan": "2" }, "No Backup"),
+				th({ "colspan": "2" }, "Backup"),
+				th({ "colspan": "2" }, "Manual Backup")
 			])),
 			tbody(rows),
 		]);
 
-		// table({ "class": "summary" }, [
-		// 	thead(tr([
-		// 		td(),
-		// 		th("Unplanned"),
-		// 		th("No Backup"),
-		// 		th("Backup"),
-		// 		th("Manual Backup")
-		// 	])),
-		// 	tbody([
-		// 		tr([
-		// 			th(group),
-		// 			td(data.Counts[group][-1][0].toLocaleString() ?? "0"),
-		// 			td(data.Counts[group][0][0].toLocaleString() ?? "0"),
-		// 			td(data.Counts[group][1][0].toLocaleString() ?? "0"),
-		// 			td(data.Counts[group][2][0].toLocaleString() ?? "0")
-		// 		]),
-		// 	])]);
 		children[1] = fieldset([
 			legend("Filter"),
 			filterProject,
