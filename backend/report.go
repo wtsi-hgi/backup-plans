@@ -53,6 +53,7 @@ func (s *Server) addTotals(i int64, group ruletree.Stats, summary summary) summa
 	counts[0] += group.Files
 	counts[1] += group.Size
 	summary.Counts[i] = counts
+
 	return summary
 }
 
@@ -87,15 +88,18 @@ func (s *Server) summary(w http.ResponseWriter, _ *http.Request) error { //nolin
 		for _, group := range summary.Groups {
 			if summary.ID == 0 { // summary.ID == 0 for unplanned data
 				dirSummary = s.addTotals(-1, group, dirSummary)
-			} else {
-				backupType := s.rules[summary.ID].BackupType
-				if db.IsManual(backupType) {
-					dirSummary = s.addTotals(int64(2), group, dirSummary)
-				} else {
-					dirSummary = s.addTotals(int64(backupType), group, dirSummary)
-				}
 
+				continue
 			}
+
+			backupType := s.rules[summary.ID].BackupType
+			if db.IsManual(backupType) {
+				dirSummary = s.addTotals(int64(2), group, dirSummary) //nolint:mnd
+
+				continue
+			}
+
+			dirSummary = s.addTotals(int64(backupType), group, dirSummary)
 		}
 	}
 
