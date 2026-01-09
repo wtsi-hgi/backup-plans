@@ -325,31 +325,44 @@ getReportSummary()
 			parents.push(dirSummary);
 		}
 
-		children[0] =
-			table({ "class": "summary" }, [
-				thead(tr([
-					td(),
-					th("Unplanned"),
-					th("No Backup"),
-					th("Backup"),
-					th("Manual Backup")
-				])),
-				tbody([
-					tr([
-						th("File count"),
-						td(data.Counts[-1][0].toLocaleString() ?? "0"),
-						td(data.Counts[0][0].toLocaleString() ?? "0"),
-						td(data.Counts[1][0].toLocaleString() ?? "0"),
-						td(data.Counts[2][0].toLocaleString() ?? "0")
-					]),
-					tr([
-						th("File size"),
-						td({ "title": (data.Counts[-1][1] ?? 0).toLocaleString() }, formatBytes(BigInt(data.Counts[-1][1]) ?? 0)),
-						td({ "title": (data.Counts[0][1] ?? 0).toLocaleString() }, formatBytes(BigInt(data.Counts[0][1]) ?? 0)),
-						td({ "title": (data.Counts[1][1] ?? 0).toLocaleString() }, formatBytes(BigInt(data.Counts[1][1]) ?? 0)),
-						td({ "title": (data.Counts[2][1] ?? 0).toLocaleString() }, formatBytes(BigInt(data.Counts[2][1]) ?? 0))
-					])
-				])]);
+		const rows = Object.entries(data.Counts).map(([group, counts]) => {
+			return tr([
+				th(group),
+				td(counts[-1]?.[0].toLocaleString() ?? "0"),
+				td(counts[0]?.[0].toLocaleString() ?? "0"),
+				td(counts[1]?.[0].toLocaleString() ?? "0"),
+				td(counts[2]?.[0].toLocaleString() ?? "0")
+			]);
+		});
+
+		children[0] = table({ "class": "summary" }, [
+			thead(tr([
+				td(),
+				th("Unplanned"),
+				th("No Backup"),
+				th("Backup"),
+				th("Manual Backup")
+			])),
+			tbody(rows),
+		]);
+
+		// table({ "class": "summary" }, [
+		// 	thead(tr([
+		// 		td(),
+		// 		th("Unplanned"),
+		// 		th("No Backup"),
+		// 		th("Backup"),
+		// 		th("Manual Backup")
+		// 	])),
+		// 	tbody([
+		// 		tr([
+		// 			th(group),
+		// 			td(data.Counts[group][-1][0].toLocaleString() ?? "0"),
+		// 			td(data.Counts[group][0][0].toLocaleString() ?? "0"),
+		// 			td(data.Counts[group][1][0].toLocaleString() ?? "0"),
+		// 			td(data.Counts[group][2][0].toLocaleString() ?? "0")
+		// 		]),
+		// 	])]);
 		children[1] = fieldset([
 			legend("Filter"),
 			filterProject,

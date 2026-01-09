@@ -45,14 +45,18 @@ type summary struct {
 	Rules        map[uint64]*db.Rule
 	Directories  map[string][]uint64
 	BackupStatus map[string]*ibackup.SetBackupActivity
-	Counts       map[int64][2]uint64
+	Counts       map[string]map[int64][2]uint64
 }
 
 func (s *Server) addTotals(i int64, group ruletree.Stats, summary summary) summary {
-	counts := summary.Counts[i]
+	if _, ok := summary.Counts[group.Name]; !ok {
+		summary.Counts[group.Name] = make(map[int64][2]uint64)
+	}
+
+	counts := summary.Counts[group.Name][i]
 	counts[0] += group.Files
 	counts[1] += group.Size
-	summary.Counts[i] = counts
+	summary.Counts[group.Name][i] = counts
 
 	return summary
 }
@@ -71,7 +75,7 @@ func (s *Server) summary(w http.ResponseWriter, _ *http.Request) error { //nolin
 		Rules:        make(map[uint64]*db.Rule),
 		Directories:  make(map[string][]uint64),
 		BackupStatus: make(map[string]*ibackup.SetBackupActivity),
-		Counts:       make(map[int64][2]uint64), // Unplanned/BackupType -> [size,count]
+		Counts:       make(map[string]map[int64][2]uint64), // Group -> Unplanned/BackupType -> [size,count]
 	}
 
 	dirClaims := make(map[string]string)
