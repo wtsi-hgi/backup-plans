@@ -325,7 +325,31 @@ getReportSummary()
 			parents.push(dirSummary);
 		}
 
-		children[0] = overall.table();
+		children[0] =
+			table({ "class": "summary" }, [
+				thead(tr([
+					td(),
+					th("Unplanned"),
+					th("No Backup"),
+					th("Backup"),
+					th("Manual Backup")
+				])),
+				tbody([
+					tr([
+						th("File count"),
+						td(data.Counts[-1][0].toLocaleString() ?? "0"),
+						td(data.Counts[0][0].toLocaleString() ?? "0"),
+						td(data.Counts[1][0].toLocaleString() ?? "0"),
+						td(data.Counts[2][0].toLocaleString() ?? "0")
+					]),
+					tr([
+						th("File size"),
+						td({ "title": (data.Counts[-1][1] ?? 0).toLocaleString() }, formatBytes(BigInt(data.Counts[-1][1]) ?? 0)),
+						td({ "title": (data.Counts[0][1] ?? 0).toLocaleString() }, formatBytes(BigInt(data.Counts[0][1]) ?? 0)),
+						td({ "title": (data.Counts[1][1] ?? 0).toLocaleString() }, formatBytes(BigInt(data.Counts[1][1]) ?? 0)),
+						td({ "title": (data.Counts[2][1] ?? 0).toLocaleString() }, formatBytes(BigInt(data.Counts[2][1]) ?? 0))
+					])
+				])]);
 		children[1] = fieldset([
 			legend("Filter"),
 			filterProject,
@@ -367,8 +391,6 @@ getReportSummary()
 		initFilterSort(base, children.slice(3) as HTMLFieldSetElement[], [filterProject, filterAll, filterR, filterA, filterG, filterB, sortName, sortWarnSize, sortNoBackupSize, sortBackupSize]);
 		amendNode(base, children);
 	});
-
-
 
 export default Object.assign(base, {
 	"init": (loadFn: (path: string) => Promise<DirectoryWithChildren>) => {

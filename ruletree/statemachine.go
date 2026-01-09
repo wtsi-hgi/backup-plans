@@ -465,7 +465,7 @@ func addComplexChildRules(rules Rules, path string, ruleState ruleState, //nolin
 		rules = addRuleToList(rules, path+"*/", -wildcard)
 	}
 
-	todo := map[string]int64{}
+	todo := map[string]int64{} // NOTE: Should this be renamed
 
 	for match, r := range rs {
 		if pos := strings.IndexByte(match, '*'); pos > 0 { //nolint:nestif

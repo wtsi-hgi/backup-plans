@@ -45,6 +45,15 @@ type summary struct {
 	Rules        map[uint64]*db.Rule
 	Directories  map[string][]uint64
 	BackupStatus map[string]*ibackup.SetBackupActivity
+	Counts       map[int64][2]uint64
+}
+
+func (s *Server) addTotals(i int64, group ruletree.Stats, summary summary) summary {
+	counts := summary.Counts[i]
+	counts[0] += group.Files
+	counts[1] += group.Size
+	summary.Counts[i] = counts
+	return summary
 }
 
 // Summary is an HTTP endpoint that produces a backup summary of all the
@@ -61,11 +70,34 @@ func (s *Server) summary(w http.ResponseWriter, _ *http.Request) error { //nolin
 		Rules:        make(map[uint64]*db.Rule),
 		Directories:  make(map[string][]uint64),
 		BackupStatus: make(map[string]*ibackup.SetBackupActivity),
+		Counts:       make(map[int64][2]uint64), // Unplanned/BackupType -> [size,count]
 	}
 
 	dirClaims := make(map[string]string)
 
 	s.rulesMu.RLock()
+
+	// Collect totals for all dirs
+	ds, err := s.rootDir.Summary("/")
+	if err != nil {
+		return err
+	}
+
+	for _, summary := range ds.RuleSummaries {
+		for _, group := range summary.Groups {
+			if summary.ID == 0 { // summary.ID == 0 for unplanned data
+				dirSummary = s.addTotals(-1, group, dirSummary)
+			} else {
+				backupType := s.rules[summary.ID].BackupType
+				if db.IsManual(backupType) {
+					dirSummary = s.addTotals(int64(2), group, dirSummary)
+				} else {
+					dirSummary = s.addTotals(int64(backupType), group, dirSummary)
+				}
+
+			}
+		}
+	}
 
 	for _, root := range rr {
 		ds, err := s.rootDir.Summary(root)
