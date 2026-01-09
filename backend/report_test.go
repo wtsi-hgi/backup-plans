@@ -237,12 +237,19 @@ func TestReport(t *testing.T) {
 							Requester: "userB",
 						},
 					},
-					// Counts: map[int64][2]uint64{
-					// 	-1: {4, 32}, // Unplanned
-					// 	0:  {3, 23}, // NoBackup
-					// 	1:  {5, 44}, // IBackup
-					// 	2:  {3, 21}, // Manual
-					// },
+					Counts: map[string]map[int64][2]uint64{
+						"bin": {
+							-1: {1, 8},
+							0:  {1, 8},
+							1:  {1, 8},
+						},
+						"daemon": {
+							-1: {3, 24},
+							0:  {2, 15},
+							1:  {4, 36},
+							2:  {3, 21},
+						},
+					},
 				}
 
 				slices.Sort(gotSummary.Directories["/lustre/scratch123/humgen/a/b/"])

@@ -105,8 +105,11 @@ table.summary thead th:not(:first-of-type) {
 	border-top-left-radius: 0.5em;
 }
 
-table.summary tbody tr:last-child th:first-child {
+table.summary tbody tr:not(:first-child) th:first-child {
 	border-top: 0;
+}
+
+table.summary tbody tr:last-child th:first-child {
 	border-bottom-left-radius: 0.5em;
 }
 
