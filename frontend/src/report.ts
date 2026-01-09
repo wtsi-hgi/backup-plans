@@ -275,6 +275,13 @@ let now = 0,
 	load: (path: string) => Promise<DirectoryWithChildren>,
 	summaryData: ReportSummary;
 
+function renderCell(counts: Map<number, number[]>, type: number) {
+	return [
+		td(counts.get(type)?.[0].toLocaleString() ?? "0"),
+		td({ "title": counts.get(type)?.[1].toLocaleString() ?? "0" }, formatBytes(BigInt(counts.get(type)?.[1] ?? 0n)))
+	];
+};
+
 getReportSummary()
 	.then(data => {
 		userGroups
@@ -350,17 +357,10 @@ getReportSummary()
 			}
 		}
 
-		const rows = Object.entries(programmeCounts).map(([group, counts]) => {
+		const rows = Array.from(programmeCounts.entries()).map(([bom, counts]) => {
 			return tr([
-				th(group),
-				td(counts[-1]?.[0].toLocaleString() ?? "0"),
-				td({ "title": counts[-1]?.[1].toLocaleString() ?? "0" }, formatBytes(BigInt(counts[-1]?.[1] ?? 0n))),
-				td(counts[0]?.[0].toLocaleString() ?? "0"),
-				td({ "title": counts[0]?.[1].toLocaleString() ?? "0" }, formatBytes(BigInt(counts[0]?.[1] ?? 0n))),
-				td(counts[1]?.[0].toLocaleString() ?? "0"),
-				td({ "title": counts[1]?.[1].toLocaleString() ?? "0" }, formatBytes(BigInt(counts[1]?.[1] ?? 0n))),
-				td(counts[2]?.[0].toLocaleString() ?? "0"),
-				td({ "title": counts[2]?.[1].toLocaleString() ?? "0" }, formatBytes(BigInt(counts[2]?.[1] ?? 0n)))
+				th(bom),
+				...[-1, 0, 1, 2].flatMap(t => renderCell(counts, t))
 			]);
 		});
 
