@@ -336,7 +336,7 @@ getReportSummary()
 		const programmeCounts = new Map<string, Map<number, number[]>>(); // Programme -> BackupType -> [count, size]
 
 		for (const [group, typeCounts] of Object.entries(data.Counts)) {
-			const bom = boms.get(group) ?? "Unknown";
+			const bom = boms.get(group) ?? (boms.get(group) == "unknown" ? "Unknown" : "Unknown");
 
 			if (!programmeCounts.has(bom)) {
 				programmeCounts.set(bom, new Map<number, number[]>());
