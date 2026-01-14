@@ -105,6 +105,16 @@ table.summary {
 	background-color: var(--subtleBG);
 }
 
+.summary-container .summary tbody tr.table-expand-toggle>td {
+	padding: 0;
+}
+
+.summary-container .summary tbody tr.table-expand-toggle button {
+	padding: 0px;
+	width: 100%;
+	height: 100%;
+}
+
 .summary th {
 	padding: 1rem 1em;
 	background-color: #44aaf7;
