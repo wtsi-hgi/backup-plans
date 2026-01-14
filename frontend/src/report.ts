@@ -1,7 +1,7 @@
 import type { BackupStatus, ClaimedDir, DirectoryWithChildren, ReportSummary, Rule, SizeCount, SizeCountTime, Stats } from "./types.js";
 import type { Children } from "./lib/dom.js";
 import { amendNode } from "./lib/dom.js";
-import { a, br, button, datalist, details, div, fieldset, h1, h2, input, label, legend, li, option, summary, table, tbody, td, th, thead, tr, ul } from "./lib/html.js";
+import { a, br, button, datalist, details, div, fieldset, h1, h2, input, label, legend, li, option, p, summary, table, tbody, td, th, thead, tr, ul } from "./lib/html.js";
 import { svg, title, use } from "./lib/svg.js";
 import { action, formatBytes, longAgo, secondsInWeek, setAndReturn, stringSort } from "./lib/utils.js";
 import { getReportSummary } from "./rpc.js";
@@ -333,20 +333,13 @@ getReportSummary()
 		}
 
 
-		const programmeCounts = new Map<string, Map<number, number[]>>();
-		const unknownGroups = new Map<string, number[]>();
+		const programmeCounts = new Map<string, Map<number, number[]>>(); // Programme -> BackupType -> [count, size]
 
 		for (const [group, typeCounts] of Object.entries(data.Counts)) {
 			const bom = boms.get(group) ?? "Unknown";
 
 			if (!programmeCounts.has(bom)) {
 				programmeCounts.set(bom, new Map<number, number[]>());
-			}
-
-			if (bom === "Unknown" || bom === "unknown") {
-				if (!unknownGroups.has(group)) {
-					unknownGroups.set(group, [0, 0]);
-				}
 			}
 
 			for (const [type, sizeCounts] of Object.entries(typeCounts)) {
@@ -361,37 +354,40 @@ getReportSummary()
 				const sizecount = counts.get(backupType)!;
 				sizecount[0] += sizeCounts[0];
 				sizecount[1] += sizeCounts[1];
-
-				if (bom === "Unknown" || bom === "unknown") {
-					const unknownCount = unknownGroups.get(group)!;
-					unknownCount[0] += sizeCounts[0];
-					unknownCount[1] += sizeCounts[1];
-				}
 			}
 		}
 
-		console.log("Groups with unknown Programme:");
-		for (const [group, counts] of unknownGroups.entries()) {
-			console.log(`  ${group}: ${counts[0].toLocaleString()} files, ${formatBytes(BigInt(counts[1]))}`);
-		}
-
 		const rows = Array.from(programmeCounts.entries()).map(([bom, counts]) => {
-			return tr([
-				th(bom),
-				...[-1, 0, 1, 2].flatMap(t => renderCell(counts, t))
-			]);
+			return [
+				tr([
+					th(bom),
+					...[-1, 0, 1, 2].flatMap(t => renderCell(counts, t))
+				])
+			];
 		});
 
-		children[0] = table({ "class": "summary" }, [
-			thead(tr([
-				td(),
-				th({ "colspan": "2" }, "Unplanned"),
-				th({ "colspan": "2" }, "No Backup"),
-				th({ "colspan": "2" }, "Backup"),
-				th({ "colspan": "2" }, "Manual Backup")
-			])),
-			tbody(rows),
-		]);
+		children[0] =
+			div({ "class": "summary-container" },
+				table({ "class": "summary unexpanded" }, [
+					thead(tr([
+						td(),
+						th({ "colspan": "2" }, "Unplanned"),
+						th({ "colspan": "2" }, "No Backup"),
+						th({ "colspan": "2" }, "Backup"),
+						th({ "colspan": "2" }, "Manual Backup")
+					])),
+					tbody([rows,
+						tr({ "class": "table-expand-toggle" },
+							td({ "colspan": "9" }, button({
+								"style": "width: 100%;", "click": function (this: HTMLButtonElement) {
+									if (this.parentElement?.parentElement?.parentElement?.parentElement?.classList.toggle("unexpanded")) {
+										this.textContent = "Expand All";
+									} else {
+										this.textContent = "Collapse All";
+									};
+								}
+							}, "Expand All")))])
+				]));
 
 		children[1] = fieldset([
 			legend("Filter"),
@@ -411,21 +407,33 @@ getReportSummary()
 			label({ "for": "sortBackupSize" }, "Backup Size"), sortBackupSize
 		]);
 
-		(children[0].firstChild?.firstChild?.firstChild as HTMLElement)?.append(
+		(children[0].firstChild?.firstChild?.firstChild?.firstChild as HTMLElement)?.append(
 			button({ "click": download }, "Download Report"),
 			button({
 				"click": () => {
-					const ods = ODS(parents.map(s => ({
-						"Programme": boms.get(s.group) ?? "",
-						"Faculty": owners.get(s.group) ?? "",
-						"Path": s.path,
-						"Group": s.group,
-						"Status": s.status(),
-						"Unplanned": s.actions[+BackupType.BackupWarn]?.size ?? 0n,
-						"NoBackup": s.actions[+BackupType.BackupNone]?.size ?? 0n,
-						"Backup": s.actions[+BackupType.BackupIBackup]?.size ?? 0n,
-						"ManualBackup": getManualSize(s)
-					})));
+					const ods = ODS(
+						parents.map(s => ({
+							"Programme": boms.get(s.group) ?? "",
+							"Faculty": owners.get(s.group) ?? "",
+							"Path": s.path,
+							"Group": s.group,
+							"Status": s.status(),
+							"Unplanned": s.actions[+BackupType.BackupWarn]?.size ?? 0n,
+							"NoBackup": s.actions[+BackupType.BackupNone]?.size ?? 0n,
+							"Backup": s.actions[+BackupType.BackupIBackup]?.size ?? 0n,
+							"ManualBackup": getManualSize(s)
+						})),
+						Array.from(programmeCounts.entries()).map(([bom, counts]) => ({
+							"Programme": bom,
+							"UnplannedC": BigInt(counts.get(-1)?.[0] ?? 0n),
+							"UnplannedS": BigInt(counts.get(-1)?.[1] ?? 0n),
+							"NoBackupC": BigInt(counts.get(0)?.[0] ?? 0n),
+							"NoBackupS": BigInt(counts.get(0)?.[1] ?? 0n),
+							"BackupC": BigInt(counts.get(1)?.[0] ?? 0n),
+							"BackupS": BigInt(counts.get(1)?.[1] ?? 0n),
+							"ManualC": BigInt(counts.get(2)?.[0] ?? 0n),
+							"ManualS": BigInt(counts.get(2)?.[1] ?? 0n)
+						})));
 
 					a({ "href": URL.createObjectURL(new Blob([ods], { "type": "text/csv;charset=utf-8" })), "download": `backup-report-${new Date(now).toISOString()}.ods` }).click();
 				}

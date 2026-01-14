@@ -91,6 +91,20 @@ table.summary {
 	min-width: 90vw;
 }
 
+.summary-container {
+	overflow: hidden;
+	overflow-y: auto;
+}
+
+.summary-container .unexpanded tr:nth-child(n+5) {
+	display: none;
+}
+
+.summary-container .summary tbody tr:last-child {
+	display: table-row;
+	background-color: var(--subtleBG);
+}
+
 .summary th {
 	padding: 1rem 1em;
 	background-color: #44aaf7;
