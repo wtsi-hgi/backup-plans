@@ -48,6 +48,11 @@ type summary struct {
 	Counts       map[string]map[int64][2]uint64
 }
 
+const (
+	UNPLANNED = -1
+	MANUAL    = 2
+)
+
 func (s *Server) addTotals(i int64, group ruletree.Stats, summary summary) summary {
 	if _, ok := summary.Counts[group.Name]; !ok {
 		summary.Counts[group.Name] = make(map[int64][2]uint64)
@@ -90,18 +95,21 @@ func (s *Server) summary(w http.ResponseWriter, _ *http.Request) error { //nolin
 
 	for _, summary := range ds.RuleSummaries {
 		for _, group := range summary.Groups {
-			var i int64
+			var bType int64
 
-			switch {
-			case summary.ID == 0:
-				i = -1
-			case db.IsManual(s.rules[summary.ID].BackupType):
-				i = int64(2) //nolint:mnd
-			default:
-				i = int64(s.rules[summary.ID].BackupType)
+			if summary.ID == 0 {
+				bType = UNPLANNED
+			} else {
+				backupType := s.rules[summary.ID].BackupType
+				switch backupType {
+				case db.BackupNone, db.BackupIBackup:
+					bType = int64(backupType)
+				case db.BackupManualGit, db.BackupManualIBackup, db.BackupManualPrefect, db.BackupManualUnchecked:
+					bType = MANUAL
+				}
 			}
 
-			dirSummary = s.addTotals(i, group, dirSummary)
+			dirSummary = s.addTotals(bType, group, dirSummary)
 		}
 	}
 
