@@ -90,20 +90,18 @@ func (s *Server) summary(w http.ResponseWriter, _ *http.Request) error { //nolin
 
 	for _, summary := range ds.RuleSummaries {
 		for _, group := range summary.Groups {
-			if summary.ID == 0 { // summary.ID == 0 for unplanned data
-				dirSummary = s.addTotals(-1, group, dirSummary)
+			var i int64
 
-				continue
+			switch {
+			case summary.ID == 0:
+				i = -1
+			case db.IsManual(s.rules[summary.ID].BackupType):
+				i = int64(2) //nolint:mnd
+			default:
+				i = int64(s.rules[summary.ID].BackupType)
 			}
 
-			backupType := s.rules[summary.ID].BackupType
-			if db.IsManual(backupType) {
-				dirSummary = s.addTotals(int64(2), group, dirSummary) //nolint:mnd
-
-				continue
-			}
-
-			dirSummary = s.addTotals(int64(backupType), group, dirSummary)
+			dirSummary = s.addTotals(i, group, dirSummary)
 		}
 	}
 
