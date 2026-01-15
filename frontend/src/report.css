@@ -96,23 +96,44 @@ table.summary {
 	overflow-y: auto;
 }
 
-.summary-container .unexpanded tr:nth-child(n+5) {
-	display: none;
-}
-
 .summary-container .summary tbody tr:last-child {
 	display: table-row;
 	background-color: var(--subtleBG);
+}
+
+.summary-container .summary tbody tr:last-child:hover {
+	background-color: color-mix(in srgb,
+			var(--button-background-hover) 45%,
+			transparent);
+	border-color: var(--button-border-hover);
 }
 
 .summary-container .summary tbody tr.table-expand-toggle>td {
 	padding: 0;
 }
 
-.summary-container .summary tbody tr.table-expand-toggle button {
+.summary-container .summary tbody tr.table-expand-toggle label {
 	padding: 0px;
 	width: 100%;
-	height: 100%;
+}
+
+.summary tbody tr:nth-child(n+5):not(.table-expand-toggle) {
+	display: none;
+}
+
+#tableToggleCheckbox:checked~table tbody tr:not(.table-expand-toggle),
+#tableToggleCheckbox:checked~table tbody tr:nth-child(n+5) {
+	display: table-row;
+}
+
+.table-expand-toggle label .expand-text,
+#tableToggleCheckbox:checked~table tbody tr.table-expand-toggle label .collapse-text {
+	display: block;
+}
+
+#tableToggleCheckbox:checked~table tbody tr.table-expand-toggle label .expand-text,
+.table-expand-toggle label .collapse-text {
+	display: none;
 }
 
 .summary th {

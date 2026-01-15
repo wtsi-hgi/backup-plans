@@ -1,7 +1,7 @@
 import type { BackupStatus, ClaimedDir, DirectoryWithChildren, ReportSummary, Rule, SizeCount, SizeCountTime, Stats } from "./types.js";
 import type { Children } from "./lib/dom.js";
 import { amendNode } from "./lib/dom.js";
-import { a, br, button, datalist, details, div, fieldset, h1, h2, input, label, legend, li, option, p, summary, table, tbody, td, th, thead, tr, ul } from "./lib/html.js";
+import { a, br, button, datalist, details, div, fieldset, h1, h2, input, label, legend, li, option, p, span, summary, table, tbody, td, th, thead, tr, ul } from "./lib/html.js";
 import { svg, title, use } from "./lib/svg.js";
 import { action, formatBytes, longAgo, secondsInWeek, setAndReturn, stringSort } from "./lib/utils.js";
 import { getReportSummary } from "./rpc.js";
@@ -266,7 +266,7 @@ const groupList = datalist({ "id": "groupList" }),
 	download = () => {
 		const getCSS = (sheet: CSSStyleSheet): string => Array.from(sheet.cssRules, rule => rule instanceof CSSImportRule ? getCSS(rule.styleSheet!) : rule.cssText).reduce((a, b) => a + b, ""),
 			html = `<!DOCTYPE html>
-<html lang="en"><head><title>Backup Report - ${new Date(now).toLocaleString()}</title><style type="text/css">${Array.from(document.styleSheets, getCSS).reduce((a, b) => a + b, "")}</style><script type="module">(document.readyState === "complete" ? Promise.resolve() : new Promise(successFn => window.addEventListener("load", successFn, { "once": true }))).then(() => (${initFilterSort.toString().replace(/\n\t/g, "")})(document.getElementById("report"), Array.from(document.getElementsByTagName("fieldset")).filter(f => f.dataset.name), document.getElementsByTagName("input")));</script></head><body>${base.outerHTML}</body></html>`;
+<html lang="en"><head><title>Backup Report - ${new Date(now).toLocaleString()}</title><style type="text/css">${Array.from(document.styleSheets, getCSS).reduce((a, b) => a + b, "")}</style><script type="module">(document.readyState === "complete" ? Promise.resolve() : new Promise(successFn => window.addEventListener("load", successFn, { "once": true }))).then(() => (${initFilterSort.toString().replace(/\n\t/g, "")})(document.getElementById("report"), Array.from(document.getElementsByTagName("fieldset")).filter(f => f.dataset.name), Array.from(document.getElementsByTagName("input")).slice(1)));</script></head><body>${base.outerHTML}</body></html>`;
 
 		a({ "href": URL.createObjectURL(new Blob([html], { "type": "text/html;charset=utf-8" })), "download": `backup-report-${new Date(now).toISOString()}.html` }).click();
 	};
@@ -367,8 +367,9 @@ getReportSummary()
 		});
 
 		children[0] =
-			div({ "class": "summary-container" },
-				table({ "class": "summary unexpanded" }, [
+			div({ "class": "summary-container" }, [
+				input({ "type": "checkbox", "id": "tableToggleCheckbox", "style": "display:none" }),
+				table({ "class": "summary" }, [
 					thead(tr([
 						td(),
 						th({ "colspan": "2" }, "Unplanned"),
@@ -376,18 +377,11 @@ getReportSummary()
 						th({ "colspan": "2" }, "Backup"),
 						th({ "colspan": "2" }, "Manual Backup")
 					])),
-					tbody([rows,
-						tr({ "class": "table-expand-toggle" },
-							td({ "colspan": "9" }, button({
-								"style": "width: 100%;", "click": function (this: HTMLButtonElement) {
-									if (this.parentElement?.parentElement?.parentElement?.parentElement?.classList.toggle("unexpanded")) {
-										this.textContent = "Expand All";
-									} else {
-										this.textContent = "Collapse All";
-									};
-								}
-							}, "Expand All")))])
-				]));
+					tbody([
+						rows,
+						tr({ "class": "table-expand-toggle", "id": "tableCollapse" },
+							td({ "colspan": "9" }, label({ "for": "tableToggleCheckbox" }, [span({ "class": "expand-text" }, "Expand All"), span({ "class": "collapse-text" }, "Collapse All")])))])
+				])]);
 
 		children[1] = fieldset([
 			legend("Filter"),
@@ -407,7 +401,7 @@ getReportSummary()
 			label({ "for": "sortBackupSize" }, "Backup Size"), sortBackupSize
 		]);
 
-		(children[0].firstChild?.firstChild?.firstChild?.firstChild as HTMLElement)?.append(
+		(children[0].firstChild?.nextSibling?.firstChild?.firstChild?.firstChild as HTMLElement)?.append(
 			button({ "click": download }, "Download Report"),
 			button({
 				"click": () => {
