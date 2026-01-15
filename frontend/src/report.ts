@@ -337,7 +337,7 @@ getReportSummary()
 		const programmeCounts = new Map<string, Map<number, number[]>>(); // Programme -> BackupType -> [count, size]
 
 		for (const [group, typeCounts] of Object.entries(data.Counts)) {
-			const bom = boms.get(group) ?? (boms.get(group) == "unknown" ? "Unknown" : "Unknown");
+			const bom = (!boms.get(group) || boms.get(group) === "unknown") ? "Unknown" : boms.get(group)!;
 
 			if (!programmeCounts.has(bom)) {
 				programmeCounts.set(bom, new Map<number, number[]>());
@@ -362,7 +362,7 @@ getReportSummary()
 			.sort((a, b) => {
 				const [__, countsA] = a;
 				const [_, countsB] = b;
-				return countsA.get(-1)?.[1]! - countsB.get(-1)?.[1]!;
+				return countsB.get(-1)?.[1]! - countsA.get(-1)?.[1]!;
 			})
 			.map(([bom, counts]) => {
 				return [
