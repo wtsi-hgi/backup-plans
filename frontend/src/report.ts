@@ -265,6 +265,7 @@ const groupList = datalist({ "id": "groupList" }),
 	},
 	download = () => {
 		const getCSS = (sheet: CSSStyleSheet): string => Array.from(sheet.cssRules, rule => rule instanceof CSSImportRule ? getCSS(rule.styleSheet!) : rule.cssText).reduce((a, b) => a + b, ""),
+			// Ignore first input box when filtering as its a hidden checkbox for expand/collapse table functionality
 			html = `<!DOCTYPE html>
 <html lang="en"><head><title>Backup Report - ${new Date(now).toLocaleString()}</title><style type="text/css">${Array.from(document.styleSheets, getCSS).reduce((a, b) => a + b, "")}</style><script type="module">(document.readyState === "complete" ? Promise.resolve() : new Promise(successFn => window.addEventListener("load", successFn, { "once": true }))).then(() => (${initFilterSort.toString().replace(/\n\t/g, "")})(document.getElementById("report"), Array.from(document.getElementsByTagName("fieldset")).filter(f => f.dataset.name), Array.from(document.getElementsByTagName("input")).slice(1)));</script></head><body>${base.outerHTML}</body></html>`;
 
@@ -357,14 +358,20 @@ getReportSummary()
 			}
 		}
 
-		const rows = Array.from(programmeCounts.entries()).map(([bom, counts]) => {
-			return [
-				tr([
-					th(bom),
-					...[-1, 0, 1, 2].flatMap(t => renderCell(counts, t))
-				])
-			];
-		});
+		const rows = Array.from(programmeCounts.entries())
+			.sort((a, b) => {
+				const [__, countsA] = a;
+				const [_, countsB] = b;
+				return countsA.get(-1)?.[1]! - countsB.get(-1)?.[1]!;
+			})
+			.map(([bom, counts]) => {
+				return [
+					tr([
+						th(bom),
+						...[-1, 0, 1, 2].flatMap(t => renderCell(counts, t))
+					])
+				];
+			});
 
 		children[0] =
 			div({ "class": "summary-container" }, [
