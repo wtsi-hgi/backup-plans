@@ -1,12 +1,12 @@
 import type { DirectoryWithChildren } from './types.js';
 import { br, button, datalist, details, div, input, option, select, summary } from './lib/html.js';
-import { stringSort } from './lib/utils.js';
-import { userGroups } from './userGroups.js';
+import { setAndReturn, stringSort } from './lib/utils.js';
+import { boms, owners, userGroups } from './userGroups.js';
 
 const userOpts: HTMLOptionElement[] = [],
 	groupOpts: HTMLOptionElement[] = [],
-	owners = new Map<string, string[]>(),
-	boms = new Map<string, string[]>(),
+	reverseOwners = new Map<string, string[]>(),
+	reverseBoms = new Map<string, string[]>(),
 	userSelect = select({ "multiple": "multiple" }),
 	groupSelect = select({ "multiple": "multiple" }),
 	userFilter = input({
@@ -16,8 +16,8 @@ const userOpts: HTMLOptionElement[] = [],
 	}),
 	groupFilter = input({
 		"placeholder": "Filter: Group, BOM, Owner", "list": "groupList", "input": function (this: HTMLInputElement) {
-			const bom = boms.get(this.value),
-				owner = owners.get(this.value);
+			const bom = reverseBoms.get(this.value),
+				owner = reverseOwners.get(this.value);
 
 			if (bom) {
 				groupSelect.replaceChildren(...groupOpts.filter(opt => bom.includes(opt.innerText)).map(e => (e.selected = true, e)));
@@ -100,5 +100,13 @@ export default Object.assign(base, {
 		userSelect.append(...userOpts);
 		userList.append(...users.map(u => option({ "data-filter": JSON.stringify([u]), "label": "User: " + u }, u)));
 		groupSelect.append(...groupOpts);
+
+		for (const [group, bom] of boms) {
+			(reverseBoms.get(bom) ?? setAndReturn(reverseBoms, bom, [])).push(group);
+		}
+
+		for (const [group, owner] of owners) {
+			(reverseOwners.get(owner) ?? setAndReturn(reverseOwners, owner, [])).push(group);
+		}
 	}
 });
