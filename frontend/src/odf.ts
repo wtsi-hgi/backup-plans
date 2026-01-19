@@ -19,6 +19,7 @@ type SummaryRow = {
 	Programme: string;
 	UnplannedC: bigint;
 	UnplannedS: bigint;
+	UnplannedF: Number;
 	NoBackupC: bigint;
 	NoBackupS: bigint;
 	BackupC: bigint;
@@ -123,7 +124,7 @@ export default (data: SSRow[], summaryData: SummaryRow[]) => {
 			table({ "table:name": "Summary" }, [
 				tableCol({ "table:number-columns-repeated": "2" }),
 				tableCol({ "table:number-columns-repeated": "1", "table:default-cell-style-name": "bytes" }),
-				tableCol({ "table:number-columns-repeated": "1" }),
+				tableCol({ "table:number-columns-repeated": "2" }),
 				tableCol({ "table:number-columns-repeated": "1", "table:default-cell-style-name": "bytes" }),
 				tableCol({ "table:number-columns-repeated": "1" }),
 				tableCol({ "table:number-columns-repeated": "1", "table:default-cell-style-name": "bytes" }),
@@ -133,6 +134,7 @@ export default (data: SSRow[], summaryData: SummaryRow[]) => {
 					tableCell({ "office:value-type": "string" }, p("BOM")),
 					tableCell({ "office:value-type": "string" }, p("Unplanned Count")),
 					tableCell({ "office:value-type": "string" }, p("Unplanned Size")),
+					tableCell({ "office:value-type": "string" }, p("Unplanned Fraction")),
 					tableCell({ "office:value-type": "string" }, p("NoBackup Count")),
 					tableCell({ "office:value-type": "string" }, p("NoBackup Size")),
 					tableCell({ "office:value-type": "string" }, p("Backup Count")),
@@ -144,6 +146,7 @@ export default (data: SSRow[], summaryData: SummaryRow[]) => {
 					tableCell({ "office:value-type": "string" }, p(row.Programme)),
 					tableCell({ "office:value": row.UnplannedC + "", "office:value-type": "float" }, p(String(row.UnplannedC))),
 					tableCell({ "office:value": row.UnplannedS + "", "office:value-type": "float" }, p(formatBytes(row.UnplannedS))),
+					tableCell({ "office:value": row.UnplannedF + "", "office:value-type": "float" }, p(String(row.UnplannedF))),
 					tableCell({ "office:value": row.NoBackupC + "", "office:value-type": "float" }, p(String(row.NoBackupC))),
 					tableCell({ "office:value": row.NoBackupS + "", "office:value-type": "float" }, p(formatBytes(row.NoBackupS))),
 					tableCell({ "office:value": row.BackupC + "", "office:value-type": "float" }, p(String(row.BackupC))),

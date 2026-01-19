@@ -444,7 +444,8 @@ getReportSummary()
 							"Programme": bom,
 							"UnplannedC": BigInt(counts.get(-1)?.count ?? 0n),
 							"UnplannedS": BigInt(counts.get(-1)?.size ?? 0n),
-							"UnplannedF": Number(counts.get(-1)?.size ?? 0n / ((counts.get(-1)?.size ?? 0n) + (counts.get(0)?.size ?? 0n) + (counts.get(1)?.size ?? 0n) + (counts.get(2)?.size ?? 0n))),
+							"UnplannedF": (Number(counts.get(-1)?.size ?? 0n)) /
+								(Number(counts.get(-1)?.size ?? 0n) + Number(counts.get(0)?.size ?? 0n) + Number(counts.get(1)?.size ?? 0n) + Number(counts.get(2)?.size ?? 0n)),
 							"NoBackupC": BigInt(counts.get(0)?.count ?? 0n),
 							"NoBackupS": BigInt(counts.get(0)?.size ?? 0n),
 							"BackupC": BigInt(counts.get(1)?.count ?? 0n),
