@@ -5,7 +5,7 @@ import { a, br, button, datalist, details, div, fieldset, h1, h2, input, label, 
 import { svg, title, use } from "./lib/svg.js";
 import { action, formatBytes, longAgo, secondsInWeek, setAndReturn, stringSort } from "./lib/utils.js";
 import { getReportSummary } from "./rpc.js";
-import { BackupType } from "./consts.js";
+import { BackupType, MainProgrammes } from "./consts.js";
 import { render } from "./disktree.js";
 import ODS from './odf.js';
 import { boms, owners, userGroups } from './userGroups.js';
@@ -334,7 +334,7 @@ getReportSummary()
 		}
 
 
-		const programmeCounts = new Map<string, Map<number, SizeCount>>(); // Programme -> BackupType -> [count, size]
+		const programmeCounts = new Map<string, Map<number, SizeCount>>(); // Programme -> BackupType -> SizeCount
 
 		for (const [group, typeCounts] of Object.entries(data.GroupBackupTypeTotals)) {
 			const bom = (!boms.get(group) || boms.get(group) === "unknown") ? "Unknown" : boms.get(group)!;
@@ -359,11 +359,7 @@ getReportSummary()
 		}
 
 		const rows = Array.from(programmeCounts.entries())
-			.sort((a, b) => {
-				const [__, countsA] = a;
-				const [_, countsB] = b;
-				return Number(countsB.get(-1)?.size! - countsA.get(-1)?.size!);
-			})
+			.sort(sortProgrammes)
 			.map(([bom, counts]) => {
 				return [
 					tr([
@@ -481,4 +477,24 @@ export default Object.assign(base, {
 
 function getManualSize(s: ParentSummary) {
 	return BackupType.manual.reduce((total, backup) => total + (s.actions[+backup]?.size ?? 0n), 0n);
+}
+
+function sortProgrammes(a: [string, Map<number, SizeCount>], b: [string, Map<number, SizeCount>]) {
+	const [progA, countsA] = a;
+	const [progB, countsB] = b;
+
+	const sizeA = countsA.get(-1)?.size ?? 0n;
+	const sizeB = countsB.get(-1)?.size ?? 0n;
+
+	const isPriorityA = MainProgrammes.includes(progA);
+	const isPriorityB = MainProgrammes.includes(progB);
+
+	if (isPriorityA && isPriorityB) {
+		return Number(sizeB - sizeA);
+	}
+
+	if (isPriorityA) return -1;
+	if (isPriorityB) return 1;
+
+	return Number(sizeB - sizeA);
 }

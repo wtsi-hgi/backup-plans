@@ -125,3 +125,12 @@ directories, regardless of their rules (unless their rules are more specific).`,
     "Review": `Date at which a reminder will be issued to check if the plan is still up to date.`,
     "Remove": `Date at which the backup data will be automatically removed.`
 }
+
+export const MainProgrammes = [
+    "CASM",
+    "Human Genetics",
+    "ToL",
+    "PAM",
+    "Generative Genomics",
+    "Cellular Genetics",
+]
