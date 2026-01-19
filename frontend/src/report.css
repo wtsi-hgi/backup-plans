@@ -117,12 +117,12 @@ table.summary {
 	width: 100%;
 }
 
-.summary tbody tr:nth-child(n+7):not(.table-expand-toggle) {
+.summary tbody tr:nth-child(n+8):not(.table-expand-toggle) {
 	display: none;
 }
 
 #tableToggleCheckbox:checked~table tbody tr:not(.table-expand-toggle),
-#tableToggleCheckbox:checked~table tbody tr:nth-child(n+5) {
+#tableToggleCheckbox:checked~table tbody tr:nth-child(n+8) {
 	display: table-row;
 }
 
