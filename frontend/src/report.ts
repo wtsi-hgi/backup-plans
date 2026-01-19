@@ -353,8 +353,8 @@ getReportSummary()
 				}
 
 				const sizecount = counts.get(backupType)!;
-				sizecount.size += sizeCounts.size;
-				sizecount.count += sizeCounts.count;
+				sizecount.size += BigInt(sizeCounts.size);
+				sizecount.count += BigInt(sizeCounts.count);
 			}
 		}
 

@@ -143,7 +143,11 @@ func TestCommands(t *testing.T) {
 				appExe, "backup", "--plan",
 				mysqlConnection, "--tree", "testdata/tree.db",
 				"--config", config).CombinedOutput()
-			So(string(out), ShouldContainSubstring, "ibackup set 'plan::/lustre/scratch123/humgen/a/b/' created for userA with 2 files\n")
+			So(
+				string(out),
+				ShouldContainSubstring,
+				"ibackup set 'plan::/lustre/scratch123/humgen/a/b/' created for userA with 2 files\n",
+			)
 			So(err, ShouldBeNil)
 		})
 	})
