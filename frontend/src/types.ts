@@ -93,7 +93,7 @@ export type ReportSummary = {
 	Rules: Record<number, Rule>;
 	Directories: Record<string, number[]>;
 	BackupStatus: Record<string, BackupStatus>;
-	Counts: Record<string, Record<number, number[]>>;
+	GroupBackupTypeTotals: Record<string, Record<number, SizeCount>>;
 };
 
 export type BackupStatus = {

@@ -276,10 +276,10 @@ let now = 0,
 	load: (path: string) => Promise<DirectoryWithChildren>,
 	summaryData: ReportSummary;
 
-function renderCell(counts: Map<number, number[]>, type: number) {
+function renderCell(counts: Map<number, SizeCount>, type: number) {
 	return [
-		td(counts.get(type)?.[0].toLocaleString() ?? "0"),
-		td({ "title": counts.get(type)?.[1].toLocaleString() ?? "0" }, formatBytes(BigInt(counts.get(type)?.[1] ?? 0n)))
+		td(counts.get(type)?.count.toLocaleString() ?? "0"),
+		td({ "title": counts.get(type)?.size.toLocaleString() ?? "0" }, formatBytes(BigInt(counts.get(type)?.size ?? 0n)))
 	];
 };
 
@@ -334,13 +334,13 @@ getReportSummary()
 		}
 
 
-		const programmeCounts = new Map<string, Map<number, number[]>>(); // Programme -> BackupType -> [count, size]
+		const programmeCounts = new Map<string, Map<number, SizeCount>>(); // Programme -> BackupType -> [count, size]
 
-		for (const [group, typeCounts] of Object.entries(data.Counts)) {
+		for (const [group, typeCounts] of Object.entries(data.GroupBackupTypeTotals)) {
 			const bom = (!boms.get(group) || boms.get(group) === "unknown") ? "Unknown" : boms.get(group)!;
 
 			if (!programmeCounts.has(bom)) {
-				programmeCounts.set(bom, new Map<number, number[]>());
+				programmeCounts.set(bom, new Map<number, SizeCount>());
 			}
 
 			for (const [type, sizeCounts] of Object.entries(typeCounts)) {
@@ -349,12 +349,12 @@ getReportSummary()
 				const counts = programmeCounts.get(bom)!;
 
 				if (!counts.has(backupType)) {
-					counts.set(backupType, [0, 0]);
+					counts.set(backupType, { count: 0n, size: 0n });
 				}
 
 				const sizecount = counts.get(backupType)!;
-				sizecount[0] += sizeCounts[0];
-				sizecount[1] += sizeCounts[1];
+				sizecount.size += sizeCounts.size;
+				sizecount.count += sizeCounts.count;
 			}
 		}
 
@@ -362,7 +362,7 @@ getReportSummary()
 			.sort((a, b) => {
 				const [__, countsA] = a;
 				const [_, countsB] = b;
-				return countsB.get(-1)?.[1]! - countsA.get(-1)?.[1]!;
+				return Number(countsB.get(-1)?.size! - countsA.get(-1)?.size!);
 			})
 			.map(([bom, counts]) => {
 				return [
@@ -426,14 +426,14 @@ getReportSummary()
 						})),
 						Array.from(programmeCounts.entries()).map(([bom, counts]) => ({
 							"Programme": bom,
-							"UnplannedC": BigInt(counts.get(-1)?.[0] ?? 0n),
-							"UnplannedS": BigInt(counts.get(-1)?.[1] ?? 0n),
-							"NoBackupC": BigInt(counts.get(0)?.[0] ?? 0n),
-							"NoBackupS": BigInt(counts.get(0)?.[1] ?? 0n),
-							"BackupC": BigInt(counts.get(1)?.[0] ?? 0n),
-							"BackupS": BigInt(counts.get(1)?.[1] ?? 0n),
-							"ManualC": BigInt(counts.get(2)?.[0] ?? 0n),
-							"ManualS": BigInt(counts.get(2)?.[1] ?? 0n)
+							"UnplannedC": BigInt(counts.get(-1)?.count ?? 0n),
+							"UnplannedS": BigInt(counts.get(-1)?.size ?? 0n),
+							"NoBackupC": BigInt(counts.get(0)?.count ?? 0n),
+							"NoBackupS": BigInt(counts.get(0)?.size ?? 0n),
+							"BackupC": BigInt(counts.get(1)?.count ?? 0n),
+							"BackupS": BigInt(counts.get(1)?.size ?? 0n),
+							"ManualC": BigInt(counts.get(2)?.count ?? 0n),
+							"ManualS": BigInt(counts.get(2)?.size ?? 0n)
 						})));
 
 					a({ "href": URL.createObjectURL(new Blob([ods], { "type": "text/csv;charset=utf-8" })), "download": `backup-report-${new Date(now).toISOString()}.ods` }).click();
