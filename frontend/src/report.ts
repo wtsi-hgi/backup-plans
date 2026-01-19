@@ -277,11 +277,28 @@ let now = 0,
 	summaryData: ReportSummary;
 
 function renderCell(counts: Map<number, SizeCount>, type: number) {
-	return [
+	const cells = [
 		td(counts.get(type)?.count.toLocaleString() ?? "0"),
-		td({ "title": counts.get(type)?.size.toLocaleString() ?? "0" }, formatBytes(BigInt(counts.get(type)?.size ?? 0n)))
-	];
+		td({ "title": counts.get(type)?.size.toLocaleString() ?? "0" }, formatBytes(BigInt(counts.get(type)?.size ?? 0n))),
+	]
+
+	if (type === -1) {
+		cells.push(td(getUnplannedFraction(counts).toLocaleString()));
+	}
+
+	return cells
 };
+
+function getUnplannedFraction(counts: Map<number, SizeCount>) {
+	var totalSize = 0n;
+	counts.forEach(a => {
+		totalSize += a.size
+	});
+
+	const unplannedSize = counts.get(-1)?.size
+
+	return Number(unplannedSize! * 100n / totalSize) / 100
+}
 
 getReportSummary()
 	.then(data => {
@@ -375,15 +392,15 @@ getReportSummary()
 				table({ "class": "summary" }, [
 					thead(tr([
 						td(),
-						th({ "colspan": "2" }, "Unplanned"),
-						th({ "colspan": "2" }, "No Backup"),
-						th({ "colspan": "2" }, "Backup"),
-						th({ "colspan": "2" }, "Manual Backup")
+						th({ "colspan": "3" }, "Unplanned (Count/Size/Fraction)"),
+						th({ "colspan": "2" }, "No Backup (Count/Size)"),
+						th({ "colspan": "2" }, "Backup (Count/Size)"),
+						th({ "colspan": "2" }, "Manual Backup (Count/Size)")
 					])),
 					tbody([
 						rows,
 						tr({ "class": "table-expand-toggle", "id": "tableCollapse" },
-							td({ "colspan": "9" }, label({ "for": "tableToggleCheckbox" }, [span({ "class": "expand-text" }, "Expand All"), span({ "class": "collapse-text" }, "Collapse All")])))])
+							td({ "colspan": "10" }, label({ "for": "tableToggleCheckbox" }, [span({ "class": "expand-text" }, "Expand All"), span({ "class": "collapse-text" }, "Collapse All")])))])
 				])]);
 
 		children[1] = fieldset([
@@ -424,6 +441,7 @@ getReportSummary()
 							"Programme": bom,
 							"UnplannedC": BigInt(counts.get(-1)?.count ?? 0n),
 							"UnplannedS": BigInt(counts.get(-1)?.size ?? 0n),
+							"UnplannedF": Number(counts.get(-1)?.size ?? 0n / ((counts.get(-1)?.size ?? 0n) + (counts.get(0)?.size ?? 0n) + (counts.get(1)?.size ?? 0n) + (counts.get(2)?.size ?? 0n))),
 							"NoBackupC": BigInt(counts.get(0)?.count ?? 0n),
 							"NoBackupS": BigInt(counts.get(0)?.size ?? 0n),
 							"BackupC": BigInt(counts.get(1)?.count ?? 0n),
@@ -483,18 +501,18 @@ function sortProgrammes(a: [string, Map<number, SizeCount>], b: [string, Map<num
 	const [progA, countsA] = a;
 	const [progB, countsB] = b;
 
-	const sizeA = countsA.get(-1)?.size ?? 0n;
-	const sizeB = countsB.get(-1)?.size ?? 0n;
+	const fractionA = getUnplannedFraction(countsA);
+	const fractionB = getUnplannedFraction(countsB);
 
 	const isPriorityA = MainProgrammes.includes(progA);
 	const isPriorityB = MainProgrammes.includes(progB);
 
 	if (isPriorityA && isPriorityB) {
-		return Number(sizeB - sizeA);
+		return Number(fractionB - fractionA);
 	}
 
 	if (isPriorityA) return -1;
 	if (isPriorityB) return 1;
 
-	return Number(sizeB - sizeA);
+	return Number(fractionB - fractionA);
 }
