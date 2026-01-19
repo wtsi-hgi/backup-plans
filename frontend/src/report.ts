@@ -352,6 +352,7 @@ getReportSummary()
 
 
 		const programmeCounts = new Map<string, Map<number, SizeCount>>(); // Programme -> BackupType -> SizeCount
+		programmeCounts.set("All", new Map<number, SizeCount>())
 
 		for (const [group, typeCounts] of Object.entries(data.GroupBackupTypeTotals)) {
 			const bom = (!boms.get(group) || boms.get(group) === "unknown") ? "Unknown" : boms.get(group)!;
@@ -372,6 +373,8 @@ getReportSummary()
 				const sizecount = counts.get(backupType)!;
 				sizecount.size += BigInt(sizeCounts.size);
 				sizecount.count += BigInt(sizeCounts.count);
+
+				setCountsAll(programmeCounts, backupType, sizeCounts)
 			}
 		}
 
@@ -507,6 +510,9 @@ function sortProgrammes(a: [string, Map<number, SizeCount>], b: [string, Map<num
 	const isPriorityA = MainProgrammes.includes(progA);
 	const isPriorityB = MainProgrammes.includes(progB);
 
+	if (progA === "All") return -1;
+	if (progB === "All") return 1;
+
 	if (isPriorityA && isPriorityB) {
 		return Number(fractionB - fractionA);
 	}
@@ -515,4 +521,16 @@ function sortProgrammes(a: [string, Map<number, SizeCount>], b: [string, Map<num
 	if (isPriorityB) return 1;
 
 	return Number(fractionB - fractionA);
+}
+
+function setCountsAll(programmeCounts: Map<string, Map<number, SizeCount>>, backupType: number, sizeCounts: SizeCount) {
+	const all = programmeCounts.get("All")!;
+
+	if (!all.has(backupType)) {
+		all.set(backupType, { count: 0n, size: 0n });
+	}
+
+	const allTotals = all.get(backupType)!;
+	allTotals.size += BigInt(sizeCounts.size);
+	allTotals.count += BigInt(sizeCounts.count);
 }
