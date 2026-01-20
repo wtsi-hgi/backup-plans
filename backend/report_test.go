@@ -51,8 +51,7 @@ func TestReport(t *testing.T) {
 		So(testirods.AddPseudoIRODsToolsToPathIfRequired(t), ShouldBeNil)
 
 		roots := []string{
-			"/lustre/scratch123/humgen/a/c/",
-			"/lustre/scratch123/humgen/a/b/",
+			"/lustre/scratch123/humgen/a/[bc]/",
 		}
 
 		srv, err := New(testDB, func(_ *http.Request) string { return "test" }, config.NewConfig(t, nil, nil, roots, 0))

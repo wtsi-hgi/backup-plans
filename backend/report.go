@@ -54,7 +54,7 @@ func (s *Server) Summary(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) summary(w http.ResponseWriter, _ *http.Request) error { //nolint:funlen,cyclop,gocognit,gocyclo
-	rr := s.config.GetReportingRoots()
+	rr := s.rootDir.GlobPaths(s.config.GetReportingRoots()...)
 
 	dirSummary := summary{
 		Summaries:    make(map[string]*ruletree.DirSummary, len(rr)),

@@ -47,6 +47,7 @@ type summariser interface {
 	Summary(path string, wildcard group.State[int64]) (*DirSummary, error)
 	GetOwner(path string) (uint32, uint32, error)
 	IsDirectory(path string) bool
+	glob(match string) []string
 }
 
 // DirRules is a Directory reference and a map of its rules, keyed by the Match.
