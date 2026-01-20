@@ -291,9 +291,9 @@ function renderCell(counts: Map<number, SizeCount>, type: number) {
 
 function getUnplannedFraction(counts: Map<number, SizeCount>) {
 	var totalSize = 0n;
-	counts.forEach(a => {
-		totalSize += a.size
-	});
+	for (const sizeCount of counts.values()) {
+		totalSize += sizeCount.size
+	}
 
 	const unplannedSize = counts.get(-1)?.size
 

@@ -119,7 +119,6 @@ export default (data: SSRow[], summaryData: SummaryRow[]) => {
 					tableCell({ "office:value": row.Backup + "", "office:value-type": "float" }, p(formatBytes(row.Backup))),
 					tableCell({ "office:value": row.ManualBackup + "", "office:value-type": "float" }, p(formatBytes(row.ManualBackup)))
 				])),
-				databaseRanges(databaseRange({ "table:name": "__Anonymous_Sheet_DB__0", "table:target-range-address": "'Backup Plans'.A1:'Backup Plans'.E" + (data.length + 1), "table:display-filter-buttons": "true" }))
 			]),
 			table({ "table:name": "Summary" }, [
 				tableCol({ "table:number-columns-repeated": "2" }),
@@ -156,6 +155,7 @@ export default (data: SSRow[], summaryData: SummaryRow[]) => {
 				]))
 			]),
 			namedExpressions(),
+			databaseRanges(databaseRange({ "table:name": "__Anonymous_Sheet_DB__0", "table:target-range-address": "'Backup Plans'.A1:'Backup Plans'.E" + (data.length + 1), "table:display-filter-buttons": "true" }))
 		]))
 	]);
 
