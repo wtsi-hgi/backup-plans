@@ -34,29 +34,35 @@ import (
 )
 
 // GlobPath returns a sorted slice of all of the paths in the trees that match
-// the supplied glob.
-func (r *RootDir) GlobPath(path string) []string {
-	res := appendAll(nil, "/", r.globPath(path))
+// the supplied glob pattern.
+//
+// `filepath.Match` is used to match the supplied glob pattern to the directory
+// parts.
+func (r *RootDir) GlobPath(pattern string) []string {
+	res := appendAll(nil, "/", r.globPath(pattern))
 
 	slices.Sort(res)
 
 	return res
 }
 
-func (r *RootDir) globPath(path string) []string {
+func (r *RootDir) globPath(pattern string) []string {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	return r.glob(strings.TrimPrefix(path, "/"))
+	return r.glob(strings.TrimPrefix(pattern, "/"))
 }
 
 // GlobPaths returns a sorted slice of all of the paths in the trees that match
 // any of the supplied globs.
-func (r *RootDir) GlobPaths(paths ...string) []string {
+//
+// `filepath.Match` is used to match the supplied glob pattern to the directory
+// parts.
+func (r *RootDir) GlobPaths(patterns ...string) []string {
 	var res []string
 
-	for _, path := range paths {
-		res = appendAll(res, "/", r.globPath(path))
+	for _, pattern := range patterns {
+		res = appendAll(res, "/", r.globPath(pattern))
 	}
 
 	slices.Sort(res)
