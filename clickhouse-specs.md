@@ -260,9 +260,13 @@ backup-plans ch-import --stats /path/to/stats.gz --ch-dsn "clickhouse://..." [--
 ### 3.2. Algorithm
 
 1. Open `stats.gz`, parse with `summary.NewSummariser`
-2. Batch insert to `fs_files` and `fs_dirs` (flush every 100k rows)
-3. Register snapshot in `fs_snapshots`
-4. If `--mark-current`, set `is_current = 1`
+2. Generate `snapshot_id` as Unix timestamp (seconds) or date-based integer (YYYYMMDD)
+3. Batch insert to `fs_files` and `fs_dirs` (flush every 100k rows)
+4. Register snapshot in `fs_snapshots`
+5. If `--mark-current`, set `is_current = 1`
+
+**Snapshot ID generation:** Use a consistent format like `YYYYMMDD` (e.g., 20251210)
+or Unix timestamp. The ID must be unique per `(fs_root, snapshot_id)` pair.
 
 **Determining `fs_root`:** The stats.gz file contains paths rooted at the
 filesystem mount point (e.g., `/lustre/scratch123/`). The `fs_root` is extracted
@@ -289,6 +293,14 @@ The backend Server maintains these structures for fast `/api/tree` responses:
 - **`stateMachine group.StateMachine[db.Rule]`** - Byte-by-byte automaton from
   `wrstat-ui/summary/group`. Evaluates file paths in O(path-length) time.
   Handles `*` wildcards and implements "most specific wins" semantics.
+  
+  **State Machine API:**
+  - `group.NewStatemachine(rules []PathGroup[T])` - Creates a new state machine
+  - `sm.GetGroup(fi *summary.FileInfo) *T` - Returns the matching rule for a file,
+    or `nil` if no rule matches. The `FileInfo.Path` (a `*DirectoryPath` linked list)
+    and `FileInfo.Name` are used to construct the full path for matching.
+  - `sm.GetStateString(pathSegment string) State[T]` - Advances the state machine
+    by a path segment (used for incremental traversal, not needed for ClickHouse impl)
 
 - **`dirSummaries map[string]*DirSummary`** - Recursive stats per directory,
   built by streaming `fs_files` and applying the state machine. Each summary
@@ -296,6 +308,20 @@ The backend Server maintains these structures for fast `/api/tree` responses:
     intentionally compatible with the existing `ruletree.DirSummary` so that
     `/api/tree`, `/api/report/summary`, and `/api/usergroups` can keep their
     JSON shapes unchanged.
+
+- **`exactRules map[string]*db.Rule`** - Hash map of full file paths to rules
+  for rules without `*` in their match (exact path matches from FOFN imports).
+
+**Query routing decision table:**
+
+| Operation | Data Source | Notes |
+|-----------|-------------|-------|
+| `/api/tree` stats | In-memory `dirSummaries` | Pre-computed, <10ms |
+| `/api/tree` children list | In-memory + ClickHouse fallback | Query `fs_dirs` for uncached dirs |
+| `GetOwner(path)` | In-memory `dirSummaries` or ClickHouse | Cache hit first, then `fs_dirs` |
+| `IsDirectory(path)` | In-memory or ClickHouse | Check cache, then query `fs_dirs` |
+| Rule create/update | ClickHouse re-query of subtree | Stream `fs_files`, update in-memory |
+| Backup job | ClickHouse streaming | No in-memory cache available |
 
 ### 4.2. Building Aggregates
 
@@ -335,10 +361,22 @@ At startup or when a new snapshot becomes current:
      a. Build the full path `fullPath = dir_path || name`.
 
      b. If `exactRules[fullPath]` exists, use that rule. Otherwise construct a
-            `summary.FileInfo` (as the current implementation does) and call
-            `stateMachine.GetGroup` to get the winning rule (or `nil` for
-            "unplanned"). This preserves the existing
-            "most specific directory path wins" semantics.
+            `summary.FileInfo` with `Path` (a `DirectoryPath` chain built from
+            `dir_path`) and `Name` (the filename), then call `stateMachine.GetGroup(fi)`
+            to get the winning rule (or `nil` for "unplanned"). This preserves the
+            existing "most specific directory path wins" semantics.
+            
+            ```go
+            // Helper to build FileInfo from ClickHouse row
+            func buildFileInfo(dirPath, name string) *summary.FileInfo {
+                // Parse dirPath into DirectoryPath linked list
+                dp := parseDirectoryPath(dirPath)  // e.g., "/a/b/c/" -> chain of DirectoryPath
+                return &summary.FileInfo{
+                    Path: dp,
+                    Name: []byte(name),
+                }
+            }
+            ```
 
      c. Determine the directory to attribute stats to (the file's parent,
             i.e. `dir_path`) and look up/create its `DirSummary`.
@@ -378,10 +416,20 @@ At startup or when a new snapshot becomes current:
     behaviour where a rule that matches files in a subtree contributes to all
     parent directories.
 
-**Performance:** Linear in the number of files. In practice this should be
-dominated by ClickHouse scan speed; with streamed reads of `fs_files` and
-multi-core aggregation in Go, the goal is to stay within the existing rebuild
-budget (tens of minutes for ~1.3B files).
+**Performance:** Linear in the number of files under rule-covered subtrees.
+In practice this should be dominated by ClickHouse scan speed; with streamed
+reads of `fs_files` and multi-core aggregation in Go, the goal is to stay
+within the existing rebuild budget (tens of minutes for ~1.3B files when all
+files are under rules, much faster when rules cover only a subset).
+
+**Memory Consumption:** The `dirSummaries` map must hold summaries for all
+directories that have files or have rules in their subtree. Estimate:
+- Per-directory overhead: ~200 bytes + (num_rules × num_users × 50 bytes)
+- With 10M directories and sparse rules: ~2-4 GB
+- If rules are very broad (many users per rule), may need more
+- **Mitigation:** For directories deeper than a configurable threshold with no
+  rules in their subtree, don't store individual `DirSummary` entries; their
+  stats are aggregated into the nearest ancestor with rules.
 
 ### 4.3. `/api/tree` Implementation
 
@@ -392,9 +440,36 @@ per-rule per-user/per-group stats.
 
 **Child listing:** The `Children` map in `DirSummary` must list every immediate
 child directory, even when that child currently contributes zero rule stats.
-Build the child list (names + uid/gid) from `fs_dirs` for the subtree being
-served so users can navigate and claim previously-unruled directories. Stats
-for such children can legitimately be empty/zeroed.
+During the initial aggregation phase (section 4.2), also query `fs_dirs` to
+populate the complete child list with ownership (uid/gid) for each directory.
+This enables users to navigate and claim previously-unruled directories.
+
+**Implementation detail:** For each directory in `dirSummaries`, ensure its
+`Children` map includes all immediate subdirectories from `fs_dirs`. For
+children that have no matching files (zero stats), create a `DirSummary` with
+empty `RuleSummaries` but populated `uid/gid` from `fs_dirs`. The `/api/tree`
+handler only returns immediate children (one level), not the full tree.
+
+**Query to populate children:**
+```sql
+SELECT dir_path, uid, gid FROM fs_dirs
+WHERE fs_root = ? AND snapshot_id = ?
+  AND dir_path LIKE ? || '%/'
+  AND dir_path NOT LIKE ? || '%/%/'
+ORDER BY dir_path;
+```
+(This selects immediate children of a given directory path.)
+
+**Lazy child loading:** The `/api/tree?dir=X` endpoint returns `Children` as
+a shallow map containing only immediate children of `X` (one level deep). The
+`Children` entries themselves have empty `Children` maps. The frontend navigates
+by making subsequent `/api/tree` calls for deeper directories. This means:
+- The in-memory `dirSummaries` structure only needs immediate children populated
+  for directories the user has actually navigated to
+- On initial aggregate build, populate `Children` lazily: only add child entries
+  when a file is processed in that child directory, or when `/api/tree` is called
+- For unclaimed/unruled directories, query `fs_dirs` on-demand when `/api/tree`
+  is called for that path
 
 The handler must continue to return the existing `Tree` JSON structure
 (`frontend/src/types.ts`):
@@ -433,24 +508,29 @@ On rule create/update/remove:
    automaton is rebuilt since rule changes can affect matching.
    Also rebuild `exactRules` map.
 
-3. **Re-query the affected subtree**
-   - Identify the minimum subtree that could be affected: the rule's directory path
-   - **Optimization**: For catch-all rules (`*`) where no child rules exist in the subtree, query `fs_dir_stats` (fast).
-   - **Optimization**: For filename-sensitive rules, use ClickHouse `match(name, pattern)` to aggregate directly in DB.
+3. **Re-aggregate the affected subtree** - Because the "most specific wins"
+   semantics means adding/removing a rule can change what other rules match for
+   files in the subtree, we must re-evaluate all files in the affected area:
+   - Identify the minimum subtree: the rule's directory path and all descendants
+   - Clear existing aggregates for directories in this subtree
+   - Re-stream files from ClickHouse for this subtree and re-evaluate each
+     against the rebuilt state machine
+   - **Optimization for pure catch-all**: If the subtree has only one rule (`*`)
+     and no child rules exist, query `fs_dir_stats` instead of `fs_files`
+   - **Optimization for filename-sensitive**: Use ClickHouse `match(name, pattern)`
+     to pre-filter files in the query, reducing data transfer:
      ```sql
-     SELECT dir_path, uid, gid, count(), sum(size), max(mtime)
+     SELECT dir_path, name, uid, gid, size, mtime
      FROM fs_files
-     WHERE fs_root = ? AND snapshot_id = ? AND startsWith(dir_path, ?) AND match(name, ?)
-     GROUP BY dir_path, uid, gid
+     WHERE fs_root = ? AND snapshot_id = ? AND startsWith(dir_path, ?)
+     ORDER BY dir_path, name
      ```
-     This avoids streaming millions of file rows to Go.
 
-4. **Subtract old rule's contribution, add new rule's contribution** in memory.
-   This avoids full re-aggregation.
+4. **Propagate to ancestors** - After subtree re-aggregation, walk up to the
+   root and recompute ancestor totals by summing their children's stats.
 
-5. **Propagate to ancestors** - Recompute ancestor aggregates by summing children.
-
-**Latency:** < 1s for typical updates.
+**Latency:** < 1s for typical updates (subtrees with < 1M files).
+For very large subtrees, may take 2-5s; consider async update with UI polling.
 
 ### 4.5. Glob-to-Regex Conversion
 
@@ -540,6 +620,25 @@ type UserGroups = {
 ```
 
 Built by iterating root `DirSummary.RuleSummaries` and collecting unique names.
+
+### 4.9. `/api/getDirectories` Implementation
+
+The frontend calls this endpoint with a list of paths to check if they exist
+as directories (used during FOFN validation):
+
+```go
+// POST /api/getDirectories - body is JSON array of paths
+// Returns: JSON array of booleans (same order as input)
+func (s *Server) GetDirectories(paths []string) []bool {
+    results := make([]bool, len(paths))
+    for i, path := range paths {
+        results[i] = s.rootDir.IsDirectory(path)
+    }
+    return results
+}
+```
+
+The `IsDirectory` method queries `fs_dirs` to check if the path exists.
 
 ---
 
@@ -642,28 +741,46 @@ Instead of streaming all files for every claimed directory, we use the rule defi
 **Key helper functions:**
 
 ```go
-// streamFiles queries fs_files for files under dirPath matching the rule pattern
-func streamFiles(ctx context.Context, conn clickhouse.Conn, fsRoot string, 
-    snapshotID uint32, dirPath string, rule *db.Rule, 
-    cb func(filePath string)) error {
+// streamFilesForBackup queries fs_files under the given prefix and evaluates
+// each file against the state machine to determine if it should be backed up.
+// This mirrors the web server's aggregation logic.
+func streamFilesForBackup(ctx context.Context, conn clickhouse.Conn,
+    fsRoot string, snapshotID uint32, prefix string,
+    sm group.StateMachine[db.Rule], exactRules map[string]*db.Rule,
+    cb func(filePath string, rule *db.Rule)) error {
     
-    var query string
-    if rule.Recursive {
-        query = `SELECT dir_path, name FROM fs_files 
-                 WHERE fs_root = ? AND snapshot_id = ? AND startsWith(dir_path, ?)`
-    } else {
-        query = `SELECT dir_path, name FROM fs_files 
-                 WHERE fs_root = ? AND snapshot_id = ? AND dir_path = ?`
-    }
+    query := `SELECT dir_path, name FROM fs_files 
+              WHERE fs_root = ? AND snapshot_id = ? AND startsWith(dir_path, ?)
+              ORDER BY dir_path, name`
     
-    // Add regex filter for filename if it's not a catch-all *
-    if rule.Match != "*" {
-         query += " AND match(name, ?)"
-         // Pass converted regex pattern as argument
+    rows, err := conn.Query(ctx, query, fsRoot, snapshotID, prefix)
+    if err != nil {
+        return err
     }
-
-    rows, err := conn.Query(ctx, query, fsRoot, snapshotID, dirPath, ...)
-    // ...
+    defer rows.Close()
+    
+    for rows.Next() {
+        var dirPath, name string
+        if err := rows.Scan(&dirPath, &name); err != nil {
+            return err
+        }
+        
+        fullPath := dirPath + name
+        
+        // Determine effective rule using same logic as aggregation
+        var rule *db.Rule
+        if r, ok := exactRules[fullPath]; ok {
+            rule = r
+        } else {
+            // Build FileInfo for state machine
+            // The state machine uses FileInfo.Path (DirectoryPath) and FileInfo.Name
+            fi := buildFileInfo(dirPath, name)  // helper to construct DirectoryPath chain
+            rule = sm.GetGroup(fi)
+        }
+        
+        cb(fullPath, rule)  // rule may be nil for unplanned files
+    }
+    return rows.Err()
 }
 ```
 
@@ -683,13 +800,16 @@ to `backend/` code.
 // New implementation: CHRootDir (ClickHouse-backed with in-memory aggregates)
 type RootDir interface {
     // Summary returns aggregated stats for a directory and its immediate children.
-    // Path is relative to root (e.g., "lustre/scratch/project/")
+    // Path is relative to root, without leading slash (e.g., "lustre/scratch/project/")
+    // Pass "" to get the root-level summary (all filesystem roots aggregated).
     Summary(path string) (*DirSummary, error)
     
     // GetOwner returns the UID and GID of a directory.
+    // Path is relative to root, without leading slash.
     GetOwner(path string) (uid, gid uint32, err error)
     
     // IsDirectory checks if a path exists and is a directory.
+    // Path format: with or without leading slash (implementation should handle both).
     IsDirectory(path string) bool
     
     // AddTree loads a new snapshot (replaces current for that fs_root).
@@ -889,9 +1009,12 @@ GROUP BY dir_path, uid, gid
 ORDER BY dir_path;
 
 -- Delete old snapshot (instantaneous via partition drop)
-ALTER TABLE fs_files DROP PARTITION (?, ?);
-ALTER TABLE fs_dirs DROP PARTITION (?, ?);
-ALTER TABLE fs_dir_stats DROP PARTITION (?, ?);
+-- Note: With tuple partitioning, use partition ID from system.parts
+-- First find partition: SELECT partition FROM system.parts WHERE table='fs_files' AND partition LIKE '%<fs_root>%<snapshot_id>%'
+-- Or use explicit tuple format:
+ALTER TABLE fs_files DROP PARTITION ('<fs_root_value>', <snapshot_id_value>);
+ALTER TABLE fs_dirs DROP PARTITION ('<fs_root_value>', <snapshot_id_value>);
+ALTER TABLE fs_dir_stats DROP PARTITION ('<fs_root_value>', <snapshot_id_value>);
 DELETE FROM fs_snapshots WHERE fs_root = ? AND snapshot_id = ?;
 
 -- Mark new snapshot as current (atomic update)
