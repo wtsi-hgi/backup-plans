@@ -11,7 +11,7 @@ const userOpts: HTMLOptionElement[] = [],
 	groupSelect = select({ "multiple": "multiple" }),
 	userFilter = input({
 		"placeholder": "Filter: User", "list": "userList", "input": function (this: HTMLInputElement) {
-			userSelect.replaceChildren(...userOpts.filter(opt => opt.innerText.includes(this.value)));
+			userSelect.replaceChildren(...userOpts.filter(opt => opt.innerText.includes(this.value)).map(e => (e.selected = e.value === this.value, e)));
 		}
 	}),
 	groupFilter = input({
