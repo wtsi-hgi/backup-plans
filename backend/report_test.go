@@ -237,6 +237,19 @@ func TestReport(t *testing.T) {
 							Requester: "userB",
 						},
 					},
+					GroupBackupTypeTotals: map[string]map[int64]SizeCount{
+						"bin": {
+							-1: {Count: 1, Size: 8},
+							0:  {Count: 1, Size: 8},
+							1:  {Count: 1, Size: 8},
+						},
+						"daemon": {
+							-1: {Count: 3, Size: 24},
+							0:  {Count: 2, Size: 15},
+							1:  {Count: 4, Size: 36},
+							2:  {Count: 3, Size: 21},
+						},
+					},
 				}
 
 				slices.Sort(gotSummary.Directories["/lustre/scratch123/humgen/a/b/"])

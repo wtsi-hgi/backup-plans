@@ -53,6 +53,11 @@ type Rule struct {
 	Created, Modified int64
 }
 
+// IsManual returns whether the specified ID corresponds to a manual backup type.
+func IsManual(bt BackupType) bool {
+	return bt > 1
+}
+
 // ID returns the in SQL ID for the Rule.
 func (r *Rule) ID() int64 {
 	if r == nil {

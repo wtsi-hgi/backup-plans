@@ -91,6 +91,51 @@ table.summary {
 	min-width: 90vw;
 }
 
+.summary-container {
+	overflow: hidden;
+	overflow-y: auto;
+}
+
+.summary-container .summary tbody tr:last-child {
+	display: table-row;
+	background-color: var(--subtleBG);
+}
+
+.summary-container .summary tbody tr:last-child:hover {
+	background-color: color-mix(in srgb,
+			var(--button-background-hover) 45%,
+			transparent);
+	border-color: var(--button-border-hover);
+}
+
+.summary-container .summary tbody tr.table-expand-toggle>td {
+	padding: 0;
+}
+
+.summary-container .summary tbody tr.table-expand-toggle label {
+	padding: 0px;
+	width: 100%;
+}
+
+.summary tbody tr:nth-child(n+8):not(.table-expand-toggle) {
+	display: none;
+}
+
+#tableToggleCheckbox:checked~table tbody tr:not(.table-expand-toggle),
+#tableToggleCheckbox:checked~table tbody tr:nth-child(n+8) {
+	display: table-row;
+}
+
+.table-expand-toggle label .expand-text,
+#tableToggleCheckbox:checked~table tbody tr.table-expand-toggle label .collapse-text {
+	display: block;
+}
+
+#tableToggleCheckbox:checked~table tbody tr.table-expand-toggle label .expand-text,
+.table-expand-toggle label .collapse-text {
+	display: none;
+}
+
 .summary th {
 	padding: 1rem 1em;
 	background-color: #44aaf7;
@@ -105,8 +150,11 @@ table.summary thead th:not(:first-of-type) {
 	border-top-left-radius: 0.5em;
 }
 
-table.summary tbody tr:last-child th:first-child {
+table.summary tbody tr:not(:first-child) th:first-child {
 	border-top: 0;
+}
+
+table.summary tbody tr:last-child th:first-child {
 	border-bottom-left-radius: 0.5em;
 }
 

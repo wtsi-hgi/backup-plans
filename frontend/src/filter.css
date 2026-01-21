@@ -37,6 +37,7 @@ fieldset {
 
 #filter>summary,
 #userStats>summary,
+#expandible-table>summary,
 #treeOptions>summary {
 	list-style: none;
 	text-align: center;

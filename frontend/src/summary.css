@@ -1,6 +1,8 @@
 .summary {
 	margin: 1em;
 	width: calc(100% - 2em) !important;
+	max-height: 80vh;
+	overflow-y: auto;
 }
 
 .summary thead td:not(:empty) {

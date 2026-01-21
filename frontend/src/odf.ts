@@ -15,6 +15,19 @@ type SSRow = {
 	ManualBackup: bigint;
 }
 
+type SummaryRow = {
+	Programme: string;
+	UnplannedC: bigint;
+	UnplannedS: bigint;
+	UnplannedF: Number;
+	NoBackupC: bigint;
+	NoBackupS: bigint;
+	BackupC: bigint;
+	BackupS: bigint;
+	ManualC: bigint;
+	ManualS: bigint;
+}
+
 const eocdOffset = 0x6,
 	generateCRC = (() => {
 		const table = new Uint32Array(256);
@@ -44,7 +57,7 @@ const eocdOffset = 0x6,
 	setUint32 = (offset: number, value: number) => ods.set([value & 255, (value >> 8) & 255, (value >> 16) & 255, (value >> 24) & 255], offset),
 	xmlns = "http://www.w3.org/2000/xmlns/";
 
-export default (data: SSRow[]) => {
+export default (data: SSRow[], summaryData: SummaryRow[]) => {
 	const officeNS = "urn:oasis:names:tc:opendocument:xmlns:office:1.0",
 		tableNS = "urn:oasis:names:tc:opendocument:xmlns:table:1.0",
 		textNS = "urn:oasis:names:tc:opendocument:xmlns:text:1.0",
@@ -107,9 +120,44 @@ export default (data: SSRow[]) => {
 					tableCell({ "office:value": row.ManualBackup + "", "office:value-type": "float" }, p(formatBytes(row.ManualBackup)))
 				])),
 			]),
+			table({ "table:name": "Summary" }, [
+				tableCol({ "table:number-columns-repeated": "2" }),
+				tableCol({ "table:number-columns-repeated": "1", "table:default-cell-style-name": "bytes" }),
+				tableCol({ "table:number-columns-repeated": "2" }),
+				tableCol({ "table:number-columns-repeated": "1", "table:default-cell-style-name": "bytes" }),
+				tableCol({ "table:number-columns-repeated": "1" }),
+				tableCol({ "table:number-columns-repeated": "1", "table:default-cell-style-name": "bytes" }),
+				tableCol({ "table:number-columns-repeated": "1" }),
+				tableCol({ "table:number-columns-repeated": "1", "table:default-cell-style-name": "bytes" }),
+				tableRow([
+					tableCell({ "office:value-type": "string" }, p("BOM")),
+					tableCell({ "office:value-type": "string" }, p("Unplanned Count")),
+					tableCell({ "office:value-type": "string" }, p("Unplanned Size")),
+					tableCell({ "office:value-type": "string" }, p("Unplanned Fraction")),
+					tableCell({ "office:value-type": "string" }, p("NoBackup Count")),
+					tableCell({ "office:value-type": "string" }, p("NoBackup Size")),
+					tableCell({ "office:value-type": "string" }, p("Backup Count")),
+					tableCell({ "office:value-type": "string" }, p("Backup Size")),
+					tableCell({ "office:value-type": "string" }, p("Manual Backup Count")),
+					tableCell({ "office:value-type": "string" }, p("Manual Backup Size")),
+				]),
+				summaryData.map(row => tableRow([
+					tableCell({ "office:value-type": "string" }, p(row.Programme)),
+					tableCell({ "office:value": row.UnplannedC + "", "office:value-type": "float" }, p(String(row.UnplannedC))),
+					tableCell({ "office:value": row.UnplannedS + "", "office:value-type": "float" }, p(formatBytes(row.UnplannedS))),
+					tableCell({ "office:value": row.UnplannedF + "", "office:value-type": "float" }, p(String(row.UnplannedF))),
+					tableCell({ "office:value": row.NoBackupC + "", "office:value-type": "float" }, p(String(row.NoBackupC))),
+					tableCell({ "office:value": row.NoBackupS + "", "office:value-type": "float" }, p(formatBytes(row.NoBackupS))),
+					tableCell({ "office:value": row.BackupC + "", "office:value-type": "float" }, p(String(row.BackupC))),
+					tableCell({ "office:value": row.BackupS + "", "office:value-type": "float" }, p(formatBytes(row.BackupS))),
+					tableCell({ "office:value": row.ManualC + "", "office:value-type": "float" }, p(String(row.ManualC))),
+					tableCell({ "office:value": row.ManualS + "", "office:value-type": "float" }, p(formatBytes(row.ManualS)))
+				]))
+			]),
 			namedExpressions(),
 			databaseRanges(databaseRange({ "table:name": "__Anonymous_Sheet_DB__0", "table:target-range-address": "'Backup Plans'.A1:'Backup Plans'.E" + (data.length + 1), "table:display-filter-buttons": "true" }))
-		]))]);
+		]))
+	]);
 
 	const contentBytes = Uint8Array.from(("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n" + new XMLSerializer().serializeToString(content)).split('').map(c => c.charCodeAt(0))),
 		odsBytes = new Uint8Array(contentBytes.length + ods.length),

@@ -41,10 +41,32 @@ import (
 )
 
 type summary struct {
-	Summaries    map[string]*ruletree.DirSummary
-	Rules        map[uint64]*db.Rule
-	Directories  map[string][]uint64
-	BackupStatus map[string]*ibackup.SetBackupActivity
+	Summaries             map[string]*ruletree.DirSummary
+	Rules                 map[uint64]*db.Rule
+	Directories           map[string][]uint64
+	BackupStatus          map[string]*ibackup.SetBackupActivity
+	GroupBackupTypeTotals map[string]map[int64]SizeCount
+}
+
+const (
+	unplanned = -1
+	manual    = 2
+)
+
+type SizeCount struct {
+	Count uint64 `json:"count"`
+	Size  uint64 `json:"size"`
+}
+
+func (s *Server) addTotals(i int64, group ruletree.Stats, summary *summary) {
+	if _, ok := summary.GroupBackupTypeTotals[group.Name]; !ok {
+		summary.GroupBackupTypeTotals[group.Name] = make(map[int64]SizeCount)
+	}
+
+	counts := summary.GroupBackupTypeTotals[group.Name][i]
+	counts.Count += group.Files
+	counts.Size += group.Size
+	summary.GroupBackupTypeTotals[group.Name][i] = counts
 }
 
 // Summary is an HTTP endpoint that produces a backup summary of all the
@@ -53,96 +75,28 @@ func (s *Server) Summary(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.summary)
 }
 
-func (s *Server) summary(w http.ResponseWriter, _ *http.Request) error { //nolint:funlen,cyclop,gocognit,gocyclo
-	rr := s.rootDir.GlobPaths(s.config.GetReportingRoots()...)
+func (s *Server) summary(w http.ResponseWriter, _ *http.Request) error {
+	reportingRoots := s.rootDir.GlobPaths(s.config.GetReportingRoots()...)
 
 	dirSummary := summary{
-		Summaries:    make(map[string]*ruletree.DirSummary, len(rr)),
-		Rules:        make(map[uint64]*db.Rule),
-		Directories:  make(map[string][]uint64),
-		BackupStatus: make(map[string]*ibackup.SetBackupActivity),
+		Summaries:             make(map[string]*ruletree.DirSummary, len(reportingRoots)),
+		Rules:                 make(map[uint64]*db.Rule),
+		Directories:           make(map[string][]uint64),
+		BackupStatus:          make(map[string]*ibackup.SetBackupActivity),
+		GroupBackupTypeTotals: make(map[string]map[int64]SizeCount),
 	}
-
-	dirClaims := make(map[string]string)
 
 	s.rulesMu.RLock()
+	defer s.rulesMu.RUnlock()
 
-	for _, root := range rr {
-		ds, err := s.rootDir.Summary(root)
-		if errors.Is(err, ruletree.ErrNotFound) || errors.As(err, new(tree.ChildNotFoundError)) {
-			continue
-		} else if err != nil {
-			s.rulesMu.RUnlock()
-
-			return err
-		}
-
-		clear(ds.Children)
-
-		uid, gid := ds.IDs()
-
-		ds.User = users.Username(uid)
-		ds.Group = users.Group(gid)
-
-		for _, dir := range s.dirs {
-			if strings.HasPrefix(dir.Path, root) && dir.Path != root {
-				child, err := s.rootDir.Summary(dir.Path)
-				if err != nil {
-					continue
-				}
-
-				clear(child.Children)
-
-				uid, gid := child.IDs()
-
-				child.User = users.Username(uid)
-				child.Group = users.Group(gid)
-
-				child.ClaimedBy = s.getClaimed(dir.Path)
-				ds.Children[dir.Path] = child
-			}
-		}
-
-		ds.ClaimedBy = s.getClaimed(root)
-
-		dirSummary.Summaries[root] = ds
-
-		for _, rule := range ds.RuleSummaries {
-			if _, ok := dirSummary.Rules[rule.ID]; ok {
-				continue
-			}
-
-			if rule.ID > 0 {
-				dir := s.directoryRules[s.dirs[uint64(s.rules[rule.ID].DirID())].Path] //nolint:gosec
-
-				dirClaims[dir.Path] = dir.ClaimedBy
-				if _, ok := dirSummary.Directories[dir.Path]; !ok {
-					var ruleIDs []uint64
-
-					for _, r := range dir.Rules {
-						ruleIDs = append(ruleIDs, uint64(r.ID()))                  //nolint:gosec
-						dirSummary.Rules[uint64(r.ID())] = s.rules[uint64(r.ID())] //nolint:gosec
-					}
-
-					slices.Sort(ruleIDs)
-
-					dirSummary.Directories[dir.Path] = ruleIDs
-				}
-			}
-		}
+	err := s.collectBackupTotals(&dirSummary)
+	if err != nil {
+		return err
 	}
 
-	s.rulesMu.RUnlock()
-
-	for dir, claimedBy := range dirClaims {
-		sba, err := s.config.GetCachedIBackupClient().GetBackupActivity(dir, "plan::"+dir, claimedBy)
-		if err != nil {
-			slog.Error("error querying ibackup status", "dir", dir, "err", err)
-
-			continue
-		}
-
-		dirSummary.BackupStatus[dir] = sba
+	err = s.buildRootDirSummary(reportingRoots, &dirSummary)
+	if err != nil {
+		return err
 	}
 
 	w.Header().Set("Content-type", "application/json")
@@ -157,4 +111,145 @@ func (s *Server) getClaimed(root string) string {
 	}
 
 	return ""
+}
+
+func (s *Server) populateBackupStatus(dirClaims map[string]string, dirSummary *summary) {
+	for dir, claimedBy := range dirClaims {
+		sba, err := s.config.GetCachedIBackupClient().GetBackupActivity(dir, "plan::"+dir, claimedBy)
+		if err != nil {
+			slog.Error("error querying ibackup status", "dir", dir, "err", err)
+
+			continue
+		}
+
+		dirSummary.BackupStatus[dir] = sba
+	}
+}
+
+func (s *Server) collectBackupTotals(dirSummary *summary) error {
+	ds, err := s.rootDir.Summary("/")
+	if err != nil {
+		return err
+	}
+
+	for _, summary := range ds.RuleSummaries {
+		for _, group := range summary.Groups {
+			bType := s.getBackupTypeForTotals(summary.ID)
+			s.addTotals(bType, group, dirSummary)
+		}
+	}
+
+	return nil
+}
+
+func (s *Server) getBackupTypeForTotals(id uint64) int64 {
+	if id == 0 {
+		return unplanned
+	}
+
+	backupType := s.rules[id].BackupType
+	switch backupType {
+	case db.BackupNone, db.BackupIBackup:
+		return int64(backupType)
+	case db.BackupManualGit, db.BackupManualIBackup, db.BackupManualPrefect, db.BackupManualUnchecked:
+		return manual
+	}
+
+	return int64(backupType)
+}
+
+func (s *Server) buildRootDirSummary(reportingRoots []string, dirSummary *summary) error {
+	dirClaims := make(map[string]string)
+
+	for _, root := range reportingRoots {
+		ds, err := s.rootDir.Summary(root)
+		if errors.Is(err, ruletree.ErrNotFound) || errors.As(err, new(tree.ChildNotFoundError)) {
+			continue
+		} else if err != nil {
+			return err
+		}
+
+		clear(ds.Children)
+
+		uid, gid := ds.IDs()
+
+		ds.User = users.Username(uid)
+		ds.Group = users.Group(gid)
+
+		s.collectChildDirSummaries(ds, root)
+
+		ds.ClaimedBy = s.getClaimed(root)
+
+		dirSummary.Summaries[root] = ds
+
+		s.collectRuleMetadata(ds, dirSummary, dirClaims)
+	}
+
+	s.populateBackupStatus(dirClaims, dirSummary)
+
+	return nil
+}
+
+func (s *Server) collectChildDirSummaries(ds *ruletree.DirSummary, root string) {
+	for _, dir := range s.dirs {
+		if strings.HasPrefix(dir.Path, root) && dir.Path != root {
+			child, err := s.rootDir.Summary(dir.Path)
+			if err != nil {
+				continue
+			}
+
+			clear(child.Children)
+
+			uid, gid := child.IDs()
+
+			child.User = users.Username(uid)
+			child.Group = users.Group(gid)
+
+			child.ClaimedBy = s.getClaimed(dir.Path)
+			ds.Children[dir.Path] = child
+		}
+	}
+}
+
+func (s *Server) collectRuleMetadata(ds *ruletree.DirSummary, dirSummary *summary, dirClaims map[string]string) {
+	for _, rule := range ds.RuleSummaries {
+		if _, ok := dirSummary.Rules[rule.ID]; ok {
+			continue
+		}
+
+		if rule.ID <= 0 {
+			continue
+		}
+
+		dirID := s.rules[rule.ID].DirID()
+		if dirID < 0 {
+			continue
+		}
+
+		dir := s.directoryRules[s.dirs[uint64(dirID)].Path]
+		dirClaims[dir.Path] = dir.ClaimedBy
+
+		if _, ok := dirSummary.Directories[dir.Path]; ok {
+			continue
+		}
+
+		s.collectRules(dirSummary, dir)
+	}
+}
+
+func (s *Server) collectRules(dirSummary *summary, dir *ruletree.DirRules) {
+	ruleIDs := make([]uint64, 0, len(dir.Rules))
+
+	for _, r := range dir.Rules {
+		id := r.ID()
+		if id < 0 {
+			continue
+		}
+
+		ruleIDs = append(ruleIDs, uint64(id))
+		dirSummary.Rules[uint64(id)] = s.rules[uint64(id)]
+	}
+
+	slices.Sort(ruleIDs)
+	dirSummary.Directories[dir.Path] = ruleIDs
 }

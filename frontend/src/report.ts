@@ -1,11 +1,11 @@
 import type { BackupStatus, ClaimedDir, DirectoryWithChildren, ReportSummary, Rule, SizeCount, SizeCountTime, Stats } from "./types.js";
 import type { Children } from "./lib/dom.js";
 import { amendNode } from "./lib/dom.js";
-import { a, br, button, datalist, details, div, fieldset, h1, h2, input, label, legend, li, option, summary, table, tbody, td, th, thead, tr, ul } from "./lib/html.js";
+import { a, br, button, datalist, details, div, fieldset, h1, h2, input, label, legend, li, option, p, span, summary, table, tbody, td, th, thead, tr, ul } from "./lib/html.js";
 import { svg, title, use } from "./lib/svg.js";
 import { action, formatBytes, longAgo, secondsInWeek, setAndReturn, stringSort } from "./lib/utils.js";
 import { getReportSummary } from "./rpc.js";
-import { BackupType } from "./consts.js";
+import { BackupType, MainProgrammes } from "./consts.js";
 import { render } from "./disktree.js";
 import ODS from './odf.js';
 import { boms, owners, userGroups } from './userGroups.js';
@@ -265,8 +265,9 @@ const groupList = datalist({ "id": "groupList" }),
 	},
 	download = () => {
 		const getCSS = (sheet: CSSStyleSheet): string => Array.from(sheet.cssRules, rule => rule instanceof CSSImportRule ? getCSS(rule.styleSheet!) : rule.cssText).reduce((a, b) => a + b, ""),
+			// Ignore first input box when filtering as its a hidden checkbox for expand/collapse table functionality
 			html = `<!DOCTYPE html>
-<html lang="en"><head><title>Backup Report - ${new Date(now).toLocaleString()}</title><style type="text/css">${Array.from(document.styleSheets, getCSS).reduce((a, b) => a + b, "")}</style><script type="module">(document.readyState === "complete" ? Promise.resolve() : new Promise(successFn => window.addEventListener("load", successFn, { "once": true }))).then(() => (${initFilterSort.toString().replace(/\n\t/g, "")})(document.getElementById("report"), Array.from(document.getElementsByTagName("fieldset")).filter(f => f.dataset.name), document.getElementsByTagName("input")));</script></head><body>${base.outerHTML}</body></html>`;
+<html lang="en"><head><title>Backup Report - ${new Date(now).toLocaleString()}</title><style type="text/css">${Array.from(document.styleSheets, getCSS).reduce((a, b) => a + b, "")}</style><script type="module">(document.readyState === "complete" ? Promise.resolve() : new Promise(successFn => window.addEventListener("load", successFn, { "once": true }))).then(() => (${initFilterSort.toString().replace(/\n\t/g, "")})(document.getElementById("report"), Array.from(document.getElementsByTagName("fieldset")).filter(f => f.dataset.name), Array.from(document.getElementsByTagName("input")).slice(1)));</script></head><body>${base.outerHTML}</body></html>`;
 
 		a({ "href": URL.createObjectURL(new Blob([html], { "type": "text/html;charset=utf-8" })), "download": `backup-report-${new Date(now).toISOString()}.html` }).click();
 	};
@@ -274,6 +275,30 @@ const groupList = datalist({ "id": "groupList" }),
 let now = 0,
 	load: (path: string) => Promise<DirectoryWithChildren>,
 	summaryData: ReportSummary;
+
+function renderCell(counts: Map<number, SizeCount>, type: number) {
+	const cells = [
+		td(counts.get(type)?.count.toLocaleString() ?? "0"),
+		td({ "title": counts.get(type)?.size.toLocaleString() ?? "0" }, formatBytes(BigInt(counts.get(type)?.size ?? 0n))),
+	]
+
+	if (type === -1) {
+		cells.push(td(getUnplannedFraction(counts).toLocaleString()));
+	}
+
+	return cells
+};
+
+function getUnplannedFraction(counts: Map<number, SizeCount>) {
+	var totalSize = 0n;
+	for (const sizeCount of counts.values()) {
+		totalSize += sizeCount.size
+	}
+
+	const unplannedSize = counts.get(-1)?.size
+
+	return Number(unplannedSize! * 100n / totalSize) / 100
+}
 
 getReportSummary()
 	.then(data => {
@@ -325,7 +350,62 @@ getReportSummary()
 			parents.push(dirSummary);
 		}
 
-		children[0] = overall.table();
+
+		const programmeCounts = new Map<string, Map<number, SizeCount>>(); // Programme -> BackupType -> SizeCount
+		programmeCounts.set("All", new Map<number, SizeCount>())
+
+		for (const [group, typeCounts] of Object.entries(data.GroupBackupTypeTotals)) {
+			const bom = (!boms.get(group) || boms.get(group) === "unknown") ? "Unknown" : boms.get(group)!;
+
+			if (!programmeCounts.has(bom)) {
+				programmeCounts.set(bom, new Map<number, SizeCount>());
+			}
+
+			for (const [type, sizeCounts] of Object.entries(typeCounts)) {
+				const backupType = Number(type);
+
+				const counts = programmeCounts.get(bom)!;
+
+				if (!counts.has(backupType)) {
+					counts.set(backupType, { count: 0n, size: 0n });
+				}
+
+				const sizecount = counts.get(backupType)!;
+				sizecount.size += BigInt(sizeCounts.size);
+				sizecount.count += BigInt(sizeCounts.count);
+
+				setCountsAll(programmeCounts, backupType, sizeCounts)
+			}
+		}
+
+		const rows = Array.from(programmeCounts.entries())
+			.sort(sortProgrammes)
+			.map(([bom, counts]) => {
+				return [
+					tr([
+						th(bom),
+						...[-1, 0, 1, 2].flatMap(t => renderCell(counts, t))
+					])
+				];
+			});
+
+		children[0] =
+			div({ "class": "summary-container" }, [
+				input({ "type": "checkbox", "id": "tableToggleCheckbox", "style": "display:none" }),
+				table({ "class": "summary" }, [
+					thead(tr([
+						td(),
+						th({ "colspan": "3" }, "Unplanned (Count/Size/Fraction)"),
+						th({ "colspan": "2" }, "No Backup (Count/Size)"),
+						th({ "colspan": "2" }, "Backup (Count/Size)"),
+						th({ "colspan": "2" }, "Manual Backup (Count/Size)")
+					])),
+					tbody([
+						rows,
+						tr({ "class": "table-expand-toggle", "id": "tableCollapse" },
+							td({ "colspan": "10" }, label({ "for": "tableToggleCheckbox" }, [span({ "class": "expand-text" }, "Expand All"), span({ "class": "collapse-text" }, "Collapse All")])))])
+				])]);
+
 		children[1] = fieldset([
 			legend("Filter"),
 			filterProject,
@@ -344,21 +424,35 @@ getReportSummary()
 			label({ "for": "sortBackupSize" }, "Backup Size"), sortBackupSize
 		]);
 
-		(children[0].firstChild?.firstChild?.firstChild as HTMLElement)?.append(
+		(children[0].firstChild?.nextSibling?.firstChild?.firstChild?.firstChild as HTMLElement)?.append(
 			button({ "click": download }, "Download Report"),
 			button({
 				"click": () => {
-					const ods = ODS(parents.map(s => ({
-						"Programme": boms.get(s.group) ?? "",
-						"Faculty": owners.get(s.group) ?? "",
-						"Path": s.path,
-						"Group": s.group,
-						"Status": s.status(),
-						"Unplanned": s.actions[+BackupType.BackupWarn]?.size ?? 0n,
-						"NoBackup": s.actions[+BackupType.BackupNone]?.size ?? 0n,
-						"Backup": s.actions[+BackupType.BackupIBackup]?.size ?? 0n,
-						"ManualBackup": getManualSize(s)
-					})));
+					const ods = ODS(
+						parents.map(s => ({
+							"Programme": boms.get(s.group) ?? "",
+							"Faculty": owners.get(s.group) ?? "",
+							"Path": s.path,
+							"Group": s.group,
+							"Status": s.status(),
+							"Unplanned": s.actions[+BackupType.BackupWarn]?.size ?? 0n,
+							"NoBackup": s.actions[+BackupType.BackupNone]?.size ?? 0n,
+							"Backup": s.actions[+BackupType.BackupIBackup]?.size ?? 0n,
+							"ManualBackup": getManualSize(s)
+						})),
+						Array.from(programmeCounts.entries()).map(([bom, counts]) => ({
+							"Programme": bom,
+							"UnplannedC": BigInt(counts.get(-1)?.count ?? 0n),
+							"UnplannedS": BigInt(counts.get(-1)?.size ?? 0n),
+							"UnplannedF": Math.round(1000 * (Number(counts.get(-1)?.size ?? 0n)) /
+								(Number(counts.get(-1)?.size ?? 0n) + Number(counts.get(0)?.size ?? 0n) + Number(counts.get(1)?.size ?? 0n) + Number(counts.get(2)?.size ?? 0n))) / 1000,
+							"NoBackupC": BigInt(counts.get(0)?.count ?? 0n),
+							"NoBackupS": BigInt(counts.get(0)?.size ?? 0n),
+							"BackupC": BigInt(counts.get(1)?.count ?? 0n),
+							"BackupS": BigInt(counts.get(1)?.size ?? 0n),
+							"ManualC": BigInt(counts.get(2)?.count ?? 0n),
+							"ManualS": BigInt(counts.get(2)?.size ?? 0n)
+						})));
 
 					a({ "href": URL.createObjectURL(new Blob([ods], { "type": "text/csv;charset=utf-8" })), "download": `backup-report-${new Date(now).toISOString()}.ods` }).click();
 				}
@@ -367,8 +461,6 @@ getReportSummary()
 		initFilterSort(base, children.slice(3) as HTMLFieldSetElement[], [filterProject, filterAll, filterR, filterA, filterG, filterB, sortName, sortWarnSize, sortNoBackupSize, sortBackupSize]);
 		amendNode(base, children);
 	});
-
-
 
 export default Object.assign(base, {
 	"init": (loadFn: (path: string) => Promise<DirectoryWithChildren>) => {
@@ -407,4 +499,39 @@ export default Object.assign(base, {
 
 function getManualSize(s: ParentSummary) {
 	return BackupType.manual.reduce((total, backup) => total + (s.actions[+backup]?.size ?? 0n), 0n);
+}
+
+function sortProgrammes(a: [string, Map<number, SizeCount>], b: [string, Map<number, SizeCount>]) {
+	const [progA, countsA] = a;
+	const [progB, countsB] = b;
+
+	const fractionA = getUnplannedFraction(countsA);
+	const fractionB = getUnplannedFraction(countsB);
+
+	const isPriorityA = MainProgrammes.includes(progA);
+	const isPriorityB = MainProgrammes.includes(progB);
+
+	if (progA === "All") return -1;
+	if (progB === "All") return 1;
+
+	if (isPriorityA && isPriorityB) {
+		return Number(fractionB - fractionA);
+	}
+
+	if (isPriorityA) return -1;
+	if (isPriorityB) return 1;
+
+	return Number(fractionB - fractionA);
+}
+
+function setCountsAll(programmeCounts: Map<string, Map<number, SizeCount>>, backupType: number, sizeCounts: SizeCount) {
+	const all = programmeCounts.get("All")!;
+
+	if (!all.has(backupType)) {
+		all.set(backupType, { count: 0n, size: 0n });
+	}
+
+	const allTotals = all.get(backupType)!;
+	allTotals.size += BigInt(sizeCounts.size);
+	allTotals.count += BigInt(sizeCounts.count);
 }
