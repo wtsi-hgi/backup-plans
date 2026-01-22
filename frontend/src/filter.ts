@@ -2,19 +2,22 @@ import type { DirectoryWithChildren } from './types.js';
 import { br, button, datalist, details, div, input, option, select, summary } from './lib/html.js';
 import { setAndReturn, stringSort } from './lib/utils.js';
 import { boms, owners, userGroups } from './userGroups.js';
+import { handle, inputState, selectState, set, tab } from './state.js';
 
 const userOpts: HTMLOptionElement[] = [],
 	groupOpts: HTMLOptionElement[] = [],
 	reverseOwners = new Map<string, string[]>(),
 	reverseBoms = new Map<string, string[]>(),
-	userSelect = select({ "multiple": "multiple" }),
-	groupSelect = select({ "multiple": "multiple" }),
-	userFilter = input({
+	userSelect = selectState({ "id": "selectedUsers", "multiple": "multiple" }),
+	groupSelect = selectState({ "id": "selectedGroups", "multiple": "multiple" }),
+	userFilter = inputState({
+		"id": "userFilter",
 		"placeholder": "Filter: User", "list": "userList", "input": function (this: HTMLInputElement) {
 			userSelect.replaceChildren(...userOpts.filter(opt => opt.innerText.includes(this.value)).map(e => (e.selected = e.value === this.value, e)));
 		}
 	}),
-	groupFilter = input({
+	groupFilter = inputState({
+		"id": "groupFilter",
 		"placeholder": "Filter: Group, BOM, Owner", "list": "groupList", "input": function (this: HTMLInputElement) {
 			const bom = reverseBoms.get(this.value),
 				owner = reverseOwners.get(this.value);
@@ -44,16 +47,17 @@ const userOpts: HTMLOptionElement[] = [],
 	},
 	clearFilter = (input: HTMLInputElement, select: HTMLSelectElement, options: HTMLOptionElement[]) => {
 		filter["type"] = "none";
+		filter["names"] = [];
 		input.value = "";
 		select.replaceChildren(...options.map(opt => (opt.selected = false, opt)));
 
+		select.dispatchEvent(new CustomEvent("input"));
+		input.dispatchEvent(new CustomEvent("input"));
 		loadFiltered();
 	},
-	base = details({ "id": "filter" }, [
-		summary("Filter"),
+	base = tab({ "id": "filter", "name": "", "summary": "Filter" }, [
 		div({ "class": "tabs" }, [
-			details({ "name": "filter", "open": "open" }, [
-				summary("Users"),
+			tab({ "name": "filterTab", "summary": "Users", "open": true }, [
 				div([
 					userFilter,
 					userSelect,
@@ -63,8 +67,7 @@ const userOpts: HTMLOptionElement[] = [],
 					button({ "click": () => setFilter("users", userSelect) }, "Filter")
 				])
 			]),
-			details({ "name": "filter" }, [
-				summary("Groups"),
+			tab({ "name": "filterTab", "summary": "Groups" }, [
 				div([
 					groupFilter,
 					groupSelect,
@@ -81,11 +84,38 @@ export const filter = {
 	"names": [] as string[]
 };
 
-let loadFiltered = () => { };
+let loadFiltered = () => { },
+	debounce = false;
+
+handle("filterType", v => {
+	filter["type"] = v;
+
+	if (!debounce) {
+		debounce = true;
+
+		queueMicrotask(loadFiltered);
+	}
+});
+
+handle("filterNames", v => {
+	filter["names"] = JSON.parse(v || "[]");
+
+	if (!debounce) {
+		debounce = true;
+
+		queueMicrotask(loadFiltered);
+	}
+});
 
 export default Object.assign(base, {
 	"update": (path: string, _: DirectoryWithChildren, load: (path: string) => void) => {
-		loadFiltered = () => load(path);
+		loadFiltered = () => {
+			debounce = false;
+
+			set("filterType", filter.type);
+			set("filterNames", JSON.stringify(filter.names));
+			load(path);
+		}
 	},
 	"init": () => {
 		const users = userGroups.Users.filter(u => u.trim()),

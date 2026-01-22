@@ -1,26 +1,26 @@
 import { filter } from './filter.js';
 import { clearNode } from './lib/dom.js';
-import { table, tbody, td, th, thead, tr, details, summary } from './lib/html.js';
+import { table, tbody, td, th, thead, tr } from './lib/html.js';
 import { formatBytes, setAndReturn } from './lib/utils.js';
+import { tab } from './state.js';
 import type { ChildDirectory, DirectoryWithChildren, SizeCountStats } from './types.js';
 
 const base = tbody();
 
-const container = details({
+const container = tab({
     "id": "userStats",
-}, [
-    summary("User stats"),
-    table({ "class": "summary" }, [
-        thead(tr([
-            th("User"),
-            th("Total file Size"),
-            th("Total file Count"),
-            th("Unplanned Size"),
-            th("Unplanned Count")
-        ])),
-        base
-    ])
-]);
+    "name": "",
+    "summary": "User Stats",
+}, table({ "class": "summary" }, [
+    thead(tr([
+        th("User"),
+        th("Total file Size"),
+        th("Total file Count"),
+        th("Unplanned Size"),
+        th("Unplanned Count")
+    ])),
+    base
+]));
 
 let gdata: DirectoryWithChildren;
 

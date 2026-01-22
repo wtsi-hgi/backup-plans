@@ -9,6 +9,7 @@ import { BackupType, MainProgrammes } from "./consts.js";
 import { render } from "./disktree.js";
 import ODS from './odf.js';
 import { boms, owners, userGroups } from './userGroups.js';
+import { inputState } from "./state.js";
 
 class Summary {
 	actions: SizeCountTime[] = [];
@@ -309,7 +310,7 @@ getReportSummary()
 		const children: Children = ["", "", ""],
 			parents: ParentSummary[] = [],
 			overall = new Summary(""),
-			filterProject = input({ "placeholder": "Name, BOM, Group, Owner", "list": "groupList" }),
+			filterProject = inputState({ "id": "reportFilter", "placeholder": "Name, BOM, Group, Owner", "list": "groupList" }),
 			filterAll = input({ "id": "filterAll", "name": "filter", "type": "radio", "checked": "checked" }),
 			filterR = input({ "id": "filterRed", "name": "filter", "type": "radio" }),
 			filterA = input({ "id": "filterAmber", "name": "filter", "type": "radio" }),

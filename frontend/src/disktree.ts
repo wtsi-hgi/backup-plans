@@ -1,10 +1,11 @@
 import type { Directory, DirectoryWithChildren } from './types.js';
 import type { Children } from './lib/dom.js';
 import { clearNode } from './lib/dom.js';
-import { br, details, div, label, option, select, summary } from './lib/html.js';
+import { br, div, label, option } from './lib/html.js';
 import { rect, svg, text, use } from './lib/svg.js';
 import { BackupType } from './consts.js';
 import { onHover } from './userstats.js';
+import { selectState, tab } from './state.js';
 
 export type Entry = {
 	name: string;
@@ -34,6 +35,15 @@ type BoxParams = {
 	minScale: number;
 	bbox: { width: number; height: number; depth: number };
 }
+
+
+export let render = () => { };
+
+let areaFn = 0,
+	colourFn = 0,
+	reload = () => { },
+	lastWidth = 0,
+	lastHeight = 0;
 
 const phi = (1 + Math.sqrt(5)) / 2,
 	underhangs = ['g', 'j', 'p', 'q', 'y'],
@@ -232,11 +242,10 @@ const phi = (1 + Math.sqrt(5)) / 2,
 		(dir: Directory) => Number(dir.size),
 		(dir: Directory) => Number(dir.count)
 	],
-	options = details({ "id": "treeOptions" }, [
-		summary("View Options"),
+	options = tab({ "id": "treeOptions", "name": "", "summary": "View Options" }, [
 		div([
 			label({ "for": "colourBy" }, "Colour By"),
-			select({
+			selectState({
 				"id": "colourBy", "change": function (this: HTMLSelectElement) {
 					colourFn = Math.max(0, Math.min(colourFns.length - 1, parseInt(this.value) || 0));
 					reload();
@@ -254,7 +263,7 @@ const phi = (1 + Math.sqrt(5)) / 2,
 			div({ "id": "spectrum" }),
 			br(),
 			label({ "for": "areaRepresents" }, "Area Represents"),
-			select({
+			selectState({
 				"id": "areaRepresents", "change": function (this: HTMLSelectElement) {
 					areaFn = Math.max(0, Math.min(areaFns.length - 1, parseInt(this.value) || 0));
 					reload();
@@ -275,15 +284,7 @@ const phi = (1 + Math.sqrt(5)) / 2,
 	base = div({ "id": "tree" }, [
 		svgBase,
 		options
-	])
-
-export let render = () => { };
-
-let areaFn = 0,
-	colourFn = 0,
-	reload = () => { },
-	lastWidth = 0,
-	lastHeight = 0;
+	]);
 
 new ResizeObserver(() => render()).observe(svgBase);
 
