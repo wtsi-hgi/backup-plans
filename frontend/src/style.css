@@ -5,6 +5,7 @@
 @import url("rules.css");
 @import url("summary.css");
 @import url("userstats.css");
+@import url("graph.css");
 
 html,
 body {
@@ -361,6 +362,11 @@ use {
 		--button-colour-disabled: #888;
 
 		--button-colour-addEdit: #222;
+
+		--graph-one: #979DAC;
+		--graph-two: #1B4965;
+		--graph-three: #2A6f97;
+		--graph-four: #62B6CB;
 	}
 }
 
@@ -429,6 +435,11 @@ use {
 		--button-colour-disabled: #888;
 
 		--button-colour-addEdit: #222;
+
+		--graph-one: #979DAC;
+		--graph-two: #1B4965;
+		--graph-three: #2A6f97;
+		--graph-four: #62B6CB;
 	}
 
 	#addEdit svg {
