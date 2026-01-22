@@ -351,7 +351,7 @@ getReportSummary()
 		}
 
 
-		const programmeCounts = new Map<string, Map<number, SizeCount>>(); // Programme -> BackupType -> SizeCount
+		// const programmeCounts = new Map<string, Map<number, SizeCount>>(); // Programme -> BackupType -> SizeCount
 		programmeCounts.set("All", new Map<number, SizeCount>())
 
 		for (const [group, typeCounts] of Object.entries(data.GroupBackupTypeTotals)) {
@@ -496,6 +496,8 @@ export default Object.assign(base, {
 		gArr.forEach(([k, v]) => groupList.append(option({ "label": k + v }, v)))
 	}
 });
+
+export const programmeCounts = new Map<string, Map<number, SizeCount>>(); // Programme -> BackupType -> SizeCount
 
 function getManualSize(s: ParentSummary) {
 	return BackupType.manual.reduce((total, backup) => total + (s.actions[+backup]?.size ?? 0n), 0n);

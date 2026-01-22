@@ -10,6 +10,7 @@ import RuleTree from './ruletree.js';
 import Summary from './summary.js';
 import UserStats from './userstats.js';
 import { symbols } from './symbols.js';
+import Graph from './graph.js';
 
 const load = (path: string) => Load(path).then(data => {
 	Breadcrumbs.update(path, load);
@@ -56,6 +57,10 @@ const load = (path: string) => Load(path).then(data => {
 				details({ "name": "tabs" }, [
 					summary("Top Level Report"),
 					Report
+				]),
+				details({ "name": "tabs" }, [
+					summary("Graphical Report"),
+					Graph
 				])
 			])
 		);
