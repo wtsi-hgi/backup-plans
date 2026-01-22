@@ -1,0 +1,49 @@
+.graph-container {
+    display: flex;
+}
+
+.graph {
+    width: 60vw !important;
+    display: block;
+    padding: 1vw;
+    overflow: hidden;
+    border: solid var(--subtleBG);
+    border-width: 1px;
+    border-radius: 10px;
+    margin: 2vw;
+}
+
+.graphRow {
+    display: flex;
+    width: 100%;
+    height: 25px;
+    /* border: solid white;
+    border-width: 0 0 3px 3px; */
+}
+
+/* TODO: Why is the nth child colouring not working? It works for fofnKey */
+
+.bar-one,
+#graphKey div:first-child:after {
+    background-color: var(--graph-one);
+}
+
+.bar-two,
+#graphKey div:nth-child(2):after {
+    background-color: var(--graph-two);
+}
+
+.bar-three,
+#graphKey div:nth-child(3):after {
+    background-color: var(--graph-three);
+}
+
+.bar-four,
+#graphKey div:nth-child(4):after {
+    background-color: var(--graph-four);
+}
+
+.graph p {
+    margin: 0px;
+    width: 20%;
+}
