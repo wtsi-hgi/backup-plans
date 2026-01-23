@@ -1,11 +1,16 @@
 import { MainProgrammes } from "./consts.js";
-import { div, p, h2, h3, br } from "./lib/html.js";
+import { div, p, h2, h3, br, span } from "./lib/html.js";
 import type { SizeCount } from "./types.js";
 
-// const TestProgrammes = ["All", "Unknown"];
+// const MainProgrammes = ["All", "Unknown"];
 const colourClasses = ["bar-one", "bar-two", "bar-three", "bar-four"];
 const base = div();
 
+// TODO:
+// 1) Investigate why humgen's Manual Backup % is calculated as 0, when it should be 1 to make all numbers add to 100.
+// 2) Investigate why all programmes apart from humgens are calculating as NaN 
+// 3) Add percentages to bars somehow (potentially an onhover effect if it looks too noisy)
+// 5) Light mode fixes
 function prepareData(programmeCounts: Map<string, Map<number, SizeCount>>) {
     const barChartData = new Map<string, number[]>();
 
@@ -36,24 +41,43 @@ function generateBarChart(programmeCounts: Map<string, Map<number, SizeCount>>) 
 
     base.replaceChildren(
         div({ "class": "graph-container" }, [
-            div({ "class": "graph" }, [
-                h2("Data Fraction per Programme"), br(),
-                MainProgrammes.map(programme => [
-                    p(programme),
-                    div({ "class": "graphRow" }, [...[0, 1, 2, 3].flatMap(i => div({
-                        "style": "width:" + barChartData.get(programme)![i] + "%;",
-                        "title": barChartData.get(programme)![i] + "%",
-                        "class": colourClasses[i]
-                    }))])
-                ]), br(),
-                h3("Key"),
-                div({ "id": "graphKey" }, [
-                    div("Unplanned"),
-                    div("Backup"),
-                    div("No Backup"),
-                    div("Manual Backup")
+            h2("Data Fraction per Programme"),
+            div({ "id": "graphKey" }, [
+                div("Unplanned"),
+                div("Backup"),
+                div("No Backup"),
+                div("Manual Backup")
+            ]), br(),
+            div({ "class": "graph-grid" }, [
+                div({ "class": "graphAxisY" }, [
+                    div(),
+                    MainProgrammes.map(programme => [div(programme)]),
+                    div()
                 ]),
-            ])
+                div({ "class": "graph-wrapper" }, [
+                    div({ "class": "graph" }, [
+                        // div({ "class": "graph-grid-lines" }, [
+                        //     div(), div(), div(), div(), div(), div()
+                        // ]),
+                        MainProgrammes.map(programme => [
+                            div({ "class": "graphRow" }, [...[0, 1, 2, 3].flatMap(i => div({
+                                "style": "width:" + barChartData.get(programme)![i] + "%;",
+                                "title": barChartData.get(programme)![i] + "%",
+                                "class": colourClasses[i]
+                            }))])
+                        ])
+                    ]),
+                ]),
+                div(),
+                div({ "class": "graphAxisX" }, [
+                    span("0%"),
+                    span("20%"),
+                    span("40%"),
+                    span("60%"),
+                    span("80%"),
+                    span("100%")
+                ]),
+            ]), br(),
         ])
     );
 }
