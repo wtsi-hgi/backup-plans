@@ -8,7 +8,6 @@ const base = div();
 
 // TODO:
 // 1) Investigate why humgen's Manual Backup % is calculated as 0, when it should be 1 to make all numbers add to 100.
-// 2) Investigate why all programmes apart from humgens are calculating as NaN 
 // 3) Add percentages to bars somehow (potentially an onhover effect if it looks too noisy)
 // 5) Light mode fixes
 function prepareData(programmeCounts: Map<string, Map<number, SizeCount>>) {
@@ -19,13 +18,15 @@ function prepareData(programmeCounts: Map<string, Map<number, SizeCount>>) {
 
         let totalSize = 0;
         for (const i of [-1, 0, 1, 2]) {
-            totalSize += Number(data.get(i)?.size) ?? 0;
+            totalSize += Number(data.get(i)?.size || 0);
         }
+
+        console.log("totalSize for programme:", programme, totalSize);
 
         const programmeFractions: number[] = [];
         for (const i of [-1, 0, 1, 2]) {
             programmeFractions.push(
-                Math.round(100 * (Number(data.get(i)?.size) ?? 0) / totalSize)
+                Math.round(100 * (Number(data.get(i)?.size) || 0) / totalSize)
             );
         }
 
@@ -44,8 +45,8 @@ function generateBarChart(programmeCounts: Map<string, Map<number, SizeCount>>) 
             h2("Data Fraction per Programme"),
             div({ "id": "graphKey" }, [
                 div("Unplanned"),
-                div("Backup"),
                 div("No Backup"),
+                div("Backup"),
                 div("Manual Backup")
             ]), br(),
             div({ "class": "graph-grid" }, [
@@ -56,9 +57,6 @@ function generateBarChart(programmeCounts: Map<string, Map<number, SizeCount>>) 
                 ]),
                 div({ "class": "graph-wrapper" }, [
                     div({ "class": "graph" }, [
-                        // div({ "class": "graph-grid-lines" }, [
-                        //     div(), div(), div(), div(), div(), div()
-                        // ]),
                         MainProgrammes.map(programme => [
                             div({ "class": "graphRow" }, [...[0, 1, 2, 3].flatMap(i => div({
                                 "style": "width:" + barChartData.get(programme)![i] + "%;",
