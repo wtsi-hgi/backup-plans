@@ -9,6 +9,7 @@ import { BackupType, MainProgrammes } from "./consts.js";
 import { render } from "./disktree.js";
 import ODS from './odf.js';
 import { boms, owners, userGroups } from './userGroups.js';
+import graph from "./graph.js";
 
 class Summary {
 	actions: SizeCountTime[] = [];
@@ -350,33 +351,8 @@ getReportSummary()
 			parents.push(dirSummary);
 		}
 
-
-		// const programmeCounts = new Map<string, Map<number, SizeCount>>(); // Programme -> BackupType -> SizeCount
-		programmeCounts.set("All", new Map<number, SizeCount>())
-
-		for (const [group, typeCounts] of Object.entries(data.GroupBackupTypeTotals)) {
-			const bom = (!boms.get(group) || boms.get(group) === "unknown") ? "Unknown" : boms.get(group)!;
-
-			if (!programmeCounts.has(bom)) {
-				programmeCounts.set(bom, new Map<number, SizeCount>());
-			}
-
-			for (const [type, sizeCounts] of Object.entries(typeCounts)) {
-				const backupType = Number(type);
-
-				const counts = programmeCounts.get(bom)!;
-
-				if (!counts.has(backupType)) {
-					counts.set(backupType, { count: 0n, size: 0n });
-				}
-
-				const sizecount = counts.get(backupType)!;
-				sizecount.size += BigInt(sizeCounts.size);
-				sizecount.count += BigInt(sizeCounts.count);
-
-				setCountsAll(programmeCounts, backupType, sizeCounts)
-			}
-		}
+		const programmeCounts = buildProgrammeCounts(data.GroupBackupTypeTotals);
+		graph.init(programmeCounts);
 
 		const rows = Array.from(programmeCounts.entries())
 			.sort(sortProgrammes)
@@ -497,8 +473,6 @@ export default Object.assign(base, {
 	}
 });
 
-export const programmeCounts = new Map<string, Map<number, SizeCount>>(); // Programme -> BackupType -> SizeCount
-
 function getManualSize(s: ParentSummary) {
 	return BackupType.manual.reduce((total, backup) => total + (s.actions[+backup]?.size ?? 0n), 0n);
 }
@@ -536,4 +510,35 @@ function setCountsAll(programmeCounts: Map<string, Map<number, SizeCount>>, back
 	const allTotals = all.get(backupType)!;
 	allTotals.size += BigInt(sizeCounts.size);
 	allTotals.count += BigInt(sizeCounts.count);
+}
+
+function buildProgrammeCounts(GroupBackupTypeTotals: Record<string, Record<number, SizeCount>>) {
+	const programmeCounts = new Map<string, Map<number, SizeCount>>(); // Programme -> BackupType -> SizeCount
+	programmeCounts.set("All", new Map<number, SizeCount>())
+
+	for (const [group, typeCounts] of Object.entries(GroupBackupTypeTotals)) {
+		const bom = (!boms.get(group) || boms.get(group) === "unknown") ? "Unknown" : boms.get(group)!;
+
+		if (!programmeCounts.has(bom)) {
+			programmeCounts.set(bom, new Map<number, SizeCount>());
+		}
+
+		for (const [type, sizeCounts] of Object.entries(typeCounts)) {
+			const backupType = Number(type);
+
+			const counts = programmeCounts.get(bom)!;
+
+			if (!counts.has(backupType)) {
+				counts.set(backupType, { count: 0n, size: 0n });
+			}
+
+			const sizecount = counts.get(backupType)!;
+			sizecount.size += BigInt(sizeCounts.size);
+			sizecount.count += BigInt(sizeCounts.count);
+
+			setCountsAll(programmeCounts, backupType, sizeCounts)
+		}
+	}
+
+	return programmeCounts
 }
