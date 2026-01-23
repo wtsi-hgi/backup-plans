@@ -1,15 +1,15 @@
 import { MainProgrammes } from "./consts.js";
 import { div, p, h2, h3, br } from "./lib/html.js";
-import { programmeCounts } from "./report.js";
 import type { SizeCount } from "./types.js";
 
-const TestProgrammes = ["All", "Unknown"];
-const barChartData = new Map<string, number[]>();
+// const TestProgrammes = ["All", "Unknown"];
 const colourClasses = ["bar-one", "bar-two", "bar-three", "bar-four"];
 const base = div();
 
 function prepareData(programmeCounts: Map<string, Map<number, SizeCount>>) {
-    for (const programme of TestProgrammes) {
+    const barChartData = new Map<string, number[]>();
+
+    for (const programme of MainProgrammes) {
         const data = programmeCounts.get(programme)!
 
         let totalSize = 0;
@@ -28,16 +28,17 @@ function prepareData(programmeCounts: Map<string, Map<number, SizeCount>>) {
     }
 
     console.log(barChartData);
+    return barChartData
 }
 
-function generateBarChart() {
-    prepareData(programmeCounts);
+function generateBarChart(programmeCounts: Map<string, Map<number, SizeCount>>) {
+    const barChartData = prepareData(programmeCounts);
 
     base.replaceChildren(
         div({ "class": "graph-container" }, [
             div({ "class": "graph" }, [
                 h2("Data Fraction per Programme"), br(),
-                TestProgrammes.map(programme => [
+                MainProgrammes.map(programme => [
                     p(programme),
                     div({ "class": "graphRow" }, [...[0, 1, 2, 3].flatMap(i => div({
                         "style": "width:" + barChartData.get(programme)![i] + "%;",
@@ -57,6 +58,6 @@ function generateBarChart() {
     );
 }
 
-setTimeout(() => generateBarChart(), 100);
-
-export default base;
+export default Object.assign(base, {
+    init: generateBarChart
+})
