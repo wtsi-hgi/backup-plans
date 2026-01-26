@@ -16,6 +16,7 @@ directories, regardless of their rules (unless their rules are more specific).`,
 }
 
 export const MainProgrammes = [
+    "All",
     "CASM",
     "Human Genetics",
     "ToL",
