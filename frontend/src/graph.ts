@@ -1,5 +1,6 @@
 import { MainProgrammes } from "./consts.js";
 import { div, p, h2, h3, br, span } from "./lib/html.js";
+import { formatBytes } from "./lib/utils.js";
 import type { SizeCount, BarChartData } from "./types.js";
 
 // const MainProgrammes = ["All", "Unknown"];
@@ -12,12 +13,12 @@ function prepareData(programmeCounts: Map<string, Map<number, SizeCount>>) {
     for (const programme of MainProgrammes) {
         const data = programmeCounts.get(programme)!
 
-        const sizes = [-1, 0, 1, 2].map(i => Number(data.get(i)?.size || 0));
-        const totalSize = [-1, 0, 1, 2].reduce((total, i) => total += Number(data.get(i)?.size || 0))
+        const sizes = [-1, 0, 1, 2].map(i => data.get(i)?.size || 0n);
+        const totalSize = sizes.reduce((total, size) => total + size, 0n);
 
         const sizeFractions = Array.from(data.entries())
             .sort(([keyA], [keyB]) => keyA - keyB)
-            .map(([_, item]) => 100 * (Number(item.size) / Number(totalSize)));
+            .map(([_, item]) => Number(100n * item.size / totalSize));
         const programmeFractions = largestRemainderRound(sizeFractions);
 
         barChartData.push({ Programme: programme, Fractions: programmeFractions, Sizes: sizes })
@@ -69,7 +70,7 @@ function generateBarChart(programmeCounts: Map<string, Map<number, SizeCount>>) 
                                 "style": "width:" + row.Fractions[i] + "%;",
                                 "title": row.Fractions[i] + "%",
                                 "class": colourClasses[i],
-                                "mouseenter": function (this: HTMLElement) { this.firstElementChild!.textContent = String(row.Sizes[i]) },
+                                "mouseenter": function (this: HTMLElement) { this.firstElementChild!.textContent = formatBytes(row.Sizes[i]) },
                                 "mouseleave": function (this: HTMLElement) { this.firstElementChild!.textContent = row.Fractions[i] + "%" }
                             }, [row.Fractions[i]! !== 0 ? p(row.Fractions[i] + "%") : p()]))])
                         ])
