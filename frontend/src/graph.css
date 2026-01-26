@@ -1,6 +1,6 @@
 .graph-container {
     display: block;
-    border: solid var(--subtleBG);
+    border: solid var(--graph-border);
     border-width: 1px;
     border-radius: 10px;
     margin: 2vw;
@@ -24,7 +24,7 @@
     display: flex;
     flex-direction: column;
     gap: 15px;
-    background-image: repeating-linear-gradient(to right, var(--subtleBG) 0px, var(--subtleBG) 1px, transparent 1px, transparent 10%);
+    background-image: repeating-linear-gradient(to right, var(--graph-border) 0px, var(--graph-border) 1px, transparent 1px, transparent 10%);
     background-size: calc(100% - 1px) 100%;
     width: 100%;
 }
@@ -34,7 +34,15 @@
     z-index: 1;
     display: flex;
     width: 100%;
-    height: 40px;
+    height: 100%;
+}
+
+.graph p {
+    display: flex;
+    justify-content: center;
+    vertical-align: middle;
+    margin: 0.5em;
+    font-size: x-small;
 }
 
 .graphAxisX {
@@ -109,40 +117,34 @@
     background-color: var(--graph-one);
 }
 
-/* .bar-one:hover {
+.bar-one:hover {
     background-color:
         color-mix(in srgb, var(--graph-one) 45%, transparent);
-} */
+}
 
 .bar-two {
     background-color: var(--graph-two);
 }
 
-/* .bar-two:hover {
+.bar-two:hover {
     background-color:
         color-mix(in srgb, var(--graph-two) 45%, transparent);
-} */
+}
 
 .bar-three {
     background-color: var(--graph-three);
 }
 
-/* .bar-three:hover {
+.bar-three:hover {
     background-color:
         color-mix(in srgb, var(--graph-three) 45%, transparent);
-} */
+}
 
 .bar-four {
     background-color: var(--graph-four);
 }
 
-/* .bar-four:hover {
+.bar-four:hover {
     background-color:
         color-mix(in srgb, var(--graph-four) 45%, transparent);
-} */
-
-/* 
-.graph p {
-    margin: 0px;
-    width: 20%;
-} */
+}

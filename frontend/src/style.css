@@ -363,10 +363,11 @@ use {
 
 		--button-colour-addEdit: #222;
 
+		--graph-border: #888;
 		--graph-one: #979DAC;
-		--graph-two: #1B4965;
-		--graph-three: #2A6f97;
-		--graph-four: #62B6CB;
+		--graph-two: #2A6f97;
+		--graph-three: #62B6CB;
+		--graph-four: #8ecae6;
 	}
 }
 
@@ -436,6 +437,7 @@ use {
 
 		--button-colour-addEdit: #222;
 
+		--graph-border: #666;
 		--graph-one: #979DAC;
 		--graph-two: #1B4965;
 		--graph-three: #2A6f97;
