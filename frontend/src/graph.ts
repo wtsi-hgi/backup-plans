@@ -1,8 +1,8 @@
-// import { MainProgrammes } from "./consts.js";
+import { MainProgrammes } from "./consts.js";
 import { div, p, h2, h3, br, span } from "./lib/html.js";
 import type { SizeCount } from "./types.js";
 
-const MainProgrammes = ["All", "Unknown"];
+// const MainProgrammes = ["All", "Unknown"];
 const colourClasses = ["bar-one", "bar-two", "bar-three", "bar-four"];
 const base = div();
 
@@ -76,7 +76,7 @@ function generateBarChart(programmeCounts: Map<string, Map<number, SizeCount>>) 
                                 "style": "width:" + barChartData.get(programme)![i] + "%;",
                                 "title": barChartData.get(programme)![i] + "%",
                                 "class": colourClasses[i]
-                            }, [p(barChartData.get(programme)![i] + "%")]))])
+                            }, [barChartData.get(programme)![i] !== 0 ? p(barChartData.get(programme)![i] + "%") : p()]))])
                         ])
                     ]),
                 ]),
