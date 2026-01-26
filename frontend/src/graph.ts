@@ -47,6 +47,10 @@ function largestRemainderRound(values: number[]): number[] {
         return index < diff ? Math.floor(item) + 1 : Math.floor(item)
     });
 
+    while (finalFractions.length < 4) {
+        finalFractions.push(0);
+    }
+
     console.log("rounded fractions:", finalFractions);
     return finalFractions
 }
