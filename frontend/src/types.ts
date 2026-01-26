@@ -1,5 +1,11 @@
 import { BackupType } from "./consts.js";
 
+export type BarChartData = {
+	Programme: string;
+	Fractions: number[];
+	Sizes: number[];
+};
+
 export type Stats = {
 	ID: number;
 	Name: string;

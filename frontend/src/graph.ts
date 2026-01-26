@@ -1,28 +1,26 @@
 import { MainProgrammes } from "./consts.js";
 import { div, p, h2, h3, br, span } from "./lib/html.js";
-import type { SizeCount } from "./types.js";
+import type { SizeCount, BarChartData } from "./types.js";
 
 // const MainProgrammes = ["All", "Unknown"];
-const colourClasses = ["bar-one", "bar-two", "bar-three", "bar-four"];
+const colourClasses = ["bar-unplanned", "bar-nobackup", "bar-backup", "bar-manual"];
 const base = div();
 
 function prepareData(programmeCounts: Map<string, Map<number, SizeCount>>) {
-    const barChartData = new Map<string, number[]>();
+    const barChartData: BarChartData[] = [];
 
     for (const programme of MainProgrammes) {
         const data = programmeCounts.get(programme)!
 
-        let totalSize = 0;
-        for (const i of [-1, 0, 1, 2]) {
-            totalSize += Number(data.get(i)?.size || 0);
-        }
+        const sizes = [-1, 0, 1, 2].map(i => Number(data.get(i)?.size || 0));
+        const totalSize = [-1, 0, 1, 2].reduce((total, i) => total += Number(data.get(i)?.size || 0))
 
         const sizeFractions = Array.from(data.entries())
             .sort(([keyA], [keyB]) => keyA - keyB)
             .map(([_, item]) => 100 * (Number(item.size) / Number(totalSize)));
         const programmeFractions = largestRemainderRound(sizeFractions);
 
-        barChartData.set(programme, programmeFractions);
+        barChartData.push({ Programme: programme, Fractions: programmeFractions, Sizes: sizes })
     }
 
     return barChartData
@@ -66,12 +64,14 @@ function generateBarChart(programmeCounts: Map<string, Map<number, SizeCount>>) 
                 ]),
                 div({ "class": "graph-wrapper" }, [
                     div({ "class": "graph" }, [
-                        MainProgrammes.map(programme => [
+                        barChartData.map(row => [
                             div({ "class": "graphRow" }, [...[0, 1, 2, 3].flatMap(i => div({
-                                "style": "width:" + barChartData.get(programme)![i] + "%;",
-                                "title": barChartData.get(programme)![i] + "%",
-                                "class": colourClasses[i]
-                            }, [barChartData.get(programme)![i] !== 0 ? p(barChartData.get(programme)![i] + "%") : p()]))])
+                                "style": "width:" + row.Fractions[i] + "%;",
+                                "title": row.Fractions[i] + "%",
+                                "class": colourClasses[i],
+                                "mouseenter": function (this: HTMLElement) { this.firstElementChild!.textContent = String(row.Sizes[i]) },
+                                "mouseleave": function (this: HTMLElement) { this.firstElementChild!.textContent = row.Fractions[i] + "%" }
+                            }, [row.Fractions[i]! !== 0 ? p(row.Fractions[i] + "%") : p()]))])
                         ])
                     ]),
                 ]),
