@@ -6,9 +6,6 @@ import type { SizeCount } from "./types.js";
 const colourClasses = ["bar-one", "bar-two", "bar-three", "bar-four"];
 const base = div();
 
-// TODO:
-// 1) Investigate why humgen's Manual Backup % is calculated as 0, when it should be 1 to make all numbers add to 100.
-// 3) Should the percentages on the bars be only visible on hover?
 function prepareData(programmeCounts: Map<string, Map<number, SizeCount>>) {
     const barChartData = new Map<string, number[]>();
 
@@ -22,25 +19,16 @@ function prepareData(programmeCounts: Map<string, Map<number, SizeCount>>) {
 
         const sizeFractions = Array.from(data.values()).map(item => 100 * (Number(item.size) / Number(totalSize)));
         const programmeFractions = largestRemainderRound(sizeFractions);
-        // for (const i of [-1, 0, 1, 2]) {
-        //     programmeFractions.push(
-        //         Math.round(100 * (Number(data.get(i)?.size) || 0) / totalSize)
-        //     );
-        // }
 
         barChartData.set(programme, programmeFractions);
     }
 
-    console.log(barChartData);
     return barChartData
 }
 
-// https://revs.runtime-revolution.com/getting-100-with-rounded-percentages-273ffa70252b
 function largestRemainderRound(values: number[]): number[] {
-    console.log("largestRemainderRound called with:", values);
     const rounded = values.map(val => Math.floor(val));
     const diff = 100 - rounded.reduce((total, val) => total + val, 0);
-    console.log("Diff: ", diff);
 
     const sorted = values.sort((a, b) => (Math.floor(a) - a) - (Math.floor(b) - b))
     const finalFractions = sorted.map((item, index) => {
@@ -51,7 +39,6 @@ function largestRemainderRound(values: number[]): number[] {
         finalFractions.push(0);
     }
 
-    console.log("rounded fractions:", finalFractions);
     return finalFractions
 }
 
