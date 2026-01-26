@@ -17,7 +17,9 @@ function prepareData(programmeCounts: Map<string, Map<number, SizeCount>>) {
             totalSize += Number(data.get(i)?.size || 0);
         }
 
-        const sizeFractions = Array.from(data.values()).map(item => 100 * (Number(item.size) / Number(totalSize)));
+        const sizeFractions = Array.from(data.entries())
+            .sort(([keyA], [keyB]) => keyA - keyB)
+            .map(([_, item]) => 100 * (Number(item.size) / Number(totalSize)));
         const programmeFractions = largestRemainderRound(sizeFractions);
 
         barChartData.set(programme, programmeFractions);
@@ -30,16 +32,18 @@ function largestRemainderRound(values: number[]): number[] {
     const rounded = values.map(val => Math.floor(val));
     const diff = 100 - rounded.reduce((total, val) => total + val, 0);
 
-    const sorted = values.sort((a, b) => (Math.floor(a) - a) - (Math.floor(b) - b))
-    const finalFractions = sorted.map((item, index) => {
-        return index < diff ? Math.floor(item) + 1 : Math.floor(item)
-    });
+    const indexed = values.map((value, index) => ({ value, index }));
+    const sorted = [...indexed].sort((a, b) => (Math.floor(a.value) - a.value) - (Math.floor(b.value) - b.value));
 
-    while (finalFractions.length < 4) {
-        finalFractions.push(0);
+    sorted.slice(0, diff).forEach(({ index }) => {
+        rounded[index] += 1;
+    })
+
+    while (rounded.length < 4) {
+        rounded.push(0);
     }
 
-    return finalFractions
+    return rounded
 }
 
 function generateBarChart(programmeCounts: Map<string, Map<number, SizeCount>>) {
