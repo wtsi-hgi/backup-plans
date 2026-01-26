@@ -98,53 +98,53 @@
 }
 
 #graphKey>div:first-child::before {
-    background-color: var(--graph-one);
+    background-color: var(--graph-unplanned);
 }
 
 #graphKey>div:nth-child(2)::before {
-    background-color: var(--graph-two);
+    background-color: var(--graph-nobackup);
 }
 
 #graphKey>div:nth-child(3)::before {
-    background-color: var(--graph-three);
+    background-color: var(--graph-backup);
 }
 
 #graphKey>div:nth-child(4)::before {
-    background-color: var(--graph-four);
+    background-color: var(--graph-manual);
 }
 
-.bar-one {
-    background-color: var(--graph-one);
+.bar-unplanned {
+    background-color: var(--graph-unplanned);
 }
 
-.bar-one:hover {
+.bar-unplanned:hover {
     background-color:
-        color-mix(in srgb, var(--graph-one) 45%, transparent);
+        color-mix(in srgb, var(--graph-unplanned) 45%, transparent);
 }
 
-.bar-two {
-    background-color: var(--graph-two);
+.bar-nobackup {
+    background-color: var(--graph-nobackup);
 }
 
-.bar-two:hover {
+.bar-nobackup:hover {
     background-color:
-        color-mix(in srgb, var(--graph-two) 45%, transparent);
+        color-mix(in srgb, var(--graph-nobackup) 45%, transparent);
 }
 
-.bar-three {
-    background-color: var(--graph-three);
+.bar-backup {
+    background-color: var(--graph-backup);
 }
 
-.bar-three:hover {
+.bar-backup:hover {
     background-color:
-        color-mix(in srgb, var(--graph-three) 45%, transparent);
+        color-mix(in srgb, var(--graph-backup) 45%, transparent);
 }
 
-.bar-four {
-    background-color: var(--graph-four);
+.bar-manual {
+    background-color: var(--graph-manual);
 }
 
-.bar-four:hover {
+.bar-manual:hover {
     background-color:
-        color-mix(in srgb, var(--graph-four) 45%, transparent);
+        color-mix(in srgb, var(--graph-manual) 45%, transparent);
 }
