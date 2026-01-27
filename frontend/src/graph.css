@@ -109,10 +109,6 @@
     background-color: var(--graph-backup);
 }
 
-#graphKey>div:nth-child(4)::before {
-    background-color: var(--graph-manual);
-}
-
 .bar-unplanned {
     background-color: var(--graph-unplanned);
 }
@@ -138,13 +134,4 @@
 .bar-backup:hover {
     background-color:
         color-mix(in srgb, var(--graph-backup) 45%, transparent);
-}
-
-.bar-manual {
-    background-color: var(--graph-manual);
-}
-
-.bar-manual:hover {
-    background-color:
-        color-mix(in srgb, var(--graph-manual) 45%, transparent);
 }
