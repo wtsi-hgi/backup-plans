@@ -368,7 +368,6 @@ use {
 		--graph-unplanned: #f08080;
 		--graph-nobackup: #fec89a;
 		--graph-backup: #76c893;
-		--graph-manual: #a2d2ff;
 	}
 }
 
@@ -443,7 +442,6 @@ use {
 		--graph-unplanned: #f08080;
 		--graph-nobackup: #fec89a;
 		--graph-backup: #76c893;
-		--graph-manual: #a2d2ff;
 	}
 
 	#addEdit svg {

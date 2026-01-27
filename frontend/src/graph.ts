@@ -1,14 +1,14 @@
 import { MainProgrammes } from "./consts.js";
 import { div, p, h2, h3, br, span } from "./lib/html.js";
 import { formatBytes } from "./lib/utils.js";
-import type { SizeCount, BarChartData } from "./types.js";
+import type { SizeCount, BarChartRow as BarChartRow } from "./types.js";
 
 // const MainProgrammes = ["All", "Unknown"];
-const colourClasses = ["bar-unplanned", "bar-nobackup", "bar-backup", "bar-manual"];
+const colourClasses = ["bar-unplanned", "bar-nobackup", "bar-backup"];
 const base = div();
 
 function prepareData(programmeCounts: Map<string, Map<number, SizeCount>>) {
-    const barChartData: BarChartData[] = [];
+    const barChartData: BarChartRow[] = [];
 
     for (const programme of MainProgrammes) {
         const data = programmeCounts.get(programme)!
@@ -23,6 +23,8 @@ function prepareData(programmeCounts: Map<string, Map<number, SizeCount>>) {
 
         barChartData.push({ Programme: programme, Fractions: programmeFractions, Sizes: sizes })
     }
+
+    addManualToBackup(barChartData);
 
     return barChartData
 }
@@ -45,17 +47,23 @@ function largestRemainderRound(values: number[]): number[] {
     return rounded
 }
 
+function addManualToBackup(data: BarChartRow[]) {
+    for (const row of data) {
+        row.Fractions[2] += row.Fractions[3]
+        row.Sizes[2] += row.Sizes[3]
+    }
+}
+
 function generateBarChart(programmeCounts: Map<string, Map<number, SizeCount>>) {
     const barChartData = prepareData(programmeCounts);
 
-    base.replaceChildren(
+    base.appendChild(
         div({ "class": "graph-container" }, [
             h2("Data Fraction per Programme"),
             div({ "id": "graphKey" }, [
                 div("Unplanned"),
                 div("No Backup"),
-                div("Backup"),
-                div("Manual Backup")
+                div("Backup")
             ]), br(),
             div({ "class": "graph-grid" }, [
                 div({ "class": "graphAxisY" }, [
@@ -66,13 +74,14 @@ function generateBarChart(programmeCounts: Map<string, Map<number, SizeCount>>) 
                 div({ "class": "graph-wrapper" }, [
                     div({ "class": "graph" }, [
                         barChartData.map(row => [
-                            div({ "class": "graphRow" }, [...[0, 1, 2, 3].flatMap(i => div({
-                                "style": "width:" + row.Fractions[i] + "%;",
-                                "title": row.Fractions[i] + "%",
-                                "class": colourClasses[i],
-                                "mouseenter": function (this: HTMLElement) { this.firstElementChild!.textContent = formatBytes(row.Sizes[i]) },
-                                "mouseleave": function (this: HTMLElement) { this.firstElementChild!.textContent = row.Fractions[i] + "%" }
-                            }, [row.Fractions[i]! !== 0 ? p(row.Fractions[i] + "%") : p()]))])
+                            div({ "class": "graphRow" }, [...[0, 1, 2].flatMap(i =>
+                                div({
+                                    "style": "width:" + row.Fractions[i] + "%;",
+                                    "title": row.Fractions[i] + "%",
+                                    "class": colourClasses[i],
+                                    "mouseenter": function (this: HTMLElement) { this.firstElementChild!.textContent = formatBytes(row.Sizes[i]) },
+                                    "mouseleave": function (this: HTMLElement) { this.firstElementChild!.textContent = row.Fractions[i] + "%" }
+                                }, [row.Fractions[i]! !== 0 ? p(row.Fractions[i] + "%") : p()]))])
                         ])
                     ]),
                 ]),
