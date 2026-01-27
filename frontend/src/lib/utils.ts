@@ -68,4 +68,23 @@ export const formatBytes = (size: bigint) => {
 		return v;
 	},
 	action = (backupType: BackupType) => actions[+backupType] ?? "Unknown",
-	stringSort = new Intl.Collator().compare;
+	stringSort = new Intl.Collator().compare,
+	debouncer = <T>() => {
+		let promise: Promise<T> | null;
+
+		return (fn: () => T | Promise<T>) => {
+			if (!promise) {
+				let resolve: (value: T | PromiseLike<T>) => void;
+
+				({ promise, resolve } = Promise.withResolvers<T>());
+
+				queueMicrotask(() => {
+					promise = null;
+
+					resolve(fn());
+				});
+			}
+
+			return promise;
+		}
+	};

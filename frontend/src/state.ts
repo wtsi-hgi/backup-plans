@@ -1,15 +1,12 @@
 import type { Children, Properties } from './lib/dom.js';
 import { details, input, select, summary } from "./lib/html.js";
-import { setAndReturn } from './lib/utils.js';
-
-let debounce = false;
+import { debouncer, setAndReturn } from './lib/utils.js';
 
 const state = new Map<string, string>(),
 	defaults = new Map<string, string>([["path", "/"], ["filterNames", "[]"], ["filterType", "none"]]),
 	handlers = new Map<string, ((v: string) => void)[]>(),
+	debounce = debouncer(),
 	setURL = () => {
-		debounce = false;
-
 		const query: string[] = [];
 
 		for (const [key, value] of state) {
@@ -32,7 +29,7 @@ const state = new Map<string, string>(),
 		}
 	};
 
-export const set = (key: string, value: string) => {
+export const setState = (key: string, value: string) => {
 	if (state.get(key) === value) {
 		return;
 	}
@@ -43,14 +40,9 @@ export const set = (key: string, value: string) => {
 		state.set(key, value);
 	}
 
-
-	if (!debounce) {
-		debounce = true;
-
-		queueMicrotask(setURL);
-	}
+	debounce(setURL);
 },
-	handle = <T>(key: string, fn: (value: string) => T) => {
+	handleState = <T>(key: string, fn: (value: string) => T) => {
 		(handlers.get(key) ?? setAndReturn(handlers, key, [])).push(fn);
 
 		return fn(state.get(key) ?? "");
@@ -67,20 +59,20 @@ export const set = (key: string, value: string) => {
 			defaults.set(name, summaryText);
 		}
 
-		const d = details(params, [summary({ "click": () => queueMicrotask(() => set(name, d.open ? "open" : summaryText)) }, summaryText), children]);
+		const d = details(params, [summary({ "click": () => queueMicrotask(() => setState(name, d.open ? "open" : summaryText)) }, summaryText), children]);
 
-		handle(name, v => d.open = v === summaryText || v === "" && !!open);
+		handleState(name, v => d.open = v === summaryText || v === "" && !!open);
 
 		return d;
 	},
 	inputState = (params: Properties & { "id": string }) => {
 		const { id, name } = params;
 
-		params["change"] = () => set(id, i.value);
+		params["change"] = () => setState(id, i.value);
 
 		const i = input(params);
 
-		handle(id, v => {
+		handleState(id, v => {
 			i.value = v;
 
 			i.dispatchEvent(new CustomEvent("input"));
@@ -91,14 +83,14 @@ export const set = (key: string, value: string) => {
 	selectState = (params: Properties & { "id": string }, children?: Children) => {
 		const { id } = params;
 
-		params["input"] = () => set(id, JSON.stringify(Array.from(s.selectedOptions).map(opt => opt.innerText)));
+		params["input"] = () => setState(id, JSON.stringify(Array.from(s.selectedOptions).map(opt => opt.innerText)));
 
 		defaults.set(id, "[]");
 
 		const s = select(params, children),
 			def = JSON.stringify(Array.from(s.selectedOptions).map(opt => opt.innerText));
 
-		handle(id, v => {
+		handleState(id, v => {
 			let changed = false;
 
 			const selected = JSON.parse(v || def) as string[];

@@ -1,8 +1,10 @@
 import type { DirectoryWithChildren } from './types.js';
 import { br, button, datalist, details, div, input, option, select, summary } from './lib/html.js';
-import { setAndReturn, stringSort } from './lib/utils.js';
+import { debouncer, setAndReturn, stringSort } from './lib/utils.js';
 import { boms, owners, userGroups } from './userGroups.js';
-import { handle, inputState, selectState, set, tab } from './state.js';
+import { handleState, inputState, selectState, setState, tab } from './state.js';
+import { load, registerLoader } from './load.js';
+import { filter } from './data.js';
 
 const userOpts: HTMLOptionElement[] = [],
 	groupOpts: HTMLOptionElement[] = [],
@@ -77,66 +79,53 @@ const userOpts: HTMLOptionElement[] = [],
 				])
 			])
 		])
-	]);
+	]),
+	debounce = debouncer(),
+	loadFiltered = () => {
+		setState("filterType", filter.type);
+		setState("filterNames", JSON.stringify(filter.names));
+		load();
+	};
 
-export const filter = {
-	"type": "none",
-	"names": [] as string[]
-};
+handleState("filterType", v => {
+	if (filter["type"] === v) {
+		return;
+	}
 
-let loadFiltered = () => { },
-	debounce = false;
-
-handle("filterType", v => {
 	filter["type"] = v;
 
-	if (!debounce) {
-		debounce = true;
-
-		queueMicrotask(loadFiltered);
-	}
+	debounce(loadFiltered);
 });
 
-handle("filterNames", v => {
+handleState("filterNames", v => {
+	if (JSON.stringify(filter["names"]) === v) {
+		return;
+	}
+
 	filter["names"] = JSON.parse(v || "[]");
 
-	if (!debounce) {
-		debounce = true;
-
-		queueMicrotask(loadFiltered);
-	}
+	debounce(loadFiltered);
 });
 
-export default Object.assign(base, {
-	"update": (path: string, _: DirectoryWithChildren, load: (path: string) => void) => {
-		loadFiltered = () => {
-			debounce = false;
+const users = userGroups.Users.filter(u => u.trim()),
+	groups = userGroups.Groups.filter(g => g.trim());
 
-			set("filterType", filter.type);
-			set("filterNames", JSON.stringify(filter.names));
-			load(path);
-		}
-	},
-	"init": () => {
-		const users = userGroups.Users.filter(u => u.trim()),
-			groups = userGroups.Groups.filter(g => g.trim());
+users.sort(stringSort);
+groups.sort(stringSort);
 
-		users.sort(stringSort);
-		groups.sort(stringSort);
+userOpts.push(...users.map(u => option(u)))
+groupOpts.push(...groups.map(g => option(g)));
 
-		userOpts.push(...users.map(u => option(u)))
-		groupOpts.push(...groups.map(g => option(g)));
+userSelect.append(...userOpts);
+userList.append(...users.map(u => option({ "data-filter": JSON.stringify([u]), "label": "User: " + u }, u)));
+groupSelect.append(...groupOpts);
 
-		userSelect.append(...userOpts);
-		userList.append(...users.map(u => option({ "data-filter": JSON.stringify([u]), "label": "User: " + u }, u)));
-		groupSelect.append(...groupOpts);
+for (const [group, bom] of boms) {
+	(reverseBoms.get(bom) ?? setAndReturn(reverseBoms, bom, [])).push(group);
+}
 
-		for (const [group, bom] of boms) {
-			(reverseBoms.get(bom) ?? setAndReturn(reverseBoms, bom, [])).push(group);
-		}
+for (const [group, owner] of owners) {
+	(reverseOwners.get(owner) ?? setAndReturn(reverseOwners, owner, [])).push(group);
+}
 
-		for (const [group, owner] of owners) {
-			(reverseOwners.get(owner) ?? setAndReturn(reverseOwners, owner, [])).push(group);
-		}
-	}
-});
+export default base;

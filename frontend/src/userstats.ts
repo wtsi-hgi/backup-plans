@@ -1,9 +1,10 @@
-import { filter } from './filter.js';
+import type { ChildDirectory, DirectoryWithChildren, SizeCountStats } from './types.js';
 import { clearNode } from './lib/dom.js';
 import { table, tbody, td, th, thead, tr } from './lib/html.js';
 import { formatBytes, setAndReturn } from './lib/utils.js';
+import { filter } from './data.js';
+import { registerLoader } from './load.js';
 import { tab } from './state.js';
-import type { ChildDirectory, DirectoryWithChildren, SizeCountStats } from './types.js';
 
 const base = tbody();
 
@@ -46,14 +47,15 @@ const updateChild = (data: ChildDirectory) => {
             td(sizeCountStats.unplannedCount.toLocaleString())
         ])
     }) : tr(td({ "colspan": "5" }, "No files")));
-},
-    update = (_: string, data: DirectoryWithChildren, _load: (path: string) => void) => {
-        gdata = data;
+};
 
-        updateChild(data);
-    };
+registerLoader((_: string, data: DirectoryWithChildren) => {
+    gdata = data;
 
-export default Object.assign(container, { update });
+    updateChild(data);
+});
+
+export default container;
 
 function calculateUserStats(dir: ChildDirectory) {
     const userStats = new Map<string, SizeCountStats>();

@@ -5,6 +5,7 @@ import { svg, title, use } from "./lib/svg.js";
 import { confirm, formatBytes } from "./lib/utils.js";
 import { claimDir, passDirClaim, revokeDirClaim, user } from "./rpc.js";
 import { BackupType } from './consts.js';
+import { load, registerLoader } from "./load.js";
 
 const claimedByCell = td(),
 	totalCount = td(),
@@ -29,69 +30,69 @@ const claimedByCell = td(),
 		clearNode(size, { "title": (action?.size ?? 0).toLocaleString() }, formatBytes(action?.size ?? 0));
 	};
 
-export default Object.assign(summaryTable, {
-	"update": (path: string, data: DirectoryWithChildren, load: (path: string) => void) => {
-		clearNode(claimedByCell, data.claimedBy ?
-			[data.claimedBy, data.claimedBy === user ? data.rules[path]?.length ?
-				button({
-					"class": "actionButton",
-					"click": () => {
-						const passTo = input({ "id": "passTo", "placeholder": "Username" }),
-							set = button({
-								"click": () => {
-									overlay.setAttribute("closedby", "none");
-									set.toggleAttribute("disabled", true);
-									cancel.toggleAttribute("disabled", true);
-									passTo.toggleAttribute("disabled", true);
+export default summaryTable
 
-									passDirClaim(path, passTo.value)
-										.then(() => {
-											load(path);
-											overlay.remove();
-										})
-										.catch((e: Error) => {
-											overlay.setAttribute("closedby", "any");
-											set.removeAttribute("disabled");
-											cancel.removeAttribute("disabled");
-											passTo.removeAttribute("disabled");
-											alert("Error: " + e.message);
-										});
-								}
-							}, "Pass"),
-							cancel = button({ "click": () => overlay.close() }, "Cancel"),
-							overlay = document.body.appendChild(dialog({ "closedby": "any", "close": () => overlay.remove() }, [
-								label({ "for": "passTo" }, "Pass To"), passTo,
-								br(),
-								set,
-								cancel
-							]));
+registerLoader((path: string, data: DirectoryWithChildren) => {
+	clearNode(claimedByCell, data.claimedBy ?
+		[data.claimedBy, data.claimedBy === user ? data.rules[path]?.length ?
+			button({
+				"class": "actionButton",
+				"click": () => {
+					const passTo = input({ "id": "passTo", "placeholder": "Username" }),
+						set = button({
+							"click": () => {
+								overlay.setAttribute("closedby", "none");
+								set.toggleAttribute("disabled", true);
+								cancel.toggleAttribute("disabled", true);
+								passTo.toggleAttribute("disabled", true);
 
-						overlay.showModal();
-					}
-				}, svg([
-					title("Pass Claim"),
-					use({ "href": "#edit" })
-				]))
-				: button({
-					"class": "actionButton",
-					"click": () => confirm("Are you sure you wish to remove your claim on this directory?", () => revokeDirClaim(path).then(() => load(path)))
-				}, svg([
-					title("Revoke Claim"),
-					use({ "href": "#remove" })
-				])) : []]
-			: data.canClaim ? button({ "click": () => claimDir(path).then(() => load(path)) }, "Claim") : []);
+								passDirClaim(path, passTo.value)
+									.then(() => {
+										load(path);
+										overlay.remove();
+									})
+									.catch((e: Error) => {
+										overlay.setAttribute("closedby", "any");
+										set.removeAttribute("disabled");
+										cancel.removeAttribute("disabled");
+										passTo.removeAttribute("disabled");
+										alert("Error: " + e.message);
+									});
+							}
+						}, "Pass"),
+						cancel = button({ "click": () => overlay.close() }, "Cancel"),
+						overlay = document.body.appendChild(dialog({ "closedby": "any", "close": () => overlay.remove() }, [
+							label({ "for": "passTo" }, "Pass To"), passTo,
+							br(),
+							set,
+							cancel
+						]));
 
-		const manualActions: SizeCountTime = { count: 0n, size: 0n, mtime: 0 };
+					overlay.showModal();
+				}
+			}, svg([
+				title("Pass Claim"),
+				use({ "href": "#edit" })
+			]))
+			: button({
+				"class": "actionButton",
+				"click": () => confirm("Are you sure you wish to remove your claim on this directory?", () => revokeDirClaim(path).then(() => load(path)))
+			}, svg([
+				title("Revoke Claim"),
+				use({ "href": "#remove" })
+			])) : []]
+		: data.canClaim ? button({ "click": () => claimDir(path).then(() => load(path)) }, "Claim") : []);
 
-		BackupType.manual.forEach(backup => {
-			manualActions.count += data.actions[+backup]?.count ?? 0n;
-			manualActions.size += data.actions[+backup]?.size ?? 0n;
-		});
+	const manualActions: SizeCountTime = { count: 0n, size: 0n, mtime: 0 };
 
-		setSummary(data, totalCount, totalSize);
-		setSummary(data.actions[+BackupType.BackupWarn], warnCount, warnSize);
-		setSummary(data.actions[+BackupType.BackupNone], nobackupCount, nobackupSize);
-		setSummary(data.actions[+BackupType.BackupIBackup], backupCount, backupSize);
-		setSummary(manualActions, manualBackupCount, manualBackupSize);
-	}
+	BackupType.manual.forEach(backup => {
+		manualActions.count += data.actions[+backup]?.count ?? 0n;
+		manualActions.size += data.actions[+backup]?.size ?? 0n;
+	});
+
+	setSummary(data, totalCount, totalSize);
+	setSummary(data.actions[+BackupType.BackupWarn], warnCount, warnSize);
+	setSummary(data.actions[+BackupType.BackupNone], nobackupCount, nobackupSize);
+	setSummary(data.actions[+BackupType.BackupIBackup], backupCount, backupSize);
+	setSummary(manualActions, manualBackupCount, manualBackupSize);
 });

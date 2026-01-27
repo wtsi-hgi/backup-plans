@@ -7,6 +7,7 @@ import { action, formatBytes, longAgo, secondsInWeek, setAndReturn, stringSort }
 import { getReportSummary } from "./rpc.js";
 import { BackupType, MainProgrammes } from "./consts.js";
 import { render } from "./disktree.js";
+import { load } from './load.js';
 import ODS from './odf.js';
 import { boms, owners, userGroups } from './userGroups.js';
 import { inputState } from "./state.js";
@@ -274,7 +275,6 @@ const groupList = datalist({ "id": "groupList" }),
 	};
 
 let now = 0,
-	load: (path: string) => Promise<DirectoryWithChildren>,
 	summaryData: ReportSummary;
 
 function renderCell(counts: Map<number, SizeCount>, type: number) {
@@ -463,41 +463,6 @@ getReportSummary()
 		amendNode(base, children);
 	});
 
-export default Object.assign(base, {
-	"init": (loadFn: (path: string) => Promise<DirectoryWithChildren>) => {
-		load = loadFn;
-
-		for (const [bom, groups] of Object.entries(userGroups.BOM ?? {})) {
-			for (const group of groups) {
-				boms.set(group, bom);
-			}
-		}
-
-		for (const [owner, groups] of Object.entries(userGroups.Owners ?? {})) {
-			for (const group of groups) {
-				owners.set(group, owner);
-			}
-		}
-
-		const groups = userGroups.Groups.filter(g => g.trim());
-
-		groups.sort(stringSort);
-		const gArr = [];
-
-		for (const [bom, groups] of Object.entries(userGroups.BOM ?? {})) {
-			gArr.push(["BOM: ", bom]);
-		}
-
-		for (const [owner] of Object.entries(userGroups.Owners ?? {})) {
-			gArr.push(["Owner :", owner]);
-		}
-
-		groups.forEach(g => gArr.push(["Group :", g]));
-		gArr.sort((a, b) => a[1].localeCompare(b[1]));
-		gArr.forEach(([k, v]) => groupList.append(option({ "label": k + v }, v)))
-	}
-});
-
 function getManualSize(s: ParentSummary) {
 	return BackupType.manual.reduce((total, backup) => total + (s.actions[+backup]?.size ?? 0n), 0n);
 }
@@ -536,3 +501,35 @@ function setCountsAll(programmeCounts: Map<string, Map<number, SizeCount>>, back
 	allTotals.size += BigInt(sizeCounts.size);
 	allTotals.count += BigInt(sizeCounts.count);
 }
+
+
+for (const [bom, groups] of Object.entries(userGroups.BOM ?? {})) {
+	for (const group of groups) {
+		boms.set(group, bom);
+	}
+}
+
+for (const [owner, groups] of Object.entries(userGroups.Owners ?? {})) {
+	for (const group of groups) {
+		owners.set(group, owner);
+	}
+}
+
+const groups = userGroups.Groups.filter(g => g.trim()),
+	gArr = [];
+
+groups.sort(stringSort);
+
+for (const [bom, groups] of Object.entries(userGroups.BOM ?? {})) {
+	gArr.push(["BOM: ", bom]);
+}
+
+for (const [owner] of Object.entries(userGroups.Owners ?? {})) {
+	gArr.push(["Owner :", owner]);
+}
+
+groups.forEach(g => gArr.push(["Group :", g]));
+gArr.sort((a, b) => a[1].localeCompare(b[1]));
+gArr.forEach(([k, v]) => groupList.append(option({ "label": k + v }, v)));
+
+export default base;

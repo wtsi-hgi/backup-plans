@@ -1,8 +1,6 @@
 import type { ChildDirectory, Directory, DirectoryWithChildren, DirSummary, Rule, RuleSummary, SizeCountTime, Stats, Tree } from './types.js';
-import { filter } from './filter.js';
 import { getTree } from "./rpc.js";
 import { BackupType } from "./consts.js";
-
 
 type RulesWithDirs = Record<number, Rule & { dir: string }>;
 
@@ -139,3 +137,8 @@ export default (path: string) => getTree(path)
 
 		return d;
 	});
+
+export const filter = {
+	"type": "none",
+	"names": [] as string[]
+};

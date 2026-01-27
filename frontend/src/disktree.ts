@@ -6,6 +6,7 @@ import { rect, svg, text, use } from './lib/svg.js';
 import { BackupType } from './consts.js';
 import { onHover } from './userstats.js';
 import { selectState, tab } from './state.js';
+import { load, registerLoader } from './load.js';
 
 export type Entry = {
 	name: string;
@@ -288,27 +289,27 @@ const phi = (1 + Math.sqrt(5)) / 2,
 
 new ResizeObserver(() => render()).observe(svgBase);
 
-export default Object.assign(base, {
-	"update": (path: string, data: DirectoryWithChildren, load: (path: string) => void) => {
-		const entries: Table = [];
+registerLoader((path: string, data: DirectoryWithChildren) => {
+	const entries: Table = [];
 
-		for (const [dir, child] of Object.entries(data.children)) {
-			entries.push({
-				"name": dir.replace("/", ""),
-				"value": areaFns[areaFn](child),
-				"backgroundColour": colourFns[colourFn](child) + "",
-				"onclick": child.unauthorised ? undefined : () => load(path + dir),
-				"onmouseover": () => onHover(dir),
-				"noauth": child.unauthorised
-			})
-		}
-
-		entries.sort((a, b) => b.value - a.value);
-
-		render = () => clearNode(svgBase, buildTreeMap(entries, lastWidth = svgBase.clientWidth || lastWidth, lastHeight = svgBase.clientHeight || lastHeight, data.unauthorised, () => onHover("")));
-
-		render();
-
-		reload = () => load(path);
+	for (const [dir, child] of Object.entries(data.children)) {
+		entries.push({
+			"name": dir.replace("/", ""),
+			"value": areaFns[areaFn](child),
+			"backgroundColour": colourFns[colourFn](child) + "",
+			"onclick": child.unauthorised ? undefined : () => load(path + dir),
+			"onmouseover": () => onHover(dir),
+			"noauth": child.unauthorised
+		})
 	}
+
+	entries.sort((a, b) => b.value - a.value);
+
+	render = () => clearNode(svgBase, buildTreeMap(entries, lastWidth = svgBase.clientWidth || lastWidth, lastHeight = svgBase.clientHeight || lastHeight, data.unauthorised, () => onHover("")));
+
+	render();
+
+	reload = () => load(path);
 });
+
+export default base;
