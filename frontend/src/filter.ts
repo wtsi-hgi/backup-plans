@@ -1,20 +1,25 @@
 import type { DirectoryWithChildren } from './types.js';
 import { br, button, datalist, details, div, input, option, select, summary } from './lib/html.js';
-import { setAndReturn, stringSort } from './lib/utils.js';
+import { debouncer, setAndReturn, stringSort } from './lib/utils.js';
 import { boms, owners, userGroups } from './userGroups.js';
+import { handleState, inputState, selectState, setState, tab } from './state.js';
+import { load, registerLoader } from './load.js';
+import { filter } from './data.js';
 
 const userOpts: HTMLOptionElement[] = [],
 	groupOpts: HTMLOptionElement[] = [],
 	reverseOwners = new Map<string, string[]>(),
 	reverseBoms = new Map<string, string[]>(),
-	userSelect = select({ "multiple": "multiple" }),
-	groupSelect = select({ "multiple": "multiple" }),
-	userFilter = input({
+	userSelect = selectState({ "id": "selectedUsers", "multiple": "multiple" }),
+	groupSelect = selectState({ "id": "selectedGroups", "multiple": "multiple" }),
+	userFilter = inputState({
+		"id": "userFilter",
 		"placeholder": "Filter: User", "list": "userList", "input": function (this: HTMLInputElement) {
 			userSelect.replaceChildren(...userOpts.filter(opt => opt.innerText.includes(this.value)).map(e => (e.selected = e.value === this.value, e)));
 		}
 	}),
-	groupFilter = input({
+	groupFilter = inputState({
+		"id": "groupFilter",
 		"placeholder": "Filter: Group, BOM, Owner", "list": "groupList", "input": function (this: HTMLInputElement) {
 			const bom = reverseBoms.get(this.value),
 				owner = reverseOwners.get(this.value);
@@ -44,16 +49,17 @@ const userOpts: HTMLOptionElement[] = [],
 	},
 	clearFilter = (input: HTMLInputElement, select: HTMLSelectElement, options: HTMLOptionElement[]) => {
 		filter["type"] = "none";
+		filter["names"] = [];
 		input.value = "";
 		select.replaceChildren(...options.map(opt => (opt.selected = false, opt)));
 
+		select.dispatchEvent(new CustomEvent("input"));
+		input.dispatchEvent(new CustomEvent("input"));
 		loadFiltered();
 	},
-	base = details({ "id": "filter" }, [
-		summary("Filter"),
+	base = tab({ "id": "filter", "name": "", "summary": "Filter" }, [
 		div({ "class": "tabs" }, [
-			details({ "name": "filter", "open": "open" }, [
-				summary("Users"),
+			tab({ "name": "filterTab", "summary": "Users", "open": true }, [
 				div([
 					userFilter,
 					userSelect,
@@ -63,8 +69,7 @@ const userOpts: HTMLOptionElement[] = [],
 					button({ "click": () => setFilter("users", userSelect) }, "Filter")
 				])
 			]),
-			details({ "name": "filter" }, [
-				summary("Groups"),
+			tab({ "name": "filterTab", "summary": "Groups" }, [
 				div([
 					groupFilter,
 					groupSelect,
@@ -74,39 +79,53 @@ const userOpts: HTMLOptionElement[] = [],
 				])
 			])
 		])
-	]);
+	]),
+	debounce = debouncer(),
+	loadFiltered = () => {
+		setState("filterType", filter.type);
+		setState("filterNames", JSON.stringify(filter.names));
+		load();
+	};
 
-export const filter = {
-	"type": "none",
-	"names": [] as string[]
-};
-
-let loadFiltered = () => { };
-
-export default Object.assign(base, {
-	"update": (path: string, _: DirectoryWithChildren, load: (path: string) => void) => {
-		loadFiltered = () => load(path);
-	},
-	"init": () => {
-		const users = userGroups.Users.filter(u => u.trim()),
-			groups = userGroups.Groups.filter(g => g.trim());
-
-		users.sort(stringSort);
-		groups.sort(stringSort);
-
-		userOpts.push(...users.map(u => option(u)))
-		groupOpts.push(...groups.map(g => option(g)));
-
-		userSelect.append(...userOpts);
-		userList.append(...users.map(u => option({ "data-filter": JSON.stringify([u]), "label": "User: " + u }, u)));
-		groupSelect.append(...groupOpts);
-
-		for (const [group, bom] of boms) {
-			(reverseBoms.get(bom) ?? setAndReturn(reverseBoms, bom, [])).push(group);
-		}
-
-		for (const [group, owner] of owners) {
-			(reverseOwners.get(owner) ?? setAndReturn(reverseOwners, owner, [])).push(group);
-		}
+handleState("filterType", v => {
+	if (filter["type"] === v) {
+		return;
 	}
+
+	filter["type"] = v;
+
+	debounce(loadFiltered);
 });
+
+handleState("filterNames", v => {
+	if (JSON.stringify(filter["names"]) === v) {
+		return;
+	}
+
+	filter["names"] = JSON.parse(v || "[]");
+
+	debounce(loadFiltered);
+});
+
+const users = userGroups.Users.filter(u => u.trim()),
+	groups = userGroups.Groups.filter(g => g.trim());
+
+users.sort(stringSort);
+groups.sort(stringSort);
+
+userOpts.push(...users.map(u => option(u)))
+groupOpts.push(...groups.map(g => option(g)));
+
+userSelect.append(...userOpts);
+userList.append(...users.map(u => option({ "data-filter": JSON.stringify([u]), "label": "User: " + u }, u)));
+groupSelect.append(...groupOpts);
+
+for (const [group, bom] of boms) {
+	(reverseBoms.get(bom) ?? setAndReturn(reverseBoms, bom, [])).push(group);
+}
+
+for (const [group, owner] of owners) {
+	(reverseOwners.get(owner) ?? setAndReturn(reverseOwners, owner, [])).push(group);
+}
+
+export default base;

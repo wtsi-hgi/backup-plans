@@ -5,6 +5,7 @@ import { svg, title, use } from './lib/svg.js';
 import { action, confirm, formatBytes, secondsInDay, setAndReturn } from "./lib/utils.js";
 import { createRule, getTree, removeRule, setDirDetails, updateRule, uploadFOFN, setExists, user, getDirectories } from "./rpc.js";
 import { BackupType, helpText } from "./consts.js"
+import { load, registerLoader } from "./load.js";
 
 const createStuff = (backupType: BackupType, md: string, setText: string, closeFn: () => void) => {
 	const metadata = input({ "id": "metadata", "type": "text", "value": md }),
@@ -37,7 +38,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 	getHelpIcon = (str: string) => {
 		return span({ "class": "tooltip", "data-tooltip": str }, svg(use({ "href": "#helpIcon" })))
 	},
-	addEditOverlay = (path: string, rule: Rule, load: (path: string) => void) => {
+	addEditOverlay = (path: string, rule: Rule) => {
 		const [backupType, set, cancel, metadata, metadataSection] = createStuff(rule.BackupType, rule.Metadata, rule.Match ? "Update" : "Add", () => overlay.close()),
 			match = input({ "id": "match", "type": "text", "value": rule.Match, "disabled": !!rule.Match }),
 			override = input({ "id": "override", "type": "checkbox", "checked": rule.Override, "disabled": !!rule.Match }),
@@ -100,7 +101,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 
 		overlay.showModal();
 	},
-	addFofnOverlay = (path: string, dirDetails: dirDetails, load: (path: string) => void) => {
+	addFofnOverlay = (path: string, dirDetails: dirDetails) => {
 		let validTable: FofnTable | null = null;
 
 		const [backupType, set, cancel, metadata, metadataSection] = createStuff(BackupType.BackupIBackup, "", "Add", () => overlay.close()),
@@ -196,7 +197,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 
 		overlay.showModal();
 	},
-	dirDetailOverlay = (path: string, dirDetails: dirDetails, load: (path: string) => void) => {
+	dirDetailOverlay = (path: string, dirDetails: dirDetails) => {
 		const frequency = input({ "id": "frequency", "type": "number", "min": "0", "value": dirDetails.Frequency + "" }),
 			review = input({ "id": "review", "type": "date", "value": new Date(dirDetails.ReviewDate * 1000).toISOString().substring(0, 10) }),
 			remove = input({ "id": "remove", "type": "date", "value": new Date(dirDetails.RemoveDate * 1000).toISOString().substring(0, 10) }),
@@ -251,54 +252,54 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 
 		overlay.showModal();
 	},
-	addRule = (path: string, load: (path: string) => void) => button({
+	addRule = (path: string) => button({
 		"click": () => addEditOverlay(path, {
 			"BackupType": BackupType.BackupIBackup,
 			"Metadata": "",
 			"Match": "",
 			"Override": false
-		}, load),
+		}),
 	}, "Add Rule"),
-	addFOFN = (path: string, load: (path: string) => void, dirDetails: dirDetails) => button({
-		"click": () => addFofnOverlay(path, dirDetails, load),
+	addFOFN = (path: string, dirDetails: dirDetails) => button({
+		"click": () => addFofnOverlay(path, dirDetails),
 	}, "Add FOFN"),
-	addDirDetails = (path: string, load: (path: string) => void, dirDetails: dirDetails) => button({
-		"click": () => dirDetailOverlay(path, dirDetails, load),
+	addDirDetails = (path: string, dirDetails: dirDetails) => button({
+		"click": () => dirDetailOverlay(path, dirDetails),
 	}, "Set Directory Details"),
 	base = div();
 
-export default Object.assign(base, {
-	"update": (path: string, data: DirectoryWithChildren, load: (path: string) => void) => {
-		clearNode(base, [
-			data.claimedBy ? h2("Rules on this directory") : [],
-			data.claimedBy && data.claimedBy == user && !data.rules[path]?.length ? [addRule(path, load), addFOFN(path, load, data), addDirDetails(path, load, data)] : [],
-			data.claimedBy && data.rules[path]?.length ? table({ "id": "rules", "class": "summary" }, [
-				thead(tr([th("Match"), th("Action"), th("Files"), th("Size"), data.claimedBy === user ? td([addRule(path, load), addFOFN(path, load, data), addDirDetails(path, load, data)]) : []])),
-				tbody(Object.values(data.rules[path] ?? []).map(rule => tr([
-					td({ "data-override": rule.Override }, rule.Match),
-					td(action(rule.BackupType)),
-					td(rule.count.toLocaleString()),
-					td({ "title": rule.size.toLocaleString() }, formatBytes(rule.size)),
-					data.claimedBy === user ? td([
-						button({
-							"class": "actionButton",
-							"click": () => addEditOverlay(path, rule, load)
-						}, svg([
-							title("Edit Rule"),
-							use({ "href": "#edit" })
-						])),
-						button({
-							"class": "actionButton",
-							"click": () => confirm("Are you sure you wish to remove this rule?", () => removeRule(path, rule.Match).then(() => load(path)))
-						}, svg([
-							title("Remove Rule"),
-							use({ "href": "#remove" })
-						]))
-					]) : []
-				])))
-			]) : []
-		]);
-	}
+export default base;
+
+registerLoader((path: string, data: DirectoryWithChildren) => {
+	clearNode(base, [
+		data.claimedBy ? h2("Rules on this directory") : [],
+		data.claimedBy && data.claimedBy == user && !data.rules[path]?.length ? [addRule(path), addFOFN(path, data), addDirDetails(path, data)] : [],
+		data.claimedBy && data.rules[path]?.length ? table({ "id": "rules", "class": "summary" }, [
+			thead(tr([th("Match"), th("Action"), th("Files"), th("Size"), data.claimedBy === user ? td([addRule(path), addFOFN(path, data), addDirDetails(path, data)]) : []])),
+			tbody(Object.values(data.rules[path] ?? []).map(rule => tr([
+				td({ "data-override": rule.Override }, rule.Match),
+				td(action(rule.BackupType)),
+				td(rule.count.toLocaleString()),
+				td({ "title": rule.size.toLocaleString() }, formatBytes(rule.size)),
+				data.claimedBy === user ? td([
+					button({
+						"class": "actionButton",
+						"click": () => addEditOverlay(path, rule)
+					}, svg([
+						title("Edit Rule"),
+						use({ "href": "#edit" })
+					])),
+					button({
+						"class": "actionButton",
+						"click": () => confirm("Are you sure you wish to remove this rule?", () => removeRule(path, rule.Match).then(() => load(path)))
+					}, svg([
+						title("Remove Rule"),
+						use({ "href": "#remove" })
+					]))
+				]) : []
+			])))
+		]) : []
+	]);
 });
 
 // verifyMetadata will return true if the metadata setName is valid and exists
