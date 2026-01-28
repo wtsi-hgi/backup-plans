@@ -35,9 +35,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 		metadataInput
 	] as const;
 },
-	getHelpIcon = (str: string) => {
-		return span({ "class": "tooltip", "data-tooltip": str }, svg(use({ "href": "#helpIcon" })))
-	},
+	getHelpIcon = (str: string) => span({ "class": "tooltip", "data-tooltip": str }, svg(use({ "href": "#helpIcon" }))),
 	addEditOverlay = (path: string, rule: Rule) => {
 		const [backupType, set, cancel, metadata, metadataSection] = createStuff(rule.BackupType, rule.Metadata, rule.Match ? "Update" : "Add", () => overlay.close()),
 			match = input({ "id": "match", "type": "text", "value": rule.Match, "disabled": !!rule.Match }),

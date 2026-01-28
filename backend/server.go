@@ -31,9 +31,11 @@ import (
 	"errors"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/wtsi-hgi/backup-plans/config"
 	"github.com/wtsi-hgi/backup-plans/db"
+	"github.com/wtsi-hgi/backup-plans/git"
 	"github.com/wtsi-hgi/backup-plans/ruletree"
 	"vimagination.zapto.org/httpbuffer"
 	_ "vimagination.zapto.org/httpbuffer/gzip" //
@@ -50,7 +52,8 @@ type Server struct {
 	dirs           map[uint64]*db.Directory
 	rules          map[uint64]*db.Rule
 
-	config *config.Config
+	config   *config.Config
+	gitCache *git.Cache
 
 	rootDir *ruletree.RootDir
 }
@@ -72,6 +75,8 @@ func New(db *db.DB, getUser func(r *http.Request) string, c *config.Config) (*Se
 	if err != nil {
 		return nil, err
 	}
+
+	s.gitCache = git.NewCache(time.Hour)
 
 	return s, nil
 }

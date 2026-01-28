@@ -237,7 +237,7 @@ func TestReport(t *testing.T) {
 							Requester: "userB",
 						},
 					},
-					GroupBackupTypeTotals: map[string]map[int64]SizeCount{
+					GroupBackupTypeTotals: map[string]map[int]*SizeCount{
 						"bin": {
 							-1: {Count: 1, Size: 8},
 							0:  {Count: 1, Size: 8},

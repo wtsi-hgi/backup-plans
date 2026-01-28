@@ -108,31 +108,31 @@ table.summary {
 	border-color: var(--button-border-hover);
 }
 
-.summary-container .summary tbody tr.table-expand-toggle>td {
+.summary-container .summary tbody tr#tableCollapse>td {
 	padding: 0;
 }
 
-.summary-container .summary tbody tr.table-expand-toggle label {
+.summary-container .summary tbody tr#tableCollapse label {
 	padding: 0px;
 	width: 100%;
 }
 
-.summary tbody tr:nth-child(n+8):not(.table-expand-toggle) {
+.summary tbody tr:nth-child(n+8):not(#tableCollapse) {
 	display: none;
 }
 
-#tableToggleCheckbox:checked~table tbody tr:not(.table-expand-toggle),
+#tableToggleCheckbox:checked~table tbody tr:not(#tableCollapse),
 #tableToggleCheckbox:checked~table tbody tr:nth-child(n+8) {
 	display: table-row;
 }
 
-.table-expand-toggle label .expand-text,
-#tableToggleCheckbox:checked~table tbody tr.table-expand-toggle label .collapse-text {
+#tableCollapse label .expand-text,
+#tableToggleCheckbox:checked~table tbody tr#tableCollapse label .collapse-text {
 	display: block;
 }
 
-#tableToggleCheckbox:checked~table tbody tr.table-expand-toggle label .expand-text,
-.table-expand-toggle label .collapse-text {
+#tableToggleCheckbox:checked~table tbody tr#tableCollapse label .expand-text,
+#tableCollapse label .collapse-text {
 	display: none;
 }
 

@@ -45,28 +45,35 @@ type summary struct {
 	Rules                 map[uint64]*db.Rule
 	Directories           map[string][]uint64
 	BackupStatus          map[string]*ibackup.SetBackupActivity
-	GroupBackupTypeTotals map[string]map[int64]SizeCount
+	GroupBackupTypeTotals map[string]map[int]*SizeCount
 }
 
-const (
-	unplanned = -1
-	manual    = 2
-)
+const unplanned = -1
 
 type SizeCount struct {
 	Count uint64 `json:"count"`
 	Size  uint64 `json:"size"`
 }
 
-func (s *Server) addTotals(i int64, group ruletree.Stats, summary *summary) {
-	if _, ok := summary.GroupBackupTypeTotals[group.Name]; !ok {
-		summary.GroupBackupTypeTotals[group.Name] = make(map[int64]SizeCount)
+type dirSet struct {
+	dir, set string
+}
+
+func (s *Server) addTotals(backupType int, group ruletree.Stats, summary *summary) {
+	groupTotals, ok := summary.GroupBackupTypeTotals[group.Name]
+	if !ok {
+		groupTotals = make(map[int]*SizeCount)
+		summary.GroupBackupTypeTotals[group.Name] = groupTotals
 	}
 
-	counts := summary.GroupBackupTypeTotals[group.Name][i]
+	counts, ok := groupTotals[backupType]
+	if !ok {
+		counts = new(SizeCount)
+		groupTotals[backupType] = counts
+	}
+
 	counts.Count += group.Files
 	counts.Size += group.Size
-	summary.GroupBackupTypeTotals[group.Name][i] = counts
 }
 
 // Summary is an HTTP endpoint that produces a backup summary of all the
@@ -83,7 +90,7 @@ func (s *Server) summary(w http.ResponseWriter, _ *http.Request) error {
 		Rules:                 make(map[uint64]*db.Rule),
 		Directories:           make(map[string][]uint64),
 		BackupStatus:          make(map[string]*ibackup.SetBackupActivity),
-		GroupBackupTypeTotals: make(map[string]map[int64]SizeCount),
+		GroupBackupTypeTotals: make(map[string]map[int]*SizeCount),
 	}
 
 	s.rulesMu.RLock()
@@ -113,16 +120,55 @@ func (s *Server) getClaimed(root string) string {
 	return ""
 }
 
-func (s *Server) populateBackupStatus(dirClaims map[string]string, dirSummary *summary) {
+func (s *Server) populateBackupStatus(dirClaims, repos map[string]string,
+	manualIbackup map[string][]dirSet, dirSummary *summary) {
 	for dir, claimedBy := range dirClaims {
-		sba, err := s.config.GetCachedIBackupClient().GetBackupActivity(dir, "plan::"+dir, claimedBy)
+		planName := "plan::" + dir
+
+		sba, err := s.config.GetCachedIBackupClient().GetBackupActivity(dir, planName, claimedBy)
 		if err != nil {
 			slog.Error("error querying ibackup status", "dir", dir, "err", err)
+		}
 
-			continue
+		if sba == nil {
+			sba = &ibackup.SetBackupActivity{
+				Name:      planName,
+				Requester: claimedBy,
+			}
 		}
 
 		dirSummary.BackupStatus[dir] = sba
+	}
+
+	for claimedBy, dirSets := range manualIbackup {
+		for _, dirSet := range dirSets {
+			sba, err := s.config.GetCachedIBackupClient().GetBackupActivity(dirSet.dir, dirSet.set, claimedBy)
+			if err != nil {
+				slog.Error("error querying manual ibackup status", "dir", dirSet.dir, "claimedBy", claimedBy, "set", dirSet.set, "err", err)
+			}
+
+			if sba == nil {
+				sba = &ibackup.SetBackupActivity{
+					Name:      dirSet.set,
+					Requester: claimedBy,
+				}
+			}
+
+			dirSummary.BackupStatus[claimedBy+":"+dirSet.set] = sba
+		}
+	}
+
+	for repo, claimedBy := range repos {
+		t, err := s.gitCache.GetLatestCommitDate(repo)
+		if err != nil {
+			slog.Error("error querying repo status", "repo", repo, "err", err)
+		}
+
+		dirSummary.BackupStatus[repo] = &ibackup.SetBackupActivity{
+			LastSuccess: t,
+			Name:        repo,
+			Requester:   claimedBy,
+		}
 	}
 }
 
@@ -142,24 +188,18 @@ func (s *Server) collectBackupTotals(dirSummary *summary) error {
 	return nil
 }
 
-func (s *Server) getBackupTypeForTotals(id uint64) int64 {
+func (s *Server) getBackupTypeForTotals(id uint64) int {
 	if id == 0 {
 		return unplanned
 	}
 
-	backupType := s.rules[id].BackupType
-	switch backupType {
-	case db.BackupNone, db.BackupIBackup:
-		return int64(backupType)
-	case db.BackupManualGit, db.BackupManualIBackup, db.BackupManualPrefect, db.BackupManualUnchecked:
-		return manual
-	}
-
-	return int64(backupType)
+	return int(s.rules[id].BackupType)
 }
 
 func (s *Server) buildRootDirSummary(reportingRoots []string, dirSummary *summary) error {
 	dirClaims := make(map[string]string)
+	repos := make(map[string]string)
+	manualIbackup := make(map[string][]dirSet)
 
 	for _, root := range reportingRoots {
 		ds, err := s.rootDir.Summary(root)
@@ -172,20 +212,18 @@ func (s *Server) buildRootDirSummary(reportingRoots []string, dirSummary *summar
 		clear(ds.Children)
 
 		uid, gid := ds.IDs()
-
 		ds.User = users.Username(uid)
 		ds.Group = users.Group(gid)
 
 		s.collectChildDirSummaries(ds, root)
 
 		ds.ClaimedBy = s.getClaimed(root)
-
 		dirSummary.Summaries[root] = ds
 
-		s.collectRuleMetadata(ds, dirSummary, dirClaims)
+		s.collectRuleMetadata(ds, dirSummary, dirClaims, repos, manualIbackup)
 	}
 
-	s.populateBackupStatus(dirClaims, dirSummary)
+	s.populateBackupStatus(dirClaims, repos, manualIbackup, dirSummary)
 
 	return nil
 }
@@ -211,25 +249,29 @@ func (s *Server) collectChildDirSummaries(ds *ruletree.DirSummary, root string) 
 	}
 }
 
-func (s *Server) collectRuleMetadata(ds *ruletree.DirSummary, dirSummary *summary, dirClaims map[string]string) {
-	for _, rule := range ds.RuleSummaries {
-		if _, ok := dirSummary.Rules[rule.ID]; ok {
+func (s *Server) collectRuleMetadata(ds *ruletree.DirSummary, dirSummary *summary,
+	dirClaims, repos map[string]string, manualIbackup map[string][]dirSet) {
+	for _, ruleSummary := range ds.RuleSummaries {
+		rule := s.rules[ruleSummary.ID]
+
+		dirID := rule.DirID()
+		if dirID <= 0 {
 			continue
 		}
 
-		if rule.ID <= 0 {
-			continue
+		dirPath := s.dirs[uint64(dirID)].Path
+		dir := s.directoryRules[dirPath]
+
+		switch rule.BackupType {
+		case db.BackupIBackup:
+			dirClaims[dir.Path] = dir.ClaimedBy
+		case db.BackupManualIBackup:
+			manualIbackup[dir.ClaimedBy] = append(manualIbackup[dir.Path], dirSet{dir.Path, rule.Metadata})
+		case db.BackupManualGit:
+			repos[rule.Metadata] = dir.ClaimedBy
 		}
 
-		dirID := s.rules[rule.ID].DirID()
-		if dirID < 0 {
-			continue
-		}
-
-		dir := s.directoryRules[s.dirs[uint64(dirID)].Path]
-		dirClaims[dir.Path] = dir.ClaimedBy
-
-		if _, ok := dirSummary.Directories[dir.Path]; ok {
+		if _, ok := dirSummary.Directories[dirPath]; ok {
 			continue
 		}
 
