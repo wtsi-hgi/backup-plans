@@ -232,8 +232,20 @@ func TestReport(t *testing.T) {
 						"/lustre/scratch123/humgen/a/c/":        {3, 6},
 					},
 					BackupStatus: map[string]*ibackup.SetBackupActivity{
+						"/lustre/scratch123/humgen/a/b/": {
+							Name:      "plan::/lustre/scratch123/humgen/a/b/",
+							Requester: "userA",
+						},
+						"/lustre/scratch123/humgen/a/b/newdir/": {
+							Name:      "plan::/lustre/scratch123/humgen/a/b/newdir/",
+							Requester: "userC",
+						},
 						"/lustre/scratch123/humgen/a/c/": {
 							Name:      "plan::/lustre/scratch123/humgen/a/c/",
+							Requester: "userB",
+						},
+						"userB:manualSetName": {
+							Name:      "manualSetName",
 							Requester: "userB",
 						},
 					},
