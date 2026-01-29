@@ -443,8 +443,8 @@ func TestRuletree(t *testing.T) {
 			treeDBPath := createTree(t, treeDB)
 			So(root.AddTree(treeDBPath), ShouldBeNil)
 
-			So(ruleIDCount(t, root, "/lustre/scratch123/humgen/a/"), ShouldResemble, map[uint64]uint64{0: 4, 1: 2, 2: 1, 3: 3, 4: 1, 5: 2, 6: 2})
-			So(ruleIDCount(t, root, "/lustre/scratch123/humgen/a/b/"), ShouldResemble, map[uint64]uint64{0: 3, 1: 2, 2: 1, 4: 1, 5: 2})
+			So(ruleIDCount(t, root, "/lustre/scratch123/humgen/a/"), ShouldResemble, map[uint64]uint64{0: 4, 1: 2, 2: 1, 3: 3, 4: 1, 5: 2, 6: 2}) //nolint:lll
+			So(ruleIDCount(t, root, "/lustre/scratch123/humgen/a/b/"), ShouldResemble, map[uint64]uint64{0: 3, 1: 2, 2: 1, 4: 1, 5: 2})           //nolint:lll
 			So(ruleIDCount(t, root, "/lustre/scratch123/humgen/a/b/newdir/"), ShouldResemble, map[uint64]uint64{4: 1, 5: 2})
 			So(ruleIDCount(t, root, "/lustre/scratch123/humgen/a/b/testdir/"), ShouldResemble, map[uint64]uint64{0: 1})
 			So(ruleIDCount(t, root, "/lustre/scratch123/humgen/a/c/"), ShouldResemble, map[uint64]uint64{3: 3, 6: 2})
@@ -452,8 +452,8 @@ func TestRuletree(t *testing.T) {
 			So(ruleIDCount(t, root, "/lustre/scratch123/humgen/a/d/"), ShouldResemble, map[uint64]uint64{0: 1})
 
 			r1 := createRule(t, rulesDB, root, "/lustre/scratch123/humgen/a/b/testdir/", "*")
-			So(ruleIDCount(t, root, "/lustre/scratch123/humgen/a/"), ShouldResemble, map[uint64]uint64{0: 3, 1: 2, 2: 1, 3: 3, 4: 1, 5: 2, 6: 2, r1: 1})
-			So(ruleIDCount(t, root, "/lustre/scratch123/humgen/a/b/"), ShouldResemble, map[uint64]uint64{0: 2, 1: 2, 2: 1, 4: 1, 5: 2, r1: 1})
+			So(ruleIDCount(t, root, "/lustre/scratch123/humgen/a/"), ShouldResemble, map[uint64]uint64{0: 3, 1: 2, 2: 1, 3: 3, 4: 1, 5: 2, 6: 2, r1: 1}) //nolint:lll
+			So(ruleIDCount(t, root, "/lustre/scratch123/humgen/a/b/"), ShouldResemble, map[uint64]uint64{0: 2, 1: 2, 2: 1, 4: 1, 5: 2, r1: 1})           //nolint:lll
 			So(ruleIDCount(t, root, "/lustre/scratch123/humgen/a/b/newdir/"), ShouldResemble, map[uint64]uint64{4: 1, 5: 2})
 			So(ruleIDCount(t, root, "/lustre/scratch123/humgen/a/b/testdir/"), ShouldResemble, map[uint64]uint64{r1: 1})
 			So(ruleIDCount(t, root, "/lustre/scratch123/humgen/a/c/"), ShouldResemble, map[uint64]uint64{3: 3, 6: 2})
