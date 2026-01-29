@@ -37,6 +37,7 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/internal/directories"
+	"github.com/wtsi-hgi/backup-plans/internal/plandb"
 	"github.com/wtsi-hgi/backup-plans/internal/testdb"
 	"github.com/wtsi-hgi/backup-plans/users"
 	"vimagination.zapto.org/tree"
@@ -409,6 +410,55 @@ func TestRuletree(t *testing.T) {
 			So(ruleIDCount(t, root, "/path/dir/a/"), ShouldResemble, map[uint64]uint64{r2: 3, r3: 1})
 			So(ruleIDCount(t, root, "/path/dir/a/b/"), ShouldResemble, map[uint64]uint64{r2: 1, r3: 1})
 			So(ruleIDCount(t, root, "/path/dir/a/b/c/"), ShouldResemble, map[uint64]uint64{r3: 1})
+		})
+
+		Convey("When adding a rule in a directory, all non-affected directory summaries are correctly copied", func() {
+			_, dbPath := plandb.PopulateBigExamplePlanDB(t)
+			treeDB := plandb.ExampleTreeBig()
+
+			rulesDB, err := db.Init(dbPath)
+			So(err, ShouldBeNil)
+
+			dirs := make(map[int64]*db.Directory)
+			dirRules := make([]DirRule, 0)
+
+			So(rulesDB.ReadDirectories().ForEach(func(dir *db.Directory) error {
+				dirs[dir.ID()] = dir
+
+				return nil
+			}), ShouldBeNil)
+
+			So(rulesDB.ReadRules().ForEach(func(r *db.Rule) error {
+				dirRules = append(dirRules, DirRule{
+					Directory: dirs[r.DirID()],
+					Rule:      r,
+				})
+
+				return nil
+			}), ShouldBeNil)
+
+			root, err := NewRoot(dirRules)
+			So(err, ShouldBeNil)
+
+			treeDBPath := createTree(t, treeDB)
+			So(root.AddTree(treeDBPath), ShouldBeNil)
+
+			So(ruleIDCount(t, root, "/lustre/scratch123/humgen/a/"), ShouldResemble, map[uint64]uint64{0: 4, 1: 2, 2: 1, 3: 3, 4: 1, 5: 2, 6: 2}) //nolint:lll
+			So(ruleIDCount(t, root, "/lustre/scratch123/humgen/a/b/"), ShouldResemble, map[uint64]uint64{0: 3, 1: 2, 2: 1, 4: 1, 5: 2})           //nolint:lll
+			So(ruleIDCount(t, root, "/lustre/scratch123/humgen/a/b/newdir/"), ShouldResemble, map[uint64]uint64{4: 1, 5: 2})
+			So(ruleIDCount(t, root, "/lustre/scratch123/humgen/a/b/testdir/"), ShouldResemble, map[uint64]uint64{0: 1})
+			So(ruleIDCount(t, root, "/lustre/scratch123/humgen/a/c/"), ShouldResemble, map[uint64]uint64{3: 3, 6: 2})
+			So(ruleIDCount(t, root, "/lustre/scratch123/humgen/a/c/newdir/"), ShouldResemble, map[uint64]uint64{3: 2, 6: 1})
+			So(ruleIDCount(t, root, "/lustre/scratch123/humgen/a/d/"), ShouldResemble, map[uint64]uint64{0: 1})
+
+			r1 := createRule(t, rulesDB, root, "/lustre/scratch123/humgen/a/b/testdir/", "*")
+			So(ruleIDCount(t, root, "/lustre/scratch123/humgen/a/"), ShouldResemble, map[uint64]uint64{0: 3, 1: 2, 2: 1, 3: 3, 4: 1, 5: 2, 6: 2, r1: 1}) //nolint:lll
+			So(ruleIDCount(t, root, "/lustre/scratch123/humgen/a/b/"), ShouldResemble, map[uint64]uint64{0: 2, 1: 2, 2: 1, 4: 1, 5: 2, r1: 1})           //nolint:lll
+			So(ruleIDCount(t, root, "/lustre/scratch123/humgen/a/b/newdir/"), ShouldResemble, map[uint64]uint64{4: 1, 5: 2})
+			So(ruleIDCount(t, root, "/lustre/scratch123/humgen/a/b/testdir/"), ShouldResemble, map[uint64]uint64{r1: 1})
+			So(ruleIDCount(t, root, "/lustre/scratch123/humgen/a/c/"), ShouldResemble, map[uint64]uint64{3: 3, 6: 2})
+			So(ruleIDCount(t, root, "/lustre/scratch123/humgen/a/c/newdir/"), ShouldResemble, map[uint64]uint64{3: 2, 6: 1})
+			So(ruleIDCount(t, root, "/lustre/scratch123/humgen/a/d/"), ShouldResemble, map[uint64]uint64{0: 1})
 		})
 	})
 }
