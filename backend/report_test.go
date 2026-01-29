@@ -48,6 +48,9 @@ func TestReport(t *testing.T) {
 		firstGroup, err := user.LookupGroupId("1")
 		So(err, ShouldBeNil)
 
+		secondGroup, err := user.LookupGroupId("2")
+		So(err, ShouldBeNil)
+
 		So(testirods.AddPseudoIRODsToolsToPathIfRequired(t), ShouldBeNil)
 
 		roots := []string{
@@ -250,16 +253,16 @@ func TestReport(t *testing.T) {
 						},
 					},
 					GroupBackupTypeTotals: map[string]map[int]*SizeCount{
-						"bin": {
-							-1: {Count: 1, Size: 8},
-							0:  {Count: 1, Size: 8},
-							1:  {Count: 1, Size: 8},
-						},
-						"daemon": {
+						firstGroup.Name: {
 							-1: {Count: 3, Size: 24},
 							0:  {Count: 2, Size: 15},
 							1:  {Count: 4, Size: 36},
 							2:  {Count: 3, Size: 21},
+						},
+						secondGroup.Name: {
+							-1: {Count: 1, Size: 8},
+							0:  {Count: 1, Size: 8},
+							1:  {Count: 1, Size: 8},
 						},
 					},
 				}
