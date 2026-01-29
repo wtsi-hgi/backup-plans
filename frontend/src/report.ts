@@ -91,8 +91,6 @@ class ParentSummary extends Summary {
 		if (rule) {
 			c.addRule(rule.Match, rule.BackupType, stats);
 		}
-
-		return c;
 	}
 
 	section() {
@@ -352,17 +350,14 @@ getReportSummary()
 
 					switch (rule.BackupType) {
 						case BackupType.BackupIBackup:
-							console.log(childDir, data.BackupStatus[childDir]);
 							dirSummary.addBackupStatus(childDir, data.BackupStatus[childDir]);
 
 							break;
 						case BackupType.BackupManualIBackup:
-							console.log(childSummary.ClaimedBy + ":" + rule.Metadata, data.BackupStatus[childSummary.ClaimedBy + ":" + rule.Metadata])
 							dirSummary.addBackupStatus(childDir, data.BackupStatus[childSummary.ClaimedBy + ":" + rule.Metadata]);
 
 							break;
 						case BackupType.BackupManualGit:
-							console.log(rule.Metadata, data.BackupStatus[rule.Metadata]);
 							dirSummary.addBackupStatus(childDir, data.BackupStatus[rule.Metadata]);
 					}
 

@@ -122,6 +122,12 @@ func (s *Server) getClaimed(root string) string {
 
 func (s *Server) populateBackupStatus(dirClaims, repos map[string]string,
 	manualIbackup map[string][]dirSet, dirSummary *summary) {
+	s.populateIbackupStatus(dirClaims, dirSummary)
+	s.populateManualIBackupStatus(manualIbackup, dirSummary)
+	s.populateGitBackupStatus(repos, dirSummary)
+}
+
+func (s *Server) populateIbackupStatus(dirClaims map[string]string, dirSummary *summary) {
 	for dir, claimedBy := range dirClaims {
 		planName := "plan::" + dir
 
@@ -139,12 +145,15 @@ func (s *Server) populateBackupStatus(dirClaims, repos map[string]string,
 
 		dirSummary.BackupStatus[dir] = sba
 	}
+}
 
+func (s *Server) populateManualIBackupStatus(manualIbackup map[string][]dirSet, dirSummary *summary) {
 	for claimedBy, dirSets := range manualIbackup {
 		for _, dirSet := range dirSets {
 			sba, err := s.config.GetCachedIBackupClient().GetBackupActivity(dirSet.dir, dirSet.set, claimedBy)
 			if err != nil {
-				slog.Error("error querying manual ibackup status", "dir", dirSet.dir, "claimedBy", claimedBy, "set", dirSet.set, "err", err)
+				slog.Error("error querying manual ibackup status",
+					"dir", dirSet.dir, "claimedBy", claimedBy, "set", dirSet.set, "err", err)
 			}
 
 			if sba == nil {
@@ -157,7 +166,9 @@ func (s *Server) populateBackupStatus(dirClaims, repos map[string]string,
 			dirSummary.BackupStatus[claimedBy+":"+dirSet.set] = sba
 		}
 	}
+}
 
+func (s *Server) populateGitBackupStatus(repos map[string]string, dirSummary *summary) {
 	for repo, claimedBy := range repos {
 		t, err := s.gitCache.GetLatestCommitDate(repo)
 		if err != nil {
@@ -262,11 +273,11 @@ func (s *Server) collectRuleMetadata(ds *ruletree.DirSummary, dirSummary *summar
 		dirPath := s.dirs[uint64(dirID)].Path
 		dir := s.directoryRules[dirPath]
 
-		switch rule.BackupType {
+		switch rule.BackupType { //nolint:exhaustive
 		case db.BackupIBackup:
 			dirClaims[dir.Path] = dir.ClaimedBy
 		case db.BackupManualIBackup:
-			manualIbackup[dir.ClaimedBy] = append(manualIbackup[dir.Path], dirSet{dir.Path, rule.Metadata})
+			manualIbackup[dir.ClaimedBy] = append(manualIbackup[dir.ClaimedBy], dirSet{dir.Path, rule.Metadata})
 		case db.BackupManualGit:
 			repos[rule.Metadata] = dir.ClaimedBy
 		}
