@@ -137,12 +137,11 @@ func (f *file) readFrom(lr byteio.MemLittleEndian) {
 //		sub-directory,  passing each file path through the statemachine to
 //		determine the rule matched against.
 //
-//
-//	ID >= 0: Read the tree DB summary for a sub-directory and add its summary to
+//	ID > 0: Read the tree DB summary for a sub-directory and add its summary to
 //		the current directory summary, swapping out the rule number with the ID
 //		on the directory.
 //
-//	ID < 0: Copy the overlay DB summary for a sub-directory, if it exists, or
+//	ID <= 0: Copy the overlay DB summary for a sub-directory, if it exists, or
 //		fall back to the previous category if it does not, negating the
 //		directory ID to get the wildcard ID.
 type ruleProcessor struct {
@@ -178,7 +177,7 @@ func (r *ruleProcessor) children(yield func(string, tree.Node) bool) {
 
 		if ruleID := *state.GetGroup(); ruleID == processRules { //nolint:nestif
 			cont = r.processDir(name, state, lowerChild, upperChild, yield)
-		} else if ruleID < 0 {
+		} else if ruleID <= 0 {
 			cont = r.copyUpperOrAddLower(name, -ruleID, lowerChild, upperChild, yield)
 		} else {
 			cont = r.addLower(ruleID, lowerChild)
