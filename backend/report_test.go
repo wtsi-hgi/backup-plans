@@ -48,6 +48,9 @@ func TestReport(t *testing.T) {
 		firstGroup, err := user.LookupGroupId("1")
 		So(err, ShouldBeNil)
 
+		secondGroup, err := user.LookupGroupId("2")
+		So(err, ShouldBeNil)
+
 		So(testirods.AddPseudoIRODsToolsToPathIfRequired(t), ShouldBeNil)
 
 		roots := []string{
@@ -232,22 +235,34 @@ func TestReport(t *testing.T) {
 						"/lustre/scratch123/humgen/a/c/":        {3, 6},
 					},
 					BackupStatus: map[string]*ibackup.SetBackupActivity{
+						"/lustre/scratch123/humgen/a/b/": {
+							Name:      "plan::/lustre/scratch123/humgen/a/b/",
+							Requester: "userA",
+						},
+						"/lustre/scratch123/humgen/a/b/newdir/": {
+							Name:      "plan::/lustre/scratch123/humgen/a/b/newdir/",
+							Requester: "userC",
+						},
 						"/lustre/scratch123/humgen/a/c/": {
 							Name:      "plan::/lustre/scratch123/humgen/a/c/",
 							Requester: "userB",
 						},
-					},
-					GroupBackupTypeTotals: map[string]map[int64]SizeCount{
-						"bin": {
-							-1: {Count: 1, Size: 8},
-							0:  {Count: 1, Size: 8},
-							1:  {Count: 1, Size: 8},
+						"userB:manualSetName": {
+							Name:      "manualSetName",
+							Requester: "userB",
 						},
-						"daemon": {
+					},
+					GroupBackupTypeTotals: map[string]map[int]*SizeCount{
+						firstGroup.Name: {
 							-1: {Count: 3, Size: 24},
 							0:  {Count: 2, Size: 15},
 							1:  {Count: 4, Size: 36},
 							2:  {Count: 3, Size: 21},
+						},
+						secondGroup.Name: {
+							-1: {Count: 1, Size: 8},
+							0:  {Count: 1, Size: 8},
+							1:  {Count: 1, Size: 8},
 						},
 					},
 				}

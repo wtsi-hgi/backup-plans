@@ -1,4 +1,4 @@
-import type { BackupStatus, ClaimedDir, DirectoryWithChildren, ReportSummary, Rule, SizeCount, SizeCountTime, Stats } from "./types.js";
+import type { BackupStatus, ClaimedDir, ReportSummary, Rule, SizeCount, SizeCountTime, Stats } from "./types.js";
 import type { Children } from "./lib/dom.js";
 import { amendNode } from "./lib/dom.js";
 import { a, br, button, datalist, details, div, fieldset, h1, h2, input, label, legend, li, option, p, span, summary, table, tbody, td, th, thead, tr, ul } from "./lib/html.js";
@@ -18,6 +18,7 @@ class Summary {
 	lastestMTime = 0;
 	count = 0n;
 	backupStatus?: BackupStatus;
+	backups = new Map<string, BackupStatus[]>();
 
 	constructor(path: string, backupStatus?: BackupStatus) {
 		this.path = path;
@@ -25,9 +26,6 @@ class Summary {
 	}
 
 	add(action: BackupType, rule: Stats) {
-		if (action.isManual()) {
-			action = BackupType.BackupManualIBackup;
-		}
 		const sct = this.actions[+action] ??= { size: 0n, count: 0n, mtime: 0 };
 
 		sct.count += BigInt(rule.Files);
@@ -38,7 +36,13 @@ class Summary {
 		this.count += BigInt(rule.Files);
 	}
 
+	addBackupStatus(path: string, backupStatus: BackupStatus) {
+		(this.backups.get(path) ?? setAndReturn(this.backups, path, [])).push(backupStatus);
+	}
+
 	table() {
+		const manualSizeCount = this.manualSizeCount();
+
 		return table({ "class": "summary" }, [
 			thead(tr([
 				td(),
@@ -50,20 +54,24 @@ class Summary {
 			tbody([
 				tr([
 					th("File count"),
-					td(this.actions[-1]?.count.toLocaleString() ?? "0"),
-					td(this.actions[0]?.count.toLocaleString() ?? "0"),
-					td(this.actions[1]?.count.toLocaleString() ?? "0"),
-					td(this.actions[2]?.count.toLocaleString() ?? "0")
+					td(this.actions[+BackupType.BackupWarn]?.count.toLocaleString() ?? "0"),
+					td(this.actions[+BackupType.BackupNone]?.count.toLocaleString() ?? "0"),
+					td(this.actions[+BackupType.BackupIBackup]?.count.toLocaleString() ?? "0"),
+					td(manualSizeCount.count.toLocaleString())
 				]),
 				tr([
 					th("File size"),
-					td({ "title": (this.actions[-1]?.size ?? 0).toLocaleString() }, formatBytes(this.actions[-1]?.size ?? 0)),
-					td({ "title": (this.actions[0]?.size ?? 0).toLocaleString() }, formatBytes(this.actions[0]?.size ?? 0)),
-					td({ "title": (this.actions[1]?.size ?? 0).toLocaleString() }, formatBytes(this.actions[1]?.size ?? 0)),
-					td({ "title": (this.actions[2]?.size ?? 0).toLocaleString() }, formatBytes(this.actions[2]?.size ?? 0))
+					td({ "title": (this.actions[+BackupType.BackupWarn]?.size ?? 0).toLocaleString() }, formatBytes(this.actions[+BackupType.BackupWarn]?.size ?? 0)),
+					td({ "title": (this.actions[+BackupType.BackupNone]?.size ?? 0).toLocaleString() }, formatBytes(this.actions[+BackupType.BackupNone]?.size ?? 0)),
+					td({ "title": (this.actions[+BackupType.BackupIBackup]?.size ?? 0).toLocaleString() }, formatBytes(this.actions[+BackupType.BackupIBackup]?.size ?? 0)),
+					td({ "title": manualSizeCount.size.toLocaleString() }, formatBytes(manualSizeCount.size))
 				])
 			])
 		])
+	}
+
+	manualSizeCount() {
+		return this.actions.filter((_, n) => BackupType.from(n).isManual()).reduce((prev, next) => (prev.size += next.size, prev.count += next.count, prev), { size: 0n, count: 0n });
 	}
 }
 
@@ -77,8 +85,8 @@ class ParentSummary extends Summary {
 		this.group = group;
 	}
 
-	addChild(child: string, rule: Rule, stats: Stats, claimedBy: string, backupStatus: BackupStatus) {
-		const c = this.children.get(child) ?? setAndReturn(this.children, child, new ChildSummary(child, claimedBy, backupStatus));
+	addChild(child: string, rule: Rule, stats: Stats) {
+		const c = this.children.get(child) ?? setAndReturn(this.children, child, new ChildSummary(child));
 
 		if (rule) {
 			c.addRule(rule.Match, rule.BackupType, stats);
@@ -86,9 +94,6 @@ class ParentSummary extends Summary {
 	}
 
 	section() {
-		const childrenWithBackups = Array.from(this.children.entries())
-			.filter(([path]) => summaryData.Directories[path]?.some(rid => summaryData.Rules[rid].BackupType !== BackupType.BackupNone));
-
 		return fieldset({
 			"data-status": this.status(),
 			"data-warn-size": (this.actions[+BackupType.BackupWarn]?.size ?? 0) + "",
@@ -120,24 +125,28 @@ class ParentSummary extends Summary {
 			this.table(),
 			table({ "class": "summary" }, [
 				thead(tr([
+					th("Directory"),
 					th("Claimed By"),
-					th("Set Name"),
+					th("Backup Name"),
 					th("Last Backup"),
 					th("Failures")
 				])),
-				tbody(childrenWithBackups.length ? childrenWithBackups
-					.map(([path, child]) => tr([
-						td(child.claimedBy),
-						td("plan::" + path),
+				tbody(this.backups.size ? [
+					Array.from(this.backups).map(([path, backups]) => backups.map(backup => tr([
+						td(path),
+						td(backup.Requester),
+						td(backup.Name),
 						td(
-							child.backupStatus
+							backup.LastSuccess
 								// If status exists but is equal to zero time (ibackup broken) show pending
-								? +new Date(child.backupStatus.LastSuccess) <= 0
+								? +new Date(backup.LastSuccess) <= 0
 									? "Pending"
-									: new Date(child.backupStatus.LastSuccess).toLocaleString()
-								: "-"),
-						td(child.backupStatus?.Failures.toLocaleString() ?? "-")
-					])) : tr(td({ "colspan": "4" }, "No Backups")))
+									: new Date(backup.LastSuccess).toLocaleString()
+								: "-"
+						),
+						td(backup.Failures.toLocaleString())
+					])))
+				] : tr(td({ "colspan": "5" }, "No Backups")))
 			]),
 			this.children.size ? [
 				h2("Rules"),
@@ -162,18 +171,12 @@ class ParentSummary extends Summary {
 
 class ChildSummary extends Summary {
 	rules = new Map<string, SizeCount & { action: BackupType }>();
-	claimedBy: string;
 
-	constructor(path: string, claimedBy: string, backupStatus?: BackupStatus) {
-		super(path, backupStatus);
-
-		this.claimedBy = claimedBy;
+	constructor(path: string) {
+		super(path);
 	}
 
 	addRule(match: string, action: BackupType, rule: Stats) {
-		if (action.isManual()) {
-			action = BackupType.BackupManualIBackup;
-		}
 		const r = this.rules.get(match) ?? setAndReturn(this.rules, match, { size: 0n, count: 0n, action });
 
 		r.count += BigInt(rule.Files);
@@ -277,28 +280,29 @@ const groupList = datalist({ "id": "groupList" }),
 let now = 0,
 	summaryData: ReportSummary;
 
-function renderCell(counts: Map<number, SizeCount>, type: number) {
+function renderCell(counts: Map<BackupType, SizeCount>, type: BackupType) {
 	const cells = [
 		td(counts.get(type)?.count.toLocaleString() ?? "0"),
 		td({ "title": counts.get(type)?.size.toLocaleString() ?? "0" }, formatBytes(BigInt(counts.get(type)?.size ?? 0n))),
 	]
 
-	if (type === -1) {
+	if (type === BackupType.BackupWarn) {
 		cells.push(td(getUnplannedFraction(counts).toLocaleString()));
 	}
 
 	return cells
 };
 
-function getUnplannedFraction(counts: Map<number, SizeCount>) {
-	var totalSize = 0n;
+function getUnplannedFraction(counts: Map<BackupType, SizeCount>) {
+	let totalSize = 0n;
+
 	for (const sizeCount of counts.values()) {
 		totalSize += sizeCount.size
 	}
 
-	const unplannedSize = counts.get(-1)?.size
+	const unplannedSize = counts.get(BackupType.BackupWarn)?.size ?? 0n;
 
-	return Number(unplannedSize! * 100n / totalSize) / 100
+	return Number(unplannedSize * 100n / totalSize) / 100
 }
 
 getReportSummary()
@@ -328,21 +332,37 @@ getReportSummary()
 		for (const [dir, summary] of Object.entries(data.Summaries)) {
 			const dirSummary = new ParentSummary(dir, summary.Group, data.BackupStatus[dir]);
 
-			for (const rule of summary.RuleSummaries) {
-				const ruleType = data.Rules[rule.ID]?.BackupType ?? BackupType.BackupWarn;
+			for (const ruleSummary of summary.RuleSummaries) {
+				const rule = data.Rules[ruleSummary.ID],
+					ruleType = rule?.BackupType ?? BackupType.BackupWarn;
 
-				for (const user of rule.Users) {
+				for (const user of ruleSummary.Users) {
 					overall.add(ruleType, user);
 					dirSummary.add(ruleType, user);
 				}
 			}
 
-			for (const [child, childSummary] of [[dir, summary] as [string, ClaimedDir]].concat(Array.from(Object.entries(summary.Children)))) {
-				const rules = data.Directories[child] ?? [0];
+			for (const [childDir, childSummary] of [[dir, summary] as [string, ClaimedDir]].concat(Array.from(Object.entries(summary.Children)))) {
+				const rules = data.Directories[childDir] ?? [0];
 
 				for (const id of rules) {
+					const rule = data.Rules[id] ?? { BackupType: BackupType.BackupWarn, Match: "" };
+
+					switch (rule.BackupType) {
+						case BackupType.BackupIBackup:
+							dirSummary.addBackupStatus(childDir, data.BackupStatus[childDir]);
+
+							break;
+						case BackupType.BackupManualIBackup:
+							dirSummary.addBackupStatus(childDir, data.BackupStatus[childSummary.ClaimedBy + ":" + rule.Metadata]);
+
+							break;
+						case BackupType.BackupManualGit:
+							dirSummary.addBackupStatus(childDir, data.BackupStatus[rule.Metadata]);
+					}
+
 					for (const stats of summary.RuleSummaries.find(v => v.ID === id)?.Users ?? []) {
-						dirSummary.addChild(child, data.Rules[id] ?? { BackupType: BackupType.BackupWarn, Match: "" }, stats, child === dir ? summary.ClaimedBy : childSummary.ClaimedBy ?? "", data.BackupStatus[child]);
+						dirSummary.addChild(childDir, rule, stats);
 					}
 				}
 			}
@@ -351,61 +371,79 @@ getReportSummary()
 			parents.push(dirSummary);
 		}
 
-
-		const programmeCounts = new Map<string, Map<number, SizeCount>>(); // Programme -> BackupType -> SizeCount
-		programmeCounts.set("All", new Map<number, SizeCount>())
+		const programmeCounts = new Map<string, Map<BackupType, SizeCount>>(); // Programme -> BackupType -> SizeCount
 
 		for (const [group, typeCounts] of Object.entries(data.GroupBackupTypeTotals)) {
 			const bom = (!boms.get(group) || boms.get(group) === "unknown") ? "Unknown" : boms.get(group)!;
 
-			if (!programmeCounts.has(bom)) {
-				programmeCounts.set(bom, new Map<number, SizeCount>());
-			}
-
 			for (const [type, sizeCounts] of Object.entries(typeCounts)) {
-				const backupType = Number(type);
+				const backupType = BackupType.from(type),
+					mcBackupType = backupType.isManual() ? BackupType.BackupManual : backupType,
+					counts = programmeCounts.get(bom) ?? setAndReturn(programmeCounts, bom, new Map<BackupType, SizeCount>());
 
-				const counts = programmeCounts.get(bom)!;
+				const programmeSizeCount = counts.get(mcBackupType) ?? setAndReturn(counts, mcBackupType, { count: 0n, size: 0n });
 
-				if (!counts.has(backupType)) {
-					counts.set(backupType, { count: 0n, size: 0n });
-				}
+				programmeSizeCount.size += BigInt(sizeCounts.size);
+				programmeSizeCount.count += BigInt(sizeCounts.count);
 
-				const sizecount = counts.get(backupType)!;
-				sizecount.size += BigInt(sizeCounts.size);
-				sizecount.count += BigInt(sizeCounts.count);
-
-				setCountsAll(programmeCounts, backupType, sizeCounts)
+				setCountsAll(programmeCounts, mcBackupType, sizeCounts)
 			}
 		}
 
-		const rows = Array.from(programmeCounts.entries())
-			.sort(sortProgrammes)
-			.map(([bom, counts]) => {
-				return [
-					tr([
-						th(bom),
-						...[-1, 0, 1, 2].flatMap(t => renderCell(counts, t))
-					])
-				];
-			});
+		children[0] = div({ "class": "summary-container" }, [
+			input({ "type": "checkbox", "id": "tableToggleCheckbox", "style": "display:none" }),
+			table({ "class": "summary" }, [
+				thead(tr([
+					td([
+						button({ "click": download }, "Download Report"),
+						button({
+							"click": () => {
+								const ods = ODS(
+									parents.map(s => ({
+										"Programme": boms.get(s.group) ?? "",
+										"Faculty": owners.get(s.group) ?? "",
+										"Path": s.path,
+										"Group": s.group,
+										"Status": s.status(),
+										"Unplanned": s.actions[+BackupType.BackupWarn]?.size ?? 0n,
+										"NoBackup": s.actions[+BackupType.BackupNone]?.size ?? 0n,
+										"Backup": s.actions[+BackupType.BackupIBackup]?.size ?? 0n,
+										"ManualBackup": getManualSize(s)
+									})),
+									Array.from(programmeCounts.entries()).map(([bom, counts]) => ({
+										"Programme": bom,
+										"UnplannedC": BigInt(counts.get(BackupType.BackupWarn)?.count ?? 0n),
+										"UnplannedS": BigInt(counts.get(BackupType.BackupWarn)?.size ?? 0n),
+										"UnplannedF": Math.round(1000 * (Number(counts.get(BackupType.BackupWarn)?.size ?? 0n)) /
+											(Number(counts.get(BackupType.BackupWarn)?.size ?? 0n) + Number(counts.get(BackupType.BackupNone)?.size ?? 0n) + Number(counts.get(BackupType.BackupIBackup)?.size ?? 0n) + Number(counts.get(BackupType.BackupManual)?.size ?? 0n))) / 1000,
+										"NoBackupC": BigInt(counts.get(BackupType.BackupNone)?.count ?? 0n),
+										"NoBackupS": BigInt(counts.get(BackupType.BackupNone)?.size ?? 0n),
+										"BackupC": BigInt(counts.get(BackupType.BackupIBackup)?.count ?? 0n),
+										"BackupS": BigInt(counts.get(BackupType.BackupIBackup)?.size ?? 0n),
+										"ManualC": BigInt(counts.get(BackupType.BackupManual)?.count ?? 0n),
+										"ManualS": BigInt(counts.get(BackupType.BackupManual)?.size ?? 0n)
+									})));
 
-		children[0] =
-			div({ "class": "summary-container" }, [
-				input({ "type": "checkbox", "id": "tableToggleCheckbox", "style": "display:none" }),
-				table({ "class": "summary" }, [
-					thead(tr([
-						td(),
-						th({ "colspan": "3" }, "Unplanned (Count/Size/Fraction)"),
-						th({ "colspan": "2" }, "No Backup (Count/Size)"),
-						th({ "colspan": "2" }, "Backup (Count/Size)"),
-						th({ "colspan": "2" }, "Manual Backup (Count/Size)")
-					])),
-					tbody([
-						rows,
-						tr({ "class": "table-expand-toggle", "id": "tableCollapse" },
-							td({ "colspan": "10" }, label({ "for": "tableToggleCheckbox" }, [span({ "class": "expand-text" }, "Expand All"), span({ "class": "collapse-text" }, "Collapse All")])))])
-				])]);
+								a({ "href": URL.createObjectURL(new Blob([ods], { "type": "text/csv;charset=utf-8" })), "download": `backup-report-${new Date(now).toISOString()}.ods` }).click();
+							}
+						}, "Download Spreadsheet")
+					]),
+					th({ "colspan": "3" }, "Unplanned (Count/Size/Fraction)"),
+					th({ "colspan": "2" }, "No Backup (Count/Size)"),
+					th({ "colspan": "2" }, "Backup (Count/Size)"),
+					th({ "colspan": "2" }, "Manual Backup (Count/Size)")
+				])),
+				tbody([
+					Array.from(programmeCounts.entries())
+						.sort(sortProgrammes)
+						.map(([bom, counts]) => tr([
+							th(bom),
+							...[BackupType.BackupWarn, BackupType.BackupNone, BackupType.BackupIBackup, BackupType.BackupManual].flatMap(t => renderCell(counts, t))
+						])),
+					tr({ "id": "tableCollapse" }, td({ "colspan": "10" }, label({ "for": "tableToggleCheckbox" }, [span({ "class": "expand-text" }, "Expand All"), span({ "class": "collapse-text" }, "Collapse All")])))
+				])
+			])
+		]);
 
 		children[1] = fieldset([
 			legend("Filter"),
@@ -425,40 +463,6 @@ getReportSummary()
 			label({ "for": "sortBackupSize" }, "Backup Size"), sortBackupSize
 		]);
 
-		(children[0].firstChild?.nextSibling?.firstChild?.firstChild?.firstChild as HTMLElement)?.append(
-			button({ "click": download }, "Download Report"),
-			button({
-				"click": () => {
-					const ods = ODS(
-						parents.map(s => ({
-							"Programme": boms.get(s.group) ?? "",
-							"Faculty": owners.get(s.group) ?? "",
-							"Path": s.path,
-							"Group": s.group,
-							"Status": s.status(),
-							"Unplanned": s.actions[+BackupType.BackupWarn]?.size ?? 0n,
-							"NoBackup": s.actions[+BackupType.BackupNone]?.size ?? 0n,
-							"Backup": s.actions[+BackupType.BackupIBackup]?.size ?? 0n,
-							"ManualBackup": getManualSize(s)
-						})),
-						Array.from(programmeCounts.entries()).map(([bom, counts]) => ({
-							"Programme": bom,
-							"UnplannedC": BigInt(counts.get(-1)?.count ?? 0n),
-							"UnplannedS": BigInt(counts.get(-1)?.size ?? 0n),
-							"UnplannedF": Math.round(1000 * (Number(counts.get(-1)?.size ?? 0n)) /
-								(Number(counts.get(-1)?.size ?? 0n) + Number(counts.get(0)?.size ?? 0n) + Number(counts.get(1)?.size ?? 0n) + Number(counts.get(2)?.size ?? 0n))) / 1000,
-							"NoBackupC": BigInt(counts.get(0)?.count ?? 0n),
-							"NoBackupS": BigInt(counts.get(0)?.size ?? 0n),
-							"BackupC": BigInt(counts.get(1)?.count ?? 0n),
-							"BackupS": BigInt(counts.get(1)?.size ?? 0n),
-							"ManualC": BigInt(counts.get(2)?.count ?? 0n),
-							"ManualS": BigInt(counts.get(2)?.size ?? 0n)
-						})));
-
-					a({ "href": URL.createObjectURL(new Blob([ods], { "type": "text/csv;charset=utf-8" })), "download": `backup-report-${new Date(now).toISOString()}.ods` }).click();
-				}
-			}, "Download Spreadsheet")
-		);
 		initFilterSort(base, children.slice(3) as HTMLFieldSetElement[], [filterProject, filterAll, filterR, filterA, filterG, filterB, sortName, sortWarnSize, sortNoBackupSize, sortBackupSize]);
 		amendNode(base, children);
 	});
@@ -467,37 +471,39 @@ function getManualSize(s: ParentSummary) {
 	return BackupType.manual.reduce((total, backup) => total + (s.actions[+backup]?.size ?? 0n), 0n);
 }
 
-function sortProgrammes(a: [string, Map<number, SizeCount>], b: [string, Map<number, SizeCount>]) {
-	const [progA, countsA] = a;
-	const [progB, countsB] = b;
+function sortProgrammes([progA, countsA]: [string, Map<BackupType, SizeCount>], [progB, countsB]: [string, Map<BackupType, SizeCount>]) {
+	if (progA === "All") {
+		return -1;
+	}
 
-	const fractionA = getUnplannedFraction(countsA);
-	const fractionB = getUnplannedFraction(countsB);
+	if (progB === "All") {
+		return 1;
+	}
 
-	const isPriorityA = MainProgrammes.includes(progA);
-	const isPriorityB = MainProgrammes.includes(progB);
-
-	if (progA === "All") return -1;
-	if (progB === "All") return 1;
+	const fractionA = getUnplannedFraction(countsA),
+		fractionB = getUnplannedFraction(countsB),
+		isPriorityA = MainProgrammes.includes(progA),
+		isPriorityB = MainProgrammes.includes(progB);
 
 	if (isPriorityA && isPriorityB) {
 		return Number(fractionB - fractionA);
 	}
 
-	if (isPriorityA) return -1;
-	if (isPriorityB) return 1;
+	if (isPriorityA) {
+		return -1;
+	}
+
+	if (isPriorityB) {
+		return 1;
+	}
 
 	return Number(fractionB - fractionA);
 }
 
-function setCountsAll(programmeCounts: Map<string, Map<number, SizeCount>>, backupType: number, sizeCounts: SizeCount) {
-	const all = programmeCounts.get("All")!;
+function setCountsAll(programmeCounts: Map<string, Map<BackupType, SizeCount>>, backupType: BackupType, sizeCounts: SizeCount) {
+	const all = programmeCounts.get("All") ?? setAndReturn(programmeCounts, "All", new Map<BackupType, SizeCount>()),
+		allTotals = all.get(backupType) ?? setAndReturn(all, backupType, { count: 0n, size: 0n });
 
-	if (!all.has(backupType)) {
-		all.set(backupType, { count: 0n, size: 0n });
-	}
-
-	const allTotals = all.get(backupType)!;
 	allTotals.size += BigInt(sizeCounts.size);
 	allTotals.count += BigInt(sizeCounts.count);
 }
