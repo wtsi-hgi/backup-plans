@@ -1,8 +1,12 @@
 // import { MainProgrammes } from "./consts.js";
-import { div, p, h2, canvas, br, span } from "./lib/html.js";
+import { div, p, h2, canvas, br, span, source } from "./lib/html.js";
 import { formatBytes } from "./lib/utils.js";
 import type { SizeCount, BarChartRow as BarChartRow } from "./types.js";
-// import { Chart, ChartConfiguration, ChartData } from './lib/node_modules/chart.js/';
+import type { ChartConfiguration, ChartData } from "./lib/node_modules/chart.js";
+// @ts-ignore
+import { Chart, registerables } from "https://cdn.jsdelivr.net/npm/chart.js@4.4.1/+esm";
+
+Chart.register(...registerables);
 
 const MainProgrammes = ["All", "Unknown"];
 const colourClasses = ["bar-unplanned", "bar-nobackup", "bar-backup"];
@@ -98,90 +102,89 @@ function generateBarChart(programmeCounts: Map<string, Map<number, SizeCount>>) 
     ])
 }
 
-// function prepareDataAbsScale(programmeCounts: Map<string, Map<number, SizeCount>>) {
+function prepareDataAbsScale(programmeCounts: Map<string, Map<number, SizeCount>>) {
+    // labels = MainProgrammes
+    // datasets = [{
+    //     label: 'unplanned',
+    //     data: MainProgrammes.map(programme => (data.get(programme)[unplanned]))
+    // },
+    // {
+    //     label: 'backup',
+    //     data: ...the backup stat for each programme
+    // }]
 
-// labels = MainProgrammes
-// datasets = [{
-//     label: 'unplanned',
-//     data: MainProgrammes.map(programme => (data.get(programme)[unplanned]))
-// },
-// {
-//     label: 'backup',
-//     data: ...the backup stat for each programme
-// }]
+    const data: ChartData<'bar'> = {
+        labels: MainProgrammes,
+        datasets: ["Unplanned", "No backup", "Backup"].map((backupType, i) => ({
+            label: backupType,
+            data: MainProgrammes.map(programme => {
+                return Number(programmeCounts.get(programme)!.get(i - 1)!.size) ?? 0;
+            })
+        }))
+    };
 
-//     const data: ChartData<'bar'> = {
-//         labels: MainProgrammes,
-//         datasets: ["Unplanned", "No backup", "Backup"].map((backupType, i) => ({
-//             label: backupType,
-//             data: MainProgrammes.map(programme => {
-//                 return Number(programmeCounts.get(programme)!.get(i - 1)!.size) ?? 0;
-//             })
-//         }))
-//     };
+    const fakeData: ChartData<'bar'> = {
+        labels: ['Group 1', 'Group 2', 'Group 3', 'Group 4', 'Group 5'],
+        datasets: [
+            {
+                label: 'Bar A',
+                data: [1, 2, 5, 10, 20]
+            },
+            {
+                label: 'Bar B',
+                data: [10, 20, 50, 100, 200]
+            },
+            {
+                label: 'Bar C',
+                data: [100, 200, 500, 1000, 2000]
+            },
+            {
+                label: 'Bar D',
+                data: [1000, 2000, 5000, 10000, 20000]
+            }
+        ]
+    };
 
-//     const fakeData: ChartData<'bar'> = {
-//         labels: ['Group 1', 'Group 2', 'Group 3', 'Group 4', 'Group 5'],
-//         datasets: [
-//             {
-//                 label: 'Bar A',
-//                 data: [1, 2, 5, 10, 20]
-//             },
-//             {
-//                 label: 'Bar B',
-//                 data: [10, 20, 50, 100, 200]
-//             },
-//             {
-//                 label: 'Bar C',
-//                 data: [100, 200, 500, 1000, 2000]
-//             },
-//             {
-//                 label: 'Bar D',
-//                 data: [1000, 2000, 5000, 10000, 20000]
-//             }
-//         ]
-//     };
+    return fakeData
+}
 
-//     return fakeData
-// }
+function generateGroupedBarChart(programmeCounts: Map<string, Map<number, SizeCount>>) {
+    const data = prepareDataAbsScale(programmeCounts);
 
-// function generateGroupedBarChart(programmeCounts: Map<string, Map<number, SizeCount>>) {
-//     const data = prepareDataAbsScale(programmeCounts);
+    const config: ChartConfiguration<'bar'> = {
+        type: 'bar',
+        data: data!,
+        options: {
+            responsive: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Absolute Scale Comparison'
+                }
+            },
+            scales: {
+                x: {
+                    display: true,
+                    stacked: false,
+                },
+                y: {
+                    display: true,
+                    type: 'logarithmic',
+                }
+            }
+        },
+    };
 
-//     const config: ChartConfiguration<'bar'> = {
-//         type: 'bar',
-//         data: data!,
-//         options: {
-//             responsive: false,
-//             plugins: {
-//                 title: {
-//                     display: true,
-//                     text: 'Absolute Scale Comparison'
-//                 }
-//             },
-//             scales: {
-//                 x: {
-//                     display: true,
-//                     stacked: false,
-//                 },
-//                 y: {
-//                     display: true,
-//                     type: 'logarithmic',
-//                 }
-//             }
-//         },
-//     };
+    const cvs = canvas({ "id": "myChart", "width": "600", "height": "400" });
 
-//     const cvs = canvas({ "id": "myChart", "width": "600", "height": "400" });
+    new Chart(cvs, config);
 
-//     new Chart(cvs, config);
-
-//     return div(cvs);
-// }
+    return div(cvs);
+}
 
 function createGraphPage(programmeCounts: Map<string, Map<number, SizeCount>>) {
     base.appendChild(generateBarChart(programmeCounts));
-    // base.appendChild(generateGroupedBarChart(programmeCounts));
+    base.appendChild(generateGroupedBarChart(programmeCounts));
 }
 
 export default Object.assign(base, {
