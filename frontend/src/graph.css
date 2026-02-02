@@ -20,7 +20,7 @@
     padding-right: 1em;
 }
 
-.graph {
+.graphA {
     display: flex;
     flex-direction: column;
     gap: 15px;
@@ -37,7 +37,7 @@
     height: 100%;
 }
 
-.graph p {
+.graphA p {
     display: flex;
     justify-content: center;
     vertical-align: middle;
@@ -70,12 +70,18 @@
     padding: 0.5em;
 }
 
-.graph> :first-child {
+.graphA> :first-child {
     margin-top: 15px;
 }
 
-.graph> :last-child {
+.graphA> :last-child {
     margin-bottom: 15px;
+}
+
+.graphB {
+    display: flex;
+    flex-direction: row;
+    gap: 15px;
 }
 
 .graph-container h2 {
@@ -115,7 +121,7 @@
 
 .bar-unplanned:hover {
     background-color:
-        color-mix(in srgb, var(--graph-unplanned) 45%, transparent);
+        color-mix(in srgb, var(--graph-unplanned) 80%, transparent);
 }
 
 .bar-nobackup {
@@ -124,7 +130,7 @@
 
 .bar-nobackup:hover {
     background-color:
-        color-mix(in srgb, var(--graph-nobackup) 45%, transparent);
+        color-mix(in srgb, var(--graph-nobackup) 80%, transparent);
 }
 
 .bar-backup {
@@ -133,5 +139,5 @@
 
 .bar-backup:hover {
     background-color:
-        color-mix(in srgb, var(--graph-backup) 45%, transparent);
+        color-mix(in srgb, var(--graph-backup) 80%, transparent);
 }
