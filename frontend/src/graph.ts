@@ -1,12 +1,12 @@
 // import { MainProgrammes } from "./consts.js";
 import { div, p, h2, canvas, br, span, source } from "./lib/html.js";
 import { formatBytes } from "./lib/utils.js";
-import type { SizeCount, BarChartRow as BarChartRow } from "./types.js";
-import type { ChartConfiguration, ChartData } from "./lib/node_modules/chart.js";
+import type { SizeCount, BarChartRow } from "./types.js";
+// import type { ChartConfiguration, ChartData } from "./chart.esm.js";
 // @ts-ignore
-import { Chart, registerables } from "https://cdn.jsdelivr.net/npm/chart.js@4.4.1/+esm";
+import { Chart } from "./chart-wrapper.js";
 
-Chart.register(...registerables);
+// Chart.register(...registerables);
 
 const MainProgrammes = ["All", "Unknown"];
 const colourClasses = ["bar-unplanned", "bar-nobackup", "bar-backup"];
@@ -103,27 +103,17 @@ function generateBarChart(programmeCounts: Map<string, Map<number, SizeCount>>) 
 }
 
 function prepareDataAbsScale(programmeCounts: Map<string, Map<number, SizeCount>>) {
-    // labels = MainProgrammes
-    // datasets = [{
-    //     label: 'unplanned',
-    //     data: MainProgrammes.map(programme => (data.get(programme)[unplanned]))
-    // },
-    // {
-    //     label: 'backup',
-    //     data: ...the backup stat for each programme
-    // }]
+    // const data = {
+    //     labels: MainProgrammes,
+    //     datasets: ["Unplanned", "No backup", "Backup"].map((backupType, i) => ({
+    //         label: backupType,
+    //         data: MainProgrammes.map(programme => {
+    //             return Number(programmeCounts.get(programme)!.get(i - 1)!.size) ?? 0;
+    //         })
+    //     }))
+    // };
 
-    const data: ChartData<'bar'> = {
-        labels: MainProgrammes,
-        datasets: ["Unplanned", "No backup", "Backup"].map((backupType, i) => ({
-            label: backupType,
-            data: MainProgrammes.map(programme => {
-                return Number(programmeCounts.get(programme)!.get(i - 1)!.size) ?? 0;
-            })
-        }))
-    };
-
-    const fakeData: ChartData<'bar'> = {
+    const fakeData = {
         labels: ['Group 1', 'Group 2', 'Group 3', 'Group 4', 'Group 5'],
         datasets: [
             {
@@ -151,7 +141,7 @@ function prepareDataAbsScale(programmeCounts: Map<string, Map<number, SizeCount>
 function generateGroupedBarChart(programmeCounts: Map<string, Map<number, SizeCount>>) {
     const data = prepareDataAbsScale(programmeCounts);
 
-    const config: ChartConfiguration<'bar'> = {
+    const config = {
         type: 'bar',
         data: data!,
         options: {
