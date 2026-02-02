@@ -42,7 +42,7 @@ import (
 
 // GetLatestCommitDate returns the commit date for the HEAD of the supplied
 // repo.
-func GetLatestCommitDate(url string) (time.Time, error) {
+func GetLatestCommitDate(url string) (time.Time, error) { //nolint:funlen,gocognit,gocyclo
 	repo, err := git.Clone(memory.NewStorage(), nil, &git.CloneOptions{
 		URL:    url,
 		Depth:  1,
@@ -68,7 +68,7 @@ func GetLatestCommitDate(url string) (time.Time, error) {
 
 	var latestCommitDate time.Time
 
-	refs.ForEach(func(r *plumbing.Reference) error {
+	if err := refs.ForEach(func(r *plumbing.Reference) error {
 		if r.Type() == plumbing.SymbolicReference {
 			return nil
 		}
@@ -83,7 +83,9 @@ func GetLatestCommitDate(url string) (time.Time, error) {
 		}
 
 		return nil
-	})
+	}); err != nil {
+		return time.Time{}, err
+	}
 
 	return latestCommitDate, nil
 }

@@ -66,8 +66,8 @@ func TestGetLatestCommitDate(t *testing.T) {
 			So(err, ShouldBeNil)
 
 			for n, commit := range commits {
-				wt, err := r.Worktree()
-				So(err, ShouldBeNil)
+				wt, errr := r.Worktree()
+				So(errr, ShouldBeNil)
 
 				addCommit(t, wt, strconv.Itoa(n), commit)
 			}
