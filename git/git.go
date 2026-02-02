@@ -34,6 +34,7 @@ import (
 	"time"
 
 	"github.com/go-git/go-git/v6"
+	"github.com/go-git/go-git/v6/plumbing"
 	"github.com/go-git/go-git/v6/plumbing/protocol/packp"
 	"github.com/go-git/go-git/v6/plumbing/transport"
 	"github.com/go-git/go-git/v6/storage/memory"
@@ -60,17 +61,31 @@ func GetLatestCommitDate(url string) (time.Time, error) {
 		return time.Time{}, err
 	}
 
-	head, err := repo.Head()
+	refs, err := repo.References()
 	if err != nil {
 		return time.Time{}, err
 	}
 
-	commit, err := repo.CommitObject(head.Hash())
-	if err != nil {
-		return time.Time{}, err
-	}
+	var latestCommitDate time.Time
 
-	return commit.Author.When, nil
+	refs.ForEach(func(r *plumbing.Reference) error {
+		if r.Type() == plumbing.SymbolicReference {
+			return nil
+		}
+
+		commit, err := repo.CommitObject(r.Hash())
+		if err != nil {
+			return err
+		}
+
+		if commit.Author.When.After(latestCommitDate) {
+			latestCommitDate = commit.Author.When
+		}
+
+		return nil
+	})
+
+	return latestCommitDate, nil
 }
 
 // Cache wraps the GetLatestCommitDate method, caching, and on a schedule
