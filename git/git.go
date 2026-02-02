@@ -42,7 +42,40 @@ import (
 
 // GetLatestCommitDate returns the commit date for the HEAD of the supplied
 // repo.
-func GetLatestCommitDate(url string) (time.Time, error) { //nolint:funlen,gocognit,gocyclo
+func GetLatestCommitDate(url string) (time.Time, error) {
+	repo, err := getRepo(url)
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	refs, err := repo.References()
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	var latestCommitDate time.Time
+
+	err = refs.ForEach(func(r *plumbing.Reference) error {
+		if r.Type() == plumbing.SymbolicReference {
+			return nil
+		}
+
+		commit, errr := repo.CommitObject(r.Hash())
+		if errr != nil {
+			return errr
+		}
+
+		if commit.Author.When.After(latestCommitDate) {
+			latestCommitDate = commit.Author.When
+		}
+
+		return nil
+	})
+
+	return latestCommitDate, err
+}
+
+func getRepo(url string) (*git.Repository, error) {
 	repo, err := git.Clone(memory.NewStorage(), nil, &git.CloneOptions{
 		URL:    url,
 		Depth:  1,
@@ -58,36 +91,10 @@ func GetLatestCommitDate(url string) (time.Time, error) { //nolint:funlen,gocogn
 	}
 
 	if err != nil {
-		return time.Time{}, err
+		return nil, err
 	}
 
-	refs, err := repo.References()
-	if err != nil {
-		return time.Time{}, err
-	}
-
-	var latestCommitDate time.Time
-
-	if err := refs.ForEach(func(r *plumbing.Reference) error {
-		if r.Type() == plumbing.SymbolicReference {
-			return nil
-		}
-
-		commit, err := repo.CommitObject(r.Hash())
-		if err != nil {
-			return err
-		}
-
-		if commit.Author.When.After(latestCommitDate) {
-			latestCommitDate = commit.Author.When
-		}
-
-		return nil
-	}); err != nil {
-		return time.Time{}, err
-	}
-
-	return latestCommitDate, nil
+	return repo, nil
 }
 
 // Cache wraps the GetLatestCommitDate method, caching, and on a schedule
