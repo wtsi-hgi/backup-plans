@@ -1,4 +1,4 @@
-// import { MainProgrammes } from "./consts.js";
+import { MainProgrammes } from "./consts.js";
 import { div, p, h2, canvas, br, span, source } from "./lib/html.js";
 import { formatBytes } from "./lib/utils.js";
 import type { SizeCount, BarChartRow } from "./types.js";
@@ -8,7 +8,7 @@ import { Chart } from "./chart-wrapper.js";
 
 // Chart.register(...registerables);
 
-const MainProgrammes = ["All", "Unknown"];
+// const MainProgrammes = ["All", "Unknown"];
 const colourClasses = ["bar-unplanned", "bar-nobackup", "bar-backup"];
 const base = div();
 
@@ -103,15 +103,17 @@ function generateBarChart(programmeCounts: Map<string, Map<number, SizeCount>>) 
 }
 
 function prepareDataAbsScale(programmeCounts: Map<string, Map<number, SizeCount>>) {
-    // const data = {
-    //     labels: MainProgrammes,
-    //     datasets: ["Unplanned", "No backup", "Backup"].map((backupType, i) => ({
-    //         label: backupType,
-    //         data: MainProgrammes.map(programme => {
-    //             return Number(programmeCounts.get(programme)!.get(i - 1)!.size) ?? 0;
-    //         })
-    //     }))
-    // };
+    const data = {
+        labels: MainProgrammes,
+        datasets: ["Unplanned", "No backup", "Backup"].map((backupType, i) => ({
+            label: backupType,
+            data: MainProgrammes.map(programme => {
+                return Number(programmeCounts.get(programme)!.get(i - 1)!.size) ?? 0;
+            })
+        }))
+    };
+
+    console.log(data);
 
     const fakeData = {
         labels: ['Group 1', 'Group 2', 'Group 3', 'Group 4', 'Group 5'],
