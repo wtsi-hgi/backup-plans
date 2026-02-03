@@ -1,5 +1,5 @@
 import { MainProgrammes } from "./consts.js";
-import { div, p, h2, canvas, br, span, source } from "./lib/html.js";
+import { div, p, h2, canvas, br, span, source, i } from "./lib/html.js";
 import { formatBytes } from "./lib/utils.js";
 import type { SizeCount, BarChartRow } from "./types.js";
 // import type { ChartConfiguration, ChartData } from "./chart.esm.js";
@@ -59,16 +59,20 @@ function addManualToBackup(data: BarChartRow[]) {
     }
 }
 
+function graphKey() {
+    return div({ "id": "graphKey" }, [
+        div("Unplanned"),
+        div("No Backup"),
+        div("Backup")
+    ])
+}
+
 function generateBarChart(programmeCounts: Map<string, Map<number, SizeCount>>) {
     const barChartData = prepareData(programmeCounts);
 
     return div({ "class": "graph-container" }, [
         h2("Data Fraction per Programme"),
-        div({ "id": "graphKey" }, [
-            div("Unplanned"),
-            div("No Backup"),
-            div("Backup")
-        ]), br(),
+        graphKey(), br(),
         div({ "class": "graph-grid" }, [
             div({ "class": "graphAxisY" }, [
                 div(),
@@ -132,24 +136,24 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<number, SizeCo
         data: data!,
         options: {
             responsive: false,
+            // maintainAspectRatio: false,
             indexAxis: 'y',
             plugins: {
                 legend: {
-                    // maxHeight: Infinity,
-                    // labels: {
-                    //     color: cssVar('--graph-label-colour')
-                    // }
                     display: true,
-                    position: 'top',       // horizontal by default when top/bottom
-                    align: 'start',        // left-align (or 'center', 'end')
+                    position: 'top',
+                    align: 'center',
                     labels: {
-                        boxWidth: 20,
-                        boxHeight: 20,
-                        padding: 15,        // spacing between items
+                        font: {
+                            size: 14
+                        },
+                        boxWidth: 14,
+                        boxHeight: 14,
+                        padding: 8,
                         color: cssVar('--graph-label-colour'),
                     },
-                    maxHeight: Infinity,   // prevents wrapping vertically
-                    maxWidth: Infinity     // ensures items try to fit in one row
+                    maxHeight: Infinity,
+                    maxWidth: Infinity
                 }
             },
             scales: {
@@ -157,34 +161,43 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<number, SizeCo
                     display: true,
                     stacked: false,
                     ticks: {
-                        color: cssVar('--graph-label-colour')
+                        color: cssVar('--graph-label-colour'),
+                        font: {
+                            size: 14
+                        }
                     },
                     grid: {
                         color: cssVar('--graph-accent'),
-                        borderColor: cssVar('--graph-accent')
+                        borderColor: cssVar('--graph-accent'),
+                        lineWidth: 0.3
                     }
                 },
                 x: {
                     display: true,
                     type: 'logarithmic',
                     ticks: {
-                        color: cssVar('--graph-label-colour')
+                        color: cssVar('--graph-accent'),
+                        font: {
+                            size: 14
+                        }
                     },
                     grid: {
                         color: cssVar('--graph-accent'),
-                        borderColor: cssVar('--graph-accent')
+                        borderColor: cssVar('--graph-accent'),
+                        lineWidth: 0.3
                     }
                 }
             }
         },
     };
 
-    const cvs = canvas({ "id": "logChart" });
+    const cvs = canvas({ "id": "logChart", "width": "1200", "height": "400" });
 
     new Chart(cvs, config);
 
     return div({ "class": "log-chart-container" }, [
         h2("Absolute scale comparison"),
+        // graphKey(),
         div(cvs)
     ]);
 }
