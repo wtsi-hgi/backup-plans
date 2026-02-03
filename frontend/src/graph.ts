@@ -103,43 +103,17 @@ function generateBarChart(programmeCounts: Map<string, Map<number, SizeCount>>) 
 }
 
 function prepareDataAbsScale(programmeCounts: Map<string, Map<number, SizeCount>>) {
-    console.log(programmeCounts);
     const data = {
         labels: MainProgrammes,
         datasets: ["Unplanned", "No backup", "Backup"].map((backupType, i) => ({
             label: backupType,
             data: MainProgrammes.map(programme => {
-                console.log("Programme:", programme, "size for index", i, " is:", (programmeCounts.get(programme)!.get(i - 1))?.size ?? 0);
                 return Number((programmeCounts.get(programme)!.get(i - 1))?.size ?? 0);
             })
         }))
     };
 
-    console.log(data);
-
-    const fakeData = {
-        labels: ['Group 1', 'Group 2', 'Group 3', 'Group 4', 'Group 5'],
-        datasets: [
-            {
-                label: 'Bar A',
-                data: [1, 2, 5, 10, 20]
-            },
-            {
-                label: 'Bar B',
-                data: [10, 20, 50, 100, 200]
-            },
-            {
-                label: 'Bar C',
-                data: [100, 200, 500, 1000, 2000]
-            },
-            {
-                label: 'Bar D',
-                data: [1000, 2000, 5000, 10000, 20000]
-            }
-        ]
-    };
-
-    return fakeData
+    return data
 }
 
 function generateGroupedBarChart(programmeCounts: Map<string, Map<number, SizeCount>>) {
