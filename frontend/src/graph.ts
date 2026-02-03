@@ -1,5 +1,5 @@
 import { MainProgrammes } from "./consts.js";
-import { div, p, h2, canvas, br, span, source, i } from "./lib/html.js";
+import { div, p, h2, canvas, br, span, button } from "./lib/html.js";
 import { formatBytes } from "./lib/utils.js";
 import type { SizeCount, BarChartRow } from "./types.js";
 // import type { ChartConfiguration, ChartData } from "./chart.esm.js";
@@ -217,10 +217,19 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<number, SizeCo
 
     const cvs = canvas({ "id": "logChart", "width": "1200", "height": "400" });
 
-    new Chart(cvs, config);
+    const chart = new Chart(cvs, config);
+
+    let isLog = true;
 
     return div({ "class": "log-chart-container" }, [
         h2("Absolute scale comparison"),
+        button({
+            "id": "scaleToggle", "click": () => {
+                isLog = !isLog;
+                chart.options.scales.x.type = isLog ? 'linear' : 'logarithmic';
+                chart.update();
+            }
+        }, "Swap axis"), br(),
         div(cvs)
     ]);
 }
