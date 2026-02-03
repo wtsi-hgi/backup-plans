@@ -200,20 +200,15 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<number, SizeCo
                         // @ts-ignore
                         callback: (value) => {
                             if (value >= 1024) {
-                                return (value / 1024).toFixed(2) + 'PiB';
+                                return (value / 1024).toFixed(2) + ' PiB';
                             }
-                            return value + 'TiB';
+                            return value + ' TiB';
                         }
                     },
                     grid: {
                         color: cssVar('--graph-accent'),
                         borderColor: cssVar('--graph-accent'),
                         lineWidth: 0.3
-                    },
-                    title: {
-                        display: true,
-                        text: "Size (TiB)",
-                        color: cssVar('--graph-label-colour')
                     }
                 }
             }
