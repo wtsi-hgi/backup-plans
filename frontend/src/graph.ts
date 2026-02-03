@@ -107,15 +107,18 @@ function generateBarChart(programmeCounts: Map<string, Map<number, SizeCount>>) 
 }
 
 function prepareDataAbsScale(programmeCounts: Map<string, Map<number, SizeCount>>) {
-    const colours = ["f08080", "fec89a", "76c893"]
+    const colours = ["#f08080", "#fec89a", "#76c893"]
     const data = {
         labels: MainProgrammes,
         datasets: ["Unplanned", "No backup", "Backup"].map((backupType, i) => ({
             label: backupType,
             data: MainProgrammes.map(programme => {
-                return Number((programmeCounts.get(programme)!.get(i - 1))?.size ?? 0);
+                const size = (programmeCounts.get(programme)!.get(i - 1))?.size ?? 0n;
+                const sizeTiB = size / BigInt(Math.pow(1024, 4))
+                return Number(sizeTiB);
             }),
-            backgroundColor: "#" + colours[i]
+            backgroundColor: colours[i],
+            hoverBackgroundColor: `color-mix(in srgb, ${colours[i]} 80%, transparent)`
         }))
     };
 
@@ -135,6 +138,7 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<number, SizeCo
         type: 'bar',
         data: data!,
         options: {
+            animation: false,
             responsive: false,
             // maintainAspectRatio: false,
             indexAxis: 'y',
@@ -154,7 +158,13 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<number, SizeCo
                     },
                     maxHeight: Infinity,
                     maxWidth: Infinity
-                }
+                },
+                tooltip: {
+                    callbacks: {
+                        // @ts-ignore
+                        label: (ctx) => { return `${ctx.raw} TiB` },
+                    },
+                },
             },
             scales: {
                 y: {
@@ -185,6 +195,11 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<number, SizeCo
                         color: cssVar('--graph-accent'),
                         borderColor: cssVar('--graph-accent'),
                         lineWidth: 0.3
+                    },
+                    title: {
+                        display: true,
+                        text: "Size (TiB)",
+                        color: cssVar('--graph-label-colour')
                     }
                 }
             }
