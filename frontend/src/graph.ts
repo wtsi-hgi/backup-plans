@@ -113,7 +113,8 @@ function prepareDataAbsScale(programmeCounts: Map<string, Map<number, SizeCount>
         datasets: ["Unplanned", "No backup", "Backup"].map((backupType, i) => ({
             label: backupType,
             data: MainProgrammes.map(programme => {
-                const size = (programmeCounts.get(programme)!.get(i - 1))?.size ?? 0n;
+                const size = i == 2 ? (((programmeCounts.get(programme)!.get(i - 1))?.size ?? 0n) + ((programmeCounts.get(programme)!.get(i))?.size ?? 0n))
+                    : (programmeCounts.get(programme)!.get(i - 1))?.size ?? 0n;
                 const sizeTiB = size / BigInt(Math.pow(1024, 4))
                 return Number(sizeTiB);
             }),
@@ -140,7 +141,6 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<number, SizeCo
         options: {
             animation: false,
             responsive: false,
-            // maintainAspectRatio: false,
             indexAxis: 'y',
             plugins: {
                 legend: {
@@ -221,7 +221,6 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<number, SizeCo
 
     return div({ "class": "log-chart-container" }, [
         h2("Absolute scale comparison"),
-        // graphKey(),
         div(cvs)
     ]);
 }
