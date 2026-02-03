@@ -103,17 +103,25 @@ function generateBarChart(programmeCounts: Map<string, Map<number, SizeCount>>) 
 }
 
 function prepareDataAbsScale(programmeCounts: Map<string, Map<number, SizeCount>>) {
+    const colours = ["f08080", "fec89a", "76c893"]
     const data = {
         labels: MainProgrammes,
         datasets: ["Unplanned", "No backup", "Backup"].map((backupType, i) => ({
             label: backupType,
             data: MainProgrammes.map(programme => {
                 return Number((programmeCounts.get(programme)!.get(i - 1))?.size ?? 0);
-            })
+            }),
+            backgroundColor: "#" + colours[i]
         }))
     };
 
     return data
+}
+
+function cssVar(name: string) {
+    return getComputedStyle(document.documentElement)
+        .getPropertyValue(name)
+        .trim();
 }
 
 function generateGroupedBarChart(programmeCounts: Map<string, Map<number, SizeCount>>) {
@@ -124,30 +132,61 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<number, SizeCo
         data: data!,
         options: {
             responsive: false,
+            indexAxis: 'y',
             plugins: {
-                title: {
+                legend: {
+                    // maxHeight: Infinity,
+                    // labels: {
+                    //     color: cssVar('--graph-label-colour')
+                    // }
                     display: true,
-                    text: 'Absolute Scale Comparison'
+                    position: 'top',       // horizontal by default when top/bottom
+                    align: 'start',        // left-align (or 'center', 'end')
+                    labels: {
+                        boxWidth: 20,
+                        boxHeight: 20,
+                        padding: 15,        // spacing between items
+                        color: cssVar('--graph-label-colour'),
+                    },
+                    maxHeight: Infinity,   // prevents wrapping vertically
+                    maxWidth: Infinity     // ensures items try to fit in one row
                 }
             },
             scales: {
-                x: {
-                    display: true,
-                    stacked: false,
-                },
                 y: {
                     display: true,
+                    stacked: false,
+                    ticks: {
+                        color: cssVar('--graph-label-colour')
+                    },
+                    grid: {
+                        color: cssVar('--graph-accent'),
+                        borderColor: cssVar('--graph-accent')
+                    }
+                },
+                x: {
+                    display: true,
                     type: 'logarithmic',
+                    ticks: {
+                        color: cssVar('--graph-label-colour')
+                    },
+                    grid: {
+                        color: cssVar('--graph-accent'),
+                        borderColor: cssVar('--graph-accent')
+                    }
                 }
             }
         },
     };
 
-    const cvs = canvas({ "id": "myChart", "width": "600", "height": "400" });
+    const cvs = canvas({ "id": "logChart" });
 
     new Chart(cvs, config);
 
-    return div(cvs);
+    return div({ "class": "log-chart-container" }, [
+        h2("Absolute scale comparison"),
+        div(cvs)
+    ]);
 }
 
 function createGraphPage(programmeCounts: Map<string, Map<number, SizeCount>>) {

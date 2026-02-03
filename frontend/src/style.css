@@ -302,6 +302,11 @@ use {
 }
 
 @media (prefers-color-scheme: light) {
+	:root {
+		--graph-label-colour: #000;
+		--graph-accent: #888;
+	}
+
 	html {
 		--colour: #000;
 		--background: #fff;
@@ -374,6 +379,8 @@ use {
 @media (prefers-color-scheme: dark) {
 	:root {
 		color-scheme: dark;
+		--graph-label-colour: #fff;
+		--graph-accent: #666;
 	}
 
 	html {
