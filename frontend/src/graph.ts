@@ -176,7 +176,7 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<number, SizeCo
                     display: true,
                     type: 'logarithmic',
                     ticks: {
-                        color: cssVar('--graph-accent'),
+                        color: cssVar('--graph-label-colour'),
                         font: {
                             size: 14
                         }
