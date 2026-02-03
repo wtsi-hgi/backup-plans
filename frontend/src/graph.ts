@@ -164,7 +164,7 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<number, SizeCo
                         // @ts-ignore
                         label: (ctx) => {
                             const value = ctx.raw;
-                            if (value >= 2014) {
+                            if (value >= 1024) {
                                 const PiB = (value / 1024).toFixed(2);
                                 return `${PiB} PiB`;
                             }
