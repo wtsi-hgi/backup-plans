@@ -162,7 +162,14 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<number, SizeCo
                 tooltip: {
                     callbacks: {
                         // @ts-ignore
-                        label: (ctx) => { return `${ctx.raw} TiB` },
+                        label: (ctx) => {
+                            const value = ctx.raw;
+                            if (value >= 2014) {
+                                const PiB = (value / 1024).toFixed(2);
+                                return `${PiB} PiB`;
+                            }
+                            return `${value} TiB`
+                        },
                     },
                 },
             },
@@ -189,6 +196,13 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<number, SizeCo
                         color: cssVar('--graph-label-colour'),
                         font: {
                             size: 14
+                        },
+                        // @ts-ignore
+                        callback: (value) => {
+                            if (value >= 1024) {
+                                return (value / 1024).toFixed(2) + 'PiB';
+                            }
+                            return value + 'TiB';
                         }
                     },
                     grid: {
