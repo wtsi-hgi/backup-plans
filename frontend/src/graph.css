@@ -150,3 +150,7 @@
     justify-content: center;
     align-items: center;
 }
+
+#scaleToggle {
+    padding-bottom: 0.3em;
+}
