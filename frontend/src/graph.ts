@@ -222,12 +222,15 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<number, SizeCo
     return div({ "class": "log-chart-container" }, [
         h2("Absolute scale comparison"),
         button({
-            "id": "scaleToggle", "click": () => {
+            "id": "scaleToggle", "click": (e: MouseEvent) => {
+                const btn = e.currentTarget as HTMLButtonElement;
+
                 isLog = !isLog;
                 chart.options.scales.x.type = isLog ? 'linear' : 'logarithmic';
+                btn.textContent = isLog ? 'Show logarithmic scale' : 'Show linear scale';
                 chart.update();
             }
-        }, "Swap axis"), br(),
+        }, "Show linear scale"), br(),
         div(cvs)
     ]);
 }
