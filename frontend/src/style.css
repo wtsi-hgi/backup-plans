@@ -303,6 +303,7 @@ use {
 
 @media (prefers-color-scheme: light) {
 	:root {
+		color-scheme: light;
 		--graph-label-colour: #000;
 		--graph-accent: #888;
 	}
