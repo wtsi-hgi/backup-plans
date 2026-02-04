@@ -1,4 +1,4 @@
-import { MainProgrammes } from "./consts.js";
+// import { MainProgrammes } from "./consts.js";
 import { div, p, h2, canvas, br, span, button } from "./lib/html.js";
 import { formatBytes } from "./lib/utils.js";
 import type { SizeCount, BarChartRow } from "./types.js";
@@ -8,7 +8,7 @@ import { Chart } from "./chart-wrapper.js";
 
 // Chart.register(...registerables);
 
-// const MainProgrammes = ["All", "Unknown"];
+const MainProgrammes = ["All", "Unknown"];
 const colourClasses = ["bar-unplanned", "bar-nobackup", "bar-backup"];
 const base = div();
 
@@ -115,8 +115,8 @@ function prepareDataAbsScale(programmeCounts: Map<string, Map<number, SizeCount>
             data: MainProgrammes.map(programme => {
                 const size = i == 2 ? (((programmeCounts.get(programme)!.get(i - 1))?.size ?? 0n) + ((programmeCounts.get(programme)!.get(i))?.size ?? 0n))
                     : (programmeCounts.get(programme)!.get(i - 1))?.size ?? 0n;
-                const sizeTiB = size / BigInt(Math.pow(1024, 4))
-                return Number(sizeTiB);
+                // const sizeTiB = size / BigInt(Math.pow(1024, 4))
+                return Number(size);
             }),
             backgroundColor: colours[i],
             hoverBackgroundColor: `color-mix(in srgb, ${colours[i]} 80%, transparent)`
@@ -226,11 +226,11 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<number, SizeCo
                 const btn = e.currentTarget as HTMLButtonElement;
 
                 isLog = !isLog;
-                chart.options.scales.x.type = isLog ? 'linear' : 'logarithmic';
-                btn.textContent = isLog ? 'Show logarithmic scale' : 'Show linear scale';
+                chart.options.scales.x.type = isLog ? 'logarithmic' : 'linear';
+                btn.textContent = isLog ? 'Show linear scale' : 'Show logarithmic scale';
                 chart.update();
             }
-        }, "Show linear scale"), br(),
+        }, "Show linear scale"),
         div(cvs)
     ]);
 }
