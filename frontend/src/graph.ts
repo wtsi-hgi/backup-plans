@@ -1,4 +1,4 @@
-// import { MainProgrammes } from "./consts.js";
+import { MainProgrammes } from "./consts.js";
 import { div, p, h2, canvas, br, span, button } from "./lib/html.js";
 import { formatBytes } from "./lib/utils.js";
 import type { SizeCount, BarChartRow } from "./types.js";
@@ -8,7 +8,7 @@ import { Chart } from "./chart-wrapper.js";
 
 // Chart.register(...registerables);
 
-const MainProgrammes = ["All", "Unknown"];
+// const MainProgrammes = ["All", "Unknown"];
 const colourClasses = ["bar-unplanned", "bar-nobackup", "bar-backup"];
 const base = div();
 
@@ -115,8 +115,8 @@ function prepareDataAbsScale(programmeCounts: Map<string, Map<number, SizeCount>
             data: MainProgrammes.map(programme => {
                 const size = i == 2 ? (((programmeCounts.get(programme)!.get(i - 1))?.size ?? 0n) + ((programmeCounts.get(programme)!.get(i))?.size ?? 0n))
                     : (programmeCounts.get(programme)!.get(i - 1))?.size ?? 0n;
-                // const sizeTiB = size / BigInt(Math.pow(1024, 4))
-                return Number(size);
+                const sizeTiB = size / BigInt(Math.pow(1024, 4))
+                return Number(sizeTiB);
             }),
             backgroundColor: colours[i],
             hoverBackgroundColor: `color-mix(in srgb, ${colours[i]} 80%, transparent)`
@@ -164,11 +164,13 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<number, SizeCo
                         // @ts-ignore
                         label: (ctx) => {
                             const value = ctx.raw;
+                            const backupType = ctx.dataset.label;
+
                             if (value >= 1024) {
                                 const PiB = (value / 1024).toFixed(2);
-                                return `${PiB} PiB`;
+                                return `${backupType}: ${PiB} PiB`;
                             }
-                            return `${value} TiB`
+                            return `${backupType}: ${value} TiB`
                         },
                     },
                 },
@@ -186,7 +188,7 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<number, SizeCo
                     grid: {
                         color: cssVar('--graph-accent'),
                         borderColor: cssVar('--graph-accent'),
-                        lineWidth: 0.3
+                        lineWidth: 0.8
                     }
                 },
                 x: {
@@ -206,7 +208,7 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<number, SizeCo
                     grid: {
                         color: cssVar('--graph-accent'),
                         borderColor: cssVar('--graph-accent'),
-                        lineWidth: 0.3
+                        lineWidth: 0.8
                     }
                 }
             }
