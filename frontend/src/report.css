@@ -173,6 +173,7 @@ table.summary tbody tr:last-child th:first-child {
 	border-color: currentColor;
 	padding: 0.5em 0.75em;
 	text-align: center;
+	word-break: break-all;
 }
 
 .summary td:first-child {
