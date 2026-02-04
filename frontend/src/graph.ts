@@ -197,12 +197,10 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<number, SizeCo
                         font: {
                             size: 14
                         },
+                        maxTicksLimit: 12,
                         // @ts-ignore
-                        callback: (value) => {
-                            if (value >= 1024) {
-                                return (value / 1024).toFixed(2) + ' PiB';
-                            }
-                            return value + ' TiB';
+                        callback: function (value) {
+                            return value >= 1024 ? (value / 1024).toFixed(2) + 'PiB' : value + 'TiB';
                         }
                     },
                     grid: {
