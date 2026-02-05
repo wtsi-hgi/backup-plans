@@ -6,7 +6,7 @@ import "./chart.umd.min.js"; // loads the UMD globally
 
 export const Chart = (window as any).Chart;
 
-// const MainProgrammes = ["All", "Unknown"];
+// MainProgrammes.splice(1, 10, "Unknown");
 const colourClasses = ["bar-unplanned", "bar-nobackup", "bar-backup"];
 const base = div();
 
@@ -133,8 +133,8 @@ function prepareDataAbsScale(programmeCounts: Map<string, Map<number, SizeCount>
             label: backupType,
             data: MainProgrammes.map(programme => {
                 const size = getProgrammeSize(programme, i, programmeCounts);
-                const sizeTiB = size / BigInt(Math.pow(1024, 4))
-                return Number(sizeTiB);
+                // const sizeTiB = size / BigInt(Math.pow(1024, 4))
+                return Number(size);
             }),
             backgroundColor: colours[i],
             hoverBackgroundColor: `color-mix(in srgb, ${colours[i]} 80%, transparent)`
@@ -183,11 +183,7 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<number, SizeCo
                             const value = ctx.raw;
                             const backupType = ctx.dataset.label;
 
-                            if (value >= 1024) {
-                                const PiB = (value / 1024).toFixed(2);
-                                return `${backupType}: ${PiB} PiB`;
-                            }
-                            return `${backupType}: ${value} TiB`
+                            return `${backupType}: ${formatBytes(value)}`
                         },
                     },
                 },
@@ -219,7 +215,8 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<number, SizeCo
                         },
                         maxTicksLimit: 12,
                         callback: function (value: any) {
-                            return value >= 1024 ? (value / 1024).toFixed(2) + 'PiB' : value + 'TiB';
+                            return formatBytes(value);
+                            //return value >= 1024 ? (value / 1024).toFixed(2) + 'PiB' : value + 'TiB';
                         }
                     },
                     grid: {
