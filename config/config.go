@@ -342,5 +342,9 @@ func (c *Config) GetMainProgrammes() []string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
+	if c.yamlConfig.MainProgrammes == nil {
+		return []string{}
+	}
+
 	return c.yamlConfig.MainProgrammes
 }
