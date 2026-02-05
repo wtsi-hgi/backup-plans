@@ -2,8 +2,9 @@ import { MainProgrammes } from "./consts.js";
 import { div, p, h2, canvas, br, span, button } from "./lib/html.js";
 import { formatBytes } from "./lib/utils.js";
 import type { SizeCount, BarChartRow } from "./types.js";
-// @ts-ignore
-import { Chart } from "./chart-wrapper.js";
+import "./chart.umd.min.js"; // loads the UMD globally
+
+export const Chart = (window as any).Chart;
 
 // const MainProgrammes = ["All", "Unknown"];
 const colourClasses = ["bar-unplanned", "bar-nobackup", "bar-backup"];
@@ -178,8 +179,7 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<number, SizeCo
                 },
                 tooltip: {
                     callbacks: {
-                        // @ts-ignore
-                        label: (ctx) => {
+                        label: (ctx: any) => {
                             const value = ctx.raw;
                             const backupType = ctx.dataset.label;
 
@@ -195,7 +195,7 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<number, SizeCo
             scales: {
                 y: {
                     display: true,
-                    stacked: false,
+                    stacked: true,
                     ticks: {
                         color: cssVar('--graph-label-colour'),
                         font: {
@@ -211,14 +211,14 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<number, SizeCo
                 x: {
                     display: true,
                     type: 'logarithmic',
+                    stacked: true,
                     ticks: {
                         color: cssVar('--graph-label-colour'),
                         font: {
                             size: 14
                         },
                         maxTicksLimit: 12,
-                        // @ts-ignore
-                        callback: function (value) {
+                        callback: function (value: any) {
                             return value >= 1024 ? (value / 1024).toFixed(2) + 'PiB' : value + 'TiB';
                         }
                     },
