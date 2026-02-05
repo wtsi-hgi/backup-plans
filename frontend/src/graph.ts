@@ -2,11 +2,8 @@ import { MainProgrammes } from "./consts.js";
 import { div, p, h2, canvas, br, span, button } from "./lib/html.js";
 import { formatBytes } from "./lib/utils.js";
 import type { SizeCount, BarChartRow } from "./types.js";
-// import type { ChartConfiguration, ChartData } from "./chart.esm.js";
 // @ts-ignore
 import { Chart } from "./chart-wrapper.js";
-
-// Chart.register(...registerables);
 
 // const MainProgrammes = ["All", "Unknown"];
 const colourClasses = ["bar-unplanned", "bar-nobackup", "bar-backup"];
@@ -106,6 +103,27 @@ function generateBarChart(programmeCounts: Map<string, Map<number, SizeCount>>) 
     ])
 }
 
+function getSize(programmeCounts: Map<string, Map<number, SizeCount>>, index: number, programme: string) {
+    return programmeCounts.get(programme)!.get(index)?.size ?? 0n
+}
+
+function getProgrammeSize(programme: string, index: number, programmeCounts: Map<string, Map<number, SizeCount>>) {
+    // if (programme === "All") {
+    //     let totalSize = 0n;
+    //     for (const prog of programmeCounts.keys()) {
+    //         if (prog === "All") {
+    //             continue
+    //         }
+    //         totalSize += index == 2 ? getSize(programmeCounts, index - 1, prog) + getSize(programmeCounts, index, prog) : getSize(programmeCounts, index - 1, prog);
+    //     }
+
+    //     return totalSize
+    // }
+
+    return index == 2 ? (getSize(programmeCounts, index - 1, programme)) + getSize(programmeCounts, index, programme)
+        : getSize(programmeCounts, index - 1, programme);
+}
+
 function prepareDataAbsScale(programmeCounts: Map<string, Map<number, SizeCount>>) {
     const colours = ["#f08080", "#fec89a", "#76c893"]
     const data = {
@@ -113,8 +131,7 @@ function prepareDataAbsScale(programmeCounts: Map<string, Map<number, SizeCount>
         datasets: ["Unplanned", "No backup", "Backup"].map((backupType, i) => ({
             label: backupType,
             data: MainProgrammes.map(programme => {
-                const size = i == 2 ? (((programmeCounts.get(programme)!.get(i - 1))?.size ?? 0n) + ((programmeCounts.get(programme)!.get(i))?.size ?? 0n))
-                    : (programmeCounts.get(programme)!.get(i - 1))?.size ?? 0n;
+                const size = getProgrammeSize(programme, i, programmeCounts);
                 const sizeTiB = size / BigInt(Math.pow(1024, 4))
                 return Number(sizeTiB);
             }),
