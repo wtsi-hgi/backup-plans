@@ -207,4 +207,4 @@ export class BackupType extends Number {
     }
 }
 
-export const MainProgrammes = await getMainProgrammes();
+export const MainProgrammes = ["All"].concat(await getMainProgrammes());

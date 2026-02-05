@@ -183,7 +183,7 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<number, SizeCo
                             const value = ctx.raw;
                             const backupType = ctx.dataset.label;
 
-                            return `${backupType}: ${formatBytes(value)}`
+                            return `${backupType}: ${formatBytes(BigInt(value))}`
                         },
                     },
                 },
@@ -215,7 +215,7 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<number, SizeCo
                         },
                         maxTicksLimit: 12,
                         callback: function (value: any) {
-                            return formatBytes(value);
+                            return formatBytes(BigInt(value));
                             //return value >= 1024 ? (value / 1024).toFixed(2) + 'PiB' : value + 'TiB';
                         }
                     },
