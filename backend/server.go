@@ -144,3 +144,11 @@ func (s *Server) setExists(w http.ResponseWriter, r *http.Request) error {
 
 	return json.NewEncoder(w).Encode(got != nil)
 }
+
+func (s *Server) GetMainProgrammes(w http.ResponseWriter, r *http.Request) {
+	handle(w, r, s.getMainProgrammes)
+}
+
+func (s *Server) getMainProgrammes(w http.ResponseWriter, r *http.Request) error {
+	return json.NewEncoder(w).Encode(s.config.GetMainProgrammes())
+}

@@ -43,4 +43,5 @@ export const getTree = (dir: string) => getURL<Tree>("api/tree", { dir }),
 	setExists = (dir: string, metadata: string) => getURL<boolean>("api/setExists", { dir, metadata }),
 	getDirectories = (paths: string[]) => getURL<boolean[]>("api/getDirectories", {}, JSON.stringify(paths)),
 	getUserGroups = () => getURL<UserGroups>("api/usergroups"),
+	getMainProgrammes = () => getURL<string[]>("api/mainprogrammes"),
 	user = await getURL<string>("api/whoami");
