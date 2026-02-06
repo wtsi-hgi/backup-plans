@@ -456,7 +456,6 @@ getReportSummary()
 						.sort(sortProgrammes)
 						.map(([bom, counts]) => tr([
 							th(bom),
-							// ...[BackupType.BackupWarn, BackupType.BackupNone, BackupType.BackupIBackup, BackupType.BackupManual].flatMap(t => renderCell(counts, t))
 							renderRow(counts)
 						])),
 					tr({ "id": "tableCollapse" }, td({ "colspan": "12" }, label({ "for": "tableToggleCheckbox" }, [span({ "class": "expand-text" }, "Expand All"), span({ "class": "collapse-text" }, "Collapse All")])))
