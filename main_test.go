@@ -42,6 +42,7 @@ func TestMain(m *testing.M) {
 type cmdConfig struct {
 	IBackup        ibackup.Config
 	ReportingRoots []string
+	MainProgrammes []string
 }
 
 func TestCommands(t *testing.T) {
@@ -212,6 +213,9 @@ func TestFrontend(t *testing.T) {
 				"/lustre/scratch123/humgen/a/b/",
 				"/lustre/scratch123/humgen/a/c/",
 				"/lustre/scratch123/humgen/a/d/",
+			},
+			MainProgrammes: []string{
+				"Unknown",
 			},
 		}), ShouldBeNil)
 
