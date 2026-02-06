@@ -125,7 +125,7 @@ function prepareDataAbsScale(programmeCounts: Map<string, Map<number, SizeCount>
                         programme = ""
                     };
                     const size = getProgrammeSize(programme, i, programmeCounts);
-                    const sizeTiB = size / BigInt(Math.pow(1024, 4))
+                    const sizeTiB = size / BigInt(Math.pow(1024, 4));
                     return Number(sizeTiB);
                 }),
             backgroundColor: colours[i],
@@ -193,7 +193,8 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<number, SizeCo
                         font: {
                             size: 14
                         }
-                    }
+                    },
+                    grid: { drawOnChartArea: false },
                 },
                 x: {
                     display: true,
@@ -211,8 +212,7 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<number, SizeCo
                     },
                     grid: {
                         color: cssVar('--graph-accent'),
-                        borderColor: cssVar('--graph-accent'),
-                        lineWidth: 0.8
+                        lineWidth: 0.8,
                     }
                 }
             }
