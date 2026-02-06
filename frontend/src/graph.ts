@@ -125,23 +125,25 @@ function getProgrammeSize(programme: string, index: number, programmeCounts: Map
         : getSize(programmeCounts, index - 1, programme);
 }
 
-function prepareDataAbsScale(programmeCounts: Map<string, Map<number, SizeCount>>) {
+function prepareDataAbsScale(programmeCounts: Map<string, Map<number, SizeCount>>, justMainProgrammes: boolean) {
     const colours = ["#f08080", "#fec89a", "#76c893"]
     const data = {
-        labels: MainProgrammes,
+        labels: MainProgrammes.filter((prog) => justMainProgrammes ? prog != "All" : prog != ""),
         datasets: ["Unplanned", "No backup", "Backup"].map((backupType, i) => ({
             label: backupType,
-            data: MainProgrammes.map(programme => {
-                const size = getProgrammeSize(programme, i, programmeCounts);
-                // const sizeTiB = size / BigInt(Math.pow(1024, 4))
-                return Number(size);
-            }),
+            data: MainProgrammes
+                .filter((prog) => { console.log("Programme:", prog); console.log(justMainProgrammes ? prog != "All" : prog != ""); return justMainProgrammes ? prog != "All" : prog != "" })
+                .map(programme => {
+                    const size = getProgrammeSize(programme, i, programmeCounts);
+                    const sizeTiB = size / BigInt(Math.pow(1024, 4))
+                    return Number(sizeTiB);
+                }),
             backgroundColor: colours[i],
             hoverBackgroundColor: `color-mix(in srgb, ${colours[i]} 80%, transparent)`
         }))
     };
 
-    return data
+    return data;
 }
 
 function cssVar(name: string) {
@@ -151,7 +153,7 @@ function cssVar(name: string) {
 }
 
 function generateGroupedBarChart(programmeCounts: Map<string, Map<number, SizeCount>>) {
-    const data = prepareDataAbsScale(programmeCounts);
+    const data = prepareDataAbsScale(programmeCounts, false);
 
     const config = {
         type: 'bar',
@@ -183,7 +185,12 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<number, SizeCo
                             const value = ctx.raw;
                             const backupType = ctx.dataset.label;
 
-                            return `${backupType}: ${formatBytes(BigInt(value))}`
+                            if (value >= 1024) {
+                                const PiB = (value / 1024).toFixed(2);
+                                return `${backupType}: ${PiB} PiB`;
+                            }
+                            return `${backupType}: ${value} TiB`
+                            // return `${backupType}: ${formatBytes(BigInt(value))}`
                         },
                     },
                 },
@@ -198,11 +205,11 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<number, SizeCo
                             size: 14
                         }
                     },
-                    grid: {
-                        color: cssVar('--graph-accent'),
-                        borderColor: cssVar('--graph-accent'),
-                        lineWidth: 0.8
-                    }
+                    // grid: {
+                    //     color: cssVar('--graph-accent'),
+                    //     borderColor: cssVar('--graph-accent'),
+                    //     lineWidth: 0.8
+                    // }
                 },
                 x: {
                     display: true,
@@ -215,8 +222,8 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<number, SizeCo
                         },
                         maxTicksLimit: 12,
                         callback: function (value: any) {
-                            return formatBytes(BigInt(value));
-                            //return value >= 1024 ? (value / 1024).toFixed(2) + 'PiB' : value + 'TiB';
+                            // return formatBytes(BigInt(value));
+                            return value >= 1024 ? (value / 1024).toFixed(2) + 'PiB' : value + 'TiB';
                         }
                     },
                     grid: {
@@ -233,23 +240,46 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<number, SizeCo
 
     const chart = new Chart(cvs, config);
 
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+
+    mediaQuery.addEventListener('change', () => {
+        chart.options.scales.x.ticks.color = cssVar('--graph-label-colour');
+        chart.options.scales.y.ticks.color = cssVar('--graph-label-colour');
+        chart.options.plugins.legend.labels.color = cssVar('--graph-label-colour');
+        chart.update();
+    });
+
     let isLog = true;
+    let justMainProgrammes = false;
 
     return div({ "class": "log-chart-container" }, [
         h2("Absolute scale comparison"),
-        button({
-            "id": "scaleToggle", "click": (e: MouseEvent) => {
-                const btn = e.currentTarget as HTMLButtonElement;
+        div({ "class": "chartButtonSection" }, [
+            button({
+                "class": "scaleToggle", "click": (e: MouseEvent) => {
+                    const btn = e.currentTarget as HTMLButtonElement;
 
-                isLog = !isLog;
-                chart.options.scales.x.type = isLog ? 'logarithmic' : 'linear';
-                btn.textContent = isLog ? 'Show linear scale' : 'Show logarithmic scale';
-                chart.update();
-            }
-        }, "Show linear scale"),
+                    isLog = !isLog;
+                    chart.options.scales.x.type = isLog ? 'logarithmic' : 'linear';
+                    btn.textContent = isLog ? 'Show linear scale' : 'Show logarithmic scale';
+                    chart.update();
+                }
+            }, "Show linear scale"),
+            button({
+                "class": "scaleToggle", "click": (e: MouseEvent) => {
+                    const btn = e.currentTarget as HTMLButtonElement;
+
+                    justMainProgrammes = !justMainProgrammes;
+                    chart.data = prepareDataAbsScale(programmeCounts, justMainProgrammes);
+                    btn.textContent = justMainProgrammes ? 'Show total for all programmes' : 'Show total for just main programmes';
+                    chart.update();
+                }
+            }, 'Show total for just main programmes'),
+        ]),
         div(cvs)
     ]);
 }
+
 
 function createGraphPage(programmeCounts: Map<string, Map<number, SizeCount>>) {
     base.appendChild(generateBarChart(programmeCounts));

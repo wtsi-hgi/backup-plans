@@ -151,6 +151,6 @@
     align-items: center;
 }
 
-#scaleToggle {
+.scaleToggle {
     padding-bottom: 0.3em;
 }
