@@ -1,5 +1,4 @@
-.graph-container,
-.log-chart-container {
+.graph-container {
     display: block;
     border: solid var(--graph-border);
     border-width: 1px;
@@ -149,8 +148,21 @@
     position: relative;
     justify-content: center;
     align-items: center;
+    padding: 1em 2em 1em 2em;
+
+    /* display: block;
+    margin: 2vw;    
+    border: solid var(--graph-border);
+    border-width: 1px;
+    border-radius: 10px;
+    overflow: hidden;
+    width: 92vw !important; */
 }
 
 .scaleToggle {
     padding-bottom: 0.3em;
+}
+
+.chartButtonSection label {
+    margin-right: 2em;
 }

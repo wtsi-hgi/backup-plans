@@ -1,5 +1,5 @@
 import { BackupType, MainProgrammes } from "./consts.js";
-import { div, p, h2, canvas, br, span, button } from "./lib/html.js";
+import { div, p, h2, canvas, br, span, input, label, fieldset, legend } from "./lib/html.js";
 import { formatBytes } from "./lib/utils.js";
 import type { SizeCount, BarChartRow } from "./types.js";
 import "./chart.umd.min.js";
@@ -124,7 +124,6 @@ function prepareDataAbsScale(programmeCounts: Map<string, Map<BackupType, SizeCo
                         programme = ""
                     };
                     const size = getProgrammeSize(programme, backupTypes, programmeCounts);
-                    // const sizeTiB = size / BigInt(Math.pow(1024, 4));
                     return Number(size);
                 }),
             backgroundColor: colours[i],
@@ -173,12 +172,6 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<BackupType, Si
                         label: (ctx: any) => {
                             const value = ctx.raw;
                             const backupType = ctx.dataset.label;
-
-                            // if (value >= 1024) {
-                            //     const PiB = (value / 1024).toFixed(2);
-                            //     return `${backupType}: ${PiB} PiB`;
-                            // }
-                            // return `${backupType}: ${value} TiB`
                             return `${backupType}: ${formatBytes(value)}`;
                         },
                     },
@@ -207,7 +200,6 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<BackupType, Si
                         },
                         maxTicksLimit: 12,
                         callback: function (value: any) {
-                            // return value >= 1024 ? (value / 1024).toFixed(2) + 'PiB' : value + 'TiB';
                             return `${formatBytes(value)}`;
                         }
                     },
@@ -236,32 +228,42 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<BackupType, Si
     let isLog = true;
     let justMainProgrammes = false;
 
-    return div({ "class": "log-chart-container" }, [
-        h2("Absolute scale comparison"),
-        div({ "class": "chartButtonSection" }, [
-            button({
-                "class": "scaleToggle", "click": (e: MouseEvent) => {
-                    const btn = e.currentTarget as HTMLButtonElement;
-
-                    isLog = !isLog;
-                    chart.options.scales.x.type = isLog ? 'logarithmic' : 'linear';
-                    btn.textContent = isLog ? 'Show linear scale' : 'Show logarithmic scale';
-                    chart.update();
-                }
-            }, "Show linear scale"),
-            button({
-                "class": "scaleToggle", "click": (e: MouseEvent) => {
-                    const btn = e.currentTarget as HTMLButtonElement;
-
-                    justMainProgrammes = !justMainProgrammes;
-                    console.log("Calling with justMainProgrammes as", justMainProgrammes);
-                    chart.data = prepareDataAbsScale(programmeCounts, justMainProgrammes);
-                    btn.textContent = justMainProgrammes ? 'Show total for all programmes' : 'Show total for just main programmes';
-                    chart.update();
-                }
-            }, 'Show total for just main programmes'),
+    // return div({ "class": "log-chart-container" }, [
+    return div({ "class": "graph-container" }, [
+        div({ "class": "log-chart-container" }, [
+            h2("Absolute scale comparison"),
+            div(cvs),
         ]),
-        div(cvs)
+        div({ "class": "chartButtonSection" }, [
+            // button({
+            //     "class": "scaleToggle", "click": (e: MouseEvent) => {
+            //         const btn = e.currentTarget as HTMLButtonElement;
+
+            //         isLog = !isLog;
+            //         chart.options.scales.x.type = isLog ? 'logarithmic' : 'linear';
+            //         btn.textContent = isLog ? 'Show linear scale' : 'Show logarithmic scale';
+            //         chart.update();
+            //     }
+            // }, "Show linear scale"),
+            // button({
+            //     "class": "scaleToggle", "click": (e: MouseEvent) => {
+            //         const btn = e.currentTarget as HTMLButtonElement;
+
+            //         justMainProgrammes = !justMainProgrammes;
+            //         console.log("Calling with justMainProgrammes as", justMainProgrammes);
+            //         chart.data = prepareDataAbsScale(programmeCounts, justMainProgrammes);
+            //         btn.textContent = justMainProgrammes ? 'Show total for all programmes' : 'Show total for just main programmes';
+            //         chart.update();
+            //     }
+            // }, 'Show total for just main programmes'),
+            fieldset({}, [
+                legend("Filter"),
+                input({ "type": "radio", "name": "graphScale", "id": "linear" }),
+                label({ "for": "linear" }, "Linear scale"),
+                input({ "type": "radio", "name": "graphScale", "id": "logrithmic" }),
+                label({ "for": "logrithmic" }, "Logrithmic scale"), br()
+            ])
+        ]),
     ]);
 }
 
