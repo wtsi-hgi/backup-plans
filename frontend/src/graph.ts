@@ -1,4 +1,4 @@
-import { MainProgrammes } from "./consts.js";
+import { BackupType, MainProgrammes } from "./consts.js";
 import { div, p, h2, canvas, br, span, button } from "./lib/html.js";
 import { formatBytes } from "./lib/utils.js";
 import type { SizeCount, BarChartRow } from "./types.js";
@@ -9,17 +9,17 @@ export const Chart = (window as any).Chart;
 const colourClasses = ["bar-unplanned", "bar-nobackup", "bar-backup"];
 const base = div();
 
-function prepareData(programmeCounts: Map<string, Map<number, SizeCount>>) {
+function prepareData(programmeCounts: Map<string, Map<BackupType, SizeCount>>) {
     const barChartData: BarChartRow[] = [];
 
     for (const programme of MainProgrammes) {
         const data = programmeCounts.get(programme)!
 
-        const sizes = [-1, 0, 1, 2].map(i => data.get(i)?.size || 0n);
+        const sizes = BackupType.all.map(i => data.get(i)?.size || 0n);
         const totalSize = sizes.reduce((total, size) => total + size, 0n);
 
         const sizeFractions = Array.from(data.entries())
-            .sort(([keyA], [keyB]) => keyA - keyB)
+            .sort(([keyA], [keyB]) => +keyA - +keyB)
             .map(([_, item]) => Number(100n * item.size / totalSize));
         const programmeFractions = largestRemainderRound(sizeFractions);
 
@@ -64,7 +64,7 @@ function graphKey() {
     ])
 }
 
-function generateBarChart(programmeCounts: Map<string, Map<number, SizeCount>>) {
+function generateBarChart(programmeCounts: Map<string, Map<BackupType, SizeCount>>) {
     const barChartData = prepareData(programmeCounts);
 
     return div({ "class": "graph-container" }, [
@@ -103,30 +103,29 @@ function generateBarChart(programmeCounts: Map<string, Map<number, SizeCount>>) 
     ])
 }
 
-function getSize(programmeCounts: Map<string, Map<number, SizeCount>>, index: number, programme: string) {
+function getSize(programmeCounts: Map<string, Map<BackupType, SizeCount>>, index: BackupType, programme: string) {
     return programmeCounts.get(programme)!.get(index)?.size ?? 0n
 }
 
-function getProgrammeSize(programme: string, index: number, programmeCounts: Map<string, Map<number, SizeCount>>) {
-    return index == 2 ? (getSize(programmeCounts, index - 1, programme)) + getSize(programmeCounts, index, programme)
-        : getSize(programmeCounts, index - 1, programme);
+function getProgrammeSize(programme: string, btypes: BackupType[], programmeCounts: Map<string, Map<BackupType, SizeCount>>) {
+    return btypes.reduce((acc, bt) => acc + getSize(programmeCounts, bt, programme), 0n);
 }
 
-function prepareDataAbsScale(programmeCounts: Map<string, Map<number, SizeCount>>, justMainProgrammes: boolean) {
+function prepareDataAbsScale(programmeCounts: Map<string, Map<BackupType, SizeCount>>, justMainProgrammes: boolean) {
     const colours = ["#f08080", "#fec89a", "#76c893"]
 
     const data = {
         labels: MainProgrammes,
-        datasets: ["Unplanned", "No backup", "Backup"].map((backupType, i) => ({
-            label: backupType,
+        datasets: [[BackupType.BackupWarn], [BackupType.BackupNone], [BackupType.BackupIBackup, ...BackupType.manual]].map((backupTypes, i) => ({
+            label: backupTypes[0],
             data: MainProgrammes
                 .map(programme => {
                     if (justMainProgrammes && programme === "All") {
                         programme = ""
                     };
-                    const size = getProgrammeSize(programme, i, programmeCounts);
-                    const sizeTiB = size / BigInt(Math.pow(1024, 4));
-                    return Number(sizeTiB);
+                    const size = getProgrammeSize(programme, backupTypes, programmeCounts);
+                    // const sizeTiB = size / BigInt(Math.pow(1024, 4));
+                    return Number(size);
                 }),
             backgroundColor: colours[i],
             hoverBackgroundColor: `color-mix(in srgb, ${colours[i]} 80%, transparent)`
@@ -142,7 +141,7 @@ function cssVar(name: string) {
         .trim();
 }
 
-function generateGroupedBarChart(programmeCounts: Map<string, Map<number, SizeCount>>) {
+function generateGroupedBarChart(programmeCounts: Map<string, Map<BackupType, SizeCount>>) {
     const data = prepareDataAbsScale(programmeCounts, false);
 
     const config = {
@@ -175,11 +174,12 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<number, SizeCo
                             const value = ctx.raw;
                             const backupType = ctx.dataset.label;
 
-                            if (value >= 1024) {
-                                const PiB = (value / 1024).toFixed(2);
-                                return `${backupType}: ${PiB} PiB`;
-                            }
-                            return `${backupType}: ${value} TiB`
+                            // if (value >= 1024) {
+                            //     const PiB = (value / 1024).toFixed(2);
+                            //     return `${backupType}: ${PiB} PiB`;
+                            // }
+                            // return `${backupType}: ${value} TiB`
+                            return `${backupType}: ${formatBytes(value)}`;
                         },
                     },
                 },
@@ -207,7 +207,8 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<number, SizeCo
                         },
                         maxTicksLimit: 12,
                         callback: function (value: any) {
-                            return value >= 1024 ? (value / 1024).toFixed(2) + 'PiB' : value + 'TiB';
+                            // return value >= 1024 ? (value / 1024).toFixed(2) + 'PiB' : value + 'TiB';
+                            return `${formatBytes(value)}`;
                         }
                     },
                     grid: {
@@ -265,7 +266,7 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<number, SizeCo
 }
 
 
-function createGraphPage(programmeCounts: Map<string, Map<number, SizeCount>>) {
+function createGraphPage(programmeCounts: Map<string, Map<BackupType, SizeCount>>) {
     base.appendChild(generateBarChart(programmeCounts));
     base.appendChild(generateGroupedBarChart(programmeCounts));
 }
