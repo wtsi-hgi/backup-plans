@@ -2,11 +2,10 @@ import { MainProgrammes } from "./consts.js";
 import { div, p, h2, canvas, br, span, button } from "./lib/html.js";
 import { formatBytes } from "./lib/utils.js";
 import type { SizeCount, BarChartRow } from "./types.js";
-import "./chart.umd.min.js"; // loads the UMD globally
+import "./chart.umd.min.js";
 
 export const Chart = (window as any).Chart;
 
-// MainProgrammes.splice(1, 10, "Unknown");
 const colourClasses = ["bar-unplanned", "bar-nobackup", "bar-backup"];
 const base = div();
 
@@ -109,31 +108,22 @@ function getSize(programmeCounts: Map<string, Map<number, SizeCount>>, index: nu
 }
 
 function getProgrammeSize(programme: string, index: number, programmeCounts: Map<string, Map<number, SizeCount>>) {
-    // if (programme === "All") {
-    //     let totalSize = 0n;
-    //     for (const prog of programmeCounts.keys()) {
-    //         if (prog === "All") {
-    //             continue
-    //         }
-    //         totalSize += index == 2 ? getSize(programmeCounts, index - 1, prog) + getSize(programmeCounts, index, prog) : getSize(programmeCounts, index - 1, prog);
-    //     }
-
-    //     return totalSize
-    // }
-
     return index == 2 ? (getSize(programmeCounts, index - 1, programme)) + getSize(programmeCounts, index, programme)
         : getSize(programmeCounts, index - 1, programme);
 }
 
 function prepareDataAbsScale(programmeCounts: Map<string, Map<number, SizeCount>>, justMainProgrammes: boolean) {
     const colours = ["#f08080", "#fec89a", "#76c893"]
+
     const data = {
-        labels: MainProgrammes.filter((prog) => justMainProgrammes ? prog != "All" : prog != ""),
+        labels: MainProgrammes,
         datasets: ["Unplanned", "No backup", "Backup"].map((backupType, i) => ({
             label: backupType,
             data: MainProgrammes
-                .filter((prog) => { console.log("Programme:", prog); console.log(justMainProgrammes ? prog != "All" : prog != ""); return justMainProgrammes ? prog != "All" : prog != "" })
                 .map(programme => {
+                    if (justMainProgrammes && programme === "All") {
+                        programme = ""
+                    };
                     const size = getProgrammeSize(programme, i, programmeCounts);
                     const sizeTiB = size / BigInt(Math.pow(1024, 4))
                     return Number(sizeTiB);
@@ -190,7 +180,6 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<number, SizeCo
                                 return `${backupType}: ${PiB} PiB`;
                             }
                             return `${backupType}: ${value} TiB`
-                            // return `${backupType}: ${formatBytes(BigInt(value))}`
                         },
                     },
                 },
@@ -204,12 +193,7 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<number, SizeCo
                         font: {
                             size: 14
                         }
-                    },
-                    // grid: {
-                    //     color: cssVar('--graph-accent'),
-                    //     borderColor: cssVar('--graph-accent'),
-                    //     lineWidth: 0.8
-                    // }
+                    }
                 },
                 x: {
                     display: true,
@@ -222,7 +206,6 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<number, SizeCo
                         },
                         maxTicksLimit: 12,
                         callback: function (value: any) {
-                            // return formatBytes(BigInt(value));
                             return value >= 1024 ? (value / 1024).toFixed(2) + 'PiB' : value + 'TiB';
                         }
                     },
@@ -270,6 +253,7 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<number, SizeCo
                     const btn = e.currentTarget as HTMLButtonElement;
 
                     justMainProgrammes = !justMainProgrammes;
+                    console.log("Calling with justMainProgrammes as", justMainProgrammes);
                     chart.data = prepareDataAbsScale(programmeCounts, justMainProgrammes);
                     btn.textContent = justMainProgrammes ? 'Show total for all programmes' : 'Show total for just main programmes';
                     chart.update();
