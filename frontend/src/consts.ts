@@ -205,6 +205,10 @@ export class BackupType extends Number {
     isManual() {
         return this === BackupType.BackupManual || BackupType.manual.includes(this);
     }
+
+    isBackup() {
+        return this === BackupType.BackupIBackup || this === BackupType.BackupManualIBackup;
+    }
 }
 
 export const MainProgrammes = ["All"].concat(await getMainProgrammes());
