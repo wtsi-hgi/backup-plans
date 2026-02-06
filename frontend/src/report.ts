@@ -293,6 +293,23 @@ function renderCell(counts: Map<BackupType, SizeCount>, type: BackupType) {
 	return cells
 };
 
+function renderTotalCell(counts: Map<BackupType, SizeCount>) {
+	const totals = Array.from(counts.values()).reduce((sc, acc) => (
+		{ count: acc.count += sc.count, size: acc.size += sc.size }), { count: 0n, size: 0n });
+
+	return [
+		td(totals.count.toLocaleString() ?? "0"),
+		td({ "title": totals.size.toLocaleString() ?? "0" }, formatBytes(totals.size ?? 0n)),
+	]
+}
+
+function renderRow(counts: Map<BackupType, SizeCount>) {
+	return [
+		[BackupType.BackupWarn, BackupType.BackupNone, BackupType.BackupIBackup, BackupType.BackupManual].flatMap(t => renderCell(counts, t)),
+		renderTotalCell(counts)
+	];
+}
+
 function getUnplannedFraction(counts: Map<BackupType, SizeCount>) {
 	let totalSize = 0n;
 
@@ -431,16 +448,17 @@ getReportSummary()
 					th({ "colspan": "3" }, "Unplanned (Count/Size/Fraction)"),
 					th({ "colspan": "2" }, "No Backup (Count/Size)"),
 					th({ "colspan": "2" }, "Backup (Count/Size)"),
-					th({ "colspan": "2" }, "Manual Backup (Count/Size)")
+					th({ "colspan": "2" }, "Manual Backup (Count/Size)"),
+					th({ "colspan": "2" }, "Overall (Count/Size)")
 				])),
 				tbody([
 					Array.from(programmeCounts.entries())
 						.sort(sortProgrammes)
 						.map(([bom, counts]) => tr([
 							th(bom),
-							...[BackupType.BackupWarn, BackupType.BackupNone, BackupType.BackupIBackup, BackupType.BackupManual].flatMap(t => renderCell(counts, t))
+							renderRow(counts)
 						])),
-					tr({ "id": "tableCollapse" }, td({ "colspan": "10" }, label({ "for": "tableToggleCheckbox" }, [span({ "class": "expand-text" }, "Expand All"), span({ "class": "collapse-text" }, "Collapse All")])))
+					tr({ "id": "tableCollapse" }, td({ "colspan": "12" }, label({ "for": "tableToggleCheckbox" }, [span({ "class": "expand-text" }, "Expand All"), span({ "class": "collapse-text" }, "Collapse All")])))
 				])
 			])
 		]);
