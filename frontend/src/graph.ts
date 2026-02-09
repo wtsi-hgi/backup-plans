@@ -64,6 +64,16 @@ function graphKey() {
     ])
 }
 
+function updateScale(chart: any, isLog: boolean) {
+    chart.options.scales.x.type = isLog ? 'logarithmic' : 'linear';
+    chart.update();
+};
+
+function updateAllRow(chart: any, programmeCounts: Map<string, Map<BackupType, SizeCount>>, justMainProgrammes: boolean) {
+    chart.data = prepareDataAbsScale(programmeCounts, justMainProgrammes);
+    chart.update();
+};
+
 function generateBarChart(programmeCounts: Map<string, Map<BackupType, SizeCount>>) {
     const barChartData = prepareData(programmeCounts);
 
@@ -112,12 +122,17 @@ function getProgrammeSize(programme: string, btypes: BackupType[], programmeCoun
 }
 
 function prepareDataAbsScale(programmeCounts: Map<string, Map<BackupType, SizeCount>>, justMainProgrammes: boolean) {
-    const colours = ["#f08080", "#fec89a", "#76c893"]
+    const colours = ["#f08080", "#fec89a", "#76c893"];
+    const labelMap = new Map<string, string>([
+        ["warn", "Unplanned"],
+        ["nobackup", "No Backup"],
+        ["backup", "Backup"]
+    ]);
 
     const data = {
         labels: MainProgrammes,
         datasets: [[BackupType.BackupWarn], [BackupType.BackupNone], [BackupType.BackupIBackup, ...BackupType.manual]].map((backupTypes, i) => ({
-            label: backupTypes[0],
+            label: labelMap.get(backupTypes[0].toString()),
             data: MainProgrammes
                 .map(programme => {
                     if (justMainProgrammes && programme === "All") {
@@ -191,7 +206,7 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<BackupType, Si
                 },
                 x: {
                     display: true,
-                    type: 'logarithmic',
+                    type: 'linear',
                     stacked: true,
                     ticks: {
                         color: cssVar('--graph-label-colour'),
@@ -225,10 +240,6 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<BackupType, Si
         chart.update();
     });
 
-    let isLog = true;
-    let justMainProgrammes = false;
-
-    // return div({ "class": "log-chart-container" }, [
     return div({ "class": "graph-container" }, [
         div({ "class": "log-chart-container" }, [
             h2("Absolute scale comparison"),
@@ -256,22 +267,31 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<BackupType, Si
             //         chart.update();
             //     }
             // }, 'Show total for just main programmes'),
-            fieldset({}, [
-                legend("Filter"),
-                input({ "type": "radio", "name": "graphScale", "id": "linear" }),
-                label({ "for": "linear" }, "Linear scale"),
-                input({ "type": "radio", "name": "graphScale", "id": "logrithmic" }),
-                label({ "for": "logrithmic" }, "Logrithmic scale"), br()
+            div({ "class": "graphFilters" }, [
+                fieldset({}, [
+                    legend("Scale"),
+                    input({ "type": "radio", "name": "graphScale", "id": "linear", "checked": "checked", change: () => updateScale(chart, false) }),
+                    label({ "for": "linear" }, "Linear scale"),
+                    input({ "type": "radio", "name": "graphScale", "id": "logrithmic", change: () => updateScale(chart, true) }),
+                    label({ "for": "logrithmic" }, "Logrithmic scale"),
+
+                ]),
+                fieldset({}, [
+                    legend("All row"),
+                    input({ "type": "radio", "name": "graphAll", "id": "all", "checked": "checked", change: () => updateAllRow(chart, programmeCounts, false) }),
+                    label({ "for": "all" }, "Show total for all programmes"),
+                    input({ "type": "radio", "name": "graphAll", "id": "nqall", change: () => updateAllRow(chart, programmeCounts, true) }),
+                    label({ "for": "nqall" }, "Show total for just main programmes"),
+                ])
             ])
         ]),
     ]);
 }
 
-
 function createGraphPage(programmeCounts: Map<string, Map<BackupType, SizeCount>>) {
     base.appendChild(generateBarChart(programmeCounts));
     base.appendChild(generateGroupedBarChart(programmeCounts));
-}
+};
 
 export default Object.assign(base, {
     init: createGraphPage

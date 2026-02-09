@@ -413,17 +413,25 @@ getReportSummary()
 		const programmeCounts = buildProgrammeCounts(data.GroupBackupTypeTotals);
 		graph.init(programmeCounts);
 
-		const rows = Array.from(programmeCounts.entries())
-			.filter(e => e[0])
-			.sort(sortProgrammes)
-			.map(([bom, counts]) => {
-				return [
-					tr([
-						th(bom),
-						...[BackupType.BackupWarn, BackupType.BackupNone, BackupType.BackupIBackup, BackupType.BackupManual].flatMap(t => renderCell(counts, t))
-					])
-				];
-			});
+		// const rows = Array.from(programmeCounts.entries())
+		// 	.filter(e => e[0])
+		// 	.sort(sortProgrammes)
+		// 	.map(([bom, counts]) => {
+		// 		return [
+		// 			tr([
+		// 				th(bom),
+		// 				...[BackupType.BackupWarn, BackupType.BackupNone, BackupType.BackupIBackup, BackupType.BackupManual].flatMap(t => renderCell(counts, t))
+		// 			])
+		// 		];
+		// 	});
+
+		// const rows = Array.from(programmeCounts.entries())
+		// 	.filter(e => e[0])
+		// 	.sort(sortProgrammes)
+		// 	.map(([bom, counts]) => tr([
+		// 		th(bom),
+		// 		renderRow(counts)
+		// 	]));
 
 		children[0] = div({ "class": "summary-container" }, [
 			input({ "type": "checkbox", "id": "tableToggleCheckbox", "style": "display:none" }),
