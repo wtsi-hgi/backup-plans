@@ -17,10 +17,11 @@ function prepareData(programmeCounts: Map<string, Map<BackupType, SizeCount>>) {
 
         const sizes = BackupType.all.map(i => data.get(i)?.size || 0n);
         const totalSize = sizes.reduce((total, size) => total + size, 0n);
+        console.log(data, programme, sizes, totalSize);
 
         const sizeFractions = Array.from(data.entries())
             .sort(([keyA], [keyB]) => +keyA - +keyB)
-            .map(([_, item]) => Number(100n * item.size / totalSize));
+            .map(([_, item]) => Number(100n * item.size / totalSize)); // this is causing a division by zero error
         const programmeFractions = largestRemainderRound(sizeFractions);
 
         barChartData.push({ Programme: programme, Fractions: programmeFractions, Sizes: sizes })

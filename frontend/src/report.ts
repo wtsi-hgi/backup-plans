@@ -641,6 +641,6 @@ function buildProgrammeCounts(GroupBackupTypeTotals: Record<string, Record<numbe
 	// 		setCountsAll(programmeCounts, backupType, sizeCounts, bom)
 	// 	}
 	// }
-
+	console.log("programmeCounts", programmeCounts);
 	return programmeCounts
 }
