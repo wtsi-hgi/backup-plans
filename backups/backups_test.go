@@ -71,7 +71,7 @@ func TestFileInfos(t *testing.T) {
 			"/lustre/scratch123/humgen/a/b/testdir/test.txt",
 			"/lustre/scratch123/humgen/a/c/4.txt",
 			"/lustre/scratch123/humgen/b/5.txt",
-			"/lustre/scratch123/humgen/b/c/5.txt",
+			"/lustre/scratch123/humgen/b/c/6.txt",
 		})
 	})
 }
