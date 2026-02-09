@@ -14,20 +14,31 @@ function prepareData(programmeCounts: Map<string, Map<BackupType, SizeCount>>) {
 
     for (const programme of MainProgrammes) {
         const data = programmeCounts.get(programme)!
+        console.log(data);
 
-        const sizes = BackupType.all.map(i => data.get(i)?.size || 0n);
+        const sizes = BackupType.all.slice(1, 4).map(bt => {
+            if (bt === BackupType.BackupIBackup) {
+                return ((data.get(bt)?.size || 0n) + (data.get(BackupType.BackupManual)?.size || 0n))
+            }
+            return data.get(bt)?.size || 0n
+        });
+
         const totalSize = sizes.reduce((total, size) => total + size, 0n);
-        console.log(data, programme, sizes, totalSize);
 
-        const sizeFractions = Array.from(data.entries())
-            .sort(([keyA], [keyB]) => +keyA - +keyB)
-            .map(([_, item]) => Number(100n * item.size / totalSize)); // this is causing a division by zero error
+        const sizeFractions = BackupType.all.slice(1, 4)
+            .sort((keyA, keyB) => +keyA - +keyB)
+            .map((bt) => {
+                if (bt === BackupType.BackupIBackup) {
+                    return Number(100n * ((data.get(bt)?.size ?? 0n) + (data.get(BackupType.BackupManual)?.size ?? 0n)) / totalSize)
+                }
+                return Number(100n * (data.get(bt)?.size ?? 0n) / totalSize)
+            });
+
         const programmeFractions = largestRemainderRound(sizeFractions);
+        console.log(sizes, sizeFractions, totalSize);
 
         barChartData.push({ Programme: programme, Fractions: programmeFractions, Sizes: sizes })
     }
-
-    addManualToBackup(barChartData);
 
     return barChartData
 }
@@ -48,13 +59,6 @@ function largestRemainderRound(values: number[]): number[] {
     }
 
     return rounded
-}
-
-function addManualToBackup(data: BarChartRow[]) {
-    for (const row of data) {
-        row.Fractions[2] += row.Fractions[3]
-        row.Sizes[2] += row.Sizes[3]
-    }
 }
 
 function graphKey() {
@@ -188,7 +192,7 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<BackupType, Si
                         label: (ctx: any) => {
                             const value = ctx.raw;
                             const backupType = ctx.dataset.label;
-                            return `${backupType}: ${formatBytes(value)}`;
+                            return `${backupType}: ${formatBytes(BigInt(value))}`;
                         },
                     },
                 },
@@ -216,7 +220,7 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<BackupType, Si
                         },
                         maxTicksLimit: 12,
                         callback: function (value: any) {
-                            return `${formatBytes(value)}`;
+                            return `${formatBytes(BigInt(value))}`;
                         }
                     },
                     grid: {
