@@ -61,7 +61,7 @@ func TestFileInfos(t *testing.T) {
 			paths = append(paths, string(path.AppendTo(nil)))
 		})
 
-		So(len(paths), ShouldEqual, 6)
+		So(len(paths), ShouldEqual, 8)
 
 		So(paths, ShouldResemble, []string{
 			"/lustre/scratch123/humgen/a/b/1.jpg",
@@ -70,6 +70,8 @@ func TestFileInfos(t *testing.T) {
 			"/lustre/scratch123/humgen/a/b/temp.jpg",
 			"/lustre/scratch123/humgen/a/b/testdir/test.txt",
 			"/lustre/scratch123/humgen/a/c/4.txt",
+			"/lustre/scratch123/humgen/b/5.txt",
+			"/lustre/scratch123/humgen/b/c/5.txt",
 		})
 	})
 }
@@ -89,6 +91,9 @@ func exampleTree() tree.Node { //nolint:ireturn,nolintlint
 
 	humgen.AddDirectory("a").AddDirectory("c").SetMeta(2, 1, 12349)
 	directories.AddFile(&dirRoot.Directory, "lustre/scratch123/humgen/a/c/4.txt", 2, 1, 6, 12346)
+
+	directories.AddFile(&dirRoot.Directory, "lustre/scratch123/humgen/b/5.txt", 2, 1, 6, 12346)
+	directories.AddFile(&dirRoot.Directory, "lustre/scratch123/humgen/b/c/6.txt", 2, 1, 6, 12346)
 
 	var treeDB bytes.Buffer
 
@@ -236,6 +241,44 @@ func TestBackups(t *testing.T) {
 				"plan::/lustre/scratch123/humgen/a/b/", "userB")
 			So(err, ShouldNotBeNil)
 			So(sets, ShouldBeNil)
+		})
+
+		Convey("A FOFN backed up directory should not include files in a directory marked NoBackup", func() {
+			testDB, _ = plandb.CreateTestDatabase(t)
+
+			dirB := &db.Directory{
+				Path:      "/lustre/scratch123/humgen/b/",
+				ClaimedBy: "userA",
+				Frequency: 1,
+			}
+			dirC := &db.Directory{
+				Path:      "/lustre/scratch123/humgen/b/c/",
+				ClaimedBy: "userA",
+				Frequency: 1,
+			}
+
+			So(testDB.CreateDirectory(dirB), ShouldBeNil)
+			So(testDB.CreateDirectory(dirC), ShouldBeNil)
+
+			ruleB := &db.Rule{
+				BackupType: db.BackupIBackup,
+				Match:      "*",
+			}
+			ruleC := &db.Rule{
+				BackupType: db.BackupNone,
+				Match:      "*",
+			}
+
+			So(testDB.CreateDirectoryRule(dirB, ruleB), ShouldBeNil)
+			So(testDB.CreateDirectoryRule(dirC, ruleC), ShouldBeNil)
+
+			setInfos, err := Backup(testDB, tr, ibackupClient)
+			So(err, ShouldBeNil)
+			So(setInfos, ShouldNotBeNil)
+			So(len(setInfos), ShouldEqual, 1)
+			So(setInfos[0].BackupSetName, ShouldEqual, "plan::/lustre/scratch123/humgen/b/")
+			So(setInfos[0].Requestor, ShouldEqual, "userA")
+			So(setInfos[0].FileCount, ShouldEqual, 1)
 		})
 	})
 }
