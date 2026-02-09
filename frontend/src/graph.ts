@@ -14,7 +14,6 @@ function prepareData(programmeCounts: Map<string, Map<BackupType, SizeCount>>) {
 
     for (const programme of MainProgrammes) {
         const data = programmeCounts.get(programme)!
-        console.log(data);
 
         const sizes = BackupType.all.slice(1, 4).map(bt => {
             if (bt === BackupType.BackupIBackup) {
@@ -35,7 +34,6 @@ function prepareData(programmeCounts: Map<string, Map<BackupType, SizeCount>>) {
             });
 
         const programmeFractions = largestRemainderRound(sizeFractions);
-        console.log(sizes, sizeFractions, totalSize);
 
         barChartData.push({ Programme: programme, Fractions: programmeFractions, Sizes: sizes })
     }
@@ -251,27 +249,6 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<BackupType, Si
             div(cvs),
         ]),
         div({ "class": "chartButtonSection" }, [
-            // button({
-            //     "class": "scaleToggle", "click": (e: MouseEvent) => {
-            //         const btn = e.currentTarget as HTMLButtonElement;
-
-            //         isLog = !isLog;
-            //         chart.options.scales.x.type = isLog ? 'logarithmic' : 'linear';
-            //         btn.textContent = isLog ? 'Show linear scale' : 'Show logarithmic scale';
-            //         chart.update();
-            //     }
-            // }, "Show linear scale"),
-            // button({
-            //     "class": "scaleToggle", "click": (e: MouseEvent) => {
-            //         const btn = e.currentTarget as HTMLButtonElement;
-
-            //         justMainProgrammes = !justMainProgrammes;
-            //         console.log("Calling with justMainProgrammes as", justMainProgrammes);
-            //         chart.data = prepareDataAbsScale(programmeCounts, justMainProgrammes);
-            //         btn.textContent = justMainProgrammes ? 'Show total for all programmes' : 'Show total for just main programmes';
-            //         chart.update();
-            //     }
-            // }, 'Show total for just main programmes'),
             div({ "class": "graphFilters" }, [
                 fieldset({}, [
                     legend("Scale"),

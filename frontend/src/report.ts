@@ -618,28 +618,6 @@ function buildProgrammeCounts(GroupBackupTypeTotals: Record<string, Record<numbe
 			setCountsAll(programmeCounts, mcBackupType, sizeCounts, bom)
 		}
 	}
-	// for (const [group, typeCounts] of Object.entries(GroupBackupTypeTotals)) {
-	// 	const bom = (!boms.get(group) || boms.get(group) === "unknown") ? "Unknown" : boms.get(group)!;
 
-	// 	if (!programmeCounts.has(bom)) {
-	// 		programmeCounts.set(bom, new Map<BackupType, SizeCount>());
-	// 	}
-
-	// 	for (const [type, sizeCounts] of Object.entries(typeCounts)) {
-	// 		const backupType = BackupType.from(type);
-
-	// 		const counts = programmeCounts.get(bom)!;
-
-	// 		if (!counts.has(backupType)) {
-	// 			counts.set(backupType, { count: 0n, size: 0n });
-	// 		}
-
-	// 		const sizecount = counts.get(backupType)!;
-	// 		sizecount.size += BigInt(sizeCounts.size);
-	// 		sizecount.count += BigInt(sizeCounts.count);
-
-	// 		setCountsAll(programmeCounts, backupType, sizeCounts, bom)
-	// 	}
-	// }
 	return programmeCounts
 }
