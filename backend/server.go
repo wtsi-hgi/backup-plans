@@ -149,6 +149,6 @@ func (s *Server) GetMainProgrammes(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.getMainProgrammes)
 }
 
-func (s *Server) getMainProgrammes(w http.ResponseWriter, r *http.Request) error {
+func (s *Server) getMainProgrammes(w http.ResponseWriter, _ *http.Request) error {
 	return json.NewEncoder(w).Encode(s.config.GetMainProgrammes())
 }
