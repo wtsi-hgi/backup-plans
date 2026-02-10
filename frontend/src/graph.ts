@@ -1,10 +1,13 @@
 import { BackupType, MainProgrammes } from "./consts.js";
-import { div, p, h2, canvas, br, span, input, label, fieldset, legend, main } from "./lib/html.js";
+import { div, p, h2, canvas, br, span, input, label, fieldset, legend } from "./lib/html.js";
 import { formatBytes } from "./lib/utils.js";
 import type { SizeCount, BarChartRow } from "./types.js";
-import "./chart.umd.min.js";
+import { Chart, LinearScale, BarController, CategoryScale, BarElement, LogarithmicScale, Tooltip } from "./chartjs/index.js";
+import type { ChartConfiguration } from "./chartjs/types.js";
 
-export const Chart = (window as any).Chart;
+// export const Chart = (window as any).Chart;
+// Chart.register(...registerables.flat(Infinity));
+Chart.register(LinearScale, BarController, CategoryScale, BarElement, LogarithmicScale, Tooltip);
 
 const colourClasses = ["bar-unplanned", "bar-nobackup", "bar-backup"];
 const base = div();
@@ -67,11 +70,6 @@ function graphKey() {
     ])
 }
 
-function updateLogScale(chart: any, isLog: boolean) {
-    chart.options.scales.x.type = isLog ? 'logarithmic' : 'linear';
-    chart.update();
-};
-
 function generateFractionalChart(programmeCounts: Map<string, Map<BackupType, SizeCount>>) {
     const barChartData = prepareDataFractionalChart(programmeCounts);
 
@@ -119,6 +117,11 @@ function getProgrammeSize(programme: string, btypes: BackupType[], programmeCoun
     return btypes.reduce((acc, bt) => acc + getSize(programmeCounts, bt, programme), 0n);
 }
 
+function updateLogScale(chart: any, isLog: boolean) {
+    chart.options.scales.x.type = isLog ? 'logarithmic' : 'linear';
+    chart.update();
+};
+
 function prepareDataLogChart(programmeCounts: Map<string, Map<BackupType, SizeCount>>, justMainProgrammes: boolean) {
     const colours = ["#f08080", "#fec89a", "#76c893"];
     const labelMap = new Map<string, string>([
@@ -160,7 +163,7 @@ function generateLogChart(programmeCounts: Map<string, Map<BackupType, SizeCount
     const dataNqAll = prepareDataLogChart(programmeCounts, true);
     const dataAll = prepareDataLogChart(programmeCounts, false);
 
-    const config = {
+    const config: ChartConfiguration = {
         type: 'bar',
         data: dataNqAll!,
         options: {
