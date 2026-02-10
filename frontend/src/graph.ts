@@ -132,20 +132,20 @@ function prepareDataAbsScale(programmeCounts: Map<string, Map<BackupType, SizeCo
         ["backup", "Backup"]
     ]);
 
+    const labels = justMainProgrammes ? MainProgrammes : Array.from(programmeCounts.keys()).filter(p => p !== "");
+
     const data = {
-        labels: justMainProgrammes ? MainProgrammes : Array.from(programmeCounts.keys()).filter(p => p !== ""),
+        labels: labels,
         datasets: [[BackupType.BackupWarn], [BackupType.BackupNone], [BackupType.BackupIBackup, ...BackupType.manual]].map((backupTypes, i) => ({
             label: labelMap.get(backupTypes[0].toString()),
-            data: (justMainProgrammes ? MainProgrammes : Array.from(programmeCounts.keys()))
+            data: (justMainProgrammes ? MainProgrammes : labels)
                 .map(programme => {
-                    if (justMainProgrammes && programme === "All") {
-                        programme = ""
+                    // if all programmes, get the size for "", not "All" (but still display as "All")
+                    if (!justMainProgrammes && programme === "All") {
+                        return Number(getProgrammeSize("", backupTypes, programmeCounts));
                     };
-                    if (!justMainProgrammes && programme === "") {
-                        programme = "All"
-                    };
-                    const size = getProgrammeSize(programme, backupTypes, programmeCounts);
-                    return Number(size);
+
+                    return Number(getProgrammeSize(programme, backupTypes, programmeCounts));
                 }),
             backgroundColor: colours[i],
             hoverBackgroundColor: `color-mix(in srgb, ${colours[i]} 80%, transparent)`
