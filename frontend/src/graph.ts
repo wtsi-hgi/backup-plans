@@ -72,8 +72,10 @@ function updateScale(chart: any, isLog: boolean) {
     chart.update();
 };
 
-function updateAllRow(chart: any, programmeCounts: Map<string, Map<BackupType, SizeCount>>, justMainProgrammes: boolean) {
+function updateLogChart(chart: any, programmeCounts: Map<string, Map<BackupType, SizeCount>>, justMainProgrammes: boolean) {
     chart.data = prepareDataAbsScale(programmeCounts, justMainProgrammes);
+    const cvs = document.getElementById("logChart") as HTMLCanvasElement;
+    cvs.style.height = justMainProgrammes ? "400px" : "700px";
     chart.update();
 };
 
@@ -133,13 +135,17 @@ function prepareDataAbsScale(programmeCounts: Map<string, Map<BackupType, SizeCo
     ]);
 
     const data = {
-        labels: MainProgrammes,
+        labels: justMainProgrammes ? MainProgrammes : Array.from(programmeCounts.keys()).filter(p => p !== ""),
         datasets: [[BackupType.BackupWarn], [BackupType.BackupNone], [BackupType.BackupIBackup, ...BackupType.manual]].map((backupTypes, i) => ({
             label: labelMap.get(backupTypes[0].toString()),
-            data: MainProgrammes
+            data: (justMainProgrammes ? MainProgrammes : Array.from(programmeCounts.keys()))
                 .map(programme => {
+                    console.log(justMainProgrammes, programme);
                     if (justMainProgrammes && programme === "All") {
                         programme = ""
+                    };
+                    if (!justMainProgrammes && programme === "") {
+                        programme = "All"
                     };
                     const size = getProgrammeSize(programme, backupTypes, programmeCounts);
                     return Number(size);
@@ -159,7 +165,7 @@ function cssVar(name: string) {
 }
 
 function generateGroupedBarChart(programmeCounts: Map<string, Map<BackupType, SizeCount>>) {
-    const data = prepareDataAbsScale(programmeCounts, false);
+    const data = prepareDataAbsScale(programmeCounts, true);
 
     const config = {
         type: 'bar',
@@ -259,11 +265,11 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<BackupType, Si
 
                 ]),
                 fieldset({}, [
-                    legend("All row"),
-                    input({ "type": "radio", "name": "graphAll", "id": "all", "checked": "checked", change: () => updateAllRow(chart, programmeCounts, false) }),
-                    label({ "for": "all" }, "Show total for all programmes"),
-                    input({ "type": "radio", "name": "graphAll", "id": "nqall", change: () => updateAllRow(chart, programmeCounts, true) }),
-                    label({ "for": "nqall" }, "Show total for just main programmes"),
+                    legend("Options"),
+                    input({ "type": "radio", "name": "graphAll", "id": "nqall", "checked": "checked", change: () => updateLogChart(chart, programmeCounts, true) }),
+                    label({ "for": "nqall" }, "Show main programmes"),
+                    input({ "type": "radio", "name": "graphAll", "id": "all", change: () => updateLogChart(chart, programmeCounts, false) }),
+                    label({ "for": "all" }, "Show all programmes"),
                 ])
             ])
         ]),
