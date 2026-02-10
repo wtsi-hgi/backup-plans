@@ -389,49 +389,8 @@ getReportSummary()
 			parents.push(dirSummary);
 		}
 
-		// const programmeCounts = new Map<string, Map<BackupType, SizeCount>>(); // Programme -> BackupType -> SizeCount
-
-		// // const programmeCounts = new Map<string, Map<number, SizeCount>>(); // Programme -> BackupType -> SizeCount
-		// programmeCounts.set("All", new Map<BackupType, SizeCount>())
-
-		// for (const [group, typeCounts] of Object.entries(data.GroupBackupTypeTotals)) {
-		// 	const bom = (!boms.get(group) || boms.get(group) === "unknown") ? "Unknown" : boms.get(group)!;
-
-		// 	for (const [type, sizeCounts] of Object.entries(typeCounts)) {
-		// 		const backupType = BackupType.from(type),
-		// 			mcBackupType = backupType.isManual() ? BackupType.BackupManual : backupType,
-		// 			counts = programmeCounts.get(bom) ?? setAndReturn(programmeCounts, bom, new Map<BackupType, SizeCount>());
-
-		// 		const programmeSizeCount = counts.get(mcBackupType) ?? setAndReturn(counts, mcBackupType, { count: 0n, size: 0n });
-
-		// 		programmeSizeCount.size += BigInt(sizeCounts.size);
-		// 		programmeSizeCount.count += BigInt(sizeCounts.count);
-
-		// 		setCountsAll(programmeCounts, mcBackupType, sizeCounts)
-		// 	}
-		// }
 		const programmeCounts = buildProgrammeCounts(data.GroupBackupTypeTotals);
 		graph.init(programmeCounts);
-
-		// const rows = Array.from(programmeCounts.entries())
-		// 	.filter(e => e[0])
-		// 	.sort(sortProgrammes)
-		// 	.map(([bom, counts]) => {
-		// 		return [
-		// 			tr([
-		// 				th(bom),
-		// 				...[BackupType.BackupWarn, BackupType.BackupNone, BackupType.BackupIBackup, BackupType.BackupManual].flatMap(t => renderCell(counts, t))
-		// 			])
-		// 		];
-		// 	});
-
-		// const rows = Array.from(programmeCounts.entries())
-		// 	.filter(e => e[0])
-		// 	.sort(sortProgrammes)
-		// 	.map(([bom, counts]) => tr([
-		// 		th(bom),
-		// 		renderRow(counts)
-		// 	]));
 
 		children[0] = div({ "class": "summary-container" }, [
 			input({ "type": "checkbox", "id": "tableToggleCheckbox", "style": "display:none" }),

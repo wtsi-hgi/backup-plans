@@ -72,11 +72,6 @@ function updateScale(chart: any, isLog: boolean) {
     chart.update();
 };
 
-// function updateLogChart(chart: any, programmeCounts: Map<string, Map<BackupType, SizeCount>>, justMainProgrammes: boolean) {
-//     chart.data = prepareDataAbsScale(programmeCounts, justMainProgrammes);
-//     chart.update();
-// };
-
 function generateBarChart(programmeCounts: Map<string, Map<BackupType, SizeCount>>) {
     const barChartData = prepareData(programmeCounts);
 
@@ -152,7 +147,6 @@ function prepareDataAbsScale(programmeCounts: Map<string, Map<BackupType, SizeCo
         }))
     };
 
-    console.log("prepared data", data);
     return data;
 }
 
@@ -165,7 +159,6 @@ function cssVar(name: string) {
 function generateGroupedBarChart(programmeCounts: Map<string, Map<BackupType, SizeCount>>) {
     const dataNqAll = prepareDataAbsScale(programmeCounts, true);
     const dataAll = prepareDataAbsScale(programmeCounts, false);
-    console.log("nqAll", dataNqAll, "all", dataAll);
 
     const config = {
         type: 'bar',
@@ -267,10 +260,8 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<BackupType, Si
                 ]),
                 fieldset({}, [
                     legend("Options"),
-                    // input({ "type": "radio", "name": "graphAll", "id": "nqall", "checked": "checked", change: () => updateLogChart(chart, programmeCounts, true) }),
                     input({ "type": "radio", "name": "graphAll", "id": "nqall", "checked": "checked", change: () => { chart.data = dataNqAll; chart.update() } }),
                     label({ "for": "nqall" }, "Show main programmes"),
-                    // input({ "type": "radio", "name": "graphAll", "id": "all", change: () => updateLogChart(chart, programmeCounts, false) }),
                     input({ "type": "radio", "name": "graphAll", "id": "all", change: () => { chart.data = dataAll; chart.update() } }),
                     label({ "for": "all" }, "Show all programmes"),
                 ])
