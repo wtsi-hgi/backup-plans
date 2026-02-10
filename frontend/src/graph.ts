@@ -9,7 +9,7 @@ export const Chart = (window as any).Chart;
 const colourClasses = ["bar-unplanned", "bar-nobackup", "bar-backup"];
 const base = div();
 
-function prepareData(programmeCounts: Map<string, Map<BackupType, SizeCount>>) {
+function prepareDataFractionalChart(programmeCounts: Map<string, Map<BackupType, SizeCount>>) {
     const barChartData: BarChartRow[] = [];
 
     for (const programme of MainProgrammes) {
@@ -67,13 +67,13 @@ function graphKey() {
     ])
 }
 
-function updateScale(chart: any, isLog: boolean) {
+function updateLogScale(chart: any, isLog: boolean) {
     chart.options.scales.x.type = isLog ? 'logarithmic' : 'linear';
     chart.update();
 };
 
-function generateBarChart(programmeCounts: Map<string, Map<BackupType, SizeCount>>) {
-    const barChartData = prepareData(programmeCounts);
+function generateFractionalChart(programmeCounts: Map<string, Map<BackupType, SizeCount>>) {
+    const barChartData = prepareDataFractionalChart(programmeCounts);
 
     return div({ "class": "graph-container" }, [
         h2("Data Fraction per Programme"),
@@ -111,15 +111,15 @@ function generateBarChart(programmeCounts: Map<string, Map<BackupType, SizeCount
     ])
 }
 
-function getSize(programmeCounts: Map<string, Map<BackupType, SizeCount>>, index: BackupType, programme: string) {
-    return programmeCounts.get(programme)!.get(index)?.size ?? 0n
+function getSize(programmeCounts: Map<string, Map<BackupType, SizeCount>>, bt: BackupType, programme: string) {
+    return programmeCounts.get(programme)!.get(bt)?.size ?? 0n
 }
 
 function getProgrammeSize(programme: string, btypes: BackupType[], programmeCounts: Map<string, Map<BackupType, SizeCount>>) {
     return btypes.reduce((acc, bt) => acc + getSize(programmeCounts, bt, programme), 0n);
 }
 
-function prepareDataAbsScale(programmeCounts: Map<string, Map<BackupType, SizeCount>>, justMainProgrammes: boolean) {
+function prepareDataLogChart(programmeCounts: Map<string, Map<BackupType, SizeCount>>, justMainProgrammes: boolean) {
     const colours = ["#f08080", "#fec89a", "#76c893"];
     const labelMap = new Map<string, string>([
         ["warn", "Unplanned"],
@@ -156,9 +156,9 @@ function cssVar(name: string) {
         .trim();
 }
 
-function generateGroupedBarChart(programmeCounts: Map<string, Map<BackupType, SizeCount>>) {
-    const dataNqAll = prepareDataAbsScale(programmeCounts, true);
-    const dataAll = prepareDataAbsScale(programmeCounts, false);
+function generateLogChart(programmeCounts: Map<string, Map<BackupType, SizeCount>>) {
+    const dataNqAll = prepareDataLogChart(programmeCounts, true);
+    const dataAll = prepareDataLogChart(programmeCounts, false);
 
     const config = {
         type: 'bar',
@@ -252,9 +252,9 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<BackupType, Si
             div({ "class": "graphFilters" }, [
                 fieldset({}, [
                     legend("Scale"),
-                    input({ "type": "radio", "name": "graphScale", "id": "linear", "checked": "checked", change: () => updateScale(chart, false) }),
+                    input({ "type": "radio", "name": "graphScale", "id": "linear", "checked": "checked", change: () => updateLogScale(chart, false) }),
                     label({ "for": "linear" }, "Linear scale"),
-                    input({ "type": "radio", "name": "graphScale", "id": "logrithmic", change: () => updateScale(chart, true) }),
+                    input({ "type": "radio", "name": "graphScale", "id": "logrithmic", change: () => updateLogScale(chart, true) }),
                     label({ "for": "logrithmic" }, "Logrithmic scale"),
 
                 ]),
@@ -271,8 +271,8 @@ function generateGroupedBarChart(programmeCounts: Map<string, Map<BackupType, Si
 }
 
 function createGraphPage(programmeCounts: Map<string, Map<BackupType, SizeCount>>) {
-    base.appendChild(generateBarChart(programmeCounts));
-    base.appendChild(generateGroupedBarChart(programmeCounts));
+    base.appendChild(generateFractionalChart(programmeCounts));
+    base.appendChild(generateLogChart(programmeCounts));
 };
 
 export default Object.assign(base, {
