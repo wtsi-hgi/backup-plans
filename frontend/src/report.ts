@@ -319,7 +319,6 @@ function getUnplannedFraction(counts: Map<BackupType, SizeCount>) {
 	}
 
 	const unplannedSize = counts.get(BackupType.BackupWarn)?.size ?? 0n;
-
 	return Number(unplannedSize * 100n / totalSize) / 100
 }
 
@@ -437,6 +436,7 @@ getReportSummary()
 				])),
 				tbody([
 					Array.from(programmeCounts.entries())
+						// .filter(([bom]) => bom !== "")
 						.sort(sortProgrammes)
 						.map(([bom, counts]) => tr([
 							th(bom),
@@ -474,6 +474,7 @@ function getManualSize(s: ParentSummary) {
 }
 
 function sortProgrammes([progA, countsA]: [string, Map<BackupType, SizeCount>], [progB, countsB]: [string, Map<BackupType, SizeCount>]) {
+	// console.log("sortProgrammes: progA:", progA, "countsA:", countsA, "progB:", progB, "countsB:", countsB);
 	if (progA === "All") {
 		return -1;
 	}
@@ -510,7 +511,6 @@ function setCountsAll(programmeCounts: Map<string, Map<BackupType, SizeCount>>, 
 
 	allTotals.size += BigInt(sizeCounts.size);
 	allTotals.count += BigInt(sizeCounts.count);
-
 	if (!MainProgrammes.includes(bom)) {
 		return
 	}

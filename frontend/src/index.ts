@@ -29,6 +29,6 @@ import Graph from './graph.js';
 				RuleTree
 			]),
 			tab({ "name": "tabs", "summary": "Top Level Report" }, Report),
-			tab({ "name": "tabs", "summary": "Graphical Report" }, Graph)
+			tab({ "name": "tabs", "summary": "Graphical Report" }, Graph),
 		])
 	));

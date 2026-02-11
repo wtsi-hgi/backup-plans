@@ -119,6 +119,28 @@ function getProgrammeSize(programme: string, btypes: BackupType[], programmeCoun
     return btypes.reduce((acc, bt) => acc + getSize(programmeCounts, bt, programme), 0n);
 }
 
+
+function sortProgrammesForLogChart([progA, countsA]: [string, Map<BackupType, SizeCount>], [progB, countsB]: [string, Map<BackupType, SizeCount>]) {
+    const sizeA = countsA.size ?? 0n,
+        sizeB = countsB.size ?? 0n,
+        isPriorityA = MainProgrammes.includes(progA),
+        isPriorityB = MainProgrammes.includes(progB);
+
+    if (isPriorityA && isPriorityB) {
+        return Number(sizeB - sizeA);
+    }
+
+    if (isPriorityA) {
+        return -1;
+    }
+
+    if (isPriorityB) {
+        return 1;
+    }
+
+    return Number(sizeB - sizeA);
+};
+
 function prepareDataLogChart(programmeCounts: Map<string, Map<BackupType, SizeCount>>, justMainProgrammes: boolean) {
     const colours = ["#f08080", "#fec89a", "#76c893"];
     const labelMap = new Map<string, string>([
@@ -127,7 +149,9 @@ function prepareDataLogChart(programmeCounts: Map<string, Map<BackupType, SizeCo
         ["backup", "Backup"]
     ]);
 
-    const labels = justMainProgrammes ? MainProgrammes : Array.from(programmeCounts.keys()).filter(p => p !== "");
+    const labels = justMainProgrammes
+        ? MainProgrammes
+        : Array.from(programmeCounts).sort(sortProgrammesForLogChart).filter(p => p[0] !== "").map(p => p[0]);
 
     const data = {
         labels: labels,
