@@ -126,6 +126,7 @@ function sortProgrammesForLogChart([progA, countsA]: [string, Map<BackupType, Si
         isPriorityA = MainProgrammes.includes(progA),
         isPriorityB = MainProgrammes.includes(progB);
 
+    // they are correctly ordered when its all programmes but for just main programmes they are not?
     if (isPriorityA && isPriorityB) {
         return Number(sizeB - sizeA);
     }
@@ -150,14 +151,14 @@ function prepareDataLogChart(programmeCounts: Map<string, Map<BackupType, SizeCo
     ]);
 
     const labels = justMainProgrammes
-        ? MainProgrammes
+        ? Array.from(programmeCounts).filter(([prog, _]) => MainProgrammes.includes(prog)).sort(sortProgrammesForLogChart).map(p => p[0])
         : Array.from(programmeCounts).sort(sortProgrammesForLogChart).filter(p => p[0] !== "").map(p => p[0]);
 
     const data = {
         labels: labels,
         datasets: [[BackupType.BackupWarn], [BackupType.BackupNone], [BackupType.BackupIBackup, ...BackupType.manual]].map((backupTypes, i) => ({
             label: labelMap.get(backupTypes[0].toString()),
-            data: (justMainProgrammes ? MainProgrammes : labels)
+            data: labels
                 .map(programme => {
                     // if all programmes, get the size for "", not "All" (but still display as "All")
                     if (justMainProgrammes && programme === "All") {
