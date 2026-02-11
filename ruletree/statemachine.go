@@ -297,16 +297,21 @@ func (r *RuleTree) resolveSlashes() { //nolint:gocognit,gocyclo,funlen
 // This is to allow for efficient tree traversal, only entering sub-trees that
 // contain relevant rules.
 func (r *RuleTree) MarkBackupDirs() {
+	r.markBackupDirs(false)
+}
+
+func (r *RuleTree) markBackupDirs(parentWithBackup bool) {
 	for _, rule := range r.Rules {
-		if rule.BackupType == db.BackupIBackup {
+		if parentWithBackup || rule.BackupType == db.BackupIBackup {
 			r.HasBackup = true
+			parentWithBackup = true
 
 			break
 		}
 	}
 
 	for _, child := range r.children {
-		child.MarkBackupDirs()
+		child.markBackupDirs(parentWithBackup)
 
 		if child.HasBackup || child.HasChildWithBackup {
 			r.HasChildWithBackup = true
