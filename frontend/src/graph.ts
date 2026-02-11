@@ -160,7 +160,7 @@ function prepareDataLogChart(programmeCounts: Map<string, Map<BackupType, SizeCo
             data: (justMainProgrammes ? MainProgrammes : labels)
                 .map(programme => {
                     // if all programmes, get the size for "", not "All" (but still display as "All")
-                    if (!justMainProgrammes && programme === "All") {
+                    if (justMainProgrammes && programme === "All") {
                         return Number(getProgrammeSize("", backupTypes, programmeCounts));
                     };
 
@@ -284,9 +284,9 @@ function generateLogChart(programmeCounts: Map<string, Map<BackupType, SizeCount
                 ]),
                 fieldset({}, [
                     legend("Options"),
-                    input({ "type": "radio", "name": "graphAll", "id": "nqall", "checked": "checked", change: () => { chart.data = dataNqAll; chart.update() } }),
+                    input({ "type": "radio", "name": "graphAll", "id": "nqall", "checked": "checked", change: () => { console.log("Changing data to:", dataNqAll); chart.data = dataNqAll; chart.update() } }),
                     label({ "for": "nqall" }, "Show main programmes"),
-                    input({ "type": "radio", "name": "graphAll", "id": "all", change: () => { chart.data = dataAll; chart.update() } }),
+                    input({ "type": "radio", "name": "graphAll", "id": "all", change: () => { console.log("Changing data to:", dataAll); chart.data = dataAll; chart.update() } }),
                     label({ "for": "all" }, "Show all programmes"),
                 ])
             ])
