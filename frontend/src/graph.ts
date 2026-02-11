@@ -121,8 +121,8 @@ function getProgrammeSize(programme: string, btypes: BackupType[], programmeCoun
 
 
 function sortProgrammesForLogChart([progA, countsA]: [string, Map<BackupType, SizeCount>], [progB, countsB]: [string, Map<BackupType, SizeCount>]) {
-    const sizeA = countsA.size ?? 0n,
-        sizeB = countsB.size ?? 0n,
+    const sizeA = countsA.get(BackupType.BackupWarn)?.size ?? 0n,
+        sizeB = countsB.get(BackupType.BackupWarn)?.size ?? 0n,
         isPriorityA = MainProgrammes.includes(progA),
         isPriorityB = MainProgrammes.includes(progB);
 

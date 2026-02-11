@@ -517,9 +517,6 @@ function setCountsAll(programmeCounts: Map<string, Map<BackupType, SizeCount>>, 
 	// neither are main programmes
 	// so nqAll is always empty
 	// so previously i was in tests only adding unknown to the group
-	// what has changed?
-	//
-	// this doesnt explain why on dev the two seem to be swapped?
 	if (!MainProgrammes.includes(bom)) {
 		console.log(bom, "is not a main programme, skipping adding to nqAll");
 		return
