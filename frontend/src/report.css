@@ -117,12 +117,12 @@ table.summary {
 	width: 100%;
 }
 
-.summary tbody tr:nth-child(n+8):not(#tableCollapse) {
+.summary tbody tr.collapsible {
 	display: none;
 }
 
 #tableToggleCheckbox:checked~table tbody tr:not(#tableCollapse),
-#tableToggleCheckbox:checked~table tbody tr:nth-child(n+8) {
+#tableToggleCheckbox:checked~table tbody tr.collapsible {
 	display: table-row;
 }
 
