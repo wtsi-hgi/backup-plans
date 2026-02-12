@@ -89,6 +89,7 @@ func addHandlesAndListen(b *backend.Server, listen net.Listener) error {
 	http.Handle("/api/getDirectories", http.HandlerFunc(b.GetDirectories))
 	http.Handle("/api/usergroups", http.HandlerFunc(b.UserGroups))
 	http.Handle("/api/mainprogrammes", http.HandlerFunc(b.GetMainProgrammes))
+	http.Handle("/api/claimstats", http.HandlerFunc(b.ClaimStats))
 	http.Handle("/", frontend.Index)
 
 	slog.Info("Serving...")
