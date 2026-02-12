@@ -8,6 +8,7 @@ import Rules from './rules.js';
 import RuleTree from './ruletree.js';
 import Summary from './summary.js';
 import UserStats from './userstats.js';
+import ClaimStats from './claimstats.js';
 import { symbols } from './symbols.js';
 import { tab } from './state.js';
 import Graph from './graph.js';
@@ -36,5 +37,6 @@ import { user } from './rpc.js';
 			]),
 			tab({ "name": "tabs", "summary": "Top Level Report" }, Report),
 			tab({ "name": "tabs", "summary": "Graphical Report" }, Graph),
+			tab({ "name": "tabs", "summary": "Claim Stats" }, ClaimStats)
 		])
 	));

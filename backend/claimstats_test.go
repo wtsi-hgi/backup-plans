@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2025 Genome Research Ltd.
+ * Copyright (c) 2026 Genome Research Ltd.
  *
  * Author: Sky Haines <sh55@sanger.ac.uk>
  *
@@ -26,27 +26,23 @@
 package backend
 
 import (
-	"io"
+	"encoding/json"
+	"fmt"
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
-	"github.com/wtsi-hgi/backup-plans/backups"
+	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/internal/config"
 	"github.com/wtsi-hgi/backup-plans/internal/plandb"
-	"github.com/wtsi-hgi/backup-plans/internal/testdb"
-	"github.com/wtsi-hgi/backup-plans/internal/testirods"
 	"vimagination.zapto.org/tree"
 )
 
-func TestEndpoints(t *testing.T) {
-	Convey("Given an ibackup server with backed up sets", t, func() {
-		So(testirods.AddPseudoIRODsToolsToPathIfRequired(t), ShouldBeNil)
-
+func TestClaimStats(t *testing.T) {
+	Convey("With a configured backend", t, func() {
 		var u userHandler
 
 		testDB, _ := plandb.PopulateExamplePlanDB(t)
@@ -59,59 +55,60 @@ func TestEndpoints(t *testing.T) {
 		So(tree.Serialise(f, tr), ShouldBeNil)
 		So(f.Close(), ShouldBeNil)
 
-		s, err := New(testdb.CreateTestDatabase(t), u.getUser, config.NewConfig(t, nil, nil, nil, 0))
+		s, err := New(testDB, u.getUser, config.NewConfig(t, nil, nil, nil, 0))
 		So(err, ShouldBeNil)
 
 		So(s.AddTree(treeFile), ShouldBeNil)
 
-		setInfos, err := backups.Backup(testDB, tr, s.config.GetIBackupClient())
-		So(err, ShouldBeNil)
-		So(setInfos, ShouldNotBeNil)
-
-		Convey("You can use the setExists endpoint to retrieve whether a set with a given name exists", func() {
-			u = "userA"
-			code, resp := getResponse(
-				s.SetExists,
-				"/api/setExists?dir=/lustre/&metadata=plan::/lustre/scratch123/humgen/a/b/",
-				nil,
-			)
-
+		Convey("Claimstats should return all claimed directories per user", func() {
+			code, resp := getResponse(s.ClaimStats, "/api/claimstats", nil)
 			So(code, ShouldEqual, http.StatusOK)
-			So(resp, ShouldEqual, "true\n")
 
-			u = "userB"
-			code, resp = getResponse(
-				s.SetExists,
-				"/api/setExists?dir=/lustre/&metadata=plan::/lustre/scratch123/humgen/a/b/",
-				nil,
-			)
+			var claimstats map[string][]ClaimStats
 
-			So(code, ShouldEqual, http.StatusOK)
-			So(resp, ShouldEqual, "false\n")
-		})
+			err = json.NewDecoder(strings.NewReader(resp)).Decode(&claimstats)
+			So(err, ShouldBeNil)
 
-		Convey("You can check if a slice of paths refers to directories or files", func() {
-			u = "userA"
-			code, resp := getResponse(
-				s.GetDirectories,
-				"/test?",
-				strings.NewReader(`[
-					"lustre/scratch123/humgen/a/b/",
-					"/lustre/scratch123/humgen/a",
-					"/lustre/scratch123/humgen/a/b/1.jpg"
-				]`),
-			)
+			So(claimstats, ShouldResemble, map[string][]ClaimStats{
+				"userA": {
+					{
+						Path: "/lustre/scratch123/humgen/a/b/",
+						RuleStats: []RuleStats{
+							{
+								Rule: &db.Rule{
+									BackupType: 1,
+									Created:    1770893268,
+									Match:      "*.jpg",
+									Metadata:   "",
+									Modified:   1770893268,
+									Override:   false,
+								},
+								SizeCount: SizeCount{
+									Size:  17,
+									Count: 2,
+								},
+							},
+							{
+								Rule: &db.Rule{
+									BackupType: 0,
+									Created:    0,
+									Match:      "temp.jpg",
+									Metadata:   "",
+									Modified:   0,
+									Override:   false,
+								},
+								SizeCount: SizeCount{
+									Size:  8,
+									Count: 1,
+								},
+							},
+						},
+					},
+					{},
+				},
+			})
 
-			So(resp, ShouldEqual, "[true,true,false]\n")
-			So(code, ShouldEqual, http.StatusOK)
+			fmt.Println("Claimstats:", resp)
 		})
 	})
-}
-
-func getResponse(fn http.HandlerFunc, url string, body io.Reader) (int, string) {
-	w := httptest.NewRecorder()
-
-	fn(w, httptest.NewRequest(http.MethodGet, url, body))
-
-	return w.Code, w.Body.String()
 }
