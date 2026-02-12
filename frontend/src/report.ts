@@ -439,7 +439,7 @@ getReportSummary()
 					Array.from(programmeCounts.entries())
 						.filter(([bom]) => bom !== "")
 						.sort(sortProgrammes)
-						.map(([bom, counts]) => tr([
+						.map(([bom, counts]) => tr({ "class": bom == "All" || MainProgrammes.includes(bom) ? "" : "collapsible " }, [
 							th(bom),
 							renderRow(counts)
 						])),
