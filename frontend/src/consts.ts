@@ -1,3 +1,5 @@
+import { getMainProgrammes } from "./rpc.js";
+
 export const helpText = {
     "Match": `The format that filenames should match for the instruction to apply.
     Eg: *, *.txt`,
@@ -14,16 +16,6 @@ directories, regardless of their rules (unless their rules are more specific).`,
     "Review": `Date at which a reminder will be issued to check if the plan is still up to date.`,
     "Remove": `Date at which the backup data will be automatically removed.`
 }
-
-export const MainProgrammes = [
-    "CASM",
-    "Human Genetics",
-    "ToL",
-    "PAM",
-    "Generative Genomics",
-    "Cellular Genetics",
-]
-
 export class BackupType extends Number {
     static #stringToType = new Map<string, BackupType>();
     static #typeToString = new Map<BackupType, string>();
@@ -32,7 +24,7 @@ export class BackupType extends Number {
     static #typeToMetaLabel = new Map<BackupType, string>();
     static #typeToMetaTooltip = new Map<BackupType, string>();
 
-    static all: BackupType[] = [];
+    static selectable: BackupType[] = [];
     static manual: BackupType[] = [];
 
     static BackupManual = new BackupType(-2, "manual");
@@ -63,7 +55,7 @@ export class BackupType extends Number {
         BackupType.#idToType.set(id, this);
 
         if (label) {
-            BackupType.all.push(this);
+            BackupType.selectable.push(this);
             BackupType.#typeToLabel.set(this, label);
 
             if (label.startsWith("Manual Backup")) {
@@ -103,4 +95,12 @@ export class BackupType extends Number {
     isManual() {
         return this === BackupType.BackupManual || BackupType.manual.includes(this);
     }
+
+    isBackup() {
+        return this === BackupType.BackupIBackup || this === BackupType.BackupManualIBackup;
+    }
+
+    static all: BackupType[] = [BackupType.BackupManual, BackupType.BackupWarn].concat(BackupType.selectable);
 }
+
+export const MainProgrammes = ["All"].concat(await getMainProgrammes());

@@ -5,6 +5,7 @@
 @import url("rules.css");
 @import url("summary.css");
 @import url("userstats.css");
+@import url("graph.css");
 
 html,
 body {
@@ -301,6 +302,12 @@ use {
 }
 
 @media (prefers-color-scheme: light) {
+	:root {
+		color-scheme: light;
+		--graph-label-colour: #000;
+		--graph-accent: #888;
+	}
+
 	html {
 		--colour: #000;
 		--background: #fff;
@@ -361,12 +368,20 @@ use {
 		--button-colour-disabled: #888;
 
 		--button-colour-addEdit: #222;
+
+		--graph-border: #888;
+
+		--graph-unplanned: #f08080;
+		--graph-nobackup: #fec89a;
+		--graph-backup: #76c893;
 	}
 }
 
 @media (prefers-color-scheme: dark) {
 	:root {
 		color-scheme: dark;
+		--graph-label-colour: #fff;
+		--graph-accent: #666;
 	}
 
 	html {
@@ -429,6 +444,12 @@ use {
 		--button-colour-disabled: #888;
 
 		--button-colour-addEdit: #222;
+
+		--graph-border: #666;
+
+		--graph-unplanned: #f08080;
+		--graph-nobackup: #fec89a;
+		--graph-backup: #76c893;
 	}
 
 	#addEdit svg {

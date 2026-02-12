@@ -10,6 +10,7 @@ import Summary from './summary.js';
 import UserStats from './userstats.js';
 import { symbols } from './symbols.js';
 import { tab } from './state.js';
+import Graph from './graph.js';
 
 (document.readyState === "complete" ? Promise.resolve() : new Promise(successFn => window.addEventListener("load", successFn, { "once": true })))
 	.then(() => document.body.replaceChildren(
@@ -27,6 +28,7 @@ import { tab } from './state.js';
 				Rules,
 				RuleTree
 			]),
-			tab({ "name": "tabs", "summary": "Top Level Report" }, Report)
+			tab({ "name": "tabs", "summary": "Top Level Report" }, Report),
+			tab({ "name": "tabs", "summary": "Graphical Report" }, Graph),
 		])
 	));

@@ -11,6 +11,7 @@ import { load } from './load.js';
 import ODS from './odf.js';
 import { boms, owners, userGroups } from './userGroups.js';
 import { inputState } from "./state.js";
+import graph from "./graph.js";
 
 class Summary {
 	actions: SizeCountTime[] = [];
@@ -318,7 +319,6 @@ function getUnplannedFraction(counts: Map<BackupType, SizeCount>) {
 	}
 
 	const unplannedSize = counts.get(BackupType.BackupWarn)?.size ?? 0n;
-
 	return Number(unplannedSize * 100n / totalSize) / 100
 }
 
@@ -388,24 +388,9 @@ getReportSummary()
 			parents.push(dirSummary);
 		}
 
-		const programmeCounts = new Map<string, Map<BackupType, SizeCount>>(); // Programme -> BackupType -> SizeCount
-
-		for (const [group, typeCounts] of Object.entries(data.GroupBackupTypeTotals)) {
-			const bom = (!boms.get(group) || boms.get(group) === "unknown") ? "Unknown" : boms.get(group)!;
-
-			for (const [type, sizeCounts] of Object.entries(typeCounts)) {
-				const backupType = BackupType.from(type),
-					mcBackupType = backupType.isManual() ? BackupType.BackupManual : backupType,
-					counts = programmeCounts.get(bom) ?? setAndReturn(programmeCounts, bom, new Map<BackupType, SizeCount>());
-
-				const programmeSizeCount = counts.get(mcBackupType) ?? setAndReturn(counts, mcBackupType, { count: 0n, size: 0n });
-
-				programmeSizeCount.size += BigInt(sizeCounts.size);
-				programmeSizeCount.count += BigInt(sizeCounts.count);
-
-				setCountsAll(programmeCounts, mcBackupType, sizeCounts)
-			}
-		}
+		const programmeCounts = buildProgrammeCounts(data.GroupBackupTypeTotals);
+		console.log("programmeCounts:", programmeCounts);
+		graph.init(programmeCounts);
 
 		children[0] = div({ "class": "summary-container" }, [
 			input({ "type": "checkbox", "id": "tableToggleCheckbox", "style": "display:none" }),
@@ -440,7 +425,6 @@ getReportSummary()
 										"ManualC": BigInt(counts.get(BackupType.BackupManual)?.count ?? 0n),
 										"ManualS": BigInt(counts.get(BackupType.BackupManual)?.size ?? 0n)
 									})));
-
 								a({ "href": URL.createObjectURL(new Blob([ods], { "type": "text/csv;charset=utf-8" })), "download": `backup-report-${new Date(now).toISOString()}.ods` }).click();
 							}
 						}, "Download Spreadsheet")
@@ -453,6 +437,7 @@ getReportSummary()
 				])),
 				tbody([
 					Array.from(programmeCounts.entries())
+						.filter(([bom]) => bom !== "")
 						.sort(sortProgrammes)
 						.map(([bom, counts]) => tr([
 							th(bom),
@@ -518,12 +503,33 @@ function sortProgrammes([progA, countsA]: [string, Map<BackupType, SizeCount>], 
 	return Number(fractionB - fractionA);
 }
 
-function setCountsAll(programmeCounts: Map<string, Map<BackupType, SizeCount>>, backupType: BackupType, sizeCounts: SizeCount) {
+
+function setCountsAll(programmeCounts: Map<string, Map<BackupType, SizeCount>>, backupType: BackupType, sizeCounts: SizeCount, bom: string) {
+	console.log("setCountsAll", programmeCounts, backupType, sizeCounts, bom);
 	const all = programmeCounts.get("All") ?? setAndReturn(programmeCounts, "All", new Map<BackupType, SizeCount>()),
 		allTotals = all.get(backupType) ?? setAndReturn(all, backupType, { count: 0n, size: 0n });
+	const nqAll = programmeCounts.get("")!;
 
 	allTotals.size += BigInt(sizeCounts.size);
 	allTotals.count += BigInt(sizeCounts.count);
+
+	// BASICALLY the issue is i only have All and Unknown in my test data
+	// neither are main programmes
+	// so nqAll is always empty
+	// so previously i was in tests only adding unknown to the group
+	if (!MainProgrammes.includes(bom)) {
+		console.log(bom, "is not a main programme, skipping adding to nqAll");
+		return
+	}
+
+	if (!nqAll.has(backupType)) {
+		nqAll.set(backupType, { count: 0n, size: 0n });
+	}
+
+	const nqAllTotals = nqAll.get(backupType)!;
+	console.log("??", nqAllTotals);
+	nqAllTotals.size += BigInt(sizeCounts.size);
+	nqAllTotals.count += BigInt(sizeCounts.count);
 }
 
 
@@ -557,3 +563,28 @@ gArr.sort((a, b) => a[1].localeCompare(b[1]));
 gArr.forEach(([k, v]) => groupList.append(option({ "label": k + v }, v)));
 
 export default base;
+
+function buildProgrammeCounts(GroupBackupTypeTotals: Record<string, Record<number, SizeCount>>) {
+	const programmeCounts = new Map<string, Map<BackupType, SizeCount>>(); // Programme -> BackupType -> SizeCount
+	programmeCounts.set("All", new Map<BackupType, SizeCount>());
+	programmeCounts.set("", new Map<BackupType, SizeCount>());
+
+	for (const [group, typeCounts] of Object.entries(GroupBackupTypeTotals)) {
+		const bom = (!boms.get(group) || boms.get(group) === "unknown") ? "Unknown" : boms.get(group)!;
+
+		for (const [type, sizeCounts] of Object.entries(typeCounts)) {
+			const backupType = BackupType.from(type),
+				mcBackupType = backupType.isManual() ? BackupType.BackupManual : backupType,
+				counts = programmeCounts.get(bom) ?? setAndReturn(programmeCounts, bom, new Map<BackupType, SizeCount>());
+
+			const programmeSizeCount = counts.get(mcBackupType) ?? setAndReturn(counts, mcBackupType, { count: 0n, size: 0n });
+
+			programmeSizeCount.size += BigInt(sizeCounts.size);
+			programmeSizeCount.count += BigInt(sizeCounts.count);
+
+			setCountsAll(programmeCounts, mcBackupType, sizeCounts, bom)
+		}
+	}
+
+	return programmeCounts
+}

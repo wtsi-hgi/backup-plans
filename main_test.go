@@ -38,6 +38,7 @@ func TestMain(m *testing.M) {
 type cmdConfig struct {
 	IBackup        ibackup.Config
 	ReportingRoots []string
+	MainProgrammes []string
 }
 
 func TestCommands(t *testing.T) {

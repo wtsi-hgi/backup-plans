@@ -50,6 +50,7 @@ type yamlConfig struct {
 	ReportingRoots       []string
 	AdminGroup           uint32
 	ReloadTime           uint64
+	MainProgrammes       []string
 }
 
 // Config represents a parsed configuration file which can be automatically
@@ -335,4 +336,15 @@ func (c *Config) GetAdminGroup() uint32 {
 	defer c.mu.RUnlock()
 
 	return c.yamlConfig.AdminGroup
+}
+
+func (c *Config) GetMainProgrammes() []string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	if c.yamlConfig.MainProgrammes == nil {
+		return []string{}
+	}
+
+	return c.yamlConfig.MainProgrammes
 }
