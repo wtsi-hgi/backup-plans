@@ -27,15 +27,14 @@ package backend
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
-	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/internal/config"
 	"github.com/wtsi-hgi/backup-plans/internal/plandb"
 	"vimagination.zapto.org/tree"
@@ -64,51 +63,51 @@ func TestClaimStats(t *testing.T) {
 			code, resp := getResponse(s.ClaimStats, "/api/claimstats", nil)
 			So(code, ShouldEqual, http.StatusOK)
 
-			var claimstats map[string][]ClaimStats
+			var claimstats map[string]map[string][]RuleStats
 
 			err = json.NewDecoder(strings.NewReader(resp)).Decode(&claimstats)
 			So(err, ShouldBeNil)
 
-			So(claimstats, ShouldResemble, map[string][]ClaimStats{
+			rules := slices.Collect(testDB.ReadRules().Iter)
+
+			So(claimstats, ShouldResemble, map[string]map[string][]RuleStats{
 				"userA": {
-					{
-						Path: "/lustre/scratch123/humgen/a/b/",
-						RuleStats: []RuleStats{
-							{
-								Rule: &db.Rule{
-									BackupType: 1,
-									Created:    1770893268,
-									Match:      "*.jpg",
-									Metadata:   "",
-									Modified:   1770893268,
-									Override:   false,
-								},
-								SizeCount: SizeCount{
-									Size:  17,
-									Count: 2,
-								},
+					"/lustre/scratch123/humgen/a/b/": {
+						{
+							Rule: nil,
+							SizeCount: SizeCount{
+								Size:  14,
+								Count: 2,
 							},
-							{
-								Rule: &db.Rule{
-									BackupType: 0,
-									Created:    0,
-									Match:      "temp.jpg",
-									Metadata:   "",
-									Modified:   0,
-									Override:   false,
-								},
-								SizeCount: SizeCount{
-									Size:  8,
-									Count: 1,
-								},
+						},
+						{
+							Rule: copyRule(rules[0]),
+							SizeCount: SizeCount{
+								Size:  17,
+								Count: 2,
+							},
+						},
+						{
+							Rule: copyRule(rules[1]),
+							SizeCount: SizeCount{
+								Size:  8,
+								Count: 1,
 							},
 						},
 					},
-					{},
+				},
+				"userB": {
+					"/lustre/scratch123/humgen/a/c/": {
+						{
+							Rule: copyRule(rules[2]),
+							SizeCount: SizeCount{
+								Size:  6,
+								Count: 1,
+							},
+						},
+					},
 				},
 			})
-
-			fmt.Println("Claimstats:", resp)
 		})
 	})
 }
