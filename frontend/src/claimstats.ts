@@ -1,30 +1,31 @@
-import { div, p } from "./lib/html.js";
+import { div, h2, p, h4 } from "./lib/html.js";
 import type { ClaimedDir, SizeCount, UserClaims } from "./types.js";
-import { getClaimStats } from "./rpc.js";
+import { getClaimStats, user } from "./rpc.js";
+import { path } from "./lib/svg.js";
 
 const base = div();
 
-// filter by user/group
-
-//start with just user
-
-// show all dirs claimed by them
-
-getClaimStats().then(claimStats => {
-    console.log("Claim stats:", claimStats);
-    createClaimStats(claimStats);
-});
-
-function createClaimStats(claimStats: UserClaims[]) {
+function initialiseClaimStats() {
     console.log("Initialising claim stats page");
+    getClaimStats().then(claimStats => {
+        createClaimStats(claimStats);
+    });
+}
 
-
-    base.appendChild(p());
+function createClaimStats(claimStats: UserClaims) {
+    base.appendChild(div({},
+        Object.entries(claimStats).map(([user, dirClaims]) => div({}, [
+            h2(user),
+            Object.entries(dirClaims).map(([path, rulestats]) => div({}, [
+                h4(path),
+                Array.from(rulestats).map(rule => p("BackupType: " + rule.BackupType + "Size:" + rule.size + "Count:" + rule.count))
+            ])
+            )
+        ])
+        )
+    ));
 }
 
 export default Object.assign(base, {
-    init: createClaimStats
+    init: initialiseClaimStats
 });
-
-
-// report only has info for backed up dirs, so i need to create a new endpoint 
