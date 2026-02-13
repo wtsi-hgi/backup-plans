@@ -76,7 +76,7 @@ class Summary {
 	}
 }
 
-export class ParentSummary extends Summary {
+class ParentSummary extends Summary {
 	children = new Map<string, ChildSummary>();
 	group: string;
 

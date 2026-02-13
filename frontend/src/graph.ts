@@ -243,7 +243,8 @@ function generateLogChart(programmeCounts: Map<string, Map<BackupType, SizeCount
                         },
                         maxTicksLimit: 12,
                         callback: function (value: any) {
-                            return `${formatBytes(BigInt(value))}`;
+                            return value < 1 ? 0 : `${formatBytes(BigInt(value))}`;
+                            // return `${formatBytes(BigInt(value))}`;
                         }
                     },
                     grid: {
