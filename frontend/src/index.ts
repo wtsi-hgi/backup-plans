@@ -37,6 +37,6 @@ import { user } from './rpc.js';
 			]),
 			tab({ "name": "tabs", "summary": "Top Level Report" }, Report),
 			tab({ "name": "tabs", "summary": "Graphical Report" }, Graph),
-			tab({ "name": "tabs", "summary": "Claim Stats" }, ClaimStats)
+			tab({ "name": "tabs", "summary": "Claim Stats" }, ClaimStats),
 		])
 	));

@@ -1,0 +1,31 @@
+.userclaims th {
+    background-color: #1b4965;
+    /* TODO: Make variable that also works on light mode */
+    justify-content: center;
+}
+
+.userclaims th,
+.userclaims td {
+    border: 1px solid var(--graph-accent);
+    padding: 6px 10px;
+}
+
+.userclaims {
+    border: 1px solid var(--graph-accent);
+    border-radius: 2px;
+    border-collapse: collapse;
+    width: 50vw;
+}
+
+.claimstats-container {
+    display: flex;
+    justify-content: center;
+}
+
+.path {
+    text-align: center;
+}
+
+/* .userclaims tbody td.collapsible {
+    display: none;
+} */
