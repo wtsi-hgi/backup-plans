@@ -389,7 +389,6 @@ getReportSummary()
 		}
 
 		const programmeCounts = buildProgrammeCounts(data.GroupBackupTypeTotals);
-		console.log("programmeCounts:", programmeCounts);
 		graph.init(programmeCounts);
 
 		children[0] = div({ "class": "summary-container" }, [
@@ -505,7 +504,6 @@ function sortProgrammes([progA, countsA]: [string, Map<BackupType, SizeCount>], 
 
 
 function setCountsAll(programmeCounts: Map<string, Map<BackupType, SizeCount>>, backupType: BackupType, sizeCounts: SizeCount, bom: string) {
-	console.log("setCountsAll", programmeCounts, backupType, sizeCounts, bom);
 	const all = programmeCounts.get("All") ?? setAndReturn(programmeCounts, "All", new Map<BackupType, SizeCount>()),
 		allTotals = all.get(backupType) ?? setAndReturn(all, backupType, { count: 0n, size: 0n });
 	const nqAll = programmeCounts.get("")!;
@@ -513,12 +511,7 @@ function setCountsAll(programmeCounts: Map<string, Map<BackupType, SizeCount>>, 
 	allTotals.size += BigInt(sizeCounts.size);
 	allTotals.count += BigInt(sizeCounts.count);
 
-	// BASICALLY the issue is i only have All and Unknown in my test data
-	// neither are main programmes
-	// so nqAll is always empty
-	// so previously i was in tests only adding unknown to the group
 	if (!MainProgrammes.includes(bom)) {
-		console.log(bom, "is not a main programme, skipping adding to nqAll");
 		return
 	}
 
@@ -527,7 +520,6 @@ function setCountsAll(programmeCounts: Map<string, Map<BackupType, SizeCount>>, 
 	}
 
 	const nqAllTotals = nqAll.get(backupType)!;
-	console.log("??", nqAllTotals);
 	nqAllTotals.size += BigInt(sizeCounts.size);
 	nqAllTotals.count += BigInt(sizeCounts.count);
 }
