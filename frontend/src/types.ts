@@ -116,15 +116,6 @@ export type UserGroups = {
 	BOM: Record<string, string[]>;
 }
 
-export type ClaimStats = {
-	Sizes: Record<string, SizeCount>;
-	BackupStatus: Record<string, BackupStatus>;
-	Rules: Record<number, Rule>;
+export type RuleInfo = Rule & SizeCount;
 
-}
-
-export type UserClaims = {
-	User: string;
-	Group: string;
-	ClaimedDirs: Record<string, ClaimStats>;
-}
+export type UserClaims = Record<string, Record<string, RuleInfo[]>>;
