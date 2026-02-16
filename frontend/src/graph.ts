@@ -12,8 +12,11 @@ const base = div();
 function prepareDataFractionalChart(programmeCounts: Map<string, Map<BackupType, SizeCount>>) {
     const barChartData: BarChartRow[] = [];
 
+    console.log("ProgrammeCounts:", programmeCounts);
     for (const programme of MainProgrammes) {
+        console.log("programme", programme);
         const data = programmeCounts.get(programme)!
+        console.log("data", data);
 
         const sizes = BackupType.all.slice(1, 4).map(bt => {
             if (bt === BackupType.BackupIBackup) {
