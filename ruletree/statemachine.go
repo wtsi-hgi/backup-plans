@@ -6,12 +6,61 @@ import (
 	"math"
 	"slices"
 	"strings"
+	"unsafe"
 
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/wrstat-ui/summary/group"
 )
 
 const processRules int64 = math.MinInt64
+
+var noMatchingRules = new(int64)
+
+type State struct {
+	groups []group.State[int64]
+}
+
+func BuildMultiStateMachine(rules []Rules) (State, error) {
+	groups := make([]group.State[int64], len(rules))
+
+	for n, rs := range rules {
+		sm, err := group.NewStatemachine(rs)
+		if err != nil {
+			return State{}, err
+		}
+
+		(*struct {
+			_     [256]int32
+			Group *int64
+		})(unsafe.Pointer(&sm[0])).Group = noMatchingRules
+
+		groups[n] = sm.GetState(nil)
+	}
+
+	return State{groups}, nil
+}
+
+func (s State) GetStateString(match string) State {
+	gs := make([]group.State[int64], 0, len(s.groups))
+
+	for _, g := range s.groups {
+		if rs := g.GetStateString(match); rs.GetGroup() != noMatchingRules {
+			gs = append(gs, rs)
+		}
+	}
+
+	return State{groups: gs}
+}
+
+func (s State) GetGroup() *int64 {
+	for _, g := range s.groups {
+		if r := g.GetGroup(); r != noMatchingRules && r != nil {
+			return r
+		}
+	}
+
+	return nil
+}
 
 // Rules is a list of rule paths and IDs ready to be compiled into a
 // StateMachine.
@@ -38,17 +87,17 @@ const (
 )
 
 func generateStatemachineFor(mount string, paths []string,
-	directoryRules map[string]*DirRules) (group.StateMachine[int64], group.StateMachine[int64], error) {
+	directoryRules map[string]*DirRules) (State, group.StateMachine[int64], error) {
 	rules, wildcards := buildDirRules(mount, paths, directoryRules)
 
-	sm, err := group.NewStatemachine(rules)
+	sm, err := BuildMultiStateMachine(rules)
 	if err != nil {
-		return nil, nil, err
+		return State{}, nil, err
 	}
 
 	wcs, err := group.NewStatemachine(wildcards)
 	if err != nil {
-		return nil, nil, err
+		return State{}, nil, err
 	}
 
 	return sm, wcs, nil
@@ -327,7 +376,7 @@ func (r *RuleTree) Iter() iter.Seq2[string, *RuleTree] {
 var basicWildcard = map[string]*db.Rule{"*": {Match: "*"}} //nolint:gochecknoglobals
 
 func buildDirRules(mount string, paths []string,
-	directoryRules map[string]*DirRules) (Rules, Rules) {
+	directoryRules map[string]*DirRules) ([]Rules, Rules) {
 	dirs := slices.Collect(maps.Keys(directoryRules))
 
 	slices.Sort(dirs)
@@ -346,41 +395,105 @@ func buildDirRules(mount string, paths []string,
 
 	root.Canon()
 
-	return buildRules(root, "/", nil, 0), buildWildcards(root, "/", nil)
+	rules, _ := buildRules(root, "/", []Rules{nil}, 0)
+
+	return rules, buildWildcards(root, "/", nil)
 }
 
-func buildRules(d *RuleTree, path string, rules Rules, wildcard int64) Rules { //nolint:gocyclo,cyclop,funlen
-	if len(d.Rules) > 0 {
-		if wc, ok := d.Rules["*"]; ok {
-			wildcard = wc.ID()
-		}
+func buildRules(d *RuleTree, path string, rules []Rules, wildcard int64) ([]Rules, bool) { //nolint:gocyclo,cyclop,funlen
+	var hasVeryComplex bool
 
-		for match, rule := range d.Rules {
-			rules = addRuleToList(rules, path+match, rule.ID())
+	if wc, ok := d.Rules["*"]; ok {
+		wildcard = wc.ID()
+	}
+
+	for part, child := range d.children {
+		var childHasVeryComplex bool
+
+		rules, childHasVeryComplex = buildRules(child, path+part, rules, wildcard)
+		if childHasVeryComplex {
+			hasVeryComplex = true
+		}
+	}
+
+	if !hasVeryComplex {
+		for match := range d.Rules {
+			if strings.Count(match, "*") > 1 {
+				hasVeryComplex = true
+
+				break
+			}
 		}
 	}
 
 	switch rs := getRuleState(d.Rules); rs {
 	case noRules:
-		rules = addNoRuleRules(rules, path, d.Dir, wildcard)
+		rules[0] = addNoRuleRules(rules[0], path, d.Dir, wildcard)
 	case SimpleWildcard:
-		rules = addSimpleWildcardRules(rules, path, d.Dir, wildcard)
+		rules[0] = addSimpleWildcardRules(rules[0], path, d.Dir, wildcard)
 	case SimplePaths:
-		rules = addRuleToList(rules, path, processRules)
+		rules[0] = addRuleToList(rules[0], path, processRules)
 	case SimpleWildcard | SimplePaths:
-		rules = addSimpleRules(rules, path, d.Dir, wildcard)
+		rules[0] = addSimpleRules(rules[0], path, d.Dir, wildcard)
 	case ComplexWildcardWithPrefix, ComplexWildcardWithSuffix,
 		ComplexWildcardWithPrefix | SimplePaths, ComplexWildcardWithSuffix | SimplePaths:
-		rules = addComplexRules(rules, path, d.Dir, rs, wildcard, d.Rules)
+		rules[0] = addComplexRules(rules[0], path, d.Dir, rs, wildcard, d.Rules)
 	default:
-		rules = addComplexWithWildcardRules(rules, path, d.Dir, rs, wildcard, d.Rules)
+		rules[0] = addComplexWithWildcardRules(rules[0], path, d.Dir, rs, wildcard, d.Rules)
 	}
 
-	for part, child := range d.children {
-		rules = buildRules(child, path+part, rules, wildcard)
+	for match, rule := range orderRulesByPrecedence(d.Rules) {
+		if hasVeryComplex {
+			rules = append(rules, addRuleToList(nil, path+match, rule.ID()))
+		} else {
+			rules[0] = addRuleToList(rules[0], path+match, rule.ID())
+		}
 	}
 
-	return rules
+	return rules, hasVeryComplex
+}
+
+func orderRulesByPrecedence(rules map[string]*db.Rule) iter.Seq2[string, *db.Rule] {
+	return func(yield func(string, *db.Rule) bool) {
+		keys := slices.Collect(maps.Keys(rules))
+
+		slices.SortFunc(keys, matchPrecedence)
+
+		for _, key := range keys {
+			if !yield(key, rules[key]) {
+				return
+			}
+		}
+	}
+}
+
+func matchPrecedence(a, b string) int {
+	if len(a) == 0 {
+		if len(b) == 0 {
+			return 0
+		}
+
+		return 1
+	} else if len(b) == 0 {
+		return -1
+	}
+
+	aPos := strings.IndexByte(a, '*')
+	bPos := strings.IndexByte(b, '*')
+
+	if aPos == -1 {
+		if bPos == -1 {
+			return len(b) - len(a)
+		}
+
+		return -1
+	} else if bPos == -1 {
+		return 1
+	} else if a[:aPos] == b[:bPos] {
+		return matchPrecedence(a[aPos+1:], b[bPos+1:])
+	}
+
+	return bPos - aPos
 }
 
 func getRuleState(rules map[string]*db.Rule) ruleState { //nolint:gocognit
