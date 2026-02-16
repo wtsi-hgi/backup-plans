@@ -1,5 +1,5 @@
 .userclaims th {
-    background-color: #1b4965;
+    background-color: #f08080;
     /* TODO: Make variable that also works on light mode */
     justify-content: center;
 }
@@ -22,10 +22,14 @@
     justify-content: center;
 }
 
-.path {
+.path-row {
     text-align: center;
 }
 
-/* .userclaims tbody td.collapsible {
+.userclaims tbody td.collapsible {
     display: none;
-} */
+}
+
+.hidden {
+    display: none;
+}
