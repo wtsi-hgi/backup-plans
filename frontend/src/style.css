@@ -113,6 +113,7 @@ input[type="checkbox"] {
 	width: 100%;
 }
 
+
 .tabs>details[name]>summary:before {
 	left: -7px;
 	border-bottom-right-radius: 6px;

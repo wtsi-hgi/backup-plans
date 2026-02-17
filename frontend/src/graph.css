@@ -1,5 +1,4 @@
-.graph-container,
-.claimstats-container {
+.graph-container {
     display: block;
     border: solid var(--graph-border);
     border-width: 2px;

@@ -1,28 +1,51 @@
-.userclaims th {
-    background-color: #f08080;
-    /* TODO: Make variable that also works on light mode */
-    justify-content: center;
+.userclaims legend {
+    margin: 0 auto;
+    padding: 1em 2em;
+    border: 1px solid var(--colour);
+    border-radius: 10px;
+    position: relative;
+    background: linear-gradient(180deg, #ffaa00 0%, rgba(255, 255, 255, 0) 50%);
+
 }
 
-.userclaims th,
-.userclaims td {
-    border: 1px solid var(--graph-accent);
-    padding: 6px 10px;
+.userclaims legend:before {
+    content: "";
+    width: calc(100% + 2px);
+    height: calc(50% + 2px);
+    background-color: var(--background);
+    position: absolute;
+    left: -1px;
+    top: 50%;
 }
 
-.userclaims {
-    border: 1px solid var(--graph-accent);
-    border-radius: 2px;
-    border-collapse: collapse;
+.userclaims h1 {
+    margin: 0;
+    position: relative;
+}
+
+/* fieldset.userclaims {
+    border: 2px solid var(--graph-border);
+    border-radius: 10px;
     width: 50vw;
-}
+    align-items: center;
+} */
 
 .claimstats-container {
     display: flex;
     justify-content: center;
+    flex-direction: column;
+    gap: 2em;
+    margin: 1em 0 0 1em;
+    overflow: hidden;
+    padding: 1em;
+    width: 100%;
 }
 
-.path-row {
+.fieldset.userclaims {
+    width: 100%;
+}
+
+/* .path-row {
     text-align: center;
 }
 
@@ -32,4 +55,4 @@
 
 .hidden {
     display: none;
-}
+} */

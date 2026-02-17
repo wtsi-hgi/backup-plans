@@ -1,5 +1,5 @@
-import { div, h2, p, h4, span, table, thead, tbody, th, td, tr } from "./lib/html.js";
-import type { UserClaims } from "./types.js";
+import { div, h2, p, h4, span, table, thead, tbody, th, td, tr, fieldset, legend, h1 } from "./lib/html.js";
+import type { DirStats } from "./types.js";
 import { getClaimStats } from "./rpc.js";
 import { inputState } from "./state.js";
 import { formatBytes } from "./lib/utils.js";
@@ -16,7 +16,7 @@ function initialiseClaimStats() {
 
 // TODO: 
 // 1) make name search actually work somehow
-// 2) colour name bars by something (im thinking unplanned amount)
+// 2) colour name bars by something (im thinking unplanned amount) ?
 
 function toggleRules(this: HTMLTableRowElement) {
     const arrow = this.querySelector(".arrow") as HTMLElement;
@@ -31,34 +31,39 @@ function toggleRules(this: HTMLTableRowElement) {
     }
 }
 
-function createClaimStatsPage(claimStats: UserClaims) {
-    const filterUserClaims = inputState({ "id": "claimstatsFilter", "placeholder": "Name", "list": "userList" });
+function createClaimStatsPage(claimStats: DirStats[]) {
+    // const filterUserClaims = inputState({ "id": "claimstatsFilter", "placeholder": "Name", "list": "userList" });
 
     return div({}, [
         div({ "class": "claimstats-container" }, [
-            filterUserClaims,
-        ]),
-        Object.entries(claimStats).map(([user, dirClaims]) => div({ "class": "claimstats-container" }, [
-            table({ "class": "userclaims" }, [
-                thead(
-                    tr(th({ "colspan": "5" }, user)),
-                ),
-                tbody({}, [
-                    Object.entries(dirClaims).map(([path, rulestats]) => [
-                        tr({ "class": "path-row", "click": toggleRules }, td({ "colspan": "5" }, [span({ class: "arrow" }, "▶"), path])),
-                        Array.from(rulestats).map((rule) => [
-                            tr({ "class": "rule-row, hidden" }, [
-                                td(rule.BackupType != null ? BackupType.from(rule.BackupType).toString() : "Unplanned"),
-                                td(rule.Match),
-                                td("Size: " + formatBytes(rule.size)),
-                                td("Count: " + rule.count)
+            claimStats.map((dirStats) => fieldset({ "class": "userclaims" }, [
+                legend(h1(dirStats.Path)),
+                div({}, [
+                    p("Last successful backup: " + (dirStats.BackupStatus.LastSuccess === "" ? "Pending" : dirStats.BackupStatus.LastSuccess)),
+                    p("Failures: " + dirStats.BackupStatus.Failures),
+                    table({ "class": "summary" }, [
+                        thead(tr({}, [
+                            th("Match"),
+                            th("Backup Type"),
+                            th("Size"),
+                            th("Count"),
+                        ])),
+                        tbody({}, [
+                            dirStats.RuleStats.map((rule) => [
+                                tr({ "class": "rule-row" }, [
+                                    td(rule.Match),
+                                    td(rule.BackupType != null ? BackupType.from(rule.BackupType).toString() : "Unplanned"),
+                                    td(formatBytes(BigInt(rule.size))),
+                                    td("" + rule.count)
+                                ])
                             ])
                         ])
                     ])
                 ])
             ]),
-        ]))
-    ]);
+            )
+        ])
+    ])
 }
 
 initialiseClaimStats()

@@ -69,7 +69,7 @@ func TestEndpoints(t *testing.T) {
 		So(setInfos, ShouldNotBeNil)
 
 		Convey("You can use the setExists endpoint to retrieve whether a set with a given name exists", func() {
-			u = "userA"
+			u = userA
 			code, resp := getResponse(
 				s.SetExists,
 				"/api/setExists?dir=/lustre/&metadata=plan::/lustre/scratch123/humgen/a/b/",
@@ -91,7 +91,7 @@ func TestEndpoints(t *testing.T) {
 		})
 
 		Convey("You can check if a slice of paths refers to directories or files", func() {
-			u = "userA"
+			u = userA
 			code, resp := getResponse(
 				s.GetDirectories,
 				"/test?",

@@ -125,4 +125,15 @@ export type UserGroups = {
 
 export type RuleInfo = Rule & SizeCount;
 
-export type UserClaims = Record<string, Record<string, RuleInfo[]>>;
+export type SetBackupActivity = {
+	LastSuccess: string;
+	Name: string;
+	Requester: string;
+	Failures: number;
+}
+
+export type DirStats = {
+	Path: string;
+	BackupStatus: SetBackupActivity;
+	RuleStats: RuleInfo[];
+}

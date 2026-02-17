@@ -35,6 +35,7 @@ import (
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
+	"github.com/wtsi-hgi/backup-plans/ibackup"
 	"github.com/wtsi-hgi/backup-plans/internal/config"
 	"github.com/wtsi-hgi/backup-plans/internal/plandb"
 	"vimagination.zapto.org/tree"
@@ -60,19 +61,26 @@ func TestClaimStats(t *testing.T) {
 		So(s.AddTree(treeFile), ShouldBeNil)
 
 		Convey("Claimstats should return all claimed directories per user", func() {
+			u = userA
+
 			code, resp := getResponse(s.ClaimStats, "/api/claimstats", nil)
 			So(code, ShouldEqual, http.StatusOK)
 
-			var claimstats map[string]map[string][]RuleStats
+			var claimstatsA []DirStats
 
-			err = json.NewDecoder(strings.NewReader(resp)).Decode(&claimstats)
+			err = json.NewDecoder(strings.NewReader(resp)).Decode(&claimstatsA)
 			So(err, ShouldBeNil)
 
 			rules := slices.Collect(testDB.ReadRules().Iter)
 
-			So(claimstats, ShouldResemble, map[string]map[string][]RuleStats{
-				"userA": {
-					"/lustre/scratch123/humgen/a/b/": {
+			So(claimstatsA, ShouldResemble, []DirStats{
+				{
+					Path: "/lustre/scratch123/humgen/a/b/",
+					BackupStatus: ibackup.SetBackupActivity{
+						Name:      "plan::/lustre/scratch123/humgen/a/b/",
+						Requester: userA,
+					},
+					RuleStats: []RuleStats{
 						{
 							Rule: nil,
 							SizeCount: SizeCount{
@@ -96,8 +104,27 @@ func TestClaimStats(t *testing.T) {
 						},
 					},
 				},
-				"userB": {
-					"/lustre/scratch123/humgen/a/c/": {
+			})
+
+			u = "userB"
+			code, resp = getResponse(s.ClaimStats, "/api/claimstats", nil)
+			So(code, ShouldEqual, http.StatusOK)
+
+			var claimstatsB []DirStats
+
+			err = json.NewDecoder(strings.NewReader(resp)).Decode(&claimstatsB)
+			So(err, ShouldBeNil)
+
+			rules = slices.Collect(testDB.ReadRules().Iter)
+
+			So(claimstatsB, ShouldResemble, []DirStats{
+				{
+					Path: "/lustre/scratch123/humgen/a/c/",
+					BackupStatus: ibackup.SetBackupActivity{
+						Name:      "plan::/lustre/scratch123/humgen/a/c/",
+						Requester: userB,
+					},
+					RuleStats: []RuleStats{
 						{
 							Rule: copyRule(rules[2]),
 							SizeCount: SizeCount{
