@@ -12,7 +12,10 @@ import (
 	"github.com/wtsi-hgi/wrstat-ui/summary/group"
 )
 
-const processRules int64 = math.MinInt64
+const (
+	processRules          int64 = math.MinInt64
+	maxWildcardsForSimple       = 2
+)
 
 var noMatchingRules = new(int64) //nolint:gochecknoglobals
 
@@ -423,7 +426,7 @@ func (r *RuleTree) buildChildRules(path string, rules []Rules) ([]Rules, bool) {
 
 func (r *RuleTree) hasComplexRules() bool {
 	for match := range r.Rules {
-		if strings.Count(match, "*") > 2 {
+		if strings.Count(match, "*") > maxWildcardsForSimple {
 			return true
 		}
 	}
