@@ -27,7 +27,7 @@ type State struct {
 // BuildMultiStateMachine take a slice of rulesets and builds a statemachine for
 // each.
 //
-// State returns handles like group.State, but iterates over each individual
+// Returned State handles like group.State, but iterates over each individual
 // StateMachine, removing those that no longer apply.
 //
 // The slice should be ordered by precedence, with the highest first.
