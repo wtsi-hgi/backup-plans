@@ -31,7 +31,7 @@ func Backup(planDB *db.DB, treeNode tree.Node, client *ibackup.MultiClient) ([]S
 		return nil, err
 	}
 
-	dirs, rules, err := readDirRules(planDB, mountpoint)
+	dirs, dirRules, err := readDirRules(planDB, mountpoint)
 	if err != nil {
 		return nil, err
 	}
@@ -45,17 +45,19 @@ func Backup(planDB *db.DB, treeNode tree.Node, client *ibackup.MultiClient) ([]S
 	root.Canon()
 	root.MarkBackupDirs()
 
-	groups := collectRuleGroups(root, "/", nil)
+	rules := root.BuildRules()
 
-	sm, err := group.NewStatemachine(groups)
+	rules[0] = collectRuleGroups(root, "/", rules[0])
+
+	sm, err := ruletree.BuildMultiStateMachine(rules)
 	if err != nil {
 		return nil, err
 	}
 
 	setFofns := make(map[*db.Directory][]string)
 
-	figureOutFOFNs(treeNode, sm.GetStateString(""), nil, func(path *summary.DirectoryPath, ruleID int64) {
-		rule := rules[ruleID]
+	figureOutFOFNs(treeNode, sm, nil, func(path *summary.DirectoryPath, ruleID int64) {
+		rule := dirRules[ruleID]
 
 		if rule.RuleIDs[ruleID].BackupType == db.BackupIBackup {
 			setFofns[rule.Directory] = append(setFofns[rule.Directory], string(path.AppendTo(nil)))
@@ -142,15 +144,6 @@ func collectRuleGroups(root *ruletree.RuleTree, path string, rules ruletree.Rule
 		})
 	}
 
-	for _, rule := range root.Rules {
-		id := rule.ID()
-
-		rules = append(rules, group.PathGroup[int64]{
-			Path:  []byte(path + rule.Match),
-			Group: &id,
-		})
-	}
-
 	for name, rt := range root.Iter() {
 		rules = collectRuleGroups(rt, path+name, rules)
 	}
@@ -158,7 +151,7 @@ func collectRuleGroups(root *ruletree.RuleTree, path string, rules ruletree.Rule
 	return rules
 }
 
-func figureOutFOFNs(node tree.Node, sm group.State[int64], path *summary.DirectoryPath,
+func figureOutFOFNs(node tree.Node, sm ruletree.State, path *summary.DirectoryPath,
 	cb func(*summary.DirectoryPath, int64)) {
 	for name, child := range node.Children() {
 		state := sm.GetStateString(name)

@@ -29,15 +29,19 @@ func BuildMultiStateMachine(rules []Rules) (State, error) {
 			return State{}, err
 		}
 
-		(*struct {
-			_     [256]int32
-			Group *int64
-		})(unsafe.Pointer(&sm[0])).Group = noMatchingRules
+		setDefaultGroup(sm)
 
 		groups[n] = sm.GetState(nil)
 	}
 
 	return State{groups}, nil
+}
+
+func setDefaultGroup(sm group.StateMachine[int64]) {
+	(*struct {
+		_     [256]int32
+		Group *int64
+	})(unsafe.Pointer(&sm[0])).Group = noMatchingRules
 }
 
 func (s State) GetStateString(match string) State {
@@ -373,6 +377,73 @@ func (r *RuleTree) Iter() iter.Seq2[string, *RuleTree] {
 	return maps.All(r.children)
 }
 
+func (r *RuleTree) BuildRules() []Rules {
+	rules, _ := r.buildRules("/", []Rules{nil}, 0)
+
+	return rules
+}
+
+func (r *RuleTree) buildRules(path string, rules []Rules, wildcard int64) ([]Rules, bool) { //nolint:gocyclo,cyclop,funlen
+	var hasVeryComplex bool
+
+	for part, child := range r.children {
+		var childHasVeryComplex bool
+
+		rules, childHasVeryComplex = child.buildRules(path+part, rules, wildcard)
+		if childHasVeryComplex {
+			hasVeryComplex = true
+		}
+	}
+
+	if !hasVeryComplex {
+		for match := range r.Rules {
+			if strings.Count(match, "*") > 1 {
+				hasVeryComplex = true
+
+				break
+			}
+		}
+	}
+
+	for match, rule := range orderRulesByPrecedence(r.Rules) {
+		if hasVeryComplex {
+			rules = append(rules, addRuleToList(nil, path+match, rule.ID()))
+		} else {
+			rules[0] = addRuleToList(rules[0], path+match, rule.ID())
+		}
+	}
+
+	return rules, hasVeryComplex
+}
+
+func (r *RuleTree) addRuleStates(path string, rules Rules, wildcard int64) Rules {
+	if wc, ok := r.Rules["*"]; ok {
+		wildcard = wc.ID()
+	}
+
+	for part, child := range r.children {
+		rules = child.addRuleStates(path+part, rules, wildcard)
+	}
+
+	switch rs := getRuleState(r.Rules); rs {
+	case noRules:
+		rules = addNoRuleRules(rules, path, r.Dir, wildcard)
+	case SimpleWildcard:
+		rules = addSimpleWildcardRules(rules, path, r.Dir, wildcard)
+	case SimplePaths:
+		rules = addRuleToList(rules, path, processRules)
+	case SimpleWildcard | SimplePaths:
+		rules = addSimpleRules(rules, path, r.Dir, wildcard)
+	case ComplexWildcardWithPrefix, ComplexWildcardWithSuffix,
+		ComplexWildcardWithPrefix | SimplePaths, ComplexWildcardWithSuffix | SimplePaths:
+		rules = addComplexRules(rules, path, r.Dir, rs, wildcard, r.Rules)
+	default:
+		rules = addComplexWithWildcardRules(rules, path, r.Dir, rs, wildcard, r.Rules)
+	}
+
+	return rules
+}
+
 var basicWildcard = map[string]*db.Rule{"*": {Match: "*"}} //nolint:gochecknoglobals
 
 func buildDirRules(mount string, paths []string,
@@ -395,62 +466,10 @@ func buildDirRules(mount string, paths []string,
 
 	root.Canon()
 
-	rules, _ := buildRules(root, "/", []Rules{nil}, 0)
+	rules := root.BuildRules()
+	rules[0] = root.addRuleStates("/", rules[0], 0)
 
 	return rules, buildWildcards(root, "/", nil)
-}
-
-func buildRules(d *RuleTree, path string, rules []Rules, wildcard int64) ([]Rules, bool) { //nolint:gocyclo,cyclop,funlen
-	var hasVeryComplex bool
-
-	if wc, ok := d.Rules["*"]; ok {
-		wildcard = wc.ID()
-	}
-
-	for part, child := range d.children {
-		var childHasVeryComplex bool
-
-		rules, childHasVeryComplex = buildRules(child, path+part, rules, wildcard)
-		if childHasVeryComplex {
-			hasVeryComplex = true
-		}
-	}
-
-	if !hasVeryComplex {
-		for match := range d.Rules {
-			if strings.Count(match, "*") > 1 {
-				hasVeryComplex = true
-
-				break
-			}
-		}
-	}
-
-	switch rs := getRuleState(d.Rules); rs {
-	case noRules:
-		rules[0] = addNoRuleRules(rules[0], path, d.Dir, wildcard)
-	case SimpleWildcard:
-		rules[0] = addSimpleWildcardRules(rules[0], path, d.Dir, wildcard)
-	case SimplePaths:
-		rules[0] = addRuleToList(rules[0], path, processRules)
-	case SimpleWildcard | SimplePaths:
-		rules[0] = addSimpleRules(rules[0], path, d.Dir, wildcard)
-	case ComplexWildcardWithPrefix, ComplexWildcardWithSuffix,
-		ComplexWildcardWithPrefix | SimplePaths, ComplexWildcardWithSuffix | SimplePaths:
-		rules[0] = addComplexRules(rules[0], path, d.Dir, rs, wildcard, d.Rules)
-	default:
-		rules[0] = addComplexWithWildcardRules(rules[0], path, d.Dir, rs, wildcard, d.Rules)
-	}
-
-	for match, rule := range orderRulesByPrecedence(d.Rules) {
-		if hasVeryComplex {
-			rules = append(rules, addRuleToList(nil, path+match, rule.ID()))
-		} else {
-			rules[0] = addRuleToList(rules[0], path+match, rule.ID())
-		}
-	}
-
-	return rules, hasVeryComplex
 }
 
 func orderRulesByPrecedence(rules map[string]*db.Rule) iter.Seq2[string, *db.Rule] {
