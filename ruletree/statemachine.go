@@ -394,28 +394,37 @@ func (r *RuleTree) Iter() iter.Seq2[string, *RuleTree] {
 }
 
 func (r *RuleTree) BuildRules() []Rules {
-	rules, _ := r.buildRules("/", []Rules{nil})
+	rules, _ := r.buildRules("/", []Rules{nil}, 1)
+	prules := []Rules{rules[0]}
 
-	return rules
+	for _, ruleList := range slices.Backward(rules[1:]) {
+		if len(ruleList) == 0 {
+			continue
+		}
+
+		prules = append(prules, ruleList)
+	}
+
+	return prules
 }
 
-func (r *RuleTree) buildRules(path string, rules []Rules) ([]Rules, bool) {
+func (r *RuleTree) buildRules(path string, rules []Rules, depth int) ([]Rules, bool) {
 	var childHasVeryComplex bool
 
-	rules, childHasVeryComplex = r.buildChildRules(path, rules)
-	hasVeryComplex := r.hasComplexRules()
-	rules = r.processRules(path, rules, hasVeryComplex, childHasVeryComplex)
+	rules, childHasVeryComplex = r.buildChildRules(path, rules, depth+1)
+	hasVeryComplex := childHasVeryComplex || r.hasComplexRules()
+	rules = r.processRules(path, rules, hasVeryComplex, depth)
 
-	return rules, hasVeryComplex || childHasVeryComplex
+	return rules, hasVeryComplex
 }
 
-func (r *RuleTree) buildChildRules(path string, rules []Rules) ([]Rules, bool) {
+func (r *RuleTree) buildChildRules(path string, rules []Rules, depth int) ([]Rules, bool) {
 	var childHasVeryComplex bool
 
 	for part, child := range r.children {
 		var complexChild bool
 
-		rules, complexChild = child.buildRules(path+part, rules)
+		rules, complexChild = child.buildRules(path+part, rules, depth)
 		if complexChild {
 			childHasVeryComplex = true
 		}
@@ -434,20 +443,19 @@ func (r *RuleTree) hasComplexRules() bool {
 	return false
 }
 
-func (r *RuleTree) processRules(path string, rules []Rules, hasVeryComplex, childHasVeryComplex bool) []Rules {
+func (r *RuleTree) processRules(path string, rules []Rules, hasVeryComplex bool, depth int) []Rules {
 	var idx int
 
-	if childHasVeryComplex && !hasVeryComplex {
-		idx = len(rules)
-		rules = append(rules, nil)
+	if hasVeryComplex {
+		idx = depth
+
+		if len(rules) <= idx {
+			rules = slices.Grow(rules, idx-len(rules)+1)[:idx+1]
+		}
 	}
 
-	for match, rule := range orderRulesByPrecedence(r.Rules) {
-		if hasVeryComplex {
-			rules = append(rules, addRuleToList(nil, path+match, rule.ID()))
-		} else {
-			rules[idx] = addRuleToList(rules[idx], path+match, rule.ID())
-		}
+	for match, rule := range r.Rules {
+		rules[idx] = addRuleToList(rules[idx], path+match, rule.ID())
 	}
 
 	return rules
@@ -507,49 +515,6 @@ func buildDirRules(mount string, paths []string,
 	rules[0] = root.addRuleStates("/", rules[0], 0)
 
 	return rules, buildWildcards(root, "/", nil)
-}
-
-func orderRulesByPrecedence(rules map[string]*db.Rule) iter.Seq2[string, *db.Rule] {
-	return func(yield func(string, *db.Rule) bool) {
-		keys := slices.Collect(maps.Keys(rules))
-
-		slices.SortFunc(keys, matchPrecedence)
-
-		for _, key := range keys {
-			if !yield(key, rules[key]) {
-				return
-			}
-		}
-	}
-}
-
-func matchPrecedence(a, b string) int { //nolint:gocognit,gocyclo
-	if len(a) == 0 { //nolint:nestif
-		if len(b) == 0 {
-			return 0
-		}
-
-		return 1
-	} else if len(b) == 0 {
-		return -1
-	}
-
-	aPos := strings.IndexByte(a, '*')
-	bPos := strings.IndexByte(b, '*')
-
-	if aPos == -1 { //nolint:gocritic,nestif
-		if bPos == -1 {
-			return len(b) - len(a)
-		}
-
-		return -1
-	} else if bPos == -1 {
-		return 1
-	} else if a[:aPos] == b[:bPos] {
-		return matchPrecedence(a[aPos+1:], b[bPos+1:])
-	}
-
-	return bPos - aPos
 }
 
 func getRuleState(rules map[string]*db.Rule) ruleState { //nolint:gocognit
