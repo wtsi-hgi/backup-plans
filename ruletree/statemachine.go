@@ -423,7 +423,7 @@ func (r *RuleTree) buildChildRules(path string, rules []Rules) ([]Rules, bool) {
 
 func (r *RuleTree) hasComplexRules() bool {
 	for match := range r.Rules {
-		if strings.Count(match, "*") > 1 {
+		if strings.Count(match, "*") > 2 {
 			return true
 		}
 	}
@@ -432,10 +432,6 @@ func (r *RuleTree) hasComplexRules() bool {
 }
 
 func (r *RuleTree) processRules(path string, rules []Rules, hasVeryComplex, childHasVeryComplex bool) []Rules {
-	if len(r.Rules) == 0 {
-		return rules
-	}
-
 	var idx int
 
 	if childHasVeryComplex && !hasVeryComplex {
