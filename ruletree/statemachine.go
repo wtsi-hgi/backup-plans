@@ -14,12 +14,20 @@ import (
 
 const processRules int64 = math.MinInt64
 
-var noMatchingRules = new(int64)
+var noMatchingRules = new(int64) //nolint:gochecknoglobals
 
+// State represents a partial match that can be continued or completed.
 type State struct {
 	groups []group.State[int64]
 }
 
+// BuildMultiStateMachine take a slice of rulesets and builds a statemachine for
+// each.
+//
+// State returns handles like group.State, but iterates over each individual
+// StateMachine, removing those that no longer apply.
+//
+// The slice should be ordered by precedence, with the highest first.
 func BuildMultiStateMachine(rules []Rules) (State, error) {
 	groups := make([]group.State[int64], len(rules))
 
@@ -44,6 +52,8 @@ func setDefaultGroup(sm group.StateMachine[int64]) {
 	})(unsafe.Pointer(&sm[0])).Group = noMatchingRules
 }
 
+// GetState continues matching with the given match string, returning a new
+// State.
 func (s State) GetStateString(match string) State {
 	gs := make([]group.State[int64], 0, len(s.groups))
 
@@ -56,6 +66,9 @@ func (s State) GetStateString(match string) State {
 	return State{groups: gs}
 }
 
+// GetGroup returns the group at the current state.
+//
+// When multiple statemachines exist, the first valid group is returned.
 func (s State) GetGroup() *int64 {
 	for _, g := range s.groups {
 		if r := g.GetGroup(); r != noMatchingRules && r != nil {
@@ -378,18 +391,18 @@ func (r *RuleTree) Iter() iter.Seq2[string, *RuleTree] {
 }
 
 func (r *RuleTree) BuildRules() []Rules {
-	rules, _ := r.buildRules("/", []Rules{nil}, 0)
+	rules, _ := r.buildRules("/", []Rules{nil})
 
 	return rules
 }
 
-func (r *RuleTree) buildRules(path string, rules []Rules, wildcard int64) ([]Rules, bool) { //nolint:gocyclo,cyclop,funlen
+func (r *RuleTree) buildRules(path string, rules []Rules) ([]Rules, bool) { //nolint:gocyclo,gocognit
 	var hasVeryComplex bool
 
 	for part, child := range r.children {
 		var childHasVeryComplex bool
 
-		rules, childHasVeryComplex = child.buildRules(path+part, rules, wildcard)
+		rules, childHasVeryComplex = child.buildRules(path+part, rules)
 		if childHasVeryComplex {
 			hasVeryComplex = true
 		}
@@ -416,7 +429,7 @@ func (r *RuleTree) buildRules(path string, rules []Rules, wildcard int64) ([]Rul
 	return rules, hasVeryComplex
 }
 
-func (r *RuleTree) addRuleStates(path string, rules Rules, wildcard int64) Rules {
+func (r *RuleTree) addRuleStates(path string, rules Rules, wildcard int64) Rules { //nolint:gocyclo
 	if wc, ok := r.Rules["*"]; ok {
 		wildcard = wc.ID()
 	}
@@ -486,8 +499,8 @@ func orderRulesByPrecedence(rules map[string]*db.Rule) iter.Seq2[string, *db.Rul
 	}
 }
 
-func matchPrecedence(a, b string) int {
-	if len(a) == 0 {
+func matchPrecedence(a, b string) int { //nolint:gocognit,gocyclo
+	if len(a) == 0 { //nolint:nestif
 		if len(b) == 0 {
 			return 0
 		}
@@ -500,7 +513,7 @@ func matchPrecedence(a, b string) int {
 	aPos := strings.IndexByte(a, '*')
 	bPos := strings.IndexByte(b, '*')
 
-	if aPos == -1 {
+	if aPos == -1 { //nolint:gocritic,nestif
 		if bPos == -1 {
 			return len(b) - len(a)
 		}
