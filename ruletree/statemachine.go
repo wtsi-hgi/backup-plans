@@ -396,37 +396,62 @@ func (r *RuleTree) BuildRules() []Rules {
 	return rules
 }
 
-func (r *RuleTree) buildRules(path string, rules []Rules) ([]Rules, bool) { //nolint:gocyclo,gocognit
-	var hasVeryComplex bool
+func (r *RuleTree) buildRules(path string, rules []Rules) ([]Rules, bool) {
+	var childHasVeryComplex bool
+
+	rules, childHasVeryComplex = r.buildChildRules(path, rules)
+	hasVeryComplex := r.hasComplexRules()
+	rules = r.processRules(path, rules, hasVeryComplex, childHasVeryComplex)
+
+	return rules, hasVeryComplex || childHasVeryComplex
+}
+
+func (r *RuleTree) buildChildRules(path string, rules []Rules) ([]Rules, bool) {
+	var childHasVeryComplex bool
 
 	for part, child := range r.children {
-		var childHasVeryComplex bool
+		var complexChild bool
 
-		rules, childHasVeryComplex = child.buildRules(path+part, rules)
-		if childHasVeryComplex {
-			hasVeryComplex = true
+		rules, complexChild = child.buildRules(path+part, rules)
+		if complexChild {
+			childHasVeryComplex = true
 		}
 	}
 
-	if !hasVeryComplex {
-		for match := range r.Rules {
-			if strings.Count(match, "*") > 1 {
-				hasVeryComplex = true
+	return rules, childHasVeryComplex
+}
 
-				break
-			}
+func (r *RuleTree) hasComplexRules() bool {
+	for match := range r.Rules {
+		if strings.Count(match, "*") > 1 {
+			return true
 		}
+	}
+
+	return false
+}
+
+func (r *RuleTree) processRules(path string, rules []Rules, hasVeryComplex, childHasVeryComplex bool) []Rules {
+	if len(r.Rules) == 0 {
+		return rules
+	}
+
+	var idx int
+
+	if childHasVeryComplex && !hasVeryComplex {
+		idx = len(rules)
+		rules = append(rules, nil)
 	}
 
 	for match, rule := range orderRulesByPrecedence(r.Rules) {
 		if hasVeryComplex {
 			rules = append(rules, addRuleToList(nil, path+match, rule.ID()))
 		} else {
-			rules[0] = addRuleToList(rules[0], path+match, rule.ID())
+			rules[idx] = addRuleToList(rules[idx], path+match, rule.ID())
 		}
 	}
 
-	return rules, hasVeryComplex
+	return rules
 }
 
 func (r *RuleTree) addRuleStates(path string, rules Rules, wildcard int64) Rules { //nolint:gocyclo
