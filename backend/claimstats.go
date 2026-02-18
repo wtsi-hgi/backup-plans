@@ -51,6 +51,9 @@ func (s *Server) ClaimStats(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) claimstats(w http.ResponseWriter, r *http.Request) error {
+	s.rulesMu.RLock()
+	defer s.rulesMu.RUnlock()
+
 	user := s.getUser(r)
 
 	claimstats := []DirStats{}
