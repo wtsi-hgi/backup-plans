@@ -6,6 +6,7 @@ import { confirm, formatBytes } from "./lib/utils.js";
 import { claimDir, passDirClaim, revokeDirClaim, user } from "./rpc.js";
 import { BackupType } from './consts.js';
 import { load, registerLoader } from "./load.js";
+import { initialiseClaimStats } from "./claimstats.js";
 
 const claimedByCell = td(),
 	totalCount = td(),
@@ -50,6 +51,7 @@ registerLoader((path: string, data: DirectoryWithChildren) => {
 									.then(() => {
 										load(path);
 										overlay.remove();
+										initialiseClaimStats();
 									})
 									.catch((e: Error) => {
 										overlay.setAttribute("closedby", "any");
@@ -76,12 +78,12 @@ registerLoader((path: string, data: DirectoryWithChildren) => {
 			]))
 			: button({
 				"class": "actionButton",
-				"click": () => confirm("Are you sure you wish to remove your claim on this directory?", () => revokeDirClaim(path).then(() => load(path)))
+				"click": () => confirm("Are you sure you wish to remove your claim on this directory?", () => revokeDirClaim(path).then(() => { load(path); initialiseClaimStats() }))
 			}, svg([
 				title("Revoke Claim"),
 				use({ "href": "#remove" })
 			])) : []]
-		: data.canClaim ? button({ "click": () => claimDir(path).then(() => load(path)) }, "Claim") : []);
+		: data.canClaim ? button({ "click": () => claimDir(path).then(() => { load(path); initialiseClaimStats() }) }, "Claim") : []);
 
 	const manualActions: SizeCountTime = { count: 0n, size: 0n, mtime: 0 };
 

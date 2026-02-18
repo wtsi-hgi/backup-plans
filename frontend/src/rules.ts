@@ -6,6 +6,7 @@ import { action, confirm, formatBytes, secondsInDay, setAndReturn } from "./lib/
 import { createRule, getTree, removeRule, setDirDetails, updateRule, uploadFOFN, setExists, user, getDirectories } from "./rpc.js";
 import { BackupType, helpText } from "./consts.js"
 import { load, registerLoader } from "./load.js";
+import { initialiseClaimStats } from "./claimstats.js";
 
 const createStuff = (backupType: BackupType, md: string, setText: string, closeFn: () => void) => {
 	const metadata = input({ "id": "metadata", "type": "text", "value": md }),
@@ -81,6 +82,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 								.then(() => {
 									load(path);
 									overlay.remove();
+									initialiseClaimStats();
 								});
 						})
 						.catch((e: Error) => {
@@ -289,7 +291,7 @@ registerLoader((path: string, data: DirectoryWithChildren) => {
 					])),
 					button({
 						"class": "actionButton",
-						"click": () => confirm("Are you sure you wish to remove this rule?", () => removeRule(path, rule.Match).then(() => load(path)))
+						"click": () => confirm("Are you sure you wish to remove this rule?", () => removeRule(path, rule.Match).then(() => { load(path); initialiseClaimStats(); }))
 					}, svg([
 						title("Remove Rule"),
 						use({ "href": "#remove" })

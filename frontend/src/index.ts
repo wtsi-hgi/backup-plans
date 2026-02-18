@@ -36,7 +36,7 @@ import { user } from './rpc.js';
 				RuleTree
 			]),
 			tab({ "name": "tabs", "summary": "Top Level Report" }, Report),
+			tab({ "name": "tabs", "summary": "Claimed Directories" }, ClaimStats),
 			tab({ "name": "tabs", "summary": "Graphical Report" }, Graph),
-			tab({ "name": "tabs", "summary": "Claim Stats" }, ClaimStats),
 		])
 	));

@@ -4,8 +4,6 @@
     border: 1px solid var(--colour);
     border-radius: 10px;
     position: relative;
-    background: linear-gradient(180deg, #ffaa00 0%, rgba(255, 255, 255, 0) 50%);
-
 }
 
 .userclaims legend:before {
@@ -23,13 +21,6 @@
     position: relative;
 }
 
-/* fieldset.userclaims {
-    border: 2px solid var(--graph-border);
-    border-radius: 10px;
-    width: 50vw;
-    align-items: center;
-} */
-
 .claimstats-container {
     display: flex;
     justify-content: center;
@@ -45,14 +36,19 @@
     width: 100%;
 }
 
-/* .path-row {
-    text-align: center;
+.claiminfo {
+    padding: 0 1em;
 }
 
-.userclaims tbody td.collapsible {
-    display: none;
+.claiminfo p {
+    margin: 0.5em;
 }
 
-.hidden {
-    display: none;
-} */
+.claimstats-legend {
+    display: flex;
+    flex-direction: row;
+}
+
+.claimstats-legend svg {
+    position: relative;
+}

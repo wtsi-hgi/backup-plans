@@ -65,7 +65,7 @@ func (s *Server) claimstats(w http.ResponseWriter, r *http.Request) error {
 			return err
 		}
 
-		sba, err := s.config.GetIBackupClient().GetBackupActivity(dir.Path, "plan::"+dir.Path, user)
+		sba, err := s.config.GetIBackupClient().GetBackupActivity(dir.Path, "plan::"+dir.Path, user, false)
 		if err != nil {
 			sba = &ibackup.SetBackupActivity{LastSuccess: time.Time{}, Name: "plan::" + dir.Path, Requester: user, Failures: 0}
 		}

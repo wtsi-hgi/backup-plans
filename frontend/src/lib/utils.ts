@@ -39,6 +39,10 @@ export const formatBytes = (size: bigint) => {
 
 		return weeks + " weeks";
 	},
+	longAgoStr = (time: string) => {
+		const seconds = Math.floor(new Date(time).getTime() / 1000);
+		return longAgo(seconds);
+	},
 	confirm = (msg: Children, doAction: () => Promise<void>) => {
 		const remove = button({
 			"click": () => {
