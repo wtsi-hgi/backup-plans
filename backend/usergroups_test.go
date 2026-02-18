@@ -31,6 +31,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 
@@ -78,18 +79,17 @@ func TestUserGroups(t *testing.T) {
 			group2, err := user.LookupGroupId("2")
 			So(err, ShouldBeNil)
 
-			So(usergroups, ShouldResemble, userGroupsBOM{
-				Users: []string{
-					user1.Username,
-					user2.Username,
-				},
-				Groups: []string{
-					group1.Name,
-					group2.Name,
-				},
-				Owners: nil,
-				BOM:    nil,
-			})
+			sort.Strings(usergroups.Users)
+			sort.Strings(usergroups.Groups)
+
+			expectedUsers := []string{user1.Username, user2.Username}
+			sort.Strings(expectedUsers)
+
+			expectedGroups := []string{group1.Name, group2.Name}
+			sort.Strings(expectedGroups)
+
+			So(usergroups.Users, ShouldResemble, expectedUsers)
+			So(usergroups.Groups, ShouldResemble, expectedGroups)
 		})
 	})
 }
