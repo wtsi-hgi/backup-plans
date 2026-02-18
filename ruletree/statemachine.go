@@ -1,6 +1,7 @@
 package ruletree
 
 import (
+	"bytes"
 	"iter"
 	"maps"
 	"math"
@@ -393,19 +394,40 @@ func (r *RuleTree) Iter() iter.Seq2[string, *RuleTree] {
 	return maps.All(r.children)
 }
 
+var star = []byte{'*'} //nolint:gochecknoglobals
+
 func (r *RuleTree) BuildRules() []Rules {
+	const maxScore = 1 << 24
+
 	rules, _ := r.buildRules("/", []Rules{nil}, 1)
 	prules := []Rules{rules[0]}
+	score := maxScore + 1
 
 	for _, ruleList := range slices.Backward(rules[1:]) {
-		if len(ruleList) == 0 {
-			continue
-		}
+		for _, rule := range ruleList {
+			starScore := factorial(bytes.Count(rule.Path, star))
+			if nScore := score * starScore; nScore > maxScore {
+				prules = append(prules, nil)
+				score = starScore
+			} else {
+				score = nScore
+			}
 
-		prules = append(prules, ruleList)
+			prules[len(prules)-1] = append(prules[len(prules)-1], rule)
+		}
 	}
 
 	return prules
+}
+
+func factorial(n int) int {
+	r := 1
+
+	for i := range n {
+		r *= (i + 1)
+	}
+
+	return r
 }
 
 func (r *RuleTree) buildRules(path string, rules []Rules, depth int) ([]Rules, bool) {
@@ -454,11 +476,54 @@ func (r *RuleTree) processRules(path string, rules []Rules, hasVeryComplex bool,
 		}
 	}
 
-	for match, rule := range r.Rules {
+	for match, rule := range orderRulesByPrecedence(r.Rules) {
 		rules[idx] = addRuleToList(rules[idx], path+match, rule.ID())
 	}
 
 	return rules
+}
+
+func orderRulesByPrecedence(rules map[string]*db.Rule) iter.Seq2[string, *db.Rule] {
+	return func(yield func(string, *db.Rule) bool) {
+		keys := slices.Collect(maps.Keys(rules))
+
+		slices.SortFunc(keys, matchPrecedence)
+
+		for _, key := range keys {
+			if !yield(key, rules[key]) {
+				return
+			}
+		}
+	}
+}
+
+func matchPrecedence(a, b string) int { //nolint:gocognit,gocyclo
+	if len(a) == 0 { //nolint:nestif
+		if len(b) == 0 {
+			return 0
+		}
+
+		return 1
+	} else if len(b) == 0 {
+		return -1
+	}
+
+	aPos := strings.IndexByte(a, '*')
+	bPos := strings.IndexByte(b, '*')
+
+	if aPos == -1 { //nolint:gocritic,nestif
+		if bPos == -1 {
+			return len(b) - len(a)
+		}
+
+		return -1
+	} else if bPos == -1 {
+		return 1
+	} else if a[:aPos] == b[:bPos] {
+		return matchPrecedence(a[aPos+1:], b[bPos+1:])
+	}
+
+	return bPos - aPos
 }
 
 func (r *RuleTree) addRuleStates(path string, rules Rules, wildcard int64) Rules { //nolint:gocyclo
