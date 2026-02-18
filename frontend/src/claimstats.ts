@@ -9,7 +9,6 @@ import { load } from './load.js';
 const base = div();
 
 export function initialiseClaimStats() {
-    console.log("Initialising claim stats page");
     getClaimStats().then(claimStats => {
         base.replaceChildren(createClaimStatsPage(claimStats));
     });
@@ -41,7 +40,7 @@ function createClaimStatsPage(claimStats: DirStats[]) {
                             ])),
                             tbody({}, [
                                 dirStats.RuleStats.length > 0 ? dirStats.RuleStats.map((rule) => [
-                                    tr({ "class": "rule-row" }, [
+                                    tr([
                                         td(rule.Match),
                                         td(rule.BackupType != null ? BackupType.from(rule.BackupType).optionLabel() : "Unplanned"),
                                         td(formatBytes(BigInt(rule.size))),
