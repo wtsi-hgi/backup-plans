@@ -29,6 +29,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"os"
+	"os/user"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -68,14 +69,23 @@ func TestUserGroups(t *testing.T) {
 			err = json.NewDecoder(strings.NewReader(resp)).Decode(&usergroups)
 			So(err, ShouldBeNil)
 
+			user1, err := user.LookupId("1")
+			So(err, ShouldBeNil)
+			user2, err := user.LookupId("2")
+			So(err, ShouldBeNil)
+			group1, err := user.LookupGroupId("1")
+			So(err, ShouldBeNil)
+			group2, err := user.LookupGroupId("2")
+			So(err, ShouldBeNil)
+
 			So(usergroups, ShouldResemble, userGroupsBOM{
 				Users: []string{
-					"daemon",
-					"bin",
+					user1.Username,
+					user2.Username,
 				},
 				Groups: []string{
-					"daemon",
-					"bin",
+					group1.Name,
+					group2.Name,
 				},
 				Owners: nil,
 				BOM:    nil,
