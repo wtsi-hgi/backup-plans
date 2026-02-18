@@ -1,5 +1,5 @@
 import { BackupType, MainProgrammes } from "./consts.js";
-import { div, p, h2, canvas, br, span, input, label, fieldset, legend, main } from "./lib/html.js";
+import { div, p, h2, canvas, br, span, input, label, fieldset, legend } from "./lib/html.js";
 import { formatBytes } from "./lib/utils.js";
 import type { SizeCount, BarChartRow } from "./types.js";
 import "./chartjs/chart.umd.min.js";

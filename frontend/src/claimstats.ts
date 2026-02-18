@@ -15,7 +15,7 @@ export function initialiseClaimStats() {
 }
 
 function createClaimStatsPage(claimStats: DirStats[]) {
-    return div({}, [
+    return div([
         div({ "class": "claimstats-container" }, [
             claimStats.length == 0 ? div(h2("You have not claimed any directories.")) :
                 claimStats.map((dirStats) => fieldset({ "class": "userclaims" }, [
@@ -26,19 +26,19 @@ function createClaimStatsPage(claimStats: DirStats[]) {
                             document.getElementsByTagName("summary")[0].click();
                         })
                     }, svg([title("Go to"), use({ href: "#goto" })]))]),
-                    div({}, [
+                    div([
                         div({ "class": "claiminfo" }, [
                             p("Last successful backup: " + (dirStats.BackupStatus.LastSuccess === "" ? "Pending" : longAgoStr(dirStats.BackupStatus.LastSuccess))),
                             p("Failures: " + dirStats.BackupStatus.Failures),
                         ]),
                         table({ "class": "summary" }, [
-                            thead(tr({}, [
+                            thead(tr([
                                 th("Match"),
                                 th("Backup Type"),
                                 th("Size"),
                                 th("Count"),
                             ])),
-                            tbody({}, [
+                            tbody([
                                 dirStats.RuleStats.length > 0 ? dirStats.RuleStats.map((rule) => [
                                     tr([
                                         td(rule.Match),

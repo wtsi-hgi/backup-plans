@@ -1,7 +1,7 @@
 import type { DirectoryWithChildren } from './types.js';
 import { debouncer } from './lib/utils.js';
 import Load from './data.js';
-import { handleState, selectState, setState, tab } from "./state.js";
+import { handleState, setState } from "./state.js";
 
 export type LoadHandler = (path: string, data: DirectoryWithChildren) => void;
 
