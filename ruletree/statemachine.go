@@ -396,6 +396,14 @@ func (r *RuleTree) Iter() iter.Seq2[string, *RuleTree] {
 
 var star = []byte{'*'} //nolint:gochecknoglobals
 
+// BuildRules generates a slice of Rule sets from the current RuleTree.
+//
+// The sets are split based on a scoring mechanism that intends to stop the
+// StateMachine sizes becoming unwieldy, but while not significantly increasing
+// the runtime of the rule engine.
+//
+// The returned slice of Rules should be given to BuildMultiStateMachine to
+// build the combined statemachine.
 func (r *RuleTree) BuildRules() []Rules {
 	const maxScore = 1 << 24
 
