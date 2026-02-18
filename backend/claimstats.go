@@ -50,12 +50,11 @@ func (s *Server) ClaimStats(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.claimstats)
 }
 
-func (s *Server) claimstats(w http.ResponseWriter, r *http.Request) error {
+func (s *Server) claimstats(w http.ResponseWriter, r *http.Request) error { //nolint:funlen
 	s.rulesMu.RLock()
 	defer s.rulesMu.RUnlock()
 
 	user := s.getUser(r)
-
 	claimstats := []DirStats{}
 
 	for _, dir := range s.directoryRules {
