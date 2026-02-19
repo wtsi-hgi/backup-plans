@@ -28,7 +28,7 @@ v1.16.0 to gain access to the `fofn` package.
 
 | File | Responsibility | Stories |
 |---|---|---|
-| `ibackup/fofndir.go` | Write fofn subdirectories (FOFN file + config.yml), filesystem-safe naming, frequency gating | A1, A2, A3, A4 |
+| `ibackup/fofndir.go` | Streaming write of fofn subdirectories (FOFN file + config.yml), filesystem-safe naming, frequency gating | A1, A2, A3, A4 |
 | `ibackup/fofndir_test.go` | Tests for fofndir.go | A1, A2, A3, A4 |
 | `ibackup/fofnstatus.go` | Parse status files, map to SetBackupActivity, cache | B1, B2 |
 | `ibackup/fofnstatus_test.go` | Tests for fofnstatus.go | B1, B2 |
@@ -125,6 +125,10 @@ func SafeName(setName string) string
 // (false, nil) is returned. On successful write, (true, nil)
 // is returned.
 //
+// The files iterator yields absolute file paths. Write streams
+// them directly to the FOFN file without accumulating them in
+// memory, so arbitrarily large file lists are supported.
+//
 // frequency is in days. If frequency is 0, the set is frozen
 // and freeze will be set to true in config.yml. The fofn is
 // written on initial creation but skipped if it already exists.
@@ -135,7 +139,7 @@ func SafeName(setName string) string
 func (f *FofnDirWriter) Write(
     setName string,
     transformer string,
-    files []string,
+    files iter.Seq[string],
     frequency int,
     metadata map[string]string,
 ) (bool, error)
@@ -334,8 +338,10 @@ with null-terminated FOFN files and config.yml, so that `ibackup watchfofns` can
 discover and back up the files.
 
 `FofnDirWriter.Write` creates the subdirectory (using `SafeName` for the
-directory name), writes the FOFN file with null-terminated paths, and writes
-config.yml using `fofn.WriteConfig` from the ibackup library.
+directory name), streams paths from the `iter.Seq[string]` directly to the FOFN
+file (one null-terminated path at a time, never accumulating all paths in
+memory), and writes config.yml using `fofn.WriteConfig` from the ibackup
+library.
 
 The metadata map must include:
 - `requestor=<username>` (the claiming user)
@@ -365,13 +371,18 @@ When `frequency == 0`, `freeze` is set to `true` in the config.
 2. Given frequency == 0, when Write is called, then the config.yml has Freeze ==
    true.
 
-3. Given an empty file list, when Write is called, then Write returns (false,
-   nil) and no subdirectory is created (same as existing ibackup.Backup
-   behaviour for empty files).
+3. Given an iterator that yields zero paths, when Write is called, then Write
+   returns (false, nil) and no subdirectory is created (same as existing
+   ibackup.Backup behaviour for empty files).
 
 4. Given a single file "/a/b/c.txt", when Write is called, then the fofn file
    contains exactly `/a/b/c.txt\x00` (the 10-byte path plus a trailing null
    byte).
+
+5. (**Memory test**) Given an iterator that yields 1,000,000 paths of 100 bytes
+   each, when Write is called, then `runtime.MemStats.HeapInuse` does not
+   increase by more than 10 MB above the baseline measured before the call
+   (proving the implementation streams rather than accumulating).
 
 ### A3: Frequency gating for FOFN writes
 
@@ -870,7 +881,7 @@ the review checklist. Phase files reference these skills.
 | Missing status file | Return nil activity, no error |
 | Malformed status file | Return parse error; caller logs, uses nil |
 | ibackup API connection failure | Existing behaviour (log warning, retry) |
-| Empty file list | Return early (false, nil); no directory created |
+| Empty file iterator | Return early (false, nil); no directory created |
 | Invalid transformer (empty) | fofn.WriteConfig returns error |
 | Metadata key with colon | fofn.WriteConfig returns error |
 
@@ -878,7 +889,7 @@ the review checklist. Phase files reference these skills.
 
 | Package | Strategy |
 |---|---|
-| `ibackup/fofndir.go` | Unit tests using `t.TempDir()` for baseDir. No external dependencies. GoConvey style. |
+| `ibackup/fofndir.go` | Unit tests using `t.TempDir()` for baseDir. No external dependencies. GoConvey style. Includes memory-bounded test for streaming write (A2 test 5). |
 | `ibackup/fofnstatus.go` | Unit tests with hand-crafted status files in `t.TempDir()`. GoConvey style. |
 | `config/config.go` | Extend existing config tests with fofndir field. |
 | `backups/backups.go` | Unit tests with mock ibackup server and temp fofndir. Verify both API sets and fofn files are created. |

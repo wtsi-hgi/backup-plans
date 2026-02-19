@@ -14,12 +14,14 @@ subagents with the `go-implementor` and `go-reviewer` skills.
 spec.md section: A2
 
 Implement `FofnDirWriter` struct, `NewFofnDirWriter` constructor,
-and the `Write` method in `ibackup/fofndir.go`. The method creates
-a subdirectory named by `SafeName(setName)` under baseDir, writes
-a null-terminated FOFN file, and writes config.yml using
+and the `Write` method in `ibackup/fofndir.go`. The method accepts
+an `iter.Seq[string]` of file paths and streams them to a
+null-terminated FOFN file without accumulating the full list in
+memory. It creates a subdirectory named by `SafeName(setName)`
+under baseDir, writes the FOFN file, and writes config.yml using
 `fofn.WriteConfig` from the ibackup library. Write tests in
-`ibackup/fofndir_test.go` covering all 4 acceptance tests from
-spec.md section A2.
+`ibackup/fofndir_test.go` covering all 5 acceptance tests from
+spec.md section A2, including the memory-bounded streaming test.
 
 - [ ] implemented
 - [ ] reviewed
