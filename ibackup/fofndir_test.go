@@ -215,6 +215,73 @@ func TestFofnDirWriterWrite(t *testing.T) {
 	})
 }
 
+func TestFofnDirWriterUpdateConfig(t *testing.T) {
+	Convey("UpdateConfig rewrites only config for existing subdirectories", t,
+		func() {
+			baseDir := t.TempDir()
+			writer := ibackup.NewFofnDirWriter(baseDir)
+			setName := "plan::/claim/"
+
+			subDir := filepath.Join(baseDir, ibackup.SafeName(setName))
+			err := os.MkdirAll(subDir, 0o755)
+			So(err, ShouldBeNil)
+
+			fofnPath := filepath.Join(subDir, "fofn")
+			err = os.WriteFile(fofnPath, []byte("/path/one\x00/path/two\x00"), 0o600)
+			So(err, ShouldBeNil)
+
+			initialMetadata := map[string]string{
+				"requestor": "userA",
+				"review":    "2027-01-01",
+				"remove":    "2027-06-01",
+			}
+
+			err = fofn.WriteConfig(subDir, fofn.SubDirConfig{
+				Transformer: "humgen",
+				Freeze:      false,
+				Metadata:    initialMetadata,
+			})
+			So(err, ShouldBeNil)
+
+			beforeBytes, err := os.ReadFile(fofnPath)
+			So(err, ShouldBeNil)
+
+			beforeInfo, err := os.Stat(fofnPath)
+			So(err, ShouldBeNil)
+
+			updatedMetadata := map[string]string{
+				"requestor": "userB",
+				"review":    "2027-01-01",
+				"remove":    "2027-06-01",
+			}
+
+			err = writer.UpdateConfig(setName, "humgen", false, updatedMetadata)
+			So(err, ShouldBeNil)
+
+			cfg, err := fofn.ReadConfig(subDir)
+			So(err, ShouldBeNil)
+			So(cfg.Metadata["requestor"], ShouldEqual, "userB")
+
+			afterBytes, err := os.ReadFile(fofnPath)
+			So(err, ShouldBeNil)
+			So(string(afterBytes), ShouldEqual, string(beforeBytes))
+
+			afterInfo, err := os.Stat(fofnPath)
+			So(err, ShouldBeNil)
+			So(afterInfo.ModTime(), ShouldEqual, beforeInfo.ModTime())
+		})
+
+	Convey("UpdateConfig returns an error when subdirectory does not exist", t,
+		func() {
+			baseDir := t.TempDir()
+			writer := ibackup.NewFofnDirWriter(baseDir)
+
+			err := writer.UpdateConfig("plan::/missing/", "humgen", false,
+				map[string]string{"requestor": "userB"})
+			So(err, ShouldNotBeNil)
+		})
+}
+
 func TestFofnDirWriterWriteFrequencyGating(t *testing.T) {
 	Convey("Write applies frequency gating to existing fofn files", t, func() {
 		baseDir := t.TempDir()

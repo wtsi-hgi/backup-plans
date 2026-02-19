@@ -21,8 +21,8 @@ for the given set name without touching the FOFN file. Write tests
 in `ibackup/fofndir_test.go` covering all 2 acceptance tests from
 spec.md section A4.
 
-- [ ] implemented
-- [ ] reviewed
+- [x] implemented
+- [x] reviewed
 
 #### Item 3.2: B1 - Parsing fofn status files [parallel with 3.1]
 
@@ -37,8 +37,8 @@ to a `SetBackupActivity`. Write tests in
 `ibackup/fofnstatus_test.go` covering all 4 acceptance tests from
 spec.md section B1.
 
-- [ ] implemented
-- [ ] reviewed
+- [x] implemented
+- [x] reviewed
 
 For parallel batch items, use separate subagents per item.
 Launch review subagents using the `go-reviewer` skill (review

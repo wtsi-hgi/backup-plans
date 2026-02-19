@@ -84,6 +84,39 @@ func (f *FofnDirWriter) Write(setName string, transformer string, files iter.Seq
 	return true, nil
 }
 
+func (f *FofnDirWriter) UpdateConfig(setName string, transformer string,
+	freeze bool, metadata map[string]string) error {
+	subDir := filepath.Join(f.baseDir, SafeName(setName))
+
+	err := ensureConfigTargetExists(subDir)
+	if err != nil {
+		return err
+	}
+
+	return writeConfig(subDir, transformer, freeze, metadata)
+}
+
+func SafeName(setName string) string {
+	setName = strings.TrimPrefix(setName, "plan::")
+
+	return strings.ReplaceAll(setName, "/", fullwidthSolidus)
+}
+
+func ensureConfigTargetExists(subDir string) error {
+	info, err := os.Stat(subDir)
+	if err != nil {
+		return err
+	}
+
+	if !info.IsDir() {
+		return os.ErrNotExist
+	}
+
+	_, err = os.Stat(filepath.Join(subDir, "config.yml"))
+
+	return err
+}
+
 func writeConfig(subDir, transformer string, freeze bool,
 	metadata map[string]string) error {
 	return fofn.WriteConfig(subDir, fofn.SubDirConfig{
@@ -135,12 +168,6 @@ func (f *FofnDirWriter) writeFofn(setName string,
 	err = closeFofnFile(fofnFD)
 
 	return subDir, true, err
-}
-
-func SafeName(setName string) string {
-	setName = strings.TrimPrefix(setName, "plan::")
-
-	return strings.ReplaceAll(setName, "/", fullwidthSolidus)
 }
 
 func streamToFofn(subDir string, files iter.Seq[string]) (*os.File, bool, error) {

@@ -38,44 +38,6 @@ type ServerTransformer struct {
 	ServerName, Transformer string
 }
 
-type clientTransformer struct {
-	client      *serverClient
-	re          *regexp.Regexp
-	transformer string
-}
-
-// Config contains a map of named ibackup servers, and their connection details,
-// and a map of path regexp to server name.
-type Config struct {
-	Servers      map[string]ServerDetails
-	PathToServer map[string]ServerTransformer
-}
-
-type UnknownServerError string
-
-func (u UnknownServerError) Error() string {
-	return "unknown server name: " + string(u)
-}
-
-// MultiClient contains multiple ibackup clients that can be selected by path.
-type MultiClient struct {
-	clients map[string]*clientTransformer
-	stop    func()
-}
-
-type ServerConnectionError struct {
-	server string
-	err    error
-}
-
-func (s ServerConnectionError) Error() string {
-	return s.server + ": " + s.err.Error()
-}
-
-func (s ServerConnectionError) Unwrap() error {
-	return s.err
-}
-
 type serverClient struct {
 	atomic.Pointer[server.Client]
 }
@@ -118,160 +80,6 @@ func (s *serverClient) await(ctx context.Context, details ServerDetails) {
 	}
 }
 
-// New creates a new MultiClient from the given Config.
-//
-// An error will be returned if any ibackup servers cannot be reached, but a
-// MultiClient will also be returned; a goroutine will also be spawned that will
-// attempt to establish the connection. The MultiClient.Stop() method should be
-// called to stop these goroutines.
-//
-// The IsOnlyConnectionErrors() function can be used to detect when the error
-// returned is only a (potentially temporary) connection error; in such a case,
-// it is valid to continue using the returned MultiClient.
-func New(c Config) (*MultiClient, error) {
-	ctx, stop := context.WithCancel(context.Background())
-
-	servers, errs := createServers(ctx, c)
-
-	clients, err := createClients(servers, c)
-	if err != nil {
-		stop()
-
-		return nil, err
-	}
-
-	return &MultiClient{clients: clients, stop: stop}, errs
-}
-
-func createServers(ctx context.Context, c Config) (map[string]*serverClient, error) {
-	var errs error
-
-	servers := make(map[string]*serverClient, len(c.Servers))
-
-	for name, details := range c.Servers {
-		var client serverClient
-
-		c, err := connect(
-			jwtBasename(details.Token),
-			details.Token, details.Addr, details.Cert, details.Username,
-		)
-		if err != nil {
-			errs = errors.Join(errs, &ServerConnectionError{name, err})
-
-			client.Store(new(server.Client))
-
-			go client.await(ctx, details)
-		} else {
-			client.Store(c)
-		}
-
-		servers[name] = &client
-	}
-
-	return servers, errs
-}
-
-// jwtBasename returns a unique JWT filename based on a hash of the token path.
-// This ensures JWTs for different servers don't conflict with each other, and
-// by returning a non-absolute path, gas.NewClientCLI will store it in TokenDir()
-// (the user's home directory), which avoids issues when the token file is in a
-// read-only directory shared by another user.
-func jwtBasename(tokenPath string) string {
-	hash := sha256.Sum256([]byte(tokenPath))
-
-	return ".ibackup." + hex.EncodeToString(hash[:8]) + ".jwt"
-}
-
-func createClients(servers map[string]*serverClient, c Config) (map[string]*clientTransformer, error) {
-	clients := make(map[string]*clientTransformer, len(c.PathToServer))
-
-	for re, server := range c.PathToServer {
-		s, ok := servers[server.ServerName]
-		if !ok {
-			return nil, UnknownServerError(server.ServerName)
-		}
-
-		r, err := regexp.Compile(re)
-		if err != nil {
-			return nil, err
-		}
-
-		clients[re] = &clientTransformer{
-			re:          r,
-			client:      s,
-			transformer: server.Transformer,
-		}
-	}
-
-	return clients, nil
-}
-
-// Stop stops all attempts to connect to previously unreachable ibackup servers.
-func (m *MultiClient) Stop() {
-	m.stop()
-}
-
-// IsOnlyConnectionErrors returns whether the given error only contains
-// (potentially temporary) ibackup server connection errors.
-func IsOnlyConnectionErrors(err error) bool {
-	var sce *ServerConnectionError
-
-	errI, ok := err.(interface{ Unwrap() []error })
-	if !ok {
-		return errors.As(err, &sce)
-	}
-
-	for _, err := range errI.Unwrap() {
-		if !errors.As(err, &sce) {
-			return false
-		}
-	}
-
-	return true
-}
-
-// Backup retrieves a client using the given path, and then calls the normal
-// Backup function.
-func (m *MultiClient) Backup(path string, setName, requester string, files []string,
-	frequency int, review, remove int64) error {
-	c := m.getClient(path)
-	if c == nil {
-		return ErrUnknownClient
-	}
-
-	return Backup(c.client.Load(), c.transformer, setName, requester, files, frequency, review, remove)
-}
-
-func (m *MultiClient) getClient(path string) *clientTransformer {
-	for _, c := range m.clients {
-		if c.re.MatchString(path) {
-			return c
-		}
-	}
-
-	return nil
-}
-
-// GetBackupActivity retrieves a client using the given path, and then calls the
-// normal GetBackupActivity function.
-func (m *MultiClient) GetBackupActivity(path, setName, requester string) (*SetBackupActivity, error) {
-	c := m.getClient(path)
-	if c == nil {
-		return nil, ErrInvalidPath
-	}
-
-	return GetBackupActivity(c.client, setName, requester)
-}
-
-// Connect returns a client that can talk to the given ibackup server using
-// the token file next to the cert file. The JWT will be stored in the user's
-// XDG_STATE_HOME or home directory.
-func Connect(url, cert, username string) (*server.Client, error) {
-	tokenPath := filepath.Join(filepath.Dir(cert), ".ibackup.token")
-
-	return connect(jwtBasename(tokenPath), tokenPath, url, cert, username)
-}
-
 func connect(jwtBasename, serverTokenBasename, url, cert, username string) (*server.Client, error) {
 	client, err := gas.NewClientCLI(jwtBasename, serverTokenBasename, url, cert, false, username)
 	if err != nil {
@@ -288,12 +96,15 @@ func connect(jwtBasename, serverTokenBasename, url, cert, username string) (*ser
 	return server.NewClient(url, cert, jwt), nil
 }
 
-// Client represents the required methods for an ibackup client.
-type Client interface {
-	GetSetByName(requester, setName string) (*set.Set, error)
-	AddOrUpdateSet(set *set.Set) error
-	MergeFiles(setID string, paths []string) error
-	TriggerDiscovery(setID string, forceRemovals bool) error
+// jwtBasename returns a unique JWT filename based on a hash of the token path.
+// This ensures JWTs for different servers don't conflict with each other, and
+// by returning a non-absolute path, gas.NewClientCLI will store it in TokenDir()
+// (the user's home directory), which avoids issues when the token file is in a
+// read-only directory shared by another user.
+func jwtBasename(tokenPath string) string {
+	hash := sha256.Sum256([]byte(tokenPath))
+
+	return ".ibackup." + hex.EncodeToString(hash[:8]) + ".jwt"
 }
 
 // Backup creates a new set called setName for the requester if it has been
@@ -389,6 +200,77 @@ func updateSet(client Client, got *set.Set,
 	return got, nil
 }
 
+func createServers(ctx context.Context, c Config) (map[string]*serverClient, error) {
+	var errs error
+
+	servers := make(map[string]*serverClient, len(c.Servers))
+
+	for name, details := range c.Servers {
+		var client serverClient
+
+		c, err := connect(
+			jwtBasename(details.Token),
+			details.Token, details.Addr, details.Cert, details.Username,
+		)
+		if err != nil {
+			errs = errors.Join(errs, &ServerConnectionError{name, err})
+
+			client.Store(new(server.Client))
+
+			go client.await(ctx, details)
+		} else {
+			client.Store(c)
+		}
+
+		servers[name] = &client
+	}
+
+	return servers, errs
+}
+
+func createClients(servers map[string]*serverClient, c Config) (map[string]*clientTransformer, error) {
+	clients := make(map[string]*clientTransformer, len(c.PathToServer))
+
+	for re, server := range c.PathToServer {
+		s, ok := servers[server.ServerName]
+		if !ok {
+			return nil, UnknownServerError(server.ServerName)
+		}
+
+		r, err := regexp.Compile(re)
+		if err != nil {
+			return nil, err
+		}
+
+		clients[re] = &clientTransformer{
+			re:          r,
+			client:      s,
+			transformer: server.Transformer,
+		}
+	}
+
+	return clients, nil
+}
+
+type clientTransformer struct {
+	client      *serverClient
+	re          *regexp.Regexp
+	transformer string
+}
+
+// Config contains a map of named ibackup servers, and their connection details,
+// and a map of path regexp to server name.
+type Config struct {
+	Servers      map[string]ServerDetails
+	PathToServer map[string]ServerTransformer
+}
+
+type UnknownServerError string
+
+func (u UnknownServerError) Error() string {
+	return "unknown server name: " + string(u)
+}
+
 // SetBackupActivity holds info about backup activity retrieved from an ibackup
 // server.
 type SetBackupActivity struct {
@@ -396,6 +278,14 @@ type SetBackupActivity struct {
 	Name        string
 	Requester   string
 	Failures    uint64
+	Uploaded    int
+	Replaced    int
+	Unmodified  int
+	Missing     int
+	Frozen      int
+	Orphaned    int
+	Warning     int
+	Hardlink    int
 }
 
 // GetBackupActivity queries an ibackup server to get the last completed backup
@@ -420,6 +310,124 @@ func GetBackupActivity(client Client, setName, requester string) (*SetBackupActi
 	}
 
 	return &sba, nil
+}
+
+// MultiClient contains multiple ibackup clients that can be selected by path.
+type MultiClient struct {
+	clients map[string]*clientTransformer
+	stop    func()
+}
+
+// New creates a new MultiClient from the given Config.
+//
+// An error will be returned if any ibackup servers cannot be reached, but a
+// MultiClient will also be returned; a goroutine will also be spawned that will
+// attempt to establish the connection. The MultiClient.Stop() method should be
+// called to stop these goroutines.
+//
+// The IsOnlyConnectionErrors() function can be used to detect when the error
+// returned is only a (potentially temporary) connection error; in such a case,
+// it is valid to continue using the returned MultiClient.
+func New(c Config) (*MultiClient, error) {
+	ctx, stop := context.WithCancel(context.Background())
+
+	servers, errs := createServers(ctx, c)
+
+	clients, err := createClients(servers, c)
+	if err != nil {
+		stop()
+
+		return nil, err
+	}
+
+	return &MultiClient{clients: clients, stop: stop}, errs
+}
+
+// Stop stops all attempts to connect to previously unreachable ibackup servers.
+func (m *MultiClient) Stop() {
+	m.stop()
+}
+
+// Backup retrieves a client using the given path, and then calls the normal
+// Backup function.
+func (m *MultiClient) Backup(path string, setName, requester string, files []string,
+	frequency int, review, remove int64) error {
+	c := m.getClient(path)
+	if c == nil {
+		return ErrUnknownClient
+	}
+
+	return Backup(c.client.Load(), c.transformer, setName, requester, files, frequency, review, remove)
+}
+
+func (m *MultiClient) getClient(path string) *clientTransformer {
+	for _, c := range m.clients {
+		if c.re.MatchString(path) {
+			return c
+		}
+	}
+
+	return nil
+}
+
+// GetBackupActivity retrieves a client using the given path, and then calls the
+// normal GetBackupActivity function.
+func (m *MultiClient) GetBackupActivity(path, setName, requester string) (*SetBackupActivity, error) {
+	c := m.getClient(path)
+	if c == nil {
+		return nil, ErrInvalidPath
+	}
+
+	return GetBackupActivity(c.client, setName, requester)
+}
+
+type ServerConnectionError struct {
+	server string
+	err    error
+}
+
+func (s ServerConnectionError) Error() string {
+	return s.server + ": " + s.err.Error()
+}
+
+func (s ServerConnectionError) Unwrap() error {
+	return s.err
+}
+
+// IsOnlyConnectionErrors returns whether the given error only contains
+// (potentially temporary) ibackup server connection errors.
+func IsOnlyConnectionErrors(err error) bool {
+	var sce *ServerConnectionError
+
+	errI, ok := err.(interface{ Unwrap() []error })
+	if !ok {
+		return errors.As(err, &sce)
+	}
+
+	for _, err := range errI.Unwrap() {
+		if !errors.As(err, &sce) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// Client represents the required methods for an ibackup client.
+type Client interface {
+	GetSetByName(requester, setName string) (*set.Set, error)
+	AddOrUpdateSet(set *set.Set) error
+	MergeFiles(setID string, paths []string) error
+	TriggerDiscovery(setID string, forceRemovals bool) error
+}
+
+// Connect returns a client that can talk to the given ibackup server using
+// the token file next to the cert file. The JWT will be stored in the user's
+// XDG_STATE_HOME or home directory.
+func Connect(url, cert, username string) (*server.Client, error) {
+	tokenPath := filepath.Join(filepath.Dir(cert), ".ibackup.token")
+
+	return connect(jwtBasename(tokenPath), tokenPath, url, cert, username)
 }
 
 type setRequester struct {
