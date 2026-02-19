@@ -133,7 +133,7 @@ func (s *Server) populateIbackupStatus(dirClaims map[string]string, dirSummary *
 		cache := s.config.GetCachedIBackupClient()
 
 		sba, err := cache.GetBackupActivity(dir, planName, claimedBy)
-		if err != nil {
+		if err != nil && !errors.Is(err, ibackup.ErrUnknownClient) {
 			slog.Error("error querying ibackup status", "dir", dir, "err", err)
 		}
 

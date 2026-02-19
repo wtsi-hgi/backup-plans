@@ -550,7 +550,11 @@ func TestIbackup(t *testing.T) {
 				So(err, ShouldBeNil)
 				So(backupActivity.LastSuccess, ShouldHappenAfter, before)
 
-				err = client.AddOrUpdateSet(sets[0])
+				got, err := client.GetSetByName(u.Username, setName)
+				So(err, ShouldBeNil)
+				So(got, ShouldNotBeNil)
+
+				err = client.AddOrUpdateSet(got)
 				So(err, ShouldBeNil)
 
 				backupActivity, err = cache.GetBackupActivity(setName, u.Username)
@@ -559,7 +563,7 @@ func TestIbackup(t *testing.T) {
 
 				before = backupActivity.LastSuccess
 
-				err = client.TriggerDiscovery(sets[0].ID(), false)
+				err = client.TriggerDiscovery(got.ID(), false)
 				So(err, ShouldBeNil)
 
 				time.Sleep(2 * cacheTimeout)
