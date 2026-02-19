@@ -20,5 +20,5 @@ Also verify that the server's summary endpoint returns fofn status
 from a pre-created status file. Depends on all prior phases. Cover
 all 3 acceptance tests from spec.md section E1.
 
-- [ ] implemented
-- [ ] reviewed
+- [x] implemented
+- [x] reviewed
