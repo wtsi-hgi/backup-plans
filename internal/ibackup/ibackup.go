@@ -15,7 +15,11 @@ import (
 	"github.com/wtsi-hgi/ibackup/transformer"
 )
 
-const CustomTransformer = "customTransformer"
+const (
+	CustomTransformer     = "customTransformer"
+	discoveryWaitTimeout  = 10 * time.Second
+	discoveryPollInterval = 200 * time.Millisecond
+)
 
 func init() { //nolint:gochecknoinits
 	transformer.Register(CustomTransformer, "^/some/path/", "/remote/path/") //nolint:errcheck
@@ -34,7 +38,7 @@ func NewClient(t *testing.T) *server.Client {
 	So(err, ShouldBeNil)
 
 	Reset(func() {
-		waitForSetsComplete(client)
+		waitForSetDiscovery(client, discoveryWaitTimeout)
 		So(dfn(), ShouldBeNil)
 	})
 
@@ -55,7 +59,7 @@ func NewMultiClient(t *testing.T) *ibackup.MultiClient { //nolint:funlen
 		client, errr := ibackup.Connect(addr, certPath, "")
 		So(errr, ShouldBeNil)
 
-		waitForSetsComplete(client)
+		waitForSetDiscovery(client, discoveryWaitTimeout)
 		So(dfn(), ShouldBeNil)
 	})
 
@@ -120,30 +124,52 @@ func NewTestIbackupServer(t *testing.T) (*server.Server, string, string, func() 
 	}
 
 	addr, dfn, err := gas.StartTestServer(s, certPath, keyPath)
+	if err != nil {
+		return nil, "", "", nil, err
+	}
+
+	cleanup := func() error {
+		client, connectErr := ibackup.Connect(addr, certPath, "")
+		if connectErr == nil {
+			waitForSetDiscovery(client, discoveryWaitTimeout)
+		}
+
+		return dfn()
+	}
 
 	time.Sleep(time.Second >> 1)
 
-	return s, addr, certPath, dfn, err
+	return s, addr, certPath, cleanup, nil
 }
 
-func waitForSetsComplete(client *server.Client) {
-	ready := false
-	for !ready {
-		sets, err := client.GetSets("all")
-		if err != nil {
-			break
+func waitForSetDiscovery(client *server.Client, timeout time.Duration) {
+	deadline := time.Now().Add(timeout)
+
+	for time.Now().Before(deadline) {
+		inProgress, err := hasDiscoveryInProgress(client)
+		if err != nil || !inProgress {
+			return
 		}
 
-		ready = true
+		time.Sleep(discoveryPollInterval)
+	}
+}
 
-		for _, item := range sets {
-			if item.Status != set.Complete {
-				ready = false
+func hasDiscoveryInProgress(client *server.Client) (bool, error) {
+	sets, err := client.GetSets("all")
+	if err != nil {
+		return false, err
+	}
 
-				time.Sleep(time.Millisecond * 500) //nolint:mnd
-
-				break
-			}
+	for _, item := range sets {
+		if isDiscovering(item) {
+			return true, nil
 		}
 	}
+
+	return false, nil
+}
+
+func isDiscovering(item *set.Set) bool {
+	return !item.StartedDiscovery.IsZero() && item.LastDiscovery.Before(item.StartedDiscovery)
 }
