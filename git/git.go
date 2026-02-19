@@ -37,6 +37,7 @@ import (
 	"github.com/go-git/go-git/v6/plumbing"
 	"github.com/go-git/go-git/v6/plumbing/protocol/packp"
 	"github.com/go-git/go-git/v6/plumbing/transport"
+	transporthttp "github.com/go-git/go-git/v6/plumbing/transport/http"
 	"github.com/go-git/go-git/v6/storage/memory"
 )
 
@@ -88,6 +89,13 @@ func getRepo(url string) (*git.Repository, error) {
 			Depth: 1,
 			Bare:  true,
 		})
+	}
+
+	var httperr *transporthttp.Err
+
+	if errors.As(err, &httperr) {
+		httperr.Reason = ""
+		err = httperr
 	}
 
 	if err != nil {
