@@ -23,8 +23,8 @@ under baseDir, writes the FOFN file, and writes config.yml using
 `ibackup/fofndir_test.go` covering all 5 acceptance tests from
 spec.md section A2, including the memory-bounded streaming test.
 
-- [ ] implemented
-- [ ] reviewed
+- [x] implemented
+- [x] reviewed
 
 ### Item 2.2: A3 - Frequency gating for FOFN writes
 
@@ -38,5 +38,5 @@ exists. Write tests in `ibackup/fofndir_test.go` covering all 7
 acceptance tests from spec.md section A3. Depends on item 2.1
 for the basic Write functionality.
 
-- [ ] implemented
-- [ ] reviewed
+- [x] implemented
+- [x] reviewed

@@ -25,12 +25,189 @@
 
 package ibackup
 
-import "strings"
+import (
+	"errors"
+	"iter"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"github.com/wtsi-hgi/ibackup/fofn"
+)
 
 const fullwidthSolidus = "／"
+
+const fofnDirPerm = 0o755
+
+const frequencyWindowOffsetHours = 12
+
+// FofnDirWriter writes null-terminated FOFN files and config.yml files into
+// subdirectories under a base fofn directory.
+type FofnDirWriter struct {
+	baseDir string
+}
+
+// NewFofnDirWriter returns a new FofnDirWriter that creates subdirectories
+// under baseDir.
+func NewFofnDirWriter(baseDir string) *FofnDirWriter {
+	return &FofnDirWriter{baseDir: baseDir}
+}
+
+// Write creates (or updates) the fofn subdirectory for the given set and
+// writes the null-terminated FOFN and config.yml.
+func (f *FofnDirWriter) Write(setName string, transformer string, files iter.Seq[string],
+	frequency int, metadata map[string]string) (bool, error) {
+	shouldWrite, err := f.shouldWrite(setName, frequency)
+	if err != nil {
+		return false, err
+	}
+
+	if !shouldWrite {
+		return false, nil
+	}
+
+	subDir, wrote, err := f.writeFofn(setName, files)
+	if err != nil {
+		return false, err
+	}
+
+	if !wrote {
+		return false, nil
+	}
+
+	err = writeConfig(subDir, transformer, frequency == 0, metadata)
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
+}
+
+func writeConfig(subDir, transformer string, freeze bool,
+	metadata map[string]string) error {
+	return fofn.WriteConfig(subDir, fofn.SubDirConfig{
+		Transformer: transformer,
+		Freeze:      freeze,
+		Metadata:    metadata,
+	})
+}
+
+func (f *FofnDirWriter) shouldWrite(setName string, frequency int) (bool, error) {
+	fofnPath := filepath.Join(f.baseDir, SafeName(setName), "fofn")
+
+	stat, err := os.Stat(fofnPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return true, nil
+		}
+
+		return false, err
+	}
+
+	if frequency == 0 {
+		return false, nil
+	}
+
+	window := time.Hour*24*time.Duration(frequency-1) +
+		time.Hour*frequencyWindowOffsetHours
+
+	if !stat.ModTime().Add(window).Before(time.Now()) {
+		return false, nil
+	}
+
+	return true, nil
+}
+
+func (f *FofnDirWriter) writeFofn(setName string,
+	files iter.Seq[string]) (subDir string, wrote bool, err error) {
+	subDir = filepath.Join(f.baseDir, SafeName(setName))
+
+	fofnFD, wrote, err := streamToFofn(subDir, files)
+	if err != nil {
+		return "", false, err
+	}
+
+	if !wrote {
+		return subDir, false, nil
+	}
+
+	err = closeFofnFile(fofnFD)
+
+	return subDir, true, err
+}
 
 func SafeName(setName string) string {
 	setName = strings.TrimPrefix(setName, "plan::")
 
 	return strings.ReplaceAll(setName, "/", fullwidthSolidus)
+}
+
+func streamToFofn(subDir string, files iter.Seq[string]) (*os.File, bool, error) {
+	var fofnFD *os.File
+
+	wrote := false
+
+	for path := range files {
+		fd, err := ensureFofnFile(subDir, fofnFD)
+		if err != nil {
+			return nil, false, err
+		}
+
+		fofnFD = fd
+
+		err = writePath(fofnFD, path)
+		if err != nil {
+			return nil, false, closeWithWriteError(fofnFD, err)
+		}
+
+		wrote = true
+	}
+
+	return fofnFD, wrote, nil
+}
+
+func closeFofnFile(fofnFD *os.File) error {
+	if fofnFD == nil {
+		return nil
+	}
+
+	return fofnFD.Close()
+}
+
+func ensureFofnFile(subDir string, fofnFD *os.File) (*os.File, error) {
+	if fofnFD != nil {
+		return fofnFD, nil
+	}
+
+	return createFofnFile(subDir)
+}
+
+func createFofnFile(subDir string) (*os.File, error) {
+	err := os.MkdirAll(subDir, fofnDirPerm)
+	if err != nil {
+		return nil, err
+	}
+
+	return os.Create(filepath.Join(subDir, "fofn"))
+}
+
+func closeWithWriteError(fofnFD *os.File, err error) error {
+	closeErr := closeFofnFile(fofnFD)
+	if closeErr != nil {
+		return errors.Join(err, closeErr)
+	}
+
+	return err
+}
+
+func writePath(fofnFD *os.File, path string) error {
+	_, err := fofnFD.WriteString(path)
+	if err != nil {
+		return err
+	}
+
+	_, err = fofnFD.WriteString("\x00")
+
+	return err
 }
