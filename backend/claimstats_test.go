@@ -80,7 +80,7 @@ func TestClaimStats(t *testing.T) {
 						Name:      "plan::/lustre/scratch123/humgen/a/b/",
 						Requester: userA,
 					},
-					RuleStats: []RuleStats{
+					RuleStats: []ruleStats{
 						{
 							Rule: nil,
 							SizeCount: SizeCount{
@@ -124,7 +124,7 @@ func TestClaimStats(t *testing.T) {
 						Name:      "plan::/lustre/scratch123/humgen/a/c/",
 						Requester: userB,
 					},
-					RuleStats: []RuleStats{
+					RuleStats: []ruleStats{
 						{
 							Rule: copyRule(rules[2]),
 							SizeCount: SizeCount{

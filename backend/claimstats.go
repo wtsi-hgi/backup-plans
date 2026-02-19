@@ -27,6 +27,7 @@ package backend
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -35,48 +36,37 @@ import (
 	"github.com/wtsi-hgi/backup-plans/ruletree"
 )
 
-type RuleStats struct {
+type ruleStats struct {
 	*db.Rule
 	SizeCount
 }
 
 type DirStats struct {
 	Path         string
+	ClaimedBy    string
+	Group        string
 	BackupStatus ibackup.SetBackupActivity
-	RuleStats    []RuleStats
+	RuleStats    []ruleStats
 }
 
+// ClaimStats is an HTTP endpoint that produces a DirStats summary for every claimed directory.
 func (s *Server) ClaimStats(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.claimstats)
 }
 
-func (s *Server) claimstats(w http.ResponseWriter, r *http.Request) error { //nolint:funlen
+func (s *Server) claimstats(w http.ResponseWriter, _ *http.Request) error {
 	s.rulesMu.RLock()
 	defer s.rulesMu.RUnlock()
 
-	user := s.getUser(r)
 	claimstats := []DirStats{}
 
 	for _, dir := range s.directoryRules {
-		if dir.ClaimedBy != user {
-			continue
-		}
-
-		rulestats, err := s.generateRuleStats(dir)
+		dirStats, err := s.generateDirStats(dir)
 		if err != nil {
 			return err
 		}
 
-		sba, err := s.config.GetIBackupClient().GetBackupActivity(dir.Path, "plan::"+dir.Path, user, false)
-		if err != nil {
-			sba = &ibackup.SetBackupActivity{LastSuccess: time.Time{}, Name: "plan::" + dir.Path, Requester: user, Failures: 0}
-		}
-
-		claimstats = append(claimstats, DirStats{
-			Path:         dir.Path,
-			BackupStatus: *sba,
-			RuleStats:    rulestats,
-		})
+		claimstats = append(claimstats, *dirStats)
 	}
 
 	w.Header().Set("Content-type", "application/json")
@@ -84,16 +74,47 @@ func (s *Server) claimstats(w http.ResponseWriter, r *http.Request) error { //no
 	return json.NewEncoder(w).Encode(claimstats)
 }
 
+func (s *Server) generateDirStats(dir *ruletree.DirRules) (*DirStats, error) {
+	// TODO: Do I need to check if dir is claimed or are these just for claimed dirs?
+	rulestats, err := s.generateRuleStats(dir)
+	if err != nil {
+		return nil, err
+	}
+
+	sba, err := s.config.GetIBackupClient().GetBackupActivity(dir.Path, "plan::"+dir.Path, dir.ClaimedBy)
+	if err != nil {
+		fmt.Printf("GetBackupActivity failed for %v Claimed by: %v", dir.Path, dir.ClaimedBy)
+		sba = &ibackup.SetBackupActivity{
+			LastSuccess: time.Time{},
+			Name:        "plan::" + dir.Path,
+			Requester:   dir.ClaimedBy,
+			Failures:    0}
+	}
+
+	dirGroup, err := s.getGroup(dir)
+	if err != nil {
+		return nil, err
+	}
+
+	return &DirStats{
+		Path:         dir.Path,
+		ClaimedBy:    dir.ClaimedBy,
+		Group:        dirGroup,
+		BackupStatus: *sba,
+		RuleStats:    rulestats,
+	}, nil
+}
+
 // generateRuleStats will create a []RuleStats slice for the given directory, containing a RuleStats object for every
 // rule on the directory.
-func (s *Server) generateRuleStats(dir *ruletree.DirRules) ([]RuleStats, error) {
+func (s *Server) generateRuleStats(dir *ruletree.DirRules) ([]ruleStats, error) {
 	dirSummary, err := s.rootDir.Summary(dir.Path)
 	if err != nil {
 		return nil, err
 	}
 
 	ids := s.gatherDirRules(dir)
-	rulestats := []RuleStats{}
+	rulestats := []ruleStats{}
 
 	for _, r := range dirSummary.RuleSummaries {
 		if _, exists := ids[r.ID]; exists || r.ID == 0 {
@@ -104,7 +125,7 @@ func (s *Server) generateRuleStats(dir *ruletree.DirRules) ([]RuleStats, error) 
 	return rulestats, nil
 }
 
-func (s *Server) generateStatsForRule(r *ruletree.Rule) RuleStats {
+func (s *Server) generateStatsForRule(r *ruletree.Rule) ruleStats {
 	totalSize := uint64(0)
 	totalCount := uint64(0)
 
@@ -113,7 +134,7 @@ func (s *Server) generateStatsForRule(r *ruletree.Rule) RuleStats {
 		totalCount += stat.Files
 	}
 
-	return RuleStats{
+	return ruleStats{
 		Rule: s.rules[r.ID],
 		SizeCount: SizeCount{
 			Size:  totalSize,
@@ -131,4 +152,13 @@ func (s *Server) gatherDirRules(dir *ruletree.DirRules) map[uint64]struct{} {
 	}
 
 	return ids
+}
+
+func (s *Server) getGroup(dir *ruletree.DirRules) (string, error) {
+	dirSummary, err := s.rootDir.Summary(dir.Path)
+	if err != nil {
+		return "", err
+	}
+
+	return dirSummary.Group, nil
 }
