@@ -148,3 +148,106 @@ func TestFofnStatusReaderGetBackupActivity(t *testing.T) {
 		})
 	})
 }
+
+func TestMultiCacheGetFofnBackupActivity(t *testing.T) {
+	Convey("GetFofnBackupActivity routes by path regex and caches fofn status", t, func() {
+		baseDir := t.TempDir()
+		setName := "plan::/lustre/scratch/a/"
+		statusDir := filepath.Join(baseDir, ibackup.SafeName(setName))
+		statusPath := filepath.Join(statusDir, "status")
+
+		writeStatus := func(summary string) {
+			err := os.MkdirAll(statusDir, 0o755)
+			So(err, ShouldBeNil)
+
+			err = os.WriteFile(statusPath, []byte(summary), 0o600)
+			So(err, ShouldBeNil)
+		}
+
+		Convey("Given matching fofndir and existing status, it returns mapped activity", func() {
+			writeStatus("SUMMARY\tuploaded=1\treplaced=0\tunmodified=2\tmissing=0\t" +
+				"failed=0\tfrozen=0\torphaned=0\twarning=0\thardlink=0\tnot_processed=0\n")
+
+			mc, err := ibackup.New(ibackup.Config{
+				Servers: map[string]ibackup.ServerDetails{
+					"fofn": {FofnDir: baseDir},
+				},
+				PathToServer: map[string]ibackup.ServerTransformer{
+					"^/lustre/": {ServerName: "fofn"},
+				},
+			})
+			So(mc, ShouldNotBeNil)
+			So(err == nil || ibackup.IsOnlyConnectionErrors(err), ShouldBeTrue)
+
+			Reset(mc.Stop)
+
+			cache := ibackup.NewMultiCache(mc, 0)
+			Reset(cache.Stop)
+
+			activity, err := cache.GetFofnBackupActivity("/lustre/scratch/a/", setName)
+			So(err, ShouldBeNil)
+			So(activity, ShouldNotBeNil)
+			So(activity.Failures, ShouldEqual, 0)
+			So(activity.Uploaded, ShouldEqual, 1)
+			So(activity.Unmodified, ShouldEqual, 2)
+			So(activity.LastSuccess.IsZero(), ShouldBeFalse)
+		})
+
+		Convey("Given repeated calls, it returns cached data without re-reading status", func() {
+			writeStatus("SUMMARY\tuploaded=1\treplaced=0\tunmodified=0\tmissing=0\t" +
+				"failed=0\tfrozen=0\torphaned=0\twarning=0\thardlink=0\tnot_processed=0\n")
+
+			mc, err := ibackup.New(ibackup.Config{
+				Servers: map[string]ibackup.ServerDetails{
+					"fofn": {FofnDir: baseDir},
+				},
+				PathToServer: map[string]ibackup.ServerTransformer{
+					"^/lustre/": {ServerName: "fofn"},
+				},
+			})
+			So(mc, ShouldNotBeNil)
+			So(err == nil || ibackup.IsOnlyConnectionErrors(err), ShouldBeTrue)
+
+			Reset(mc.Stop)
+
+			cache := ibackup.NewMultiCache(mc, 0)
+			Reset(cache.Stop)
+
+			activity, err := cache.GetFofnBackupActivity("/lustre/scratch/a/", setName)
+			So(err, ShouldBeNil)
+			So(activity, ShouldNotBeNil)
+			So(activity.Uploaded, ShouldEqual, 1)
+
+			writeStatus("SUMMARY\tuploaded=9\treplaced=0\tunmodified=0\tmissing=0\t" +
+				"failed=1\tfrozen=0\torphaned=0\twarning=0\thardlink=0\tnot_processed=0\n")
+
+			activity, err = cache.GetFofnBackupActivity("/lustre/scratch/a/", setName)
+			So(err, ShouldBeNil)
+			So(activity, ShouldNotBeNil)
+			So(activity.Uploaded, ShouldEqual, 1)
+			So(activity.Failures, ShouldEqual, 0)
+		})
+
+		Convey("Given no fofndir configured for path, it returns nil and no error", func() {
+			mc, err := ibackup.New(ibackup.Config{
+				Servers: map[string]ibackup.ServerDetails{
+					"api-only": {},
+				},
+				PathToServer: map[string]ibackup.ServerTransformer{
+					"^/lustre/": {ServerName: "api-only"},
+				},
+			})
+			So(mc, ShouldNotBeNil)
+			So(err == nil || ibackup.IsOnlyConnectionErrors(err), ShouldBeTrue)
+
+			Reset(mc.Stop)
+
+			cache := ibackup.NewMultiCache(mc, 0)
+			Reset(cache.Stop)
+
+			activity, err := cache.GetFofnBackupActivity("/lustre/scratch/a/", setName)
+			So(err, ShouldBeNil)
+			So(activity, ShouldBeNil)
+		})
+	})
+}

@@ -26,8 +26,13 @@
 package ibackup
 
 import (
+	"context"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
+	"sync"
+	"time"
 
 	"github.com/wtsi-hgi/ibackup/fofn"
 )
@@ -97,6 +102,85 @@ func mapStatusCounts(setName string, counts fofn.StatusCounts) *SetBackupActivit
 		Warning:    counts.Warning,
 		Hardlink:   counts.Hardlink,
 	}
+}
+
+type fofnCache struct {
+	reader *FofnStatusReader
+	stop   func()
+
+	mu    sync.RWMutex
+	cache map[string]*SetBackupActivity
+}
+
+func newFofnCache(reader *FofnStatusReader, d time.Duration) *fofnCache {
+	ctx, fn := context.WithCancel(context.Background())
+
+	cache := &fofnCache{
+		reader: reader,
+		cache:  make(map[string]*SetBackupActivity),
+		stop:   fn,
+	}
+
+	if d > 0 {
+		go cache.runCache(ctx, d)
+	}
+
+	return cache
+}
+
+func (f *fofnCache) GetBackupActivity(setName string) (*SetBackupActivity, error) {
+	f.mu.RLock()
+	existing, ok := f.cache[setName]
+	f.mu.RUnlock()
+
+	if ok {
+		return existing, nil
+	}
+
+	sba, err := f.reader.GetBackupActivity(setName)
+	if err != nil {
+		return nil, err
+	}
+
+	f.mu.Lock()
+	f.cache[setName] = sba
+	f.mu.Unlock()
+
+	return sba, nil
+}
+
+func (f *fofnCache) runCache(ctx context.Context, d time.Duration) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(d):
+		}
+
+		f.mu.RLock()
+		keys := slices.Collect(maps.Keys(f.cache))
+		reader := f.reader
+		f.mu.RUnlock()
+
+		updates := make(map[string]*SetBackupActivity)
+
+		for _, setName := range keys {
+			ba, err := reader.GetBackupActivity(setName)
+			if err != nil {
+				continue
+			}
+
+			updates[setName] = ba
+		}
+
+		f.mu.Lock()
+		maps.Copy(f.cache, updates)
+		f.mu.Unlock()
+	}
+}
+
+func (f *fofnCache) Stop() {
+	f.stop()
 }
 
 func nonNegativeUint64(count int) uint64 {

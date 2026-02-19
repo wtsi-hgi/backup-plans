@@ -34,13 +34,16 @@ import (
 	"github.com/wtsi-hgi/backup-plans/backups"
 	"github.com/wtsi-hgi/backup-plans/config"
 	"github.com/wtsi-hgi/backup-plans/db"
+	"github.com/wtsi-hgi/backup-plans/ibackup"
 	"golang.org/x/sys/unix"
 	"vimagination.zapto.org/tree"
 )
 
 // options for this cmd.
 var planDB string
+
 var treeDB string
+
 var configPath string
 
 // serverCmd represents the server command.
@@ -117,7 +120,8 @@ regexp.
 		}
 		defer dfn()
 
-		setInfos, err := backups.Backup(planDB, treeNode, config.GetIBackupClient())
+		setInfos, err := backups.BackupWithFofnWriter(planDB, treeNode,
+			config.GetIBackupClient(), ibackup.NewFofnDirWriter)
 		if err != nil {
 			err = fmt.Errorf("\n failed to back up files: %w", err)
 		}

@@ -42,17 +42,6 @@ import (
 
 const csvCols = 2
 
-type yamlConfig struct {
-	IBackup              ibackup.Config
-	IBackupCacheDuration uint64
-	BOMFile              string
-	OwnersFile           string
-	ReportingRoots       []string
-	AdminGroup           uint32
-	ReloadTime           uint64
-	MainProgrammes       []string
-}
-
 // Config represents a parsed configuration file which can be automatically
 // updated on a timeout.
 //
@@ -347,4 +336,35 @@ func (c *Config) GetMainProgrammes() []string {
 	}
 
 	return c.yamlConfig.MainProgrammes
+}
+
+// GetFofnDirs returns a map of path-regexp to fofndir for all servers that
+// have a fofndir configured.
+func (c *Config) GetFofnDirs() map[string]string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	fofnDirs := make(map[string]string)
+
+	for pathRE, server := range c.yamlConfig.IBackup.PathToServer {
+		details, ok := c.yamlConfig.IBackup.Servers[server.ServerName]
+		if !ok || details.FofnDir == "" {
+			continue
+		}
+
+		fofnDirs[pathRE] = details.FofnDir
+	}
+
+	return fofnDirs
+}
+
+type yamlConfig struct {
+	IBackup              ibackup.Config
+	IBackupCacheDuration uint64
+	BOMFile              string
+	OwnersFile           string
+	ReportingRoots       []string
+	AdminGroup           uint32
+	ReloadTime           uint64
+	MainProgrammes       []string
 }

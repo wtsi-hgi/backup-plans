@@ -215,3 +215,120 @@ group3,bomB`,
 		})
 	})
 }
+
+func TestConfigFofnDirs(t *testing.T) {
+	Convey("Given a config with fofndir configured for a server", t, func() {
+		tmp := t.TempDir()
+
+		y := yamlConfig{
+			IBackup: ibackup.Config{
+				Servers: map[string]ibackup.ServerDetails{
+					"fofn_only": {
+						FofnDir: "/watch/",
+					},
+				},
+				PathToServer: map[string]ibackup.ServerTransformer{
+					"^/watch/path/": {
+						ServerName:  "fofn_only",
+						Transformer: ib.CustomTransformer,
+					},
+				},
+			},
+		}
+
+		cfgFile := filepath.Join(tmp, "config.yml")
+
+		f, err := os.Create(cfgFile)
+		So(err, ShouldBeNil)
+		So(yaml.NewEncoder(f).Encode(y), ShouldBeNil)
+
+		cfg, err := Parse(cfgFile)
+		So(err, ShouldBeNil)
+
+		So(cfg.GetFofnDirs(), ShouldResemble, map[string]string{
+			"^/watch/path/": "/watch/",
+		})
+	})
+
+	Convey("Given a config with no fofndir on any server", t, func() {
+		tmp := t.TempDir()
+
+		y := yamlConfig{
+			IBackup: ibackup.Config{},
+		}
+
+		cfgFile := filepath.Join(tmp, "config.yml")
+
+		f, err := os.Create(cfgFile)
+		So(err, ShouldBeNil)
+		So(yaml.NewEncoder(f).Encode(y), ShouldBeNil)
+
+		cfg, err := Parse(cfgFile)
+		So(err, ShouldBeNil)
+
+		So(cfg.GetFofnDirs(), ShouldBeEmpty)
+	})
+
+	Convey("Given a config with API details and fofndir for the same server", t, func() {
+		So(testirods.AddPseudoIRODsToolsToPathIfRequired(t), ShouldBeNil)
+
+		_, addr, certPath, dfn, err := ib.NewTestIbackupServer(t)
+		So(err, ShouldBeNil)
+
+		Reset(func() { dfn() }) //nolint:errcheck
+
+		tmp := t.TempDir()
+		pathRE := "^/api/watch/path/"
+
+		y := yamlConfig{
+			IBackup: ibackup.Config{
+				Servers: map[string]ibackup.ServerDetails{
+					"api_and_fofn": {
+						Addr:     addr,
+						Cert:     certPath,
+						Token:    filepath.Join(filepath.Dir(certPath), ".ibackup.token"),
+						FofnDir:  "/watch/api/",
+						Username: "",
+					},
+				},
+				PathToServer: map[string]ibackup.ServerTransformer{
+					pathRE: {
+						ServerName:  "api_and_fofn",
+						Transformer: ib.CustomTransformer,
+					},
+				},
+			},
+		}
+
+		cfgFile := filepath.Join(tmp, "config.yml")
+
+		f, err := os.Create(cfgFile)
+		So(err, ShouldBeNil)
+		So(yaml.NewEncoder(f).Encode(y), ShouldBeNil)
+
+		cfg, err := Parse(cfgFile)
+		So(err, ShouldBeNil)
+
+		So(cfg.GetIBackupClient(), ShouldNotBeNil)
+		So(cfg.GetFofnDirs(), ShouldResemble, map[string]string{
+			pathRE: "/watch/api/",
+		})
+
+		u, err := user.Current()
+		So(err, ShouldBeNil)
+
+		setName := "mySet"
+		backupPath := "/api/watch/path/a/dir/"
+
+		ibClient := cfg.GetIBackupClient()
+
+		Reset(func() { ibClient.Stop() })
+
+		So(ibClient.Backup(backupPath, setName, u.Username,
+			[]string{"/api/watch/path/a/dir/file"}, 0, 1, 2), ShouldBeNil)
+
+		activity, err := ibClient.GetBackupActivity(backupPath, setName, u.Username)
+		So(err, ShouldBeNil)
+		So(activity, ShouldNotBeNil)
+	})
+}

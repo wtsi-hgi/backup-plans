@@ -30,6 +30,7 @@ var (
 // server.
 type ServerDetails struct {
 	Addr, Cert, Token, Username string
+	FofnDir                     string
 }
 
 // ServerTransformer combines a configured server name and a transformer to be
@@ -42,20 +43,64 @@ type serverClient struct {
 	atomic.Pointer[server.Client]
 }
 
+func createServerClient(ctx context.Context, details ServerDetails) (*serverClient, error) {
+	var client serverClient
+
+	if details.Addr == "" && details.FofnDir != "" {
+		return &client, nil
+	}
+
+	c, err := connect(
+		jwtBasename(details.Token),
+		details.Token, details.Addr, details.Cert, details.Username,
+	)
+	if err != nil {
+		client.Store(new(server.Client))
+
+		go client.await(ctx, details)
+
+		return &client, err
+	}
+
+	client.Store(c)
+
+	return &client, nil
+}
+
 func (s *serverClient) GetSetByName(requester, setName string) (*set.Set, error) {
-	return s.Load().GetSetByName(requester, setName)
+	client := s.Load()
+	if client == nil {
+		return nil, ErrUnknownClient
+	}
+
+	return client.GetSetByName(requester, setName)
 }
 
 func (s *serverClient) AddOrUpdateSet(set *set.Set) error {
-	return s.Load().AddOrUpdateSet(set)
+	client := s.Load()
+	if client == nil {
+		return ErrUnknownClient
+	}
+
+	return client.AddOrUpdateSet(set)
 }
 
 func (s *serverClient) MergeFiles(setID string, paths []string) error {
-	return s.Load().MergeFiles(setID, paths)
+	client := s.Load()
+	if client == nil {
+		return ErrUnknownClient
+	}
+
+	return client.MergeFiles(setID, paths)
 }
 
 func (s *serverClient) TriggerDiscovery(setID string, forceRemovals bool) error {
-	return s.Load().TriggerDiscovery(setID, forceRemovals)
+	client := s.Load()
+	if client == nil {
+		return ErrUnknownClient
+	}
+
+	return client.TriggerDiscovery(setID, forceRemovals)
 }
 
 func (s *serverClient) await(ctx context.Context, details ServerDetails) {
@@ -206,23 +251,12 @@ func createServers(ctx context.Context, c Config) (map[string]*serverClient, err
 	servers := make(map[string]*serverClient, len(c.Servers))
 
 	for name, details := range c.Servers {
-		var client serverClient
-
-		c, err := connect(
-			jwtBasename(details.Token),
-			details.Token, details.Addr, details.Cert, details.Username,
-		)
+		client, err := createServerClient(ctx, details)
 		if err != nil {
 			errs = errors.Join(errs, &ServerConnectionError{name, err})
-
-			client.Store(new(server.Client))
-
-			go client.await(ctx, details)
-		} else {
-			client.Store(c)
 		}
 
-		servers[name] = &client
+		servers[name] = client
 	}
 
 	return servers, errs
@@ -237,6 +271,8 @@ func createClients(servers map[string]*serverClient, c Config) (map[string]*clie
 			return nil, UnknownServerError(server.ServerName)
 		}
 
+		details := c.Servers[server.ServerName]
+
 		r, err := regexp.Compile(re)
 		if err != nil {
 			return nil, err
@@ -246,6 +282,7 @@ func createClients(servers map[string]*serverClient, c Config) (map[string]*clie
 			re:          r,
 			client:      s,
 			transformer: server.Transformer,
+			fofnDir:     details.FofnDir,
 		}
 	}
 
@@ -256,6 +293,7 @@ type clientTransformer struct {
 	client      *serverClient
 	re          *regexp.Regexp
 	transformer string
+	fofnDir     string
 }
 
 // Config contains a map of named ibackup servers, and their connection details,
@@ -357,7 +395,33 @@ func (m *MultiClient) Backup(path string, setName, requester string, files []str
 		return ErrUnknownClient
 	}
 
+	if c.client.Load() == nil {
+		return nil
+	}
+
 	return Backup(c.client.Load(), c.transformer, setName, requester, files, frequency, review, remove)
+}
+
+// GetFofnDir returns the fofn directory configured for the server matching the
+// given path, or "" if none is configured.
+func (m *MultiClient) GetFofnDir(path string) string {
+	c := m.getClient(path)
+	if c == nil {
+		return ""
+	}
+
+	return c.fofnDir
+}
+
+// GetTransformer returns the transformer string configured for the server
+// matching the given path, or "" if none matches.
+func (m *MultiClient) GetTransformer(path string) string {
+	c := m.getClient(path)
+	if c == nil {
+		return ""
+	}
+
+	return c.transformer
 }
 
 func (m *MultiClient) getClient(path string) *clientTransformer {
@@ -540,12 +604,19 @@ type reCache struct {
 	*Cache
 }
 
+type reFofnCache struct {
+	re      *regexp.Regexp
+	fofnDir string
+	*fofnCache
+}
+
 // MultiCache contains multiple ibackup caches that can be selected by path.
 type MultiCache struct {
 	d time.Duration
 
-	mu     sync.RWMutex
-	caches map[string]reCache
+	mu         sync.RWMutex
+	caches     map[string]reCache
+	fofnCaches map[string]reFofnCache
 }
 
 // NewMultiCache creates a new MultiClient from the given MultiClient, calling
@@ -555,12 +626,23 @@ type MultiCache struct {
 // to) this cache.
 func NewMultiCache(mc *MultiClient, d time.Duration) *MultiCache {
 	caches := make(map[string]reCache, len(mc.clients))
+	fofnCaches := make(map[string]reFofnCache)
 
 	for re, c := range mc.clients {
 		caches[re] = reCache{re: c.re, Cache: NewCache(c.client, d)}
+
+		if c.fofnDir == "" {
+			continue
+		}
+
+		fofnCaches[re] = reFofnCache{
+			re:        c.re,
+			fofnDir:   c.fofnDir,
+			fofnCache: newFofnCache(NewFofnStatusReader(c.fofnDir), d),
+		}
 	}
 
-	return &MultiCache{caches: caches, d: d}
+	return &MultiCache{caches: caches, fofnCaches: fofnCaches, d: d}
 }
 
 // GetBackupActivity retrieves a cache using the given path, and then calls the
@@ -574,6 +656,18 @@ func (m *MultiCache) GetBackupActivity(path, setName, requester string) (*SetBac
 	return c.GetBackupActivity(setName, requester)
 }
 
+// GetFofnBackupActivity retrieves fofn-based backup status for the given path
+// and set name. Returns nil if no fofndir is configured for the path or no
+// status file exists.
+func (m *MultiCache) GetFofnBackupActivity(path, setName string) (*SetBackupActivity, error) {
+	c := m.getFofnCache(path)
+	if c == nil {
+		return nil, nil //nolint:nilnil
+	}
+
+	return c.GetBackupActivity(setName)
+}
+
 func (m *MultiCache) getClient(path string) *Cache {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -581,6 +675,19 @@ func (m *MultiCache) getClient(path string) *Cache {
 	for _, c := range m.caches {
 		if c.re.MatchString(path) {
 			return c.Cache
+		}
+	}
+
+	return nil
+}
+
+func (m *MultiCache) getFofnCache(path string) *fofnCache {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	for _, c := range m.fofnCaches {
+		if c.re.MatchString(path) {
+			return c.fofnCache
 		}
 	}
 
@@ -601,6 +708,39 @@ func (m *MultiCache) Update(mc *MultiClient) {
 		} else {
 			m.caches[re] = reCache{re: c.re, Cache: NewCache(c.client, m.d)}
 		}
+
+		exist, ok := m.fofnCaches[re]
+
+		if c.fofnDir == "" {
+			if ok {
+				exist.Stop()
+				delete(m.fofnCaches, re)
+			}
+
+			continue
+		}
+
+		if !ok {
+			m.fofnCaches[re] = reFofnCache{
+				re:        c.re,
+				fofnDir:   c.fofnDir,
+				fofnCache: newFofnCache(NewFofnStatusReader(c.fofnDir), m.d),
+			}
+
+			continue
+		}
+
+		if exist.fofnDir == c.fofnDir {
+			continue
+		}
+
+		exist.Stop()
+
+		m.fofnCaches[re] = reFofnCache{
+			re:        c.re,
+			fofnDir:   c.fofnDir,
+			fofnCache: newFofnCache(NewFofnStatusReader(c.fofnDir), m.d),
+		}
 	}
 
 	for re, cache := range m.caches {
@@ -609,11 +749,22 @@ func (m *MultiCache) Update(mc *MultiClient) {
 			delete(m.caches, re)
 		}
 	}
+
+	for re, cache := range m.fofnCaches {
+		if _, ok := mc.clients[re]; !ok {
+			cache.Stop()
+			delete(m.fofnCaches, re)
+		}
+	}
 }
 
 // Stop stops the concurrent retrieval backup statuses for each client.
 func (m *MultiCache) Stop() {
 	for _, c := range m.caches {
+		c.Stop()
+	}
+
+	for _, c := range m.fofnCaches {
 		c.Stop()
 	}
 }

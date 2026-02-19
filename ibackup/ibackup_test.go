@@ -7,6 +7,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -193,6 +194,192 @@ func TestMultiIbackup(t *testing.T) {
 			})
 		})
 	})
+}
+
+func TestMultiIbackupFofndirOnlyServers(t *testing.T) {
+	Convey("C2 acceptance tests for fofndir-only server handling", t, func() {
+		Convey("1) New() works with fofndir-only server", func() {
+			mc, err := ibackup.New(ibackup.Config{
+				Servers: map[string]ibackup.ServerDetails{
+					"fofndir_only": {FofnDir: t.TempDir()},
+				},
+				PathToServer: map[string]ibackup.ServerTransformer{
+					"^/fofn/": {
+						ServerName:  "fofndir_only",
+						Transformer: "prefix=/fofn/:/remote/",
+					},
+				},
+			})
+			So(err, ShouldBeNil)
+			So(mc, ShouldNotBeNil)
+
+			mc.Stop()
+		})
+
+		Convey("1b) New() rejects empty server details without Addr and FofnDir", func() {
+			mc, err := ibackup.New(ibackup.Config{
+				Servers: map[string]ibackup.ServerDetails{
+					"empty": {},
+				},
+				PathToServer: map[string]ibackup.ServerTransformer{
+					"^/empty/": {
+						ServerName:  "empty",
+						Transformer: "prefix=/empty/:/remote/",
+					},
+				},
+			})
+			So(mc, ShouldNotBeNil)
+			So(err, ShouldNotBeNil)
+			So(ibackup.IsOnlyConnectionErrors(err), ShouldBeTrue)
+			So(strings.Contains(err.Error(), "empty"), ShouldBeTrue)
+
+			mc.Stop()
+		})
+
+		Convey("2) New() still attempts API connection when Addr is set", func() {
+			mc, err := ibackup.New(ibackup.Config{
+				Servers: map[string]ibackup.ServerDetails{
+					"api_and_fofn": {
+						Addr:    "https://127.0.0.1:1",
+						FofnDir: t.TempDir(),
+					},
+				},
+				PathToServer: map[string]ibackup.ServerTransformer{
+					"^/mixed/": {
+						ServerName:  "api_and_fofn",
+						Transformer: "prefix=/mixed/:/remote/",
+					},
+				},
+			})
+			So(mc, ShouldNotBeNil)
+			So(err, ShouldNotBeNil)
+			So(ibackup.IsOnlyConnectionErrors(err), ShouldBeTrue)
+
+			mc.Stop()
+		})
+
+		Convey("3) Backup() on fofndir-only path skips API operations", func() {
+			mc, err := ibackup.New(ibackup.Config{
+				Servers: map[string]ibackup.ServerDetails{
+					"fofndir_only": {FofnDir: t.TempDir()},
+				},
+				PathToServer: map[string]ibackup.ServerTransformer{
+					"^/fofn/": {
+						ServerName:  "fofndir_only",
+						Transformer: "prefix=/fofn/:/remote/",
+					},
+				},
+			})
+			So(err, ShouldBeNil)
+			So(mc, ShouldNotBeNil)
+
+			err = mc.Backup(
+				"/fofn/project/",
+				"plan::/fofn/project/",
+				"requester",
+				[]string{"/fofn/project/file1"},
+				1,
+				0,
+				0,
+			)
+			So(err, ShouldBeNil)
+
+			mcache := ibackup.NewMultiCache(mc, time.Second)
+			So(mcache, ShouldNotBeNil)
+
+			_, err = mcache.GetBackupActivity("/fofn/project/", "plan::/fofn/project/", "requester")
+			So(err, ShouldEqual, ibackup.ErrUnknownClient)
+
+			mcache.Stop()
+
+			mc.Stop()
+		})
+
+		Convey("4) Mixed fofndir-only and api-only only reports API connection errors", func() {
+			mc, err := ibackup.New(ibackup.Config{
+				Servers: map[string]ibackup.ServerDetails{
+					"fofndir_only": {FofnDir: t.TempDir()},
+					"api_only": {
+						Addr: "https://127.0.0.1:1",
+					},
+				},
+				PathToServer: map[string]ibackup.ServerTransformer{
+					"^/fofn/": {
+						ServerName:  "fofndir_only",
+						Transformer: "prefix=/fofn/:/remote/",
+					},
+					"^/api/": {
+						ServerName:  "api_only",
+						Transformer: "prefix=/api/:/remote/",
+					},
+				},
+			})
+			So(mc, ShouldNotBeNil)
+			So(err, ShouldNotBeNil)
+			So(ibackup.IsOnlyConnectionErrors(err), ShouldBeTrue)
+			So(strings.Contains(err.Error(), "api_only"), ShouldBeTrue)
+			So(strings.Contains(err.Error(), "fofndir_only"), ShouldBeFalse)
+
+			mc.Stop()
+		})
+	})
+}
+
+type boltDB struct {
+	db *bbolt.DB
+	ch codec.Handle
+}
+
+func getDB(s *server.Server) *boltDB {
+	return (*struct {
+		gas.Server
+		db *boltDB
+	})(unsafe.Pointer(s)).db
+}
+
+func setSet(s *server.Server, got *set.Set) error {
+	db := getDB(s)
+
+	return db.db.Update(func(tx *bbolt.Tx) error {
+		var encoded []byte
+
+		enc := codec.NewEncoderBytes(&encoded, db.ch)
+		enc.MustEncode(got)
+
+		b := tx.Bucket([]byte("sets"))
+
+		return b.Put([]byte(got.ID()), encoded)
+	})
+}
+
+type mergeCall struct {
+	setID string
+	paths []string
+}
+
+type MockClient struct {
+	*server.Client
+	Discoveries map[string]time.Time
+	MergeCalls  []mergeCall
+}
+
+func newMockClient(client *server.Client) *MockClient {
+	return &MockClient{
+		Client:      client,
+		Discoveries: make(map[string]time.Time),
+	}
+}
+
+func (m *MockClient) TriggerDiscovery(setID string, forceRemovals bool) error {
+	m.Discoveries[setID] = time.Now()
+
+	return nil
+}
+
+func (m *MockClient) MergeFiles(setID string, paths []string) error {
+	m.MergeCalls = append(m.MergeCalls, mergeCall{setID: setID, paths: paths})
+
+	return nil
 }
 
 func TestIbackup(t *testing.T) {
@@ -385,6 +572,12 @@ func TestIbackup(t *testing.T) {
 	})
 }
 
+func runTestBackups(client *server.Client, setname, requester string, files []string,
+	frequency int, review, remove int64) {
+	err := ibackup.Backup(client, "prefix=/lustre/:/remote/", setname, requester, files, frequency, review, remove)
+	So(err, ShouldBeNil)
+}
+
 func checkTimes(sets []*set.Set) []*set.Set {
 	for _, set := range sets {
 		So(set.StartedDiscovery, ShouldHappenWithin, time.Minute, time.Now())
@@ -397,68 +590,6 @@ func checkTimes(sets []*set.Set) []*set.Set {
 	}
 
 	return sets
-}
-
-type boltDB struct {
-	db *bbolt.DB
-	ch codec.Handle
-}
-
-func getDB(s *server.Server) *boltDB {
-	return (*struct {
-		gas.Server
-		db *boltDB
-	})(unsafe.Pointer(s)).db
-}
-
-func setSet(s *server.Server, got *set.Set) error {
-	db := getDB(s)
-
-	return db.db.Update(func(tx *bbolt.Tx) error {
-		var encoded []byte
-
-		enc := codec.NewEncoderBytes(&encoded, db.ch)
-		enc.MustEncode(got)
-
-		b := tx.Bucket([]byte("sets"))
-
-		return b.Put([]byte(got.ID()), encoded)
-	})
-}
-
-func runTestBackups(client *server.Client, setname, requester string, files []string,
-	frequency int, review, remove int64) {
-	err := ibackup.Backup(client, "prefix=/lustre/:/remote/", setname, requester, files, frequency, review, remove)
-	So(err, ShouldBeNil)
-}
-
-type mergeCall struct {
-	setID string
-	paths []string
-}
-type MockClient struct {
-	*server.Client
-	Discoveries map[string]time.Time
-	MergeCalls  []mergeCall
-}
-
-func newMockClient(client *server.Client) *MockClient {
-	return &MockClient{
-		Client:      client,
-		Discoveries: make(map[string]time.Time),
-	}
-}
-
-func (m *MockClient) TriggerDiscovery(setID string, forceRemovals bool) error {
-	m.Discoveries[setID] = time.Now()
-
-	return nil
-}
-
-func (m *MockClient) MergeFiles(setID string, paths []string) error {
-	m.MergeCalls = append(m.MergeCalls, mergeCall{setID: setID, paths: paths})
-
-	return nil
 }
 
 // timeToMeta converts a time to a string suitable for storing as metadata, in

@@ -21,8 +21,8 @@ caches the result. Also create supporting code in
 `ibackup/fofnstatus_test.go` covering all 3 acceptance tests from
 spec.md section B2.
 
-- [ ] implemented
-- [ ] reviewed
+- [x] implemented
+- [x] reviewed
 
 ### Batch 2 (parallel, after item 4.1 is reviewed)
 
@@ -37,8 +37,8 @@ operations when the underlying client is nil. Write tests in
 `ibackup/ibackup_test.go` covering all 4 acceptance tests from
 spec.md section C2.
 
-- [ ] implemented
-- [ ] reviewed
+- [x] implemented
+- [x] reviewed
 
 #### Item 4.3: C3 - Config parsing for FofnDir field [parallel with 4.2]
 
@@ -50,8 +50,8 @@ of path-regexp to fofndir for all servers that have a fofndir
 configured. Write tests in `config/config_test.go` covering all
 3 acceptance tests from spec.md section C3.
 
-- [ ] implemented
-- [ ] reviewed
+- [x] implemented
+- [x] reviewed
 
 For parallel batch items, use separate subagents per item.
 Launch review subagents using the `go-reviewer` skill (review
@@ -71,5 +71,5 @@ into the backup flow in `cmd/backup.go`. Depends on items 4.2 and
 tests in `backups/backups_test.go` covering all 7 acceptance tests
 from spec.md section C1.
 
-- [ ] implemented
-- [ ] reviewed
+- [x] implemented
+- [x] reviewed
