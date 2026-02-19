@@ -19,5 +19,5 @@ and replaces every `/` (U+002F) with fullwidth solidus (U+FF0F).
 Write tests in `ibackup/fofndir_test.go` covering all 5
 acceptance tests from spec.md section A1.
 
-- [ ] implemented
-- [ ] reviewed
+- [x] implemented
+- [x] reviewed
