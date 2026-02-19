@@ -27,13 +27,14 @@ package backend
 
 import (
 	"encoding/json"
-	"fmt"
+	"errors"
 	"net/http"
 	"time"
 
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/ibackup"
 	"github.com/wtsi-hgi/backup-plans/ruletree"
+	"vimagination.zapto.org/tree"
 )
 
 type ruleStats struct {
@@ -61,8 +62,16 @@ func (s *Server) claimstats(w http.ResponseWriter, _ *http.Request) error {
 	claimstats := []DirStats{}
 
 	for _, dir := range s.directoryRules {
+		if dir.ClaimedBy == "" {
+			continue
+		}
+
 		dirStats, err := s.generateDirStats(dir)
 		if err != nil {
+			if errors.As(err, new(tree.ChildNotFoundError)) {
+				continue
+			}
+
 			return err
 		}
 
@@ -75,7 +84,6 @@ func (s *Server) claimstats(w http.ResponseWriter, _ *http.Request) error {
 }
 
 func (s *Server) generateDirStats(dir *ruletree.DirRules) (*DirStats, error) {
-	// TODO: Do I need to check if dir is claimed or are these just for claimed dirs?
 	rulestats, err := s.generateRuleStats(dir)
 	if err != nil {
 		return nil, err
@@ -83,7 +91,6 @@ func (s *Server) generateDirStats(dir *ruletree.DirRules) (*DirStats, error) {
 
 	sba, err := s.config.GetIBackupClient().GetBackupActivity(dir.Path, "plan::"+dir.Path, dir.ClaimedBy)
 	if err != nil {
-		fmt.Printf("GetBackupActivity failed for %v Claimed by: %v", dir.Path, dir.ClaimedBy)
 		sba = &ibackup.SetBackupActivity{
 			LastSuccess: time.Time{},
 			Name:        "plan::" + dir.Path,

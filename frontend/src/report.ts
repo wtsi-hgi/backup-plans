@@ -13,6 +13,7 @@ import { boms, owners, userGroups } from './userGroups.js';
 import { inputState } from "./state.js";
 import graph from "./graph.js";
 
+// export const groupList = datalist({ "id": "groupList" });
 class Summary {
 	actions: SizeCountTime[] = [];
 	path: string;

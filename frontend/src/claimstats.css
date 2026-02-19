@@ -21,10 +21,24 @@
     position: relative;
 }
 
+.claimstats-filter-container {
+    border: 1px solid currentColor;
+    border-radius: 1em;
+}
+
 .claimstats-container {
     display: flex;
     justify-content: center;
     flex-direction: column;
+    /* gap: 2em;
+    margin: 1em 0 0 1em;
+    overflow: hidden;
+    padding: 1em;
+    width: 100%; */
+}
+
+.claimstats-container,
+.claimstats-filter-container {
     gap: 2em;
     margin: 1em 0 0 1em;
     overflow: hidden;
@@ -47,4 +61,8 @@
 
 .claimstats-legend svg {
     position: relative;
+}
+
+.hidden {
+    display: none;
 }

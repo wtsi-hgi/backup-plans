@@ -134,6 +134,8 @@ export type SetBackupActivity = {
 
 export type DirStats = {
 	Path: string;
+	ClaimedBy: string;
+	Group: string;
 	BackupStatus: SetBackupActivity;
 	RuleStats: RuleInfo[];
 }
