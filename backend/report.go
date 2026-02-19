@@ -40,6 +40,8 @@ import (
 	"vimagination.zapto.org/tree"
 )
 
+const unplanned = -1
+
 type summary struct {
 	Summaries             map[string]*ruletree.DirSummary
 	Rules                 map[uint64]*db.Rule
@@ -48,15 +50,9 @@ type summary struct {
 	GroupBackupTypeTotals map[string]map[int]*SizeCount
 }
 
-const unplanned = -1
-
 type SizeCount struct {
 	Count uint64 `json:"count"`
 	Size  uint64 `json:"size"`
-}
-
-type dirSet struct {
-	dir, set string
 }
 
 func (s *Server) addTotals(backupType int, group ruletree.Stats, summary *summary) {
@@ -120,6 +116,10 @@ func (s *Server) getClaimed(root string) string {
 	return ""
 }
 
+type dirSet struct {
+	dir, set string
+}
+
 func (s *Server) populateBackupStatus(dirClaims, repos map[string]string,
 	manualIbackup map[string][]dirSet, dirSummary *summary) {
 	s.populateIbackupStatus(dirClaims, dirSummary)
@@ -130,20 +130,37 @@ func (s *Server) populateBackupStatus(dirClaims, repos map[string]string,
 func (s *Server) populateIbackupStatus(dirClaims map[string]string, dirSummary *summary) {
 	for dir, claimedBy := range dirClaims {
 		planName := "plan::" + dir
+		cache := s.config.GetCachedIBackupClient()
 
-		sba, err := s.config.GetCachedIBackupClient().GetBackupActivity(dir, planName, claimedBy)
+		sba, err := cache.GetBackupActivity(dir, planName, claimedBy)
 		if err != nil {
 			slog.Error("error querying ibackup status", "dir", dir, "err", err)
 		}
 
-		if sba == nil {
-			sba = &ibackup.SetBackupActivity{
-				Name:      planName,
-				Requester: claimedBy,
+		if err == nil || !errors.Is(err, ibackup.ErrUnknownClient) {
+			if sba == nil {
+				sba = &ibackup.SetBackupActivity{
+					Name:      planName,
+					Requester: claimedBy,
+				}
 			}
+
+			dirSummary.BackupStatus[dir] = sba
 		}
 
-		dirSummary.BackupStatus[dir] = sba
+		fofnStatus, fofnErr := cache.GetFofnBackupActivity(dir, planName)
+		if fofnErr != nil {
+			slog.Error("error querying fofn status", "dir", dir, "err", fofnErr)
+
+			continue
+		}
+
+		if fofnStatus == nil {
+			continue
+		}
+
+		fofnStatus.Requester = claimedBy
+		dirSummary.BackupStatus["fofn:"+dir] = fofnStatus
 	}
 }
 

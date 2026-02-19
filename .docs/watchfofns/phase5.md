@@ -20,8 +20,8 @@ status to the BackupStatus map with a key of `"fofn:" + dir`.
 Write tests in `backend/report_test.go` covering all 3 acceptance
 tests from spec.md section D1.
 
-- [ ] implemented
-- [ ] reviewed
+- [x] implemented
+- [x] reviewed
 
 ### Item 5.2: D2 - Frontend display of fofn status counts
 
@@ -35,5 +35,5 @@ these counts in the report table when present. Depends on item
 5.1 for the data format. Cover all 2 acceptance tests from
 spec.md section D2.
 
-- [ ] implemented
-- [ ] reviewed
+- [x] implemented
+- [x] reviewed

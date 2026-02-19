@@ -106,7 +106,15 @@ export type BackupStatus = {
 	LastSuccess: string;
 	Name: string;
 	Requester: string;
-	Failures: number;
+	Uploaded?: number;
+	Replaced?: number;
+	Unmodified?: number;
+	Missing?: number;
+	Frozen?: number;
+	Orphaned?: number;
+	Warning?: number;
+	Hardlink?: number;
+	Failures?: number;
 };
 
 export type UserGroups = {

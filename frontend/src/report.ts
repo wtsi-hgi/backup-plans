@@ -12,6 +12,7 @@ import ODS from './odf.js';
 import { boms, owners, userGroups } from './userGroups.js';
 import { inputState } from "./state.js";
 import graph from "./graph.js";
+import { fofnCountColumns, hasFofnCountData } from "./reportBackupCounts.js";
 
 class Summary {
 	actions: SizeCountTime[] = [];
@@ -95,6 +96,8 @@ class ParentSummary extends Summary {
 	}
 
 	section() {
+		const showFofnCounts = hasFofnCountData(Array.from(this.backups.values()).flat());
+
 		return fieldset({
 			"data-status": this.status(),
 			"data-warn-size": (this.actions[+BackupType.BackupWarn]?.size ?? 0) + "",
@@ -130,6 +133,7 @@ class ParentSummary extends Summary {
 					th("Claimed By"),
 					th("Backup Name"),
 					th("Last Backup"),
+					showFofnCounts ? fofnCountColumns.map(column => th(column)) : [],
 					th("Failures")
 				])),
 				tbody(this.backups.size ? [
@@ -145,9 +149,10 @@ class ParentSummary extends Summary {
 									: new Date(backup.LastSuccess).toLocaleString()
 								: "-"
 						),
-						td(backup.Failures.toLocaleString())
+						showFofnCounts ? fofnCountColumns.map(column => td((backup[column] ?? 0).toLocaleString())) : [],
+						td((backup.Failures ?? 0).toLocaleString())
 					])))
-				] : tr(td({ "colspan": "5" }, "No Backups")))
+				] : tr(td({ "colspan": (5 + (showFofnCounts ? fofnCountColumns.length : 0)) + "" }, "No Backups")))
 			]),
 			this.children.size ? [
 				h2("Rules"),
