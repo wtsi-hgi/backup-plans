@@ -1,17 +1,112 @@
+/*******************************************************************************
+ * Copyright (c) 2025 Genome Research Ltd.
+ *
+ * Author: Michael Woolnough <mw31@sanger.ac.uk>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included
+ * in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ ******************************************************************************/
+
 package ruletree
 
 import (
+	"bytes"
 	"iter"
 	"maps"
 	"math"
 	"slices"
 	"strings"
+	"unsafe"
 
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/wrstat-ui/summary/group"
 )
 
-const processRules int64 = math.MinInt64
+const (
+	processRules          int64 = math.MinInt64
+	maxWildcardsForSimple       = 2
+)
+
+var noMatchingRules = new(int64) //nolint:gochecknoglobals
+
+// State represents a partial match that can be continued or completed.
+type State struct {
+	groups []group.State[int64]
+}
+
+// BuildMultiStateMachine take a slice of rulesets and builds a statemachine for
+// each.
+//
+// Returned State handles like group.State, but iterates over each individual
+// StateMachine, removing those that no longer apply.
+//
+// The slice should be ordered by precedence, with the highest first.
+func BuildMultiStateMachine(rules []Rules) (State, error) {
+	groups := make([]group.State[int64], len(rules))
+
+	for n, rs := range rules {
+		sm, err := group.NewStatemachine(rs)
+		if err != nil {
+			return State{}, err
+		}
+
+		setDefaultGroup(sm)
+
+		groups[n] = sm.GetState(nil)
+	}
+
+	return State{groups}, nil
+}
+
+func setDefaultGroup(sm group.StateMachine[int64]) {
+	(*struct {
+		_     [256]int32
+		Group *int64
+	})(unsafe.Pointer(&sm[0])).Group = noMatchingRules
+}
+
+// GetState continues matching with the given match string, returning a new
+// State.
+func (s State) GetStateString(match string) State {
+	gs := make([]group.State[int64], 0, len(s.groups))
+
+	for _, g := range s.groups {
+		if rs := g.GetStateString(match); rs.GetGroup() != noMatchingRules {
+			gs = append(gs, rs)
+		}
+	}
+
+	return State{groups: gs}
+}
+
+// GetGroup returns the group at the current state.
+//
+// When multiple statemachines exist, the first valid group is returned.
+func (s State) GetGroup() *int64 {
+	for _, g := range s.groups {
+		if r := g.GetGroup(); r != noMatchingRules && r != nil {
+			return r
+		}
+	}
+
+	return nil
+}
 
 // Rules is a list of rule paths and IDs ready to be compiled into a
 // StateMachine.
@@ -38,17 +133,17 @@ const (
 )
 
 func generateStatemachineFor(mount string, paths []string,
-	directoryRules map[string]*DirRules) (group.StateMachine[int64], group.StateMachine[int64], error) {
+	directoryRules map[string]*DirRules) (State, group.StateMachine[int64], error) {
 	rules, wildcards := buildDirRules(mount, paths, directoryRules)
 
-	sm, err := group.NewStatemachine(rules)
+	sm, err := BuildMultiStateMachine(rules)
 	if err != nil {
-		return nil, nil, err
+		return State{}, nil, err
 	}
 
 	wcs, err := group.NewStatemachine(wildcards)
 	if err != nil {
-		return nil, nil, err
+		return State{}, nil, err
 	}
 
 	return sm, wcs, nil
@@ -324,10 +419,184 @@ func (r *RuleTree) Iter() iter.Seq2[string, *RuleTree] {
 	return maps.All(r.children)
 }
 
+var star = []byte{'*'} //nolint:gochecknoglobals
+
+// BuildRules generates a slice of Rule sets from the current RuleTree.
+//
+// The sets are split based on a scoring mechanism that intends to stop the
+// StateMachine sizes becoming unwieldy, but while not significantly increasing
+// the runtime of the rule engine.
+//
+// The returned slice of Rules should be given to BuildMultiStateMachine to
+// build the combined statemachine.
+func (r *RuleTree) BuildRules() []Rules {
+	const maxScore = 1 << 24
+
+	rules, _ := r.buildRules("/", []Rules{nil}, 1)
+	prules := []Rules{rules[0]}
+	score := maxScore + 1
+
+	for _, ruleList := range slices.Backward(rules[1:]) {
+		for _, rule := range ruleList {
+			starScore := factorial(bytes.Count(rule.Path, star))
+			if nScore := score * starScore; nScore > maxScore {
+				prules = append(prules, nil)
+				score = starScore
+			} else {
+				score = nScore
+			}
+
+			prules[len(prules)-1] = append(prules[len(prules)-1], rule)
+		}
+	}
+
+	return prules
+}
+
+func factorial(n int) int {
+	const maxFactorial = 10
+
+	if n > maxFactorial {
+		return math.MaxInt
+	}
+
+	r := 1
+
+	for i := range n {
+		r *= (i + 1)
+	}
+
+	return r
+}
+
+func (r *RuleTree) buildRules(path string, rules []Rules, depth int) ([]Rules, bool) {
+	var childHasVeryComplex bool
+
+	rules, childHasVeryComplex = r.buildChildRules(path, rules, depth+1)
+	hasVeryComplex := childHasVeryComplex || r.hasComplexRules()
+	rules = r.processRules(path, rules, hasVeryComplex, depth)
+
+	return rules, hasVeryComplex
+}
+
+func (r *RuleTree) buildChildRules(path string, rules []Rules, depth int) ([]Rules, bool) {
+	var childHasVeryComplex bool
+
+	for part, child := range r.children {
+		var complexChild bool
+
+		rules, complexChild = child.buildRules(path+part, rules, depth)
+		if complexChild {
+			childHasVeryComplex = true
+		}
+	}
+
+	return rules, childHasVeryComplex
+}
+
+func (r *RuleTree) hasComplexRules() bool {
+	for match := range r.Rules {
+		if strings.Count(match, "*") > maxWildcardsForSimple {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (r *RuleTree) processRules(path string, rules []Rules, hasVeryComplex bool, depth int) []Rules {
+	var idx int
+
+	if hasVeryComplex {
+		idx = depth
+
+		if len(rules) <= idx {
+			rules = slices.Grow(rules, idx-len(rules)+1)[:idx+1]
+		}
+	}
+
+	for match, rule := range orderRulesByPrecedence(r.Rules) {
+		rules[idx] = addRuleToList(rules[idx], path+match, rule.ID())
+	}
+
+	return rules
+}
+
+func orderRulesByPrecedence(rules map[string]*db.Rule) iter.Seq2[string, *db.Rule] {
+	return func(yield func(string, *db.Rule) bool) {
+		keys := slices.Collect(maps.Keys(rules))
+
+		slices.SortFunc(keys, matchPrecedence)
+
+		for _, key := range keys {
+			if !yield(key, rules[key]) {
+				return
+			}
+		}
+	}
+}
+
+func matchPrecedence(a, b string) int { //nolint:gocognit,gocyclo
+	if len(a) == 0 { //nolint:nestif
+		if len(b) == 0 {
+			return 0
+		}
+
+		return 1
+	} else if len(b) == 0 {
+		return -1
+	}
+
+	aPos := strings.IndexByte(a, '*')
+	bPos := strings.IndexByte(b, '*')
+
+	if aPos == -1 { //nolint:gocritic,nestif
+		if bPos == -1 {
+			return len(b) - len(a)
+		}
+
+		return -1
+	} else if bPos == -1 {
+		return 1
+	} else if a[:aPos] == b[:bPos] {
+		return matchPrecedence(a[aPos+1:], b[bPos+1:])
+	}
+
+	return bPos - aPos
+}
+
+func (r *RuleTree) addRuleStates(path string, rules Rules, wildcard int64) Rules { //nolint:gocyclo
+	if wc, ok := r.Rules["*"]; ok {
+		wildcard = wc.ID()
+	}
+
+	for part, child := range r.children {
+		rules = child.addRuleStates(path+part, rules, wildcard)
+	}
+
+	switch rs := getRuleState(r.Rules); rs {
+	case noRules:
+		rules = addNoRuleRules(rules, path, r.Dir, wildcard)
+	case SimpleWildcard:
+		rules = addSimpleWildcardRules(rules, path, r.Dir, wildcard)
+	case SimplePaths:
+		rules = addRuleToList(rules, path, processRules)
+	case SimpleWildcard | SimplePaths:
+		rules = addSimpleRules(rules, path, r.Dir, wildcard)
+	case ComplexWildcardWithPrefix, ComplexWildcardWithSuffix,
+		ComplexWildcardWithPrefix | SimplePaths, ComplexWildcardWithSuffix | SimplePaths:
+		rules = addComplexRules(rules, path, r.Dir, rs, wildcard, r.Rules)
+	default:
+		rules = addComplexWithWildcardRules(rules, path, r.Dir, rs, wildcard, r.Rules)
+	}
+
+	return rules
+}
+
 var basicWildcard = map[string]*db.Rule{"*": {Match: "*"}} //nolint:gochecknoglobals
 
 func buildDirRules(mount string, paths []string,
-	directoryRules map[string]*DirRules) (Rules, Rules) {
+	directoryRules map[string]*DirRules) ([]Rules, Rules) {
 	dirs := slices.Collect(maps.Keys(directoryRules))
 
 	slices.Sort(dirs)
@@ -346,41 +615,10 @@ func buildDirRules(mount string, paths []string,
 
 	root.Canon()
 
-	return buildRules(root, "/", nil, 0), buildWildcards(root, "/", nil)
-}
+	rules := root.BuildRules()
+	rules[0] = root.addRuleStates("/", rules[0], 0)
 
-func buildRules(d *RuleTree, path string, rules Rules, wildcard int64) Rules { //nolint:gocyclo,cyclop,funlen
-	if len(d.Rules) > 0 {
-		if wc, ok := d.Rules["*"]; ok {
-			wildcard = wc.ID()
-		}
-
-		for match, rule := range d.Rules {
-			rules = addRuleToList(rules, path+match, rule.ID())
-		}
-	}
-
-	switch rs := getRuleState(d.Rules); rs {
-	case noRules:
-		rules = addNoRuleRules(rules, path, d.Dir, wildcard)
-	case SimpleWildcard:
-		rules = addSimpleWildcardRules(rules, path, d.Dir, wildcard)
-	case SimplePaths:
-		rules = addRuleToList(rules, path, processRules)
-	case SimpleWildcard | SimplePaths:
-		rules = addSimpleRules(rules, path, d.Dir, wildcard)
-	case ComplexWildcardWithPrefix, ComplexWildcardWithSuffix,
-		ComplexWildcardWithPrefix | SimplePaths, ComplexWildcardWithSuffix | SimplePaths:
-		rules = addComplexRules(rules, path, d.Dir, rs, wildcard, d.Rules)
-	default:
-		rules = addComplexWithWildcardRules(rules, path, d.Dir, rs, wildcard, d.Rules)
-	}
-
-	for part, child := range d.children {
-		rules = buildRules(child, path+part, rules, wildcard)
-	}
-
-	return rules
+	return rules, buildWildcards(root, "/", nil)
 }
 
 func getRuleState(rules map[string]*db.Rule) ruleState { //nolint:gocognit

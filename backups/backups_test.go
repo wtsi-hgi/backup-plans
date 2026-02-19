@@ -28,8 +28,8 @@ func TestFileInfos(t *testing.T) {
 
 		var paths []string
 
-		sm, err := group.NewStatemachine(ruletree.Rules{
-			{Path: []byte("*"), Group: &hasBackups},
+		sm, err := ruletree.BuildMultiStateMachine([]ruletree.Rules{
+			{{Path: []byte("*"), Group: &hasBackups}},
 		})
 		So(err, ShouldBeNil)
 
@@ -40,7 +40,7 @@ func TestFileInfos(t *testing.T) {
 			So(err, ShouldBeNil)
 		}
 
-		figureOutFOFNs(ctr, sm.GetStateString("/lustre/scratch123/humgen/a/b/"),
+		figureOutFOFNs(ctr, sm,
 			&summary.DirectoryPath{Name: "/lustre/scratch123/humgen/a/b/"}, func(path *summary.DirectoryPath, _ int64) {
 				paths = append(paths, string(path.AppendTo(nil)))
 			})
@@ -122,26 +122,29 @@ func TestCreateRuleGroups(t *testing.T) {
 		root.Canon()
 		root.MarkBackupDirs()
 
-		rgs := collectRuleGroups(root, "/", nil)
+		rules := root.BuildRules()
 
-		So(len(rgs), ShouldEqual, 9)
+		rules[0] = collectRuleGroups(root, "/", rules[0])
+
+		So(len(rules), ShouldEqual, 1)
+		So(len(rules[0]), ShouldEqual, 10)
 		So(len(ruleList), ShouldEqual, 3)
-
-		var rules []*db.Rule
 
 		readRules := testDB.ReadRules()
 
+		var dbRules []*db.Rule
+
 		readRules.ForEach(func(rule *db.Rule) error { //nolint:errcheck
-			rules = append(rules, rule)
+			dbRules = append(dbRules, rule)
 
 			return nil
 		})
 
-		slices.SortFunc(rgs, func(a, b group.PathGroup[int64]) int {
+		slices.SortFunc(rules[0], func(a, b group.PathGroup[int64]) int {
 			return bytes.Compare(a.Path, b.Path)
 		})
 
-		So(rgs, ShouldResemble, ruletree.Rules{
+		So(rules[0], ShouldResemble, ruletree.Rules{
 			{
 				Path:  []byte("/"),
 				Group: &hasBackups,
@@ -167,16 +170,20 @@ func TestCreateRuleGroups(t *testing.T) {
 				Group: &hasBackups,
 			},
 			{
-				Path:  []byte("/lustre/scratch123/humgen/a/b/" + rules[0].Match),
-				Group: ptr(rules[0].ID()),
+				Path:  []byte("/lustre/scratch123/humgen/a/b/" + dbRules[0].Match),
+				Group: ptr(dbRules[0].ID()),
 			},
 			{
 				Path:  []byte("/lustre/scratch123/humgen/a/b/*/"),
 				Group: &hasBackups,
 			},
 			{
-				Path:  []byte("/lustre/scratch123/humgen/a/b/" + rules[1].Match),
-				Group: ptr(rules[1].ID()),
+				Path:  []byte("/lustre/scratch123/humgen/a/b/" + dbRules[1].Match),
+				Group: ptr(dbRules[1].ID()),
+			},
+			{
+				Path:  []byte("/lustre/scratch123/humgen/a/c/" + dbRules[2].Match),
+				Group: ptr(dbRules[2].ID()),
 			},
 		})
 	})

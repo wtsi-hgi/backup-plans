@@ -32,7 +32,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/wtsi-hgi/wrstat-ui/summary/group"
 	"vimagination.zapto.org/byteio"
 	"vimagination.zapto.org/tree"
 )
@@ -146,7 +145,7 @@ func (f *file) readFrom(lr byteio.MemLittleEndian) {
 //		directory ID to get the wildcard ID.
 type ruleProcessor struct {
 	lowerNode, upperNode *tree.MemTree
-	sm                   group.State[int64]
+	sm                   State
 	UID, GID             uint32
 	Rules                []Rule
 }
@@ -223,7 +222,7 @@ func (r *ruleProcessor) getRulePos(ruleID int64) int {
 	return pos
 }
 
-func (r *ruleProcessor) processDir(name string, state group.State[int64],
+func (r *ruleProcessor) processDir(name string, state State,
 	lowerChild, upperChild *tree.MemTree, yield func(string, tree.Node) bool) bool {
 	childProcessor := ruleProcessor{
 		lowerNode: lowerChild,
