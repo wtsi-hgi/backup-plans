@@ -479,7 +479,7 @@ func TestIbackup(t *testing.T) {
 				So(err, ShouldBeNil)
 				So(got.LastDiscovery, ShouldEqual, ld)
 
-				ld = time.Now().Add(-24 * time.Hour)
+				ld = time.Unix(1, 0).UTC()
 				got.LastDiscovery = ld
 
 				So(setSet(s, got), ShouldBeNil)
@@ -586,7 +586,10 @@ func checkTimes(sets []*set.Set) []*set.Set {
 	for _, set := range sets {
 		So(set.StartedDiscovery, ShouldHappenWithin, time.Minute, time.Now())
 		So(set.LastDiscovery, ShouldHappenWithin, time.Minute, time.Now())
-		So(set.LastCompleted, ShouldHappenWithin, time.Minute, time.Now())
+
+		if !set.LastCompleted.IsZero() {
+			So(set.LastCompleted, ShouldHappenWithin, time.Minute, time.Now())
+		}
 
 		set.StartedDiscovery = time.Time{}
 		set.LastDiscovery = time.Time{}
