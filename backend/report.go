@@ -128,40 +128,52 @@ func (s *Server) populateBackupStatus(dirClaims, repos map[string]string,
 }
 
 func (s *Server) populateIbackupStatus(dirClaims map[string]string, dirSummary *summary) {
+	cache := s.config.GetCachedIBackupClient()
+
 	for dir, claimedBy := range dirClaims {
 		planName := "plan::" + dir
-		cache := s.config.GetCachedIBackupClient()
 
-		sba, err := cache.GetBackupActivity(dir, planName, claimedBy)
-		if err != nil && !errors.Is(err, ibackup.ErrUnknownClient) {
-			slog.Error("error querying ibackup status", "dir", dir, "err", err)
-		}
-
-		if err == nil || !errors.Is(err, ibackup.ErrUnknownClient) {
-			if sba == nil {
-				sba = &ibackup.SetBackupActivity{
-					Name:      planName,
-					Requester: claimedBy,
-				}
-			}
-
-			dirSummary.BackupStatus[dir] = sba
-		}
-
-		fofnStatus, fofnErr := cache.GetFofnBackupActivity(dir, planName)
-		if fofnErr != nil {
-			slog.Error("error querying fofn status", "dir", dir, "err", fofnErr)
-
-			continue
-		}
-
-		if fofnStatus == nil {
-			continue
-		}
-
-		fofnStatus.Requester = claimedBy
-		dirSummary.BackupStatus["fofn:"+dir] = fofnStatus
+		s.populateIbackupSetStatus(cache, dir, planName, claimedBy, dirSummary)
+		s.populateFofnStatus(cache, dir, planName, claimedBy, dirSummary)
 	}
+}
+
+func (s *Server) populateIbackupSetStatus(cache *ibackup.MultiCache, dir, planName,
+	claimedBy string, dirSummary *summary) {
+	sba, err := cache.GetBackupActivity(dir, planName, claimedBy)
+	if err != nil && !errors.Is(err, ibackup.ErrUnknownClient) {
+		slog.Error("error querying ibackup status", "dir", dir, "err", err)
+	}
+
+	if err != nil && errors.Is(err, ibackup.ErrUnknownClient) {
+		return
+	}
+
+	if sba == nil {
+		sba = &ibackup.SetBackupActivity{
+			Name:      planName,
+			Requester: claimedBy,
+		}
+	}
+
+	dirSummary.BackupStatus[dir] = sba
+}
+
+func (s *Server) populateFofnStatus(cache *ibackup.MultiCache, dir, planName,
+	claimedBy string, dirSummary *summary) {
+	fofnStatus, err := cache.GetFofnBackupActivity(dir, planName)
+	if err != nil {
+		slog.Error("error querying fofn status", "dir", dir, "err", err)
+
+		return
+	}
+
+	if fofnStatus == nil {
+		return
+	}
+
+	fofnStatus.Requester = claimedBy
+	dirSummary.BackupStatus["fofn:"+dir] = fofnStatus
 }
 
 func (s *Server) populateManualIBackupStatus(manualIbackup map[string][]dirSet, dirSummary *summary) {

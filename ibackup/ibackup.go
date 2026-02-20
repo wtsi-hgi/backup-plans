@@ -727,59 +727,86 @@ func (m *MultiCache) Update(mc *MultiClient) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	m.updateClientCaches(mc)
+	m.removeStaleCaches(mc)
+}
+
+func (m *MultiCache) updateClientCaches(mc *MultiClient) {
 	for re, c := range mc.clients {
-		if exist, ok := m.caches[re]; ok {
-			exist.UpdateClient(c.client)
-		} else {
-			m.caches[re] = reCache{re: c.re, Cache: NewCache(c.client, m.d)}
-		}
+		m.syncMainCache(re, c)
+		m.syncFofnCache(re, c)
+	}
+}
 
-		exist, ok := m.fofnCaches[re]
+func (m *MultiCache) syncMainCache(re string, c *clientTransformer) {
+	if exist, ok := m.caches[re]; ok {
+		exist.UpdateClient(c.client)
 
-		if c.fofnDir == "" {
-			if ok {
-				exist.Stop()
-				delete(m.fofnCaches, re)
-			}
+		return
+	}
 
-			continue
-		}
+	m.caches[re] = reCache{re: c.re, Cache: NewCache(c.client, m.d)}
+}
 
-		if !ok {
-			m.fofnCaches[re] = reFofnCache{
-				re:        c.re,
-				fofnDir:   c.fofnDir,
-				fofnCache: newFofnCache(NewFofnStatusReader(c.fofnDir), m.d),
-			}
+func (m *MultiCache) syncFofnCache(re string, c *clientTransformer) {
+	exist, ok := m.fofnCaches[re]
 
-			continue
-		}
+	if c.fofnDir == "" {
+		m.removeFofnCacheIfPresent(re, exist, ok)
 
-		if exist.fofnDir == c.fofnDir {
-			continue
-		}
+		return
+	}
 
+	if !ok || exist.fofnDir != c.fofnDir {
+		m.replaceFofnCache(re, c, exist, ok)
+	}
+}
+
+func (m *MultiCache) removeFofnCacheIfPresent(re string, exist reFofnCache, ok bool) {
+	if !ok {
+		return
+	}
+
+	exist.Stop()
+	delete(m.fofnCaches, re)
+}
+
+func (m *MultiCache) replaceFofnCache(re string, c *clientTransformer, exist reFofnCache, ok bool) {
+	if ok {
 		exist.Stop()
-
-		m.fofnCaches[re] = reFofnCache{
-			re:        c.re,
-			fofnDir:   c.fofnDir,
-			fofnCache: newFofnCache(NewFofnStatusReader(c.fofnDir), m.d),
-		}
 	}
 
+	m.fofnCaches[re] = reFofnCache{
+		re:        c.re,
+		fofnDir:   c.fofnDir,
+		fofnCache: newFofnCache(NewFofnStatusReader(c.fofnDir), m.d),
+	}
+}
+
+func (m *MultiCache) removeStaleCaches(mc *MultiClient) {
+	m.removeStaleMainCaches(mc)
+	m.removeStaleFofnCaches(mc)
+}
+
+func (m *MultiCache) removeStaleMainCaches(mc *MultiClient) {
 	for re, cache := range m.caches {
-		if _, ok := mc.clients[re]; !ok {
-			cache.Stop()
-			delete(m.caches, re)
+		if _, ok := mc.clients[re]; ok {
+			continue
 		}
-	}
 
+		cache.Stop()
+		delete(m.caches, re)
+	}
+}
+
+func (m *MultiCache) removeStaleFofnCaches(mc *MultiClient) {
 	for re, cache := range m.fofnCaches {
-		if _, ok := mc.clients[re]; !ok {
-			cache.Stop()
-			delete(m.fofnCaches, re)
+		if _, ok := mc.clients[re]; ok {
+			continue
 		}
+
+		cache.Stop()
+		delete(m.fofnCaches, re)
 	}
 }
 

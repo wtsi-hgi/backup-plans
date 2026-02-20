@@ -84,42 +84,11 @@ func NewMultiClient(t *testing.T) *ibackup.MultiClient { //nolint:funlen
 
 // NewTestIbackupServer returns a test ibackup server, its address, certificate
 // path, a function you should defer to stop the server, and an error.
-func NewTestIbackupServer(t *testing.T) (*server.Server, string, string, func() error, error) { //nolint:funlen,unparam
+func NewTestIbackupServer(t *testing.T) (*server.Server, string, string, func() error, error) { //nolint:unparam
 	t.Helper()
 
-	handler, err := baton.GetBatonHandler()
+	s, certPath, keyPath, err := newConfiguredTestServer(t)
 	if err != nil {
-		return nil, "", "", nil, err
-	}
-
-	conf := server.Config{
-		HTTPLogger:     io.Discard,
-		StorageHandler: handler,
-	}
-
-	s, err := server.New(conf)
-	if err != nil {
-		return nil, "", "", nil, err
-	}
-
-	certPath, keyPath, err := gas.CreateTestCert(t)
-	if err != nil {
-		return nil, "", "", nil, err
-	}
-
-	t.Setenv("XDG_STATE_HOME", filepath.Dir(certPath))
-
-	err = s.EnableAuthWithServerToken(certPath, keyPath, ".ibackup.token",
-		func(_, _ string) (bool, string) { return true, "1" })
-	if err != nil {
-		return nil, "", "", nil, err
-	}
-
-	if err = s.MakeQueueEndPoints(); err != nil {
-		return nil, "", "", nil, err
-	}
-
-	if err = s.LoadSetDB(filepath.Join(t.TempDir(), "db"), ""); err != nil {
 		return nil, "", "", nil, err
 	}
 
@@ -140,6 +109,69 @@ func NewTestIbackupServer(t *testing.T) (*server.Server, string, string, func() 
 	time.Sleep(time.Second >> 1)
 
 	return s, addr, certPath, cleanup, nil
+}
+
+func newConfiguredTestServer(t *testing.T) (*server.Server, string, string, error) {
+	t.Helper()
+
+	s, err := newTestServer()
+	if err != nil {
+		return nil, "", "", err
+	}
+
+	certPath, keyPath, err := configureTestServerAuth(t, s)
+	if err != nil {
+		return nil, "", "", err
+	}
+
+	if err = prepareTestServerSetDB(t, s); err != nil {
+		return nil, "", "", err
+	}
+
+	return s, certPath, keyPath, nil
+}
+
+func newTestServer() (*server.Server, error) {
+	handler, err := baton.GetBatonHandler()
+	if err != nil {
+		return nil, err
+	}
+
+	conf := server.Config{
+		HTTPLogger:     io.Discard,
+		StorageHandler: handler,
+	}
+
+	return server.New(conf)
+}
+
+func configureTestServerAuth(t *testing.T, s *server.Server) (string, string, error) {
+	t.Helper()
+
+	certPath, keyPath, err := gas.CreateTestCert(t)
+	if err != nil {
+		return "", "", err
+	}
+
+	t.Setenv("XDG_STATE_HOME", filepath.Dir(certPath))
+
+	err = s.EnableAuthWithServerToken(certPath, keyPath, ".ibackup.token",
+		func(_, _ string) (bool, string) { return true, "1" })
+	if err != nil {
+		return "", "", err
+	}
+
+	return certPath, keyPath, nil
+}
+
+func prepareTestServerSetDB(t *testing.T, s *server.Server) error {
+	t.Helper()
+
+	if err := s.MakeQueueEndPoints(); err != nil {
+		return err
+	}
+
+	return s.LoadSetDB(filepath.Join(t.TempDir(), "db"), "")
 }
 
 func waitForSetDiscovery(client *server.Client, timeout time.Duration) {
