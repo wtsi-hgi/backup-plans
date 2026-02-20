@@ -2,8 +2,6 @@ package backups
 
 import (
 	"errors"
-	"math"
-	"strconv"
 	"strings"
 
 	"github.com/wtsi-hgi/backup-plans/db"
@@ -16,13 +14,9 @@ import (
 
 const (
 	setNamePrefix = "plan::"
-	intSize32     = 32
-	intSize64     = 64
 )
 
 var hasBackups int64 = -1 //nolint:gochecknoglobals
-
-var errInvalidFrequency = errors.New("frequency overflows int")
 
 type SetInfo struct {
 	BackupSetName string
@@ -31,12 +25,12 @@ type SetInfo struct {
 }
 
 // Backup will back up all files in the given treeNode that match rules in the
-// given planDB, using the given ibackup client. It returns a list of the set IDs
-// created.
+// given planDB, using the given ibackup client. It returns a list of the set
+// IDs created.
 //
-// For fofn-backed servers, file paths stream directly to the fofn file
-// without intermediate temp files. For API-backed servers, paths are
-// collected in memory as a slice.
+// For fofn-backed servers, file paths stream directly to the fofn file without
+// intermediate temp files. For API-backed servers, paths are collected in
+// memory as a slice.
 func Backup(planDB *db.DB, treeNode tree.Node, client *ibackup.MultiClient) ([]SetInfo, error) {
 	mountpoint, err := readMountpoint(treeNode)
 	if err != nil {
@@ -218,16 +212,11 @@ func addToWriter(writers map[*db.Directory]*setWriter,
 }
 
 func newSetWriter(rule *dirRules, client *ibackup.MultiClient) (*setWriter, error) {
-	freq, err := uintToInt(rule.Frequency)
-	if err != nil {
-		return nil, err
-	}
-
 	w, err := client.NewSetWriter(
 		rule.Path,
 		setNamePrefix+rule.Path,
 		rule.ClaimedBy,
-		freq,
+		rule.Frequency,
 		rule.ReviewDate,
 		rule.RemoveDate,
 	)
@@ -236,24 +225,6 @@ func newSetWriter(rule *dirRules, client *ibackup.MultiClient) (*setWriter, erro
 	}
 
 	return &setWriter{SetWriter: w, dir: rule.Directory}, nil
-}
-
-func uintToInt(value uint) (int, error) {
-	v := uint64(value)
-
-	if strconv.IntSize == intSize32 && v > math.MaxInt32 {
-		return 0, errInvalidFrequency
-	}
-
-	if strconv.IntSize == intSize64 && v > math.MaxInt64 {
-		return 0, errInvalidFrequency
-	}
-
-	if strconv.IntSize == intSize32 {
-		return int(int32(v)), nil
-	}
-
-	return int(int64(v)), nil
 }
 
 func closeWriters(writers map[*db.Directory]*setWriter) {

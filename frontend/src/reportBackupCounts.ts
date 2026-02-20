@@ -23,7 +23,7 @@ export const fofnCountColumns = [
 
 export function formatFofnCountDetails(backup: BackupStatusCounts) {
 	return fofnCountColumns
-		.filter(column => (backup[column] ?? 0) > 0)
-		.map(column => `${column}: ${(backup[column] ?? 0).toLocaleString()}`)
+		.filter(column => backup[column])
+		.map(column => `${column}: ${backup[column]!.toLocaleString()}`)
 		.join("\n");
 }

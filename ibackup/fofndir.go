@@ -63,7 +63,7 @@ func NewFofnDirWriter(baseDir string) *FofnDirWriter {
 // Write creates (or updates) the fofn subdirectory for the given set and
 // writes the null-terminated FOFN and config.yml.
 func (f *FofnDirWriter) Write(setName string, transformer string, files iter.Seq[string],
-	frequency int, metadata map[string]string) (bool, error) {
+	frequency uint, metadata map[string]string) (bool, error) {
 	shouldWrite, err := f.shouldWrite(setName, frequency)
 	if err != nil {
 		return false, err
@@ -115,11 +115,7 @@ func SafeName(setName string) string {
 	}
 
 	hashSuffix := safeNameHashSeparator + shortSHA256Hex(safeName)
-
 	prefixLimit := safeNameMaxComponentBytes - len(hashSuffix)
-	if prefixLimit <= 0 {
-		return hashSuffix
-	}
 
 	return truncateToUTF8ByteLength(safeName, prefixLimit) + hashSuffix
 }
@@ -139,7 +135,7 @@ func writeConfig(subDir, transformer string, freeze bool,
 	})
 }
 
-func (f *FofnDirWriter) shouldWrite(setName string, frequency int) (bool, error) {
+func (f *FofnDirWriter) shouldWrite(setName string, frequency uint) (bool, error) {
 	fofnPath := filepath.Join(f.baseDir, SafeName(setName), "fofn")
 
 	stat, err := os.Stat(fofnPath)
@@ -155,7 +151,7 @@ func (f *FofnDirWriter) shouldWrite(setName string, frequency int) (bool, error)
 		return false, nil
 	}
 
-	window := time.Hour*24*time.Duration(frequency) -
+	window := time.Hour*24*time.Duration(frequency) - //nolint:gosec // G115: frequency is small
 		time.Hour*frequencyWindowOffsetHours
 
 	if !stat.ModTime().Add(window).Before(time.Now()) {
@@ -263,20 +259,17 @@ func shortSHA256Hex(input string) string {
 }
 
 func truncateToUTF8ByteLength(input string, maxBytes int) string {
-	if maxBytes <= 0 {
-		return ""
+	if len(input) <= maxBytes {
+		return input
 	}
 
-	consumedBytes := 0
+	input = input[:maxBytes]
 
-	for i, r := range input {
-		runeBytes := utf8.RuneLen(r)
-		if consumedBytes+runeBytes > maxBytes {
+	for i := maxBytes - 1; i >= 0; i-- {
+		if utf8.RuneStart(input[i]) {
 			return input[:i]
 		}
-
-		consumedBytes += runeBytes
 	}
 
-	return input
+	return ""
 }

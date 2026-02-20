@@ -597,7 +597,7 @@ func TestIbackup(t *testing.T) {
 }
 
 func runTestBackups(client *server.Client, setname, requester string, files []string,
-	frequency int, review, remove int64) {
+	frequency uint, review, remove int64) {
 	err := ibackup.Backup(client, "prefix=/lustre/:/remote/", setname, requester, files, frequency, review, remove)
 	So(err, ShouldBeNil)
 }
