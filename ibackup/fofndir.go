@@ -263,13 +263,9 @@ func truncateToUTF8ByteLength(input string, maxBytes int) string {
 		return input
 	}
 
-	input = input[:maxBytes]
-
-	for i := maxBytes - 1; i >= 0; i-- {
-		if utf8.RuneStart(input[i]) {
-			return input[:i]
-		}
+	for maxBytes > 0 && !utf8.RuneStart(input[maxBytes]) {
+		maxBytes--
 	}
 
-	return ""
+	return input[:maxBytes]
 }

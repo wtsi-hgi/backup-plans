@@ -61,7 +61,7 @@ func TestSafeName(t *testing.T) {
 			name := "plan::/" + strings.Repeat("\u77ed", 200)
 			safeName := ibackup.SafeName(name)
 
-			So(len([]byte(safeName)), ShouldBeLessThan, 255)
+			So(len([]byte(safeName)), ShouldBeLessThanOrEqualTo, 240)
 
 			suffixStart := strings.LastIndex(safeName, "--")
 			So(suffixStart, ShouldBeGreaterThan, 0)
