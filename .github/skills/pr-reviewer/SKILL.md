@@ -79,12 +79,11 @@ Hard requirements:
   confirm the review base matches the PR target branch (`base.ref`).
 - Validate explicitly: if resolved base != PR `base.ref`, stop and report a
   guardrail violation.
-- If a PR exists, read all review comments. Use the GitHub REST API
-  directly via curl (see [Appendix: GitHub API recipes](#appendix-github-api-recipes)).
+- If a PR exists, read all review comments using `gh` CLI
+  (see [Appendix: GitHub API recipes](#appendix-github-api-recipes)).
   The `github-pull-request_activePullRequest` VS Code tool is NOT
-  reliable for this: it may cap results at 50, miss the most recent
-  review round, and mark all comments as resolved regardless of
-  actual state. Always use the REST API instead.
+  reliable for this: it caps results at 50, misses the most recent
+  review round, and misreports resolution state. Always use `gh`.
 - Note any unresolved threads — these are additional review items.
 
 ### 3. Perform the code review
@@ -222,8 +221,7 @@ If the fix addresses one or more unresolved PR review threads:
   with what is done and what remains.
 
 See [Appendix: GitHub API recipes](#appendix-github-api-recipes) for
-the exact API calls to reply and resolve. Authentication uses the
-`GITHUB_TOKEN` environment variable.
+the exact commands to reply and resolve.
 
 #### e. Commit the fix batch
 
@@ -258,82 +256,72 @@ Move to the next finding and repeat from step 8b.
 
 ## Appendix: GitHub API recipes
 
-Authentication: all calls use `$GITHUB_TOKEN` from the environment.
+All commands below use the GitHub CLI (`gh`). It authenticates
+automatically via `$GITHUB_TOKEN`.
+
+`gh` should be on `$PATH`. If not, fall back to raw `curl` calls with
+`-H "Authorization: token $GITHUB_TOKEN"` (REST) or
+`-H "Authorization: bearer $GITHUB_TOKEN"` (GraphQL).
 
 ### Fetching all PR review comments
 
-The `github-pull-request_activePullRequest` VS Code tool is unreliable
-— it may cap at 50 comments and misreport resolution state. Use the
-REST API instead:
+Do NOT use the `github-pull-request_activePullRequest` VS Code tool
+for reading comments — it caps at 50, misses the latest review round,
+and misreports resolution state.
 
 ```bash
-curl -s -H "Authorization: token $GITHUB_TOKEN" \
-  "https://api.github.com/repos/{owner}/{repo}/pulls/{number}/comments?per_page=100&sort=created&direction=desc"
+gh api repos/{owner}/{repo}/pulls/{number}/comments --paginate
 ```
 
-Paginate with `&page=2`, `&page=3`, etc. if there are more than 100.
+`--paginate` handles multi-page results automatically.
 
-Useful fields per comment:
-- `id` — numeric comment ID (used for replies).
-- `user.login` — who wrote it.
-- `path` — file the comment is on.
-- `line` / `original_line` — line number.
-- `body` — comment text.
-- `in_reply_to_id` — if set, this is a reply (not a root comment).
-- `created_at` — timestamp for ordering.
+Useful fields per comment: `id` (numeric, used for replies),
+`user.login`, `path`, `line`/`original_line`, `body`,
+`in_reply_to_id` (null for root comments that start a thread),
+`created_at`.
 
-Root comments (where `in_reply_to_id` is null) start a review thread.
+Filter with `--jq`, e.g. root comments only:
+
+```bash
+gh api repos/{owner}/{repo}/pulls/{number}/comments --paginate \
+  --jq '[.[] | select(.in_reply_to_id == null)] | .[] | "\(.id) \(.path) \(.body[:80])"'
+```
 
 ### Replying to a review thread
 
-Use the REST API to reply to a root comment by its numeric ID:
-
 ```bash
-curl -s -H "Authorization: token $GITHUB_TOKEN" \
-  -H "Content-Type: application/json" \
-  -X POST "https://api.github.com/repos/{owner}/{repo}/pulls/{number}/comments" \
-  -d '{"body": "fixed - <description of change>", "in_reply_to": <comment_id>}'
+gh api repos/{owner}/{repo}/pulls/{number}/comments \
+  -f body='fixed - <description>' -F in_reply_to=<comment_id>
 ```
 
 ### Resolving a review thread
 
-The REST API does NOT support resolving threads. You must use GraphQL.
+The REST API does not support resolving threads; use GraphQL.
 
-**Step 1 — Get thread node IDs.** Query the PR's review threads and
-match them to comments by `databaseId`:
-
-```bash
-curl -s -H "Authorization: bearer $GITHUB_TOKEN" \
-  -X POST https://api.github.com/graphql \
-  -d '{
-    "query": "query { repository(owner: \"{owner}\", name: \"{repo}\") { pullRequest(number: {number}) { reviewThreads(last: 100) { nodes { id isResolved comments(first: 1) { nodes { databaseId path } } } } } } }"
-  }'
-```
-
-Each thread node has:
-- `id` — the GraphQL node ID (e.g. `PRRT_kwDO...`), needed for
-  resolution.
-- `isResolved` — current resolution state.
-- `comments.nodes[0].databaseId` — the numeric REST comment ID of
-  the root comment, used to match threads to comments.
-
-**Step 2 — Resolve the thread** using the `resolveReviewThread`
-mutation:
+**Step 1 — Get thread node IDs** (match to comment IDs via
+`databaseId`):
 
 ```bash
-curl -s -H "Authorization: bearer $GITHUB_TOKEN" \
-  -X POST https://api.github.com/graphql \
-  -d '{
-    "query": "mutation { resolveReviewThread(input: {threadId: \"{thread_node_id}\"}) { thread { isResolved } } }"
-  }'
+gh api graphql -f query='{
+  repository(owner: "{owner}", name: "{repo}") {
+    pullRequest(number: {number}) {
+      reviewThreads(last: 100) {
+        nodes { id isResolved comments(first: 1) { nodes { databaseId path } } }
+      }
+    }
+  }
+}'
 ```
 
-Note the different `Authorization` header prefix: REST uses
-`token $GITHUB_TOKEN`, GraphQL uses `bearer $GITHUB_TOKEN`.
+Each node has `id` (GraphQL node ID, e.g. `PRRT_kwDO...`) and
+`comments.nodes[0].databaseId` (the numeric REST comment ID).
 
-### Batch operations
+**Step 2 — Resolve:**
 
-When handling multiple threads, it is most efficient to batch all
-replies and resolutions into a single Python script rather than running
-separate curl commands sequentially. Use `urllib.request` to loop over
-all threads, post replies via REST, then resolve via GraphQL.
+```bash
+gh api graphql -f query='mutation {
+  resolveReviewThread(input: {threadId: "{thread_node_id}"}) {
+    thread { isResolved }
+  }
+}'
+```
