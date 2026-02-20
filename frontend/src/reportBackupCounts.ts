@@ -1,4 +1,4 @@
-export type BackupStatusCounts = {
+type BackupStatusCounts = {
     Uploaded?: number;
     Replaced?: number;
     Unmodified?: number;
@@ -21,6 +21,6 @@ export const fofnCountColumns = [
     "Hardlink"
 ] as const;
 
-export function hasFofnCountData(backups: BackupStatusCounts[]): boolean {
-    return backups.some(backup => fofnCountColumns.some(column => (backup[column] ?? 0) > 0));
+export function hasFofnCountData(backups: BackupStatusCounts[]) {
+    return backups.some(backup => fofnCountColumns.some(column => backup[column]));
 }

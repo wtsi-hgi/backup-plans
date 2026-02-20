@@ -36,6 +36,22 @@ type cmdConfig struct {
 	MainProgrammes []string
 }
 
+func TestMain(m *testing.M) {
+	tmpDir, cleanup, err := buildSelf()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
+	if cleanup != nil {
+		defer cleanup()
+	}
+
+	appExe = filepath.Join(tmpDir, app)
+
+	m.Run()
+}
+
 func TestCommands(t *testing.T) {
 	mysqlConnection := os.Getenv("BACKUP_PLANS_CONNECTION_TEST")
 
@@ -383,22 +399,6 @@ func TestCommandsE1(t *testing.T) {
 			So(entry.Hardlink, ShouldEqual, 9)
 		})
 	})
-}
-
-func TestMain(m *testing.M) {
-	tmpDir, cleanup, err := buildSelf()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
-
-	if cleanup != nil {
-		defer cleanup()
-	}
-
-	appExe = filepath.Join(tmpDir, app)
-
-	m.Run()
 }
 
 func buildSelf() (string, func(), error) {

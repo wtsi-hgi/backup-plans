@@ -152,7 +152,7 @@ class ParentSummary extends Summary {
                         showFofnCounts ? fofnCountColumns.map(column => td((backup[column] ?? 0).toLocaleString())) : [],
                         td((backup.Failures ?? 0).toLocaleString())
 					])))
-                ] : tr(td({ "colspan": (5 + (showFofnCounts ? fofnCountColumns.length : 0)) + "" }, "No Backups")))
+				] : tr(td({ "colspan": String(5 + (showFofnCounts ? fofnCountColumns.length : 0)) }, "No Backups")))
 			]),
 			this.children.size ? [
 				h2("Rules"),

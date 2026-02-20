@@ -630,8 +630,7 @@ type reCache struct {
 }
 
 type reFofnCache struct {
-	re      *regexp.Regexp
-	fofnDir string
+	re *regexp.Regexp
 	*fofnCache
 }
 
@@ -662,7 +661,6 @@ func NewMultiCache(mc *MultiClient, d time.Duration) *MultiCache {
 
 		fofnCaches[re] = reFofnCache{
 			re:        c.re,
-			fofnDir:   c.fofnDir,
 			fofnCache: newFofnCache(NewFofnStatusReader(c.fofnDir), d),
 		}
 	}
@@ -757,7 +755,7 @@ func (m *MultiCache) syncFofnCache(re string, c *clientTransformer) {
 		return
 	}
 
-	if !ok || exist.fofnDir != c.fofnDir {
+	if !ok || exist.reader.baseDir != c.fofnDir {
 		m.replaceFofnCache(re, c, exist, ok)
 	}
 }
@@ -778,7 +776,6 @@ func (m *MultiCache) replaceFofnCache(re string, c *clientTransformer, exist reF
 
 	m.fofnCaches[re] = reFofnCache{
 		re:        c.re,
-		fofnDir:   c.fofnDir,
 		fofnCache: newFofnCache(NewFofnStatusReader(c.fofnDir), m.d),
 	}
 }
