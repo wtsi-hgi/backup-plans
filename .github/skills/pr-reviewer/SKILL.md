@@ -79,9 +79,13 @@ Hard requirements:
   confirm the review base matches the PR target branch (`base.ref`).
 - Validate explicitly: if resolved base != PR `base.ref`, stop and report a
   guardrail violation.
-- If a PR exists, read all review comments. NB: use the GitHub API directly via
-  curl to read comments, as other methods may be unreliable. Note any unresolved
-  threads — these are additional review items.
+- If a PR exists, read all review comments. Use the GitHub REST API
+  directly via curl (see [Appendix: GitHub API recipes](#appendix-github-api-recipes)).
+  The `github-pull-request_activePullRequest` VS Code tool is NOT
+  reliable for this: it may cap results at 50, miss the most recent
+  review round, and mark all comments as resolved regardless of
+  actual state. Always use the REST API instead.
+- Note any unresolved threads — these are additional review items.
 
 ### 3. Perform the code review
 
@@ -217,8 +221,9 @@ If the fix addresses one or more unresolved PR review threads:
 - If a thread is only partially addressed, do not resolve it; reply
   with what is done and what remains.
 
-Use GitHub API calls directly when needed (REST/GraphQL), and verify
-the thread state changed to resolved.
+See [Appendix: GitHub API recipes](#appendix-github-api-recipes) for
+the exact API calls to reply and resolve. Authentication uses the
+`GITHUB_TOKEN` environment variable.
 
 #### e. Commit the fix batch
 
@@ -250,3 +255,85 @@ Move to the next finding and repeat from step 8b.
 - Do NOT use repository default branch as diff base when a PR exists.
 - Do NOT continue if PR `base.ref` cannot be resolved and no caller base is
   provided.
+
+## Appendix: GitHub API recipes
+
+Authentication: all calls use `$GITHUB_TOKEN` from the environment.
+
+### Fetching all PR review comments
+
+The `github-pull-request_activePullRequest` VS Code tool is unreliable
+— it may cap at 50 comments and misreport resolution state. Use the
+REST API instead:
+
+```bash
+curl -s -H "Authorization: token $GITHUB_TOKEN" \
+  "https://api.github.com/repos/{owner}/{repo}/pulls/{number}/comments?per_page=100&sort=created&direction=desc"
+```
+
+Paginate with `&page=2`, `&page=3`, etc. if there are more than 100.
+
+Useful fields per comment:
+- `id` — numeric comment ID (used for replies).
+- `user.login` — who wrote it.
+- `path` — file the comment is on.
+- `line` / `original_line` — line number.
+- `body` — comment text.
+- `in_reply_to_id` — if set, this is a reply (not a root comment).
+- `created_at` — timestamp for ordering.
+
+Root comments (where `in_reply_to_id` is null) start a review thread.
+
+### Replying to a review thread
+
+Use the REST API to reply to a root comment by its numeric ID:
+
+```bash
+curl -s -H "Authorization: token $GITHUB_TOKEN" \
+  -H "Content-Type: application/json" \
+  -X POST "https://api.github.com/repos/{owner}/{repo}/pulls/{number}/comments" \
+  -d '{"body": "fixed - <description of change>", "in_reply_to": <comment_id>}'
+```
+
+### Resolving a review thread
+
+The REST API does NOT support resolving threads. You must use GraphQL.
+
+**Step 1 — Get thread node IDs.** Query the PR's review threads and
+match them to comments by `databaseId`:
+
+```bash
+curl -s -H "Authorization: bearer $GITHUB_TOKEN" \
+  -X POST https://api.github.com/graphql \
+  -d '{
+    "query": "query { repository(owner: \"{owner}\", name: \"{repo}\") { pullRequest(number: {number}) { reviewThreads(last: 100) { nodes { id isResolved comments(first: 1) { nodes { databaseId path } } } } } } }"
+  }'
+```
+
+Each thread node has:
+- `id` — the GraphQL node ID (e.g. `PRRT_kwDO...`), needed for
+  resolution.
+- `isResolved` — current resolution state.
+- `comments.nodes[0].databaseId` — the numeric REST comment ID of
+  the root comment, used to match threads to comments.
+
+**Step 2 — Resolve the thread** using the `resolveReviewThread`
+mutation:
+
+```bash
+curl -s -H "Authorization: bearer $GITHUB_TOKEN" \
+  -X POST https://api.github.com/graphql \
+  -d '{
+    "query": "mutation { resolveReviewThread(input: {threadId: \"{thread_node_id}\"}) { thread { isResolved } } }"
+  }'
+```
+
+Note the different `Authorization` header prefix: REST uses
+`token $GITHUB_TOKEN`, GraphQL uses `bearer $GITHUB_TOKEN`.
+
+### Batch operations
+
+When handling multiple threads, it is most efficient to batch all
+replies and resolutions into a single Python script rather than running
+separate curl commands sequentially. Use `urllib.request` to loop over
+all threads, post replies via REST, then resolve via GraphQL.
