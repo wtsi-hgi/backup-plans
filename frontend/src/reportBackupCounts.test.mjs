@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { fofnCountColumns, hasFofnCountData } from './reportBackupCounts.ts';
+import { fofnCountColumns, hasFofnCountData } from './reportBackupCounts.js';
 
 test('D2 acceptance: renders extra columns when fofn counts are present', () => {
     const backup = {

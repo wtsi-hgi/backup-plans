@@ -341,14 +341,14 @@ type SetBackupActivity struct {
 	Name        string
 	Requester   string
 	Failures    uint64
-	Uploaded    int
-	Replaced    int
-	Unmodified  int
-	Missing     int
-	Frozen      int
-	Orphaned    int
-	Warning     int
-	Hardlink    int
+	Uploaded    int `json:",omitempty"`
+	Replaced    int `json:",omitempty"`
+	Unmodified  int `json:",omitempty"`
+	Missing     int `json:",omitempty"`
+	Frozen      int `json:",omitempty"`
+	Orphaned    int `json:",omitempty"`
+	Warning     int `json:",omitempty"`
+	Hardlink    int `json:",omitempty"`
 }
 
 // GetBackupActivity queries an ibackup server to get the last completed backup
