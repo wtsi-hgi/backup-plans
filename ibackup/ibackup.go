@@ -56,6 +56,11 @@ var (
 	errNoAddrOrFofn  = errors.New("server requires addr or fofndir")
 )
 
+const (
+	initialScannerBufferBytes = 1024
+	maxScannerTokenBytes      = 1024 * 1024
+)
+
 // ServerDetails contains the connection details for a particular ibackup
 // server.
 type ServerDetails struct {
@@ -448,6 +453,62 @@ func (m *MultiClient) BackupStream(path string, setName, requester string,
 		frequency, review, remove)
 }
 
+func newSpooledSeq(files iter.Seq[string]) (*spooledSeq, error) {
+	fd, err := os.CreateTemp("", "backup-plans-ibackup-seq-*")
+	if err != nil {
+		return nil, err
+	}
+
+	err = writeSeqToSpool(fd, files)
+	if err != nil {
+		fd.Close()
+		os.Remove(fd.Name())
+
+		return nil, err
+	}
+
+	err = fd.Close()
+	if err != nil {
+		os.Remove(fd.Name())
+
+		return nil, err
+	}
+
+	return &spooledSeq{path: fd.Name()}, nil
+}
+
+func writeFofnSetIfConfigured(c *clientTransformer, setName, requester string,
+	files iter.Seq[string], frequency int, review, remove int64) error {
+	if c.fofnDir == "" {
+		return nil
+	}
+
+	writer := NewFofnDirWriter(c.fofnDir)
+	metadata := map[string]string{
+		"requestor": requester,
+		"review":    time.Unix(review, 0).Format(time.DateOnly),
+		"remove":    time.Unix(remove, 0).Format(time.DateOnly),
+	}
+
+	wrote, err := writer.Write(setName, c.transformer, files,
+		frequency, metadata)
+	if err != nil {
+		return err
+	}
+
+	if wrote {
+		return nil
+	}
+
+	changed, err := requestorChanged(c.fofnDir, setName, requester)
+	if err != nil || !changed {
+		return err
+	}
+
+	return writer.UpdateConfig(setName, c.transformer,
+		frequency == 0, metadata)
+}
+
 // GetFofnDir returns the fofn directory configured for the server matching the
 // given path, or "" if none is configured.
 func (m *MultiClient) GetFofnDir(path string) string {
@@ -495,74 +556,8 @@ func (m *MultiClient) GetBackupActivity(path, setName, requester string) (*SetBa
 	return GetBackupActivity(c.client, setName, requester)
 }
 
-func writeFofnSetIfConfigured(c *clientTransformer, setName, requester string,
-	files iter.Seq[string], frequency int, review, remove int64) error {
-	if c.fofnDir == "" {
-		return nil
-	}
-
-	writer := NewFofnDirWriter(c.fofnDir)
-	metadata := map[string]string{
-		"requestor": requester,
-		"review":    time.Unix(review, 0).Format(time.DateOnly),
-		"remove":    time.Unix(remove, 0).Format(time.DateOnly),
-	}
-
-	wrote, err := writer.Write(setName, c.transformer, files,
-		frequency, metadata)
-	if err != nil {
-		return err
-	}
-
-	if wrote {
-		return nil
-	}
-
-	changed, err := requestorChanged(c.fofnDir, setName, requester)
-	if err != nil || !changed {
-		return err
-	}
-
-	return writer.UpdateConfig(setName, c.transformer,
-		frequency == 0, metadata)
-}
-
 type spooledSeq struct {
 	path string
-}
-
-func newSpooledSeq(files iter.Seq[string]) (*spooledSeq, error) {
-	fd, err := os.CreateTemp("", "backup-plans-ibackup-seq-*")
-	if err != nil {
-		return nil, err
-	}
-
-	for path := range files {
-		_, err = fd.WriteString(path)
-		if err != nil {
-			fd.Close()
-			os.Remove(fd.Name())
-
-			return nil, err
-		}
-
-		_, err = fd.WriteString("\n")
-		if err != nil {
-			fd.Close()
-			os.Remove(fd.Name())
-
-			return nil, err
-		}
-	}
-
-	err = fd.Close()
-	if err != nil {
-		os.Remove(fd.Name())
-
-		return nil, err
-	}
-
-	return &spooledSeq{path: fd.Name()}, nil
 }
 
 func (s *spooledSeq) Seq() iter.Seq[string] {
@@ -575,7 +570,7 @@ func (s *spooledSeq) Seq() iter.Seq[string] {
 		defer fd.Close()
 
 		scanner := bufio.NewScanner(fd)
-		scanner.Buffer(make([]byte, 0, 1024), 1024*1024)
+		scanner.Buffer(make([]byte, 0, initialScannerBufferBytes), maxScannerTokenBytes)
 
 		for scanner.Scan() {
 			if !yield(scanner.Text()) {
@@ -597,19 +592,6 @@ func (s *spooledSeq) ToSlice() []string {
 
 func (s *spooledSeq) Close() {
 	os.Remove(s.path)
-}
-
-func requestorChanged(fofnDir, setName, requestor string) (bool, error) {
-	config, err := fofn.ReadConfig(filepath.Join(fofnDir, SafeName(setName)))
-	if err != nil {
-		if os.IsNotExist(err) {
-			return false, nil
-		}
-
-		return false, err
-	}
-
-	return config.Metadata["requestor"] != requestor, nil
 }
 
 type ServerConnectionError struct {
@@ -953,4 +935,38 @@ func (m *MultiCache) Stop() {
 	for _, c := range m.caches {
 		c.Stop()
 	}
+}
+
+func writeSeqToSpool(fd *os.File, files iter.Seq[string]) error {
+	for path := range files {
+		if err := appendLine(fd, path); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func appendLine(fd *os.File, line string) error {
+	_, err := fd.WriteString(line)
+	if err != nil {
+		return err
+	}
+
+	_, err = fd.WriteString("\n")
+
+	return err
+}
+
+func requestorChanged(fofnDir, setName, requestor string) (bool, error) {
+	config, err := fofn.ReadConfig(filepath.Join(fofnDir, SafeName(setName)))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+
+		return false, err
+	}
+
+	return config.Metadata["requestor"] != requestor, nil
 }

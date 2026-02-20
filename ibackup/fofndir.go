@@ -28,6 +28,7 @@ package ibackup
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"iter"
 	"os"
 	"path/filepath"
@@ -188,18 +189,14 @@ func streamToFofn(subDir string, files iter.Seq[string]) (*os.File, bool, error)
 	wrote := false
 
 	for path := range files {
-		if fofnFD == nil {
-			fd, err := createFofnFile(subDir)
-			if err != nil {
-				return nil, false, err
-			}
-
-			fofnFD = fd
+		fd, err := ensureOpenFofnFile(fofnFD, subDir)
+		if err != nil {
+			return nil, false, err
 		}
 
-		if err := writePath(fofnFD, path); err != nil {
-			_ = closeFofnFile(fofnFD)
+		fofnFD = fd
 
+		if err := writePathToFofn(fofnFD, path); err != nil {
 			return nil, false, err
 		}
 
@@ -215,6 +212,47 @@ func closeFofnFile(fofnFD *os.File) error {
 	}
 
 	return fofnFD.Close()
+}
+
+func ensureOpenFofnFile(fofnFD *os.File, subDir string) (*os.File, error) {
+	if fofnFD != nil {
+		return fofnFD, nil
+	}
+
+	return createFofnFile(subDir)
+}
+
+func createFofnFile(subDir string) (*os.File, error) {
+	err := os.MkdirAll(subDir, fofnDirPerm)
+	if err != nil {
+		return nil, err
+	}
+
+	return os.Create(filepath.Join(subDir, "fofn"))
+}
+
+func writePathToFofn(fofnFD *os.File, path string) error {
+	err := writePath(fofnFD, path)
+	if err == nil {
+		return nil
+	}
+
+	if closeErr := closeFofnFile(fofnFD); closeErr != nil {
+		return errors.Join(err, closeErr)
+	}
+
+	return err
+}
+
+func writePath(fofnFD *os.File, path string) error {
+	_, err := fofnFD.WriteString(path)
+	if err != nil {
+		return err
+	}
+
+	_, err = fofnFD.WriteString("\x00")
+
+	return err
 }
 
 func shortSHA256Hex(input string) string {
@@ -241,24 +279,4 @@ func truncateToUTF8ByteLength(input string, maxBytes int) string {
 	}
 
 	return input
-}
-
-func createFofnFile(subDir string) (*os.File, error) {
-	err := os.MkdirAll(subDir, fofnDirPerm)
-	if err != nil {
-		return nil, err
-	}
-
-	return os.Create(filepath.Join(subDir, "fofn"))
-}
-
-func writePath(fofnFD *os.File, path string) error {
-	_, err := fofnFD.WriteString(path)
-	if err != nil {
-		return err
-	}
-
-	_, err = fofnFD.WriteString("\x00")
-
-	return err
 }

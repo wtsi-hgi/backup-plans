@@ -3,9 +3,10 @@ package backups
 import (
 	"bufio"
 	"errors"
-	"fmt"
 	"iter"
+	"math"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/wtsi-hgi/backup-plans/db"
@@ -17,15 +18,56 @@ import (
 )
 
 const (
-	setNamePrefix = "plan::"
+	setNamePrefix             = "plan::"
+	initialScannerBufferBytes = 1024
+	maxScannerTokenBytes      = 1024 * 1024
+	intSize32                 = 32
+	intSize64                 = 64
 )
 
 var hasBackups int64 = -1 //nolint:gochecknoglobals
+
+var errSetStreamClosed = errors.New("set stream is closed")
+
+var errInvalidFrequency = errors.New("frequency overflows int")
 
 type SetInfo struct {
 	BackupSetName string
 	Requestor     string
 	FileCount     int
+}
+
+func backupSetWithStream(client *ibackup.MultiClient, setInfo *db.Directory,
+	stream *setStream) (SetInfo, error) {
+	backupSetName := setNamePrefix + setInfo.Path
+
+	frequency, err := uintToInt(setInfo.Frequency)
+	if err != nil {
+		return SetInfo{}, err
+	}
+
+	err = client.BackupStream(setInfo.Path, backupSetName, setInfo.ClaimedBy,
+		stream.Seq(), frequency, setInfo.ReviewDate, setInfo.RemoveDate)
+	if err != nil {
+		return SetInfo{}, err
+	}
+
+	return SetInfo{
+		BackupSetName: backupSetName,
+		Requestor:     setInfo.ClaimedBy,
+		FileCount:     stream.Count(),
+	}, nil
+}
+
+// BackupWithFofnWriter will back up all files in the given treeNode that match
+// rules in the given planDB, using the given ibackup client and fofn writer.
+// It returns a list of set IDs created.
+func BackupWithFofnWriter(planDB *db.DB, treeNode tree.Node,
+	client *ibackup.MultiClient,
+	newFofnDirWriter func(baseDir string) *ibackup.FofnDirWriter) ([]SetInfo, error) {
+	_ = newFofnDirWriter
+
+	return Backup(planDB, treeNode, client)
 }
 
 // Backup will back up all files in the given treeNode that match rules in the
@@ -42,17 +84,6 @@ func Backup(planDB *db.DB, treeNode tree.Node, client *ibackup.MultiClient) ([]S
 	return addFofnsToIBackup(client, setFofns)
 }
 
-// BackupWithFofnWriter will back up all files in the given treeNode that match
-// rules in the given planDB, using the given ibackup client and fofn writer.
-// It returns a list of set IDs created.
-func BackupWithFofnWriter(planDB *db.DB, treeNode tree.Node,
-	client *ibackup.MultiClient,
-	newFofnDirWriter func(baseDir string) *ibackup.FofnDirWriter) ([]SetInfo, error) {
-	_ = newFofnDirWriter
-
-	return Backup(planDB, treeNode, client)
-}
-
 func collectSetFofns(planDB *db.DB, treeNode tree.Node) (map[*db.Directory]*setStream, error) {
 	mountpoint, err := readMountpoint(treeNode)
 	if err != nil {
@@ -67,26 +98,7 @@ func collectSetFofns(planDB *db.DB, treeNode tree.Node) (map[*db.Directory]*setS
 	setFofns := make(map[*db.Directory]*setStream)
 
 	figureOutFOFNs(treeNode, sm, nil, func(path *summary.DirectoryPath, ruleID int64) {
-		rule := dirRulesByID[ruleID]
-
-		if rule.RuleIDs[ruleID].BackupType != db.BackupIBackup {
-			return
-		}
-
-		stream := setFofns[rule.Directory]
-		if stream == nil {
-			stream, err = newSetStream()
-			if err != nil {
-				return
-			}
-
-			setFofns[rule.Directory] = stream
-		}
-
-		err = stream.Append(string(path.AppendTo(nil)))
-		if err != nil {
-			return
-		}
+		err = appendPathToSetStream(setFofns, dirRulesByID, path, ruleID)
 	})
 
 	if err != nil {
@@ -95,12 +107,9 @@ func collectSetFofns(planDB *db.DB, treeNode tree.Node) (map[*db.Directory]*setS
 		return nil, err
 	}
 
-	for _, stream := range setFofns {
-		if cerr := stream.Finish(); cerr != nil {
-			closeStreams(setFofns)
-
-			return nil, cerr
-		}
+	err = finishSetStreams(setFofns)
+	if err != nil {
+		return nil, err
 	}
 
 	return setFofns, nil
@@ -234,45 +243,26 @@ func figureOutFOFNs(node tree.Node, sm ruletree.State, path *summary.DirectoryPa
 	}
 }
 
-func addFofnsToIBackup(client *ibackup.MultiClient,
-	setFofns map[*db.Directory]*setStream) ([]SetInfo, error) {
-	backupSetInfos := make([]SetInfo, 0, len(setFofns))
+func appendPathToSetStream(streams map[*db.Directory]*setStream,
+	dirRulesByID map[int64]*dirRules, path *summary.DirectoryPath, ruleID int64) error {
+	rule := dirRulesByID[ruleID]
 
-	var errs error
+	if rule.RuleIDs[ruleID].BackupType != db.BackupIBackup {
+		return nil
+	}
 
-	for setInfo, stream := range setFofns {
-		backupSetName := setNamePrefix + setInfo.Path
-
-		err := client.BackupStream(setInfo.Path, backupSetName, setInfo.ClaimedBy,
-			stream.Seq(), int(setInfo.Frequency), setInfo.ReviewDate,
-			setInfo.RemoveDate) //nolint:gosec
+	stream := streams[rule.Directory]
+	if stream == nil {
+		newStream, err := newSetStream()
 		if err != nil {
-			errs = errors.Join(errs, err)
-
-			continue
+			return err
 		}
 
-		backupSetInfos = append(backupSetInfos, SetInfo{
-			BackupSetName: backupSetName,
-			Requestor:     setInfo.ClaimedBy,
-			FileCount:     stream.Count(),
-		})
+		stream = newStream
+		streams[rule.Directory] = stream
 	}
 
-	return backupSetInfos, errs
-}
-
-func closeStreams(streams map[*db.Directory]*setStream) {
-	for _, stream := range streams {
-		stream.Close()
-	}
-}
-
-type setStream struct {
-	path   string
-	count  int
-	fd     *os.File
-	closed bool
+	return stream.Append(string(path.AppendTo(nil)))
 }
 
 func newSetStream() (*setStream, error) {
@@ -284,9 +274,54 @@ func newSetStream() (*setStream, error) {
 	return &setStream{path: fd.Name(), fd: fd}, nil
 }
 
+func closeStreams(streams map[*db.Directory]*setStream) {
+	for _, stream := range streams {
+		stream.Close()
+	}
+}
+
+func finishSetStreams(setFofns map[*db.Directory]*setStream) error {
+	for _, stream := range setFofns {
+		if cerr := stream.Finish(); cerr != nil {
+			closeStreams(setFofns)
+
+			return cerr
+		}
+	}
+
+	return nil
+}
+
+func addFofnsToIBackup(client *ibackup.MultiClient,
+	setFofns map[*db.Directory]*setStream) ([]SetInfo, error) {
+	backupSetInfos := make([]SetInfo, 0, len(setFofns))
+
+	var errs error
+
+	for setInfo, stream := range setFofns {
+		setData, err := backupSetWithStream(client, setInfo, stream)
+		if err != nil {
+			errs = errors.Join(errs, err)
+
+			continue
+		}
+
+		backupSetInfos = append(backupSetInfos, setData)
+	}
+
+	return backupSetInfos, errs
+}
+
+type setStream struct {
+	path   string
+	count  int
+	fd     *os.File
+	closed bool
+}
+
 func (s *setStream) Append(path string) error {
 	if s.fd == nil {
-		return fmt.Errorf("set stream is closed")
+		return errSetStreamClosed
 	}
 
 	_, err := s.fd.WriteString(path)
@@ -325,7 +360,7 @@ func (s *setStream) Seq() iter.Seq[string] {
 		defer fd.Close()
 
 		scanner := bufio.NewScanner(fd)
-		scanner.Buffer(make([]byte, 0, 1024), 1024*1024)
+		scanner.Buffer(make([]byte, 0, initialScannerBufferBytes), maxScannerTokenBytes)
 
 		for scanner.Scan() {
 			if !yield(scanner.Text()) {
@@ -357,4 +392,22 @@ type dirRules struct {
 	*db.Directory
 	Rules   map[string]*db.Rule
 	RuleIDs map[int64]*db.Rule
+}
+
+func uintToInt(value uint) (int, error) {
+	v := uint64(value)
+
+	if strconv.IntSize == intSize32 && v > math.MaxInt32 {
+		return 0, errInvalidFrequency
+	}
+
+	if strconv.IntSize == intSize64 && v > math.MaxInt64 {
+		return 0, errInvalidFrequency
+	}
+
+	if strconv.IntSize == intSize32 {
+		return int(int32(v)), nil
+	}
+
+	return int(int64(v)), nil
 }
