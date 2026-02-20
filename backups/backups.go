@@ -51,7 +51,9 @@ func Backup(planDB *db.DB, treeNode tree.Node, client *ibackup.MultiClient) ([]S
 	writers := make(map[*db.Directory]*setWriter)
 
 	figureOutFOFNs(treeNode, sm, nil, func(path *summary.DirectoryPath, ruleID int64) {
-		err = addToWriter(writers, dirRulesByID, client, path, ruleID)
+		if err == nil {
+			err = addToWriter(writers, dirRulesByID, client, path, ruleID)
+		}
 	})
 
 	if err != nil {
