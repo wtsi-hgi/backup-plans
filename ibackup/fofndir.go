@@ -1,7 +1,7 @@
 /*******************************************************************************
  * Copyright (c) 2026 Genome Research Ltd.
  *
- * Author: Michael Woolnough <mw31@sanger.ac.uk>
+ * Author: Sendu Bala <sb10@sanger.ac.uk>
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -36,11 +36,11 @@ import (
 	"github.com/wtsi-hgi/ibackup/fofn"
 )
 
-const fullwidthSolidus = "／"
-
-const fofnDirPerm = 0o755
-
-const frequencyWindowOffsetHours = 12
+const (
+	fullwidthSolidus           = "／"
+	fofnDirPerm                = 0o755
+	frequencyWindowOffsetHours = 12
+)
 
 // FofnDirWriter writes null-terminated FOFN files and config.yml files into
 // subdirectories under a base fofn directory.
@@ -84,6 +84,8 @@ func (f *FofnDirWriter) Write(setName string, transformer string, files iter.Seq
 	return true, nil
 }
 
+// UpdateConfig updates the config.yml for an existing set directory without
+// rewriting its FOFN file.
 func (f *FofnDirWriter) UpdateConfig(setName string, transformer string,
 	freeze bool, metadata map[string]string) error {
 	subDir := filepath.Join(f.baseDir, SafeName(setName))
@@ -96,6 +98,8 @@ func (f *FofnDirWriter) UpdateConfig(setName string, transformer string,
 	return writeConfig(subDir, transformer, freeze, metadata)
 }
 
+// SafeName converts a set name to a directory-safe name by removing a
+// "plan::" prefix and replacing forward slashes.
 func SafeName(setName string) string {
 	setName = strings.TrimPrefix(setName, "plan::")
 
