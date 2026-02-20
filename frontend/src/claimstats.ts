@@ -1,13 +1,11 @@
-import { div, h2, p, button, table, thead, tbody, th, td, tr, fieldset, legend, h1, input, select } from "./lib/html.js";
-import type { DirStats } from "./types.js";
+import { div, h2, p, button, table, thead, tbody, th, td, tr, fieldset, legend, input, datalist, option } from "./lib/html.js";
 import { getClaimStats, user } from "./rpc.js";
 import { formatBytes, longAgoStr } from "./lib/utils.js";
 import { BackupType } from "./consts.js";
 import { svg, title, use } from "./lib/svg.js";
 import { load } from './load.js';
-import { userList } from './filter.js';
-import { groupList } from './report.js'
 import { amendNode, clearNode } from "./lib/dom.js";
+import { users, groups } from './userGroups.js';
 
 const base = div({ "class": "main-container" });
 const container = div();
@@ -31,7 +29,10 @@ let filter = {
 function createClaimStatsSection() {
     let page = div({ "class": "claimstats-container" });
     getClaimStats(filter.user, filter.group).then(claimstats => {
-        claimstats.length > 0 ? claimstats.map((dirStats) =>
+        claimstats.length > 0 ? claimstats.map((dirStats) => {
+            if (!users.has(dirStats.ClaimedBy)) users.add(dirStats.ClaimedBy);
+            if (!groups.has(dirStats.Group)) groups.add(dirStats.Group);
+
             page.appendChild(fieldset({ "class": "userclaims", "data-user": dirStats.ClaimedBy, "data-group": dirStats.Group }, [
                 legend({ "class": "claimstats-legend" }, [h2(dirStats.Path), button({
                     "class": "load-button",
@@ -64,17 +65,24 @@ function createClaimStatsSection() {
                         ])
                     ])
                 ])
-            ])
-            )) : page.appendChild(h2("No claimed directories."))
+            ]))
+        }
+        ) : page.appendChild(h2("No claimed directories."))
     });
 
     return page
 }
 
+const userList = datalist({ "id": "claimstatsUsers" });
+userList.append(...Array.from(users).map((user) => option({ "label": "User " + user }, user)));
+
+const groupList = datalist({ "id": "claimstatsGroup" });
+groupList.append(...Array.from(groups).map((group) => option({ "label": "Group: " + group }, group)));
+
 function createFilterSection() {
     return div({ "class": "claimstats-filter-container" }, [
-        input({ "placeholder": "Username", "list": "userList", "value": user, "input": function (this: HTMLInputElement) { filter.user = this.value } }),
-        input({ "placeholder": "Group", "list": "groupList", "input": function (this: HTMLInputElement) { filter.group = this.value } }),
+        input({ "placeholder": "Username", "list": "claimstatsUsers", "value": user, "input": function (this: HTMLInputElement) { filter.user = this.value } }),
+        input({ "placeholder": "Group", "list": "claimstatsGroups", "input": function (this: HTMLInputElement) { filter.group = this.value } }),
         button({
             "click": function () {
                 if (filter.user != "" || filter.group != "") {

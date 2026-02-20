@@ -1,7 +1,7 @@
 import type { BackupStatus, ClaimedDir, ReportSummary, Rule, SizeCount, SizeCountTime, Stats } from "./types.js";
 import type { Children } from "./lib/dom.js";
 import { amendNode } from "./lib/dom.js";
-import { a, br, button, datalist, details, div, fieldset, h1, h2, input, label, legend, li, option, p, span, summary, table, tbody, td, th, thead, tr, ul } from "./lib/html.js";
+import { a, br, button, datalist, details, div, fieldset, h1, h2, input, label, legend, li, option, span, summary, table, tbody, td, th, thead, tr, ul } from "./lib/html.js";
 import { svg, title, use } from "./lib/svg.js";
 import { action, formatBytes, longAgo, secondsInWeek, setAndReturn, splitLongPath, stringSort } from "./lib/utils.js";
 import { getReportSummary } from "./rpc.js";
@@ -13,7 +13,6 @@ import { boms, owners, userGroups } from './userGroups.js';
 import { inputState } from "./state.js";
 import graph from "./graph.js";
 
-// export const groupList = datalist({ "id": "groupList" });
 class Summary {
 	actions: SizeCountTime[] = [];
 	path: string;
