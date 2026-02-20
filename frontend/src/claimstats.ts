@@ -10,7 +10,7 @@ import { groupList } from './report.js'
 import { amendNode, clearNode } from "./lib/dom.js";
 
 const base = div({ "class": "main-container" });
-const container = div({ "class": "claimstats-container" });
+const container = div();
 
 function initialiseClaimStats() {
     base.appendChild(createFilterSection());
@@ -29,10 +29,9 @@ let filter = {
 }
 
 function createClaimStatsSection() {
-    let page = div();
+    let page = div({ "class": "claimstats-container" });
     getClaimStats(filter.user, filter.group).then(claimstats => {
-        console.log("getClaimStats returned", claimstats);
-        claimstats.map((dirStats) =>
+        claimstats.length > 0 ? claimstats.map((dirStats) =>
             page.appendChild(fieldset({ "class": "userclaims", "data-user": dirStats.ClaimedBy, "data-group": dirStats.Group }, [
                 legend({ "class": "claimstats-legend" }, [h2(dirStats.Path), button({
                     "class": "load-button",
@@ -66,7 +65,7 @@ function createClaimStatsSection() {
                     ])
                 ])
             ])
-            ))
+            )) : page.appendChild(h2("No claimed directories."))
     });
 
     return page

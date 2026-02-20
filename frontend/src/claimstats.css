@@ -27,7 +27,6 @@
     margin: 2em 0 0 2em;
     padding: 0.8em;
     display: flex;
-    gap: 1em;
     width: 95vw;
 }
 
@@ -36,16 +35,16 @@
     display: flex;
     justify-content: center;
     flex-direction: column;
-    gap: 2em;
 }
 
 .claimstats-container {
-    margin: 1em 1em 0 1em;
-    padding: 1em 1em 0 1em;
+    margin: 1em;
+    padding: 1em;
 }
 
 .main-container {
     width: 100vw !important;
+    gap: 1em;
 }
 
 .claimstats-container,
