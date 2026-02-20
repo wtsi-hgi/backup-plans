@@ -7,13 +7,20 @@ import { svg, title, use } from "./lib/svg.js";
 import { load } from './load.js';
 import { userList } from './filter.js';
 import { groupList } from './report.js'
+import { amendNode, clearNode } from "./lib/dom.js";
 
 const base = div();
+const container = div();
 
-export function initialiseClaimStats() {
-    getClaimStats().then(claimStats => {
-        base.replaceChildren(createClaimStatsPage(claimStats));
-    });
+function initialiseClaimStats() {
+    base.appendChild(createFilterSection());
+    updateClaimStats();
+    base.appendChild(container);
+}
+
+export function updateClaimStats() {
+    clearNode(container);
+    amendNode(container, createClaimStatsSection());
 }
 
 let filter = {
@@ -21,47 +28,29 @@ let filter = {
     "group": ""
 }
 
-function filterClaimStats(children: HTMLFieldSetElement[]) {
-    console.log(filter);
-    const filterUser = filter.user == "" ? false : true;
-    const filterGroup = filter.group == "" ? false : true;
+// function filterClaimStats(children: HTMLFieldSetElement[]) {
+//     console.log(filter);
+//     const filterUser = filter.user == "" ? false : true;
+//     const filterGroup = filter.group == "" ? false : true;
 
-    for (const child of children) {
-        const user = child.dataset.user;
-        const group = child.dataset.group;
+//     for (const child of children) {
+//         const user = child.dataset.user;
+//         const group = child.dataset.group;
 
-        if ((!filterUser || user == filter.user) && (!filterGroup || group == filter.group)) {
-            child.classList.remove("hidden");
-        } else {
-            child.classList.add("hidden");
-        }
-    }
-};
+//         if ((!filterUser || user == filter.user) && (!filterGroup || group == filter.group)) {
+//             child.classList.remove("hidden");
+//         } else {
+//             child.classList.add("hidden");
+//         }
+//     }
+// };
 
-function createClaimStatsPage(claimStats: DirStats[]) {
-    const filterSection =
-        div({ "class": "claimstats-filter-container" }, [
-            input({
-                "placeholder": "Username", "list": "userList", "value": user, "input": function (this: HTMLInputElement) {
-                    filter.user = ""
-                    if (Array.from(userList.options).some(opt => opt.value === this.value)) {
-                        filter.user = this.value;
-                    }
-                    filterClaimStats(claimstatsSection);
-                }
-            }),
-            input({
-                "placeholder": "Group", "list": "groupList", "input": function (this: HTMLInputElement) {
-                    filter.group = "";
-                    if (Array.from(groupList.options).some(opt => opt.value === this.value)) {
-                        filter.group = this.value;
-                    }
-                    filterClaimStats(claimstatsSection);
-                }
-            }),
-        ]),
-        claimstatsSection = claimStats.map((dirStats) =>
-            fieldset({ "class": "userclaims", "data-user": dirStats.ClaimedBy, "data-group": dirStats.Group }, [
+function createClaimStatsSection() {
+    let page = div();
+    getClaimStats(filter.user, filter.group).then(claimstats => {
+        console.log("getClaimStats returned", claimstats);
+        claimstats.map((dirStats) =>
+            page.appendChild(fieldset({ "class": "userclaims", "data-user": dirStats.ClaimedBy, "data-group": dirStats.Group }, [
                 legend({ "class": "claimstats-legend" }, [h1(dirStats.Path), button({
                     "class": "load-button",
                     "click": () => load(dirStats.Path).then(() => {
@@ -94,13 +83,42 @@ function createClaimStatsPage(claimStats: DirStats[]) {
                     ])
                 ])
             ])
+            ))
+    });
 
-        );
+    return page
+}
 
-    return div([
-        filterSection,
-        claimstatsSection
-    ])
+function createFilterSection() {
+    return div({ "class": "claimstats-filter-container" }, [
+        input({
+            "placeholder": "Username", "list": "userList", "value": user, "input": function (this: HTMLInputElement) {
+                // filter.user = ""
+                // if (Array.from(userList.options).some(opt => opt.value === this.value)) {
+                filter.user = this.value;
+                // }
+            }
+        }),
+        input({
+            "placeholder": "Group", "list": "groupList", "input": function (this: HTMLInputElement) {
+                // filter.group = "";
+                // if (Array.from(groupList.options).some(opt => opt.value === this.value)) {
+                filter.group = this.value;
+                // }
+            }
+        }),
+        button({
+            "click": function () {
+                if (filter.user != "" || filter.group != "") {
+                    console.log("Calling updateClaimStats with user:", filter.user, "group:", filter.group);
+                    updateClaimStats()
+                } else {
+                    console.log("Both filter and user are blank, not calling claimstats endpoint");
+                }
+
+            }
+        }, "Submit"),
+    ]);
 }
 
 initialiseClaimStats()

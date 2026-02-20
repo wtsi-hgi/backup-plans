@@ -63,7 +63,7 @@ func TestClaimStats(t *testing.T) {
 		Convey("Claimstats should return all claimed directories per user", func() {
 			u = userA
 
-			code, resp := getResponse(s.ClaimStats, "/api/claimstats", nil)
+			code, resp := getResponse(s.ClaimStats, "/api/claimstats?user=userA", nil)
 			So(code, ShouldEqual, http.StatusOK)
 
 			var claimstatsA []DirStats

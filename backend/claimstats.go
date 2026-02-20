@@ -28,14 +28,18 @@ package backend
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/ibackup"
 	"github.com/wtsi-hgi/backup-plans/ruletree"
+	"github.com/wtsi-hgi/backup-plans/users"
 	"vimagination.zapto.org/tree"
 )
+
+var ErrNoFilter = errors.New("Must provide a user and/or group to filter by")
 
 type ruleStats struct {
 	*db.Rule
@@ -55,23 +59,54 @@ func (s *Server) ClaimStats(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.claimstats)
 }
 
-func (s *Server) claimstats(w http.ResponseWriter, _ *http.Request) error {
+func (s *Server) claimstats(w http.ResponseWriter, r *http.Request) error {
 	s.rulesMu.RLock()
 	defer s.rulesMu.RUnlock()
+
+	filterUser := false
+	filterGroup := false
+
+	user := r.FormValue("user")
+	if user != "" {
+		filterUser = true
+	}
+
+	group := r.FormValue("group")
+	if group != "" {
+		filterGroup = true
+	}
+
+	if !filterUser && !filterGroup {
+		return ErrNoFilter
+	}
 
 	claimstats := []DirStats{}
 
 	for _, dir := range s.directoryRules {
-		if dir.ClaimedBy == "" {
+		if dir.ClaimedBy == "" || (filterUser && user != dir.ClaimedBy) {
 			continue
 		}
 
-		dirStats, err := s.generateDirStats(dir)
+		dirSummary, err := s.rootDir.Summary(dir.Path)
 		if err != nil {
 			if errors.As(err, new(tree.ChildNotFoundError)) {
 				continue
 			}
 
+			return err
+		}
+
+		_, gid := dirSummary.IDs()
+		// dirSummary.User = users.Username(uid)
+		dirSummary.Group = users.Group(gid)
+
+		if filterGroup && dirSummary.Group != group { // TODO: make map of db.Directory to group and use this for the check
+			fmt.Println("filtering by group?", filterGroup, "dirSummary.Group:", dirSummary.Group, "group:", group)
+			continue
+		}
+
+		dirStats, err := s.generateDirStats(dir, dirSummary) // thread here?
+		if err != nil {
 			return err
 		}
 
@@ -83,8 +118,8 @@ func (s *Server) claimstats(w http.ResponseWriter, _ *http.Request) error {
 	return json.NewEncoder(w).Encode(claimstats)
 }
 
-func (s *Server) generateDirStats(dir *ruletree.DirRules) (*DirStats, error) {
-	rulestats, err := s.generateRuleStats(dir)
+func (s *Server) generateDirStats(dir *ruletree.DirRules, dirSummary *ruletree.DirSummary) (*DirStats, error) {
+	rulestats, err := s.generateRuleStats(dir, dirSummary)
 	if err != nil {
 		return nil, err
 	}
@@ -98,15 +133,10 @@ func (s *Server) generateDirStats(dir *ruletree.DirRules) (*DirStats, error) {
 			Failures:    0}
 	}
 
-	dirGroup, err := s.getGroup(dir)
-	if err != nil {
-		return nil, err
-	}
-
 	return &DirStats{
 		Path:         dir.Path,
 		ClaimedBy:    dir.ClaimedBy,
-		Group:        dirGroup,
+		Group:        dirSummary.Group,
 		BackupStatus: *sba,
 		RuleStats:    rulestats,
 	}, nil
@@ -114,12 +144,7 @@ func (s *Server) generateDirStats(dir *ruletree.DirRules) (*DirStats, error) {
 
 // generateRuleStats will create a []RuleStats slice for the given directory, containing a RuleStats object for every
 // rule on the directory.
-func (s *Server) generateRuleStats(dir *ruletree.DirRules) ([]ruleStats, error) {
-	dirSummary, err := s.rootDir.Summary(dir.Path)
-	if err != nil {
-		return nil, err
-	}
-
+func (s *Server) generateRuleStats(dir *ruletree.DirRules, dirSummary *ruletree.DirSummary) ([]ruleStats, error) {
 	ids := s.gatherDirRules(dir)
 	rulestats := []ruleStats{}
 
@@ -159,13 +184,4 @@ func (s *Server) gatherDirRules(dir *ruletree.DirRules) map[uint64]struct{} {
 	}
 
 	return ids
-}
-
-func (s *Server) getGroup(dir *ruletree.DirRules) (string, error) {
-	dirSummary, err := s.rootDir.Summary(dir.Path)
-	if err != nil {
-		return "", err
-	}
-
-	return dirSummary.Group, nil
 }
