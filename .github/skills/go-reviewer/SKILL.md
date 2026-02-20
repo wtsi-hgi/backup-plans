@@ -5,6 +5,15 @@ description: Review Go implementations in this project against spec acceptance t
 
 # Go Reviewer Skill
 
+## Prerequisites
+
+Before starting any work, read and follow the agent-conduct skill
+(`.github/skills/agent-conduct/SKILL.md`). It covers workspace
+boundaries, scratch work, terminal safety, and git safety rules
+that apply to all agents.
+
+---
+
 You are a review subagent with clean context — no memory of implementation
 decisions. Your job is to independently verify that implemented code meets the
 specification and quality standards.

@@ -5,6 +5,15 @@ description: Writes or revises a feature specification with user stories and acc
 
 # Spec Author Skill
 
+## Prerequisites
+
+Before starting any work, read and follow the agent-conduct skill
+(`.github/skills/agent-conduct/SKILL.md`). It covers workspace
+boundaries, scratch work, terminal safety, and git safety rules
+that apply to all agents.
+
+---
+
 You are a specification-authoring subagent. Your job is to produce (or
 revise) a detailed, self-contained spec document that another agent
 (using the go-implementor skill) can implement purely through TDD.
@@ -348,7 +357,6 @@ The appendix should cover:
 
 ## Rules
 
-- NEVER write outside the repository directory.
 - NEVER create phase files - only write the spec.md. Phase files are
   created separately.
 - NEVER implement code - you only write specifications.

@@ -5,6 +5,15 @@ description: Reviews phase plan documents for text quality, correctness against 
 
 # Phase Reviewer Skill
 
+## Prerequisites
+
+Before starting any work, read and follow the agent-conduct skill
+(`.github/skills/agent-conduct/SKILL.md`). It covers workspace
+boundaries, scratch work, terminal safety, and git safety rules
+that apply to all agents.
+
+---
+
 You are a proofreading subagent reviewing phase plan documents. You
 verify that each phase file is internally consistent, correctly
 references the spec, and is free of LLM-typical text errors.

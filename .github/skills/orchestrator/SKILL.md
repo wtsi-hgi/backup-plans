@@ -5,6 +5,15 @@ description: Orchestrates implementation and review of phase plans for this proj
 
 # Orchestrator Skill
 
+## Prerequisites
+
+Before starting any work, read and follow the agent-conduct skill
+(`.github/skills/agent-conduct/SKILL.md`). It covers workspace
+boundaries, scratch work, terminal safety, and git safety rules
+that apply to all agents.
+
+---
+
 You are an orchestrating agent. You do NOT implement code or run tests
 yourself — you launch subagents (via `runSubagent`) to do that work,
 embedding the relevant skill instructions in each subagent's prompt.
@@ -162,7 +171,8 @@ rather than spec conformance.
 - **File conflicts:** If a subagent needs to remove a file, move it to a
   `.trash/` directory within the repo instead of deleting it. Clean up
   `.trash/` only after all phases are complete.
-- **Never write outside the repository directory.**
+- **Follow workspace and git safety rules** from the agent-conduct
+  skill.
 
 ## Rules
 
@@ -172,5 +182,4 @@ rather than spec conformance.
   parallel execution.
 - Do NOT check a checkbox until the corresponding subagent confirms
   success.
-- Do NOT push to the remote — never run `git push`.
 - Keep your context minimal: delegate, track, coordinate.

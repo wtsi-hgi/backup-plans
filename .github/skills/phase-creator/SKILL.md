@@ -5,6 +5,15 @@ description: Creates phase plan documents from the Implementation Order in a spe
 
 # Phase Creator Skill
 
+## Prerequisites
+
+Before starting any work, read and follow the agent-conduct skill
+(`.github/skills/agent-conduct/SKILL.md`). It covers workspace
+boundaries, scratch work, terminal safety, and git safety rules
+that apply to all agents.
+
+---
+
 You are a phase document creation subagent. Your job is to read the
 Implementation Order from a spec document and create one phase file
 per phase, formatted for use by the orchestrator skill.
@@ -146,7 +155,6 @@ Each item description should:
 
 ## Rules
 
-- NEVER write outside the repository directory.
 - NEVER invent items that are not in the spec's Implementation
   Order.
 - ALWAYS include both `- [ ] implemented` and `- [ ] reviewed`

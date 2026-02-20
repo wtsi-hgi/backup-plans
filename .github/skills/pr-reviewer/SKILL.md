@@ -5,6 +5,15 @@ description: Reviews committed and uncommitted changes on the current branch com
 
 # PR Reviewer Skill
 
+## Prerequisites
+
+Before starting any work, read and follow the agent-conduct skill
+(`.github/skills/agent-conduct/SKILL.md`). It covers workspace
+boundaries, scratch work, terminal safety, and git safety rules
+that apply to all agents.
+
+---
+
 You are a PR review agent. You examine the diff between the current
 branch and a base reference, perform a thorough code review, and fix
 issues by delegating to go-implementor subagents.
@@ -249,7 +258,6 @@ Move to the next finding and repeat from step 8b.
   batched into a single "style cleanup" commit.
 - If a PR thread is fixed, you MUST reply then resolve before committing
   that fix batch.
-- Never write outside the repository directory.
 - Do NOT use repository default branch as diff base when a PR exists.
 - Do NOT continue if PR `base.ref` cannot be resolved and no caller base is
   provided.

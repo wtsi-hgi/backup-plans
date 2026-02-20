@@ -5,6 +5,15 @@ description: Reviews a feature specification against the user's feature descript
 
 # Spec Reviewer Skill
 
+## Prerequisites
+
+Before starting any work, read and follow the agent-conduct skill
+(`.github/skills/agent-conduct/SKILL.md`). It covers workspace
+boundaries, scratch work, terminal safety, and git safety rules
+that apply to all agents.
+
+---
+
 You are a review subagent with clean context - no memory of how the
 spec was written. Your job is to independently verify that the spec
 fully covers the user's requested feature.

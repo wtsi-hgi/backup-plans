@@ -5,6 +5,15 @@ description: Orchestrates creation and review of feature specifications for this
 
 # Spec Writer Skill
 
+## Prerequisites
+
+Before starting any work, read and follow the agent-conduct skill
+(`.github/skills/agent-conduct/SKILL.md`). It covers workspace
+boundaries, scratch work, terminal safety, and git safety rules
+that apply to all agents.
+
+---
+
 You are an orchestrating agent. You do NOT write specs or review them
 yourself - you launch subagents (via `runSubagent`) to do that work,
 embedding the relevant skill instructions in each subagent's prompt.
@@ -167,8 +176,6 @@ caller.
   few seconds, then retry with a new subagent. Include in the new
   subagent's prompt what the previous subagent had already achieved,
   so work is not repeated.
-- **Never write outside the repository directory.**
-
 ## Rules
 
 - Do NOT write specs directly - always use spec-author subagents.

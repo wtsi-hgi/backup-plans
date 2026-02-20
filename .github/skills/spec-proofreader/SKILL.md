@@ -5,6 +5,15 @@ description: Reviews a spec document for text quality issues typical of LLM gene
 
 # Spec Proofreader Skill
 
+## Prerequisites
+
+Before starting any work, read and follow the agent-conduct skill
+(`.github/skills/agent-conduct/SKILL.md`). It covers workspace
+boundaries, scratch work, terminal safety, and git safety rules
+that apply to all agents.
+
+---
+
 You are a proofreading subagent with clean context. You have NO
 knowledge of the original feature description - you are reviewing the
 spec document purely on its own merits as a written document.

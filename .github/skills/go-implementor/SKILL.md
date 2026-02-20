@@ -50,37 +50,12 @@ For each acceptance test, follow these steps exactly. Do not skip any step.
 6. Run `golangci-lint run --fix` and fix remaining issues.
 7. Re-run the test to confirm it still passes.
 
-## Workspace Boundary and Scratch Work (Mandatory)
+## Prerequisites
 
-### Hard boundary: write only inside the repository
-
-- NEVER create, edit, or delete files outside the repository directory.
-- NEVER write to `/tmp`, `/var/tmp`, `/dev/shm`, `/dev/nul`, home-directory temp
-  paths, or any absolute path outside the repo.
-- If a command would write outside the repo, do not run it. Rewrite it so all
-  outputs stay under the repo.
-
-### Preferred alternatives that work with this Go repo
-
-- For runtime temporary data in tests, use `t.TempDir()`.
-- For quick one-off shell logic, prefer inline pipelines/heredocs instead of
-  writing helper scripts.
-- If a temporary file is truly needed, create it under `.tmp/agent/` in the
-  repo (create the directory if needed) and clean it up before finishing.
-
-### Avoid tooling confusion from ad-hoc Go files
-
-- Do NOT create standalone helper `.go` files in repo root, `.tmp/`, or other
-  non-package locations.
-- Do NOT use throwaway Go scripts as scratch helpers.
-- If temporary helper logic is required, prefer shell text files/scripts in
-  `.tmp/agent/` (non-`.go`), or place test-only helpers inside the relevant
-  package test files.
-
-### Pre-write check
-
-Before any file-writing command, confirm the target path is inside the current
-repository root. If not, stop and choose an in-repo alternative.
+Before starting any work, read and follow the agent-conduct skill
+(`.github/skills/agent-conduct/SKILL.md`). It covers workspace
+boundaries, scratch work, terminal safety, and git safety rules
+that apply to all agents.
 
 ## Code Quality Requirements
 
