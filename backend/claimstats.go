@@ -35,7 +35,6 @@ import (
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/ibackup"
 	"github.com/wtsi-hgi/backup-plans/ruletree"
-	"github.com/wtsi-hgi/backup-plans/users"
 	"vimagination.zapto.org/tree"
 )
 
@@ -87,6 +86,13 @@ func (s *Server) claimstats(w http.ResponseWriter, r *http.Request) error {
 			continue
 		}
 
+		dirGroup := s.dirGroups[uint64(dir.ID())]
+
+		if filterGroup && dirGroup != group { // TODO: make map of db.Directory to group and use this for the check
+			fmt.Println("filtering by group?", filterGroup, "dirSummary.Group:", dirGroup, "group:", group)
+			continue
+		}
+
 		dirSummary, err := s.rootDir.Summary(dir.Path)
 		if err != nil {
 			if errors.As(err, new(tree.ChildNotFoundError)) {
@@ -94,15 +100,6 @@ func (s *Server) claimstats(w http.ResponseWriter, r *http.Request) error {
 			}
 
 			return err
-		}
-
-		_, gid := dirSummary.IDs()
-		// dirSummary.User = users.Username(uid)
-		dirSummary.Group = users.Group(gid)
-
-		if filterGroup && dirSummary.Group != group { // TODO: make map of db.Directory to group and use this for the check
-			fmt.Println("filtering by group?", filterGroup, "dirSummary.Group:", dirSummary.Group, "group:", group)
-			continue
 		}
 
 		dirStats, err := s.generateDirStats(dir, dirSummary) // thread here?
@@ -124,7 +121,7 @@ func (s *Server) generateDirStats(dir *ruletree.DirRules, dirSummary *ruletree.D
 		return nil, err
 	}
 
-	sba, err := s.config.GetIBackupClient().GetBackupActivity(dir.Path, "plan::"+dir.Path, dir.ClaimedBy)
+	sba, err := s.config.GetIBackupClient().GetBackupActivity(dir.Path, "plan::"+dir.Path, dir.ClaimedBy, false)
 	if err != nil {
 		sba = &ibackup.SetBackupActivity{
 			LastSuccess: time.Time{},

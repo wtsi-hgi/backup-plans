@@ -29,6 +29,7 @@ package backend
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -37,6 +38,7 @@ import (
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/git"
 	"github.com/wtsi-hgi/backup-plans/ruletree"
+	"github.com/wtsi-hgi/backup-plans/users"
 	"vimagination.zapto.org/httpbuffer"
 	_ "vimagination.zapto.org/httpbuffer/gzip" //
 )
@@ -51,6 +53,7 @@ type Server struct {
 	directoryRules map[string]*ruletree.DirRules
 	dirs           map[uint64]*db.Directory
 	rules          map[uint64]*db.Rule
+	dirGroups      map[uint64]string // Directory id -> gid
 
 	config   *config.Config
 	gitCache *git.Cache
@@ -78,7 +81,37 @@ func New(db *db.DB, getUser func(r *http.Request) string, c *config.Config) (*Se
 
 	s.gitCache = git.NewCache(time.Hour)
 
+	// err = s.loadDirGroups()
+	// if err != nil {
+	// 	return nil, err
+	// }
+
 	return s, nil
+}
+
+func (s *Server) LoadDirGroups() error {
+	fmt.Println("generating dirgroups :)")
+
+	dirGroups := make(map[uint64]string)
+
+	for _, dir := range s.directoryRules {
+		dirSummary, err := s.rootDir.Summary(dir.Path)
+		if err != nil {
+			// if errors.As(err, ruletree.ErrNotFound) {
+			// 	continue
+			// }
+
+			return err
+		}
+
+		_, gid := dirSummary.IDs()
+		dirGroups[uint64(dir.ID())] = users.Group(gid)
+	}
+
+	s.dirGroups = dirGroups
+
+	fmt.Println("dirGroups generated, got:", dirGroups)
+	return nil
 }
 
 // WhoAmI is an HTTP endpoint that returns the result of the getUser func that

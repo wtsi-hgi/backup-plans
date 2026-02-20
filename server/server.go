@@ -70,6 +70,11 @@ func start(listen net.Listener, d *db.DB, getUser func(*http.Request) string,
 		return err
 	}
 
+	err = b.LoadDirGroups()
+	if err != nil {
+		return err
+	}
+
 	return addHandlesAndListen(b, listen, logout)
 }
 
