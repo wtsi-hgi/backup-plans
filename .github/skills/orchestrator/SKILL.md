@@ -104,7 +104,7 @@ Implement phase <N>
 where `<N>` is the phase number from the filename (e.g. `phase3.md` →
 `Implement phase 3`). Then report completion to the caller.
 
-### 5. Final PR reviews (after all phases)
+### 5. Spec-aware PR review (after all phases)
 
 When the caller has no more phases to run, perform a holistic review
 of all the work done across every phase:
@@ -125,11 +125,33 @@ of all the work done across every phase:
     pausing after each fix for me to commit."
 - Follow the subagent's fix-and-commit cycle: after each fix, commit
   as instructed before allowing the next fix to proceed.
-- Once the pr-reviewer reports no remaining findings, repeat pr-reviewer with
-  fresh context until it passes with no changes 2 times in a row. Then repeat
-  more times without passing it the spec document, again until it passes with no
-  changes 2 times in a row. This ensures the final review is not just checking
-  for spec conformance but also overall code quality and real-world usability.
+- Once the pr-reviewer reports no remaining findings, repeat with
+  fresh context until it passes with no changes **2 times in a row**.
+
+### 6. Spec-free PR review
+
+After section 5 completes (or when invoked independently), run the
+same pr-reviewer cycle but **without** the spec document. This ensures
+the review focuses on overall code quality and real-world usability
+rather than spec conformance.
+
+- Read the `pr-reviewer` skill
+  (`.github/skills/pr-reviewer/SKILL.md`) if not already loaded.
+- Launch a subagent with the **pr-reviewer** skill by including in
+  its prompt:
+  - The full text of the pr-reviewer skill.
+  - Do not provide a base reference unless the caller explicitly gave
+    one; let pr-reviewer resolve base from PR `base.ref` per its own
+    guardrails.
+  - **No spec document path.**
+  - The instruction: "You have clean context. Review all committed
+    and uncommitted changes on this branch compared to the base.
+    Check for code quality, subtle bugs, and real-world usability.
+    Fix issues via go-implementor subagents, pausing after each fix
+    for me to commit."
+- Follow the subagent's fix-and-commit cycle as in section 5.
+- Once the pr-reviewer reports no remaining findings, repeat with
+  fresh context until it passes with no changes **2 times in a row**.
 
 ## Error Handling
 
