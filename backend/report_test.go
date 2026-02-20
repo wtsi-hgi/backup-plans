@@ -2,7 +2,7 @@ package backend
 
 import (
 	"encoding/json"
-	"fmt"
+	"errors"
 	"maps"
 	"net/http"
 	"os"
@@ -29,6 +29,8 @@ import (
 	"github.com/wtsi-hgi/ibackup/set"
 	"vimagination.zapto.org/tree"
 )
+
+var errTimeoutWaitingForSuccessfulBackup = errors.New("timeout waiting for successful backup status")
 
 func TestReport(t *testing.T) {
 	Convey("Given a test db, tree, roots and ibackup client, a backup can be made", t, func() {
@@ -288,19 +290,27 @@ func awaitSummaryWithSuccessfulBackup(srv *Server, dir string, after time.Time) 
 
 	for {
 		code, str := getResponse(srv.Summary, "/api/reports", nil)
-		if code == http.StatusOK {
-			var got summary
+		if code != http.StatusOK {
+			if time.Now().After(deadline) {
+				return summary{}, errTimeoutWaitingForSuccessfulBackup
+			}
 
-			err := json.NewDecoder(strings.NewReader(str)).Decode(&got)
-			if err == nil {
-				if status, ok := got.BackupStatus[dir]; ok && status != nil && status.LastSuccess.After(after) {
-					return got, nil
-				}
+			time.Sleep(pollEvery)
+
+			continue
+		}
+
+		var got summary
+
+		err := json.NewDecoder(strings.NewReader(str)).Decode(&got)
+		if err == nil {
+			if status, ok := got.BackupStatus[dir]; ok && status != nil && status.LastSuccess.After(after) {
+				return got, nil
 			}
 		}
 
 		if time.Now().After(deadline) {
-			return summary{}, fmt.Errorf("timeout waiting for successful backup status for %s", dir)
+			return summary{}, errTimeoutWaitingForSuccessfulBackup
 		}
 
 		time.Sleep(pollEvery)

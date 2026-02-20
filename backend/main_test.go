@@ -44,7 +44,7 @@ import (
 // logging behaviour.
 func TestMain(m *testing.M) {
 	log.SetOutput(io.Discard)
-	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	slog.SetDefault(slog.New(slog.DiscardHandler))
 
 	os.Exit(m.Run())
 }
