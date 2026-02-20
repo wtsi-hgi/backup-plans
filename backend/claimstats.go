@@ -28,7 +28,6 @@ package backend
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -88,8 +87,7 @@ func (s *Server) claimstats(w http.ResponseWriter, r *http.Request) error {
 
 		dirGroup := s.dirGroups[uint64(dir.ID())]
 
-		if filterGroup && dirGroup != group { // TODO: make map of db.Directory to group and use this for the check
-			fmt.Println("filtering by group?", filterGroup, "dirSummary.Group:", dirGroup, "group:", group)
+		if filterGroup && dirGroup != group {
 			continue
 		}
 

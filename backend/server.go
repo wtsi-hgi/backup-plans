@@ -41,6 +41,7 @@ import (
 	"github.com/wtsi-hgi/backup-plans/users"
 	"vimagination.zapto.org/httpbuffer"
 	_ "vimagination.zapto.org/httpbuffer/gzip" //
+	"vimagination.zapto.org/tree"
 )
 
 // Server represents all of the data required to run the backend server.
@@ -97,9 +98,9 @@ func (s *Server) LoadDirGroups() error {
 	for _, dir := range s.directoryRules {
 		dirSummary, err := s.rootDir.Summary(dir.Path)
 		if err != nil {
-			// if errors.As(err, ruletree.ErrNotFound) {
-			// 	continue
-			// }
+			if errors.As(err, new(tree.ChildNotFoundError)) {
+				continue
+			}
 
 			return err
 		}
