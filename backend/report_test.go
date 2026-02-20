@@ -22,7 +22,6 @@ import (
 	internalconfig "github.com/wtsi-hgi/backup-plans/internal/config"
 	internalibackup "github.com/wtsi-hgi/backup-plans/internal/ibackup"
 	"github.com/wtsi-hgi/backup-plans/internal/plandb"
-	"github.com/wtsi-hgi/backup-plans/internal/testirods"
 	"github.com/wtsi-hgi/backup-plans/ruletree"
 	"github.com/wtsi-hgi/backup-plans/users"
 	"github.com/wtsi-hgi/ibackup/server"
@@ -53,8 +52,6 @@ func TestReport(t *testing.T) {
 
 		secondGroup, err := user.LookupGroupId("2")
 		So(err, ShouldBeNil)
-
-		So(testirods.AddPseudoIRODsToolsToPathIfRequired(t), ShouldBeNil)
 
 		roots := []string{
 			"/lustre/scratch123/humgen/a/[bc]/",

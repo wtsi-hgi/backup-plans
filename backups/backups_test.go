@@ -16,7 +16,6 @@ import (
 	"github.com/wtsi-hgi/backup-plans/internal/directories"
 	internal "github.com/wtsi-hgi/backup-plans/internal/ibackup"
 	"github.com/wtsi-hgi/backup-plans/internal/plandb"
-	"github.com/wtsi-hgi/backup-plans/internal/testirods"
 	"github.com/wtsi-hgi/backup-plans/ruletree"
 	"github.com/wtsi-hgi/ibackup/fofn"
 	"github.com/wtsi-hgi/wrstat-ui/summary"
@@ -81,8 +80,6 @@ func TestFileInfos(t *testing.T) {
 
 func TestBackups(t *testing.T) {
 	Convey("Given a plan database, a tree of wrstat info and an ibackup server", t, func() {
-		So(testirods.AddPseudoIRODsToolsToPathIfRequired(t), ShouldBeNil)
-
 		s, addr, certPath, dfn, err := internal.NewTestIbackupServer(t)
 		So(err, ShouldBeNil)
 
@@ -179,8 +176,6 @@ func TestBackups(t *testing.T) {
 func TestBackupsC1(t *testing.T) {
 	Convey("C1 acceptance tests for creating fofn files during backup", t, func() {
 		Convey("1) API+fofn creates both ibackup set and fofn subdirectory", func() {
-			So(testirods.AddPseudoIRODsToolsToPathIfRequired(t), ShouldBeNil)
-
 			s, addr, certPath, dfn, err := internal.NewTestIbackupServer(t)
 			So(err, ShouldBeNil)
 
@@ -269,8 +264,6 @@ func TestBackupsC1(t *testing.T) {
 		})
 
 		Convey("3) API-only path preserves existing behaviour and no fofn is created", func() {
-			So(testirods.AddPseudoIRODsToolsToPathIfRequired(t), ShouldBeNil)
-
 			_, addr, certPath, dfn, err := internal.NewTestIbackupServer(t)
 			So(err, ShouldBeNil)
 

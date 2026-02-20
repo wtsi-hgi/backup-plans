@@ -21,7 +21,6 @@ import (
 	"github.com/wtsi-hgi/backup-plans/ibackup"
 	ibackup_test "github.com/wtsi-hgi/backup-plans/internal/ibackup"
 	"github.com/wtsi-hgi/backup-plans/internal/plandb"
-	"github.com/wtsi-hgi/backup-plans/internal/testirods"
 	"github.com/wtsi-hgi/ibackup/fofn"
 	"gopkg.in/yaml.v2"
 	"vimagination.zapto.org/tree"
@@ -41,10 +40,6 @@ func TestCommands(t *testing.T) {
 	mysqlConnection := os.Getenv("BACKUP_PLANS_CONNECTION_TEST")
 
 	os.Unsetenv("BACKUP_PLANS_CONNECTION_TEST")
-
-	if err := testirods.AddPseudoIRODsToolsToPathIfRequired(t); err != nil {
-		t.Fatal(err)
-	}
 
 	Convey("Given an ibackup test server", t, func() {
 		So(appExe, ShouldNotBeEmpty)
@@ -151,10 +146,6 @@ func TestCommands(t *testing.T) {
 }
 
 func TestCommandsE1(t *testing.T) {
-	if err := testirods.AddPseudoIRODsToolsToPathIfRequired(t); err != nil {
-		t.Fatal(err)
-	}
-
 	Convey("E1 integration acceptance tests for end-to-end fofn support", t, func() {
 		So(appExe, ShouldNotBeEmpty)
 
