@@ -24,6 +24,8 @@ jobs:
         run: go install vimagination.zapto.org/jspacker/cmd/jspacker@latest
       - name: Set up Node
         uses: actions/setup-node@v6
+        with:
+          node-version: '24'
       - name: Install Terser
         run: npm i -g terser
       - name: Install zopfli

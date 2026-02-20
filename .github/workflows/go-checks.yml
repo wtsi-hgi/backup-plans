@@ -39,6 +39,8 @@ jobs:
           go-version-file: go.mod
       - name: Set up Node
         uses: actions/setup-node@v6
+        with:
+          node-version: '24'
       - name: Run frontend checks
         run: make frontend-check
 
