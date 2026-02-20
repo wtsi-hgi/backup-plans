@@ -32,6 +32,7 @@ import (
 	"errors"
 	"log/slog"
 	"maps"
+	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -40,6 +41,7 @@ import (
 	"time"
 
 	gas "github.com/wtsi-hgi/go-authserver"
+	"github.com/wtsi-hgi/ibackup/fofn"
 	"github.com/wtsi-hgi/ibackup/server"
 	"github.com/wtsi-hgi/ibackup/set"
 	"github.com/wtsi-hgi/ibackup/transfer"
@@ -49,6 +51,7 @@ var (
 	ErrInvalidPath   = errors.New("cannot determine transformer from path")
 	ErrUnknownClient = errors.New("cannot determine client from path")
 	ErrFrozenSet     = errors.New("cannot update frozen backup")
+	errNoAddrOrFofn  = errors.New("server requires addr or fofndir")
 )
 
 // ServerDetails contains the connection details for a particular ibackup
@@ -71,10 +74,6 @@ type serverClient struct {
 func createServerClient(ctx context.Context, details ServerDetails) (*serverClient, error) {
 	var client serverClient
 
-	if details.Addr == "" && details.FofnDir != "" {
-		return &client, nil
-	}
-
 	c, err := connect(
 		jwtBasename(details.Token),
 		details.Token, details.Addr, details.Cert, details.Username,
@@ -93,39 +92,19 @@ func createServerClient(ctx context.Context, details ServerDetails) (*serverClie
 }
 
 func (s *serverClient) GetSetByName(requester, setName string) (*set.Set, error) {
-	client := s.Load()
-	if client == nil {
-		return nil, ErrUnknownClient
-	}
-
-	return client.GetSetByName(requester, setName)
+	return s.Load().GetSetByName(requester, setName)
 }
 
 func (s *serverClient) AddOrUpdateSet(set *set.Set) error {
-	client := s.Load()
-	if client == nil {
-		return ErrUnknownClient
-	}
-
-	return client.AddOrUpdateSet(set)
+	return s.Load().AddOrUpdateSet(set)
 }
 
 func (s *serverClient) MergeFiles(setID string, paths []string) error {
-	client := s.Load()
-	if client == nil {
-		return ErrUnknownClient
-	}
-
-	return client.MergeFiles(setID, paths)
+	return s.Load().MergeFiles(setID, paths)
 }
 
 func (s *serverClient) TriggerDiscovery(setID string, forceRemovals bool) error {
-	client := s.Load()
-	if client == nil {
-		return ErrUnknownClient
-	}
-
-	return client.TriggerDiscovery(setID, forceRemovals)
+	return s.Load().TriggerDiscovery(setID, forceRemovals)
 }
 
 func (s *serverClient) await(ctx context.Context, details ServerDetails) {
@@ -276,6 +255,16 @@ func createServers(ctx context.Context, c Config) (map[string]*serverClient, err
 	servers := make(map[string]*serverClient, len(c.Servers))
 
 	for name, details := range c.Servers {
+		if details.Addr == "" {
+			if details.FofnDir != "" {
+				continue
+			}
+
+			errs = errors.Join(errs, &ServerConnectionError{name, errNoAddrOrFofn})
+
+			continue
+		}
+
 		client, err := createServerClient(ctx, details)
 		if err != nil {
 			errs = errors.Join(errs, &ServerConnectionError{name, err})
@@ -291,12 +280,18 @@ func createClients(servers map[string]*serverClient, c Config) (map[string]*clie
 	clients := make(map[string]*clientTransformer, len(c.PathToServer))
 
 	for re, server := range c.PathToServer {
-		s, ok := servers[server.ServerName]
+		details, ok := c.Servers[server.ServerName]
 		if !ok {
 			return nil, UnknownServerError(server.ServerName)
 		}
 
-		details := c.Servers[server.ServerName]
+		var s *serverClient
+		if details.Addr != "" {
+			s, ok = servers[server.ServerName]
+			if !ok {
+				return nil, UnknownServerError(server.ServerName)
+			}
+		}
 
 		r, err := regexp.Compile(re)
 		if err != nil {
@@ -420,7 +415,12 @@ func (m *MultiClient) Backup(path string, setName, requester string, files []str
 		return ErrUnknownClient
 	}
 
-	if c.client.Load() == nil {
+	if err := writeFofnSetIfConfigured(c, setName, requester, files,
+		frequency, review, remove); err != nil {
+		return err
+	}
+
+	if c.client == nil {
 		return nil
 	}
 
@@ -467,7 +467,55 @@ func (m *MultiClient) GetBackupActivity(path, setName, requester string) (*SetBa
 		return nil, ErrInvalidPath
 	}
 
+	if c.client == nil {
+		return nil, ErrUnknownClient
+	}
+
 	return GetBackupActivity(c.client, setName, requester)
+}
+
+func writeFofnSetIfConfigured(c *clientTransformer, setName, requester string,
+	files []string, frequency int, review, remove int64) error {
+	if c.fofnDir == "" || len(files) == 0 {
+		return nil
+	}
+
+	writer := NewFofnDirWriter(c.fofnDir)
+	metadata := map[string]string{
+		"requestor": requester,
+		"review":    time.Unix(review, 0).Format(time.DateOnly),
+		"remove":    time.Unix(remove, 0).Format(time.DateOnly),
+	}
+
+	wrote, err := writer.Write(setName, c.transformer, slices.Values(files),
+		frequency, metadata)
+	if err != nil {
+		return err
+	}
+
+	if wrote {
+		return nil
+	}
+
+	changed, err := requestorChanged(c.fofnDir, setName, requester)
+	if err != nil || !changed {
+		return err
+	}
+
+	return writer.UpdateConfig(setName, c.transformer, frequency == 0, metadata)
+}
+
+func requestorChanged(fofnDir, setName, requestor string) (bool, error) {
+	config, err := fofn.ReadConfig(filepath.Join(fofnDir, SafeName(setName)))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+
+		return false, err
+	}
+
+	return config.Metadata["requestor"] != requestor, nil
 }
 
 type ServerConnectionError struct {
@@ -624,23 +672,106 @@ func (c *Cache) Stop() {
 	c.stop()
 }
 
-type reCache struct {
-	re *regexp.Regexp
-	*Cache
+type cacheInterface interface {
+	Match(path string) bool
+	GetBackupActivity(setName, requester string) (*SetBackupActivity, error)
+	GetFofnBackupActivity(setName string) (*SetBackupActivity, error)
+	Update(c *clientTransformer, d time.Duration)
+	Stop()
 }
 
-type reFofnCache struct {
-	re *regexp.Regexp
-	*fofnCache
+type reCache struct {
+	re   *regexp.Regexp
+	main *Cache
+	fofn *fofnCache
+}
+
+func newReCache(c *clientTransformer, d time.Duration) *reCache {
+	rc := &reCache{re: c.re}
+	rc.Update(c, d)
+
+	return rc
+}
+
+func (r *reCache) Match(path string) bool {
+	return r.re.MatchString(path)
+}
+
+func (r *reCache) GetBackupActivity(setName, requester string) (*SetBackupActivity, error) {
+	if r.main == nil {
+		return nil, ErrUnknownClient
+	}
+
+	return r.main.GetBackupActivity(setName, requester)
+}
+
+func (r *reCache) GetFofnBackupActivity(setName string) (*SetBackupActivity, error) {
+	if r.fofn == nil {
+		return nil, nil //nolint:nilnil
+	}
+
+	return r.fofn.GetBackupActivity(setName)
+}
+
+func (r *reCache) Update(c *clientTransformer, d time.Duration) {
+	r.updateMainCache(c, d)
+	r.updateFofnCache(c, d)
+}
+
+func (r *reCache) updateMainCache(c *clientTransformer, d time.Duration) {
+	if c.client == nil {
+		if r.main != nil {
+			r.main.Stop()
+			r.main = nil
+		}
+
+		return
+	}
+
+	if r.main == nil {
+		r.main = NewCache(c.client, d)
+
+		return
+	}
+
+	r.main.UpdateClient(c.client)
+}
+
+func (r *reCache) updateFofnCache(c *clientTransformer, d time.Duration) {
+	if c.fofnDir == "" {
+		if r.fofn != nil {
+			r.fofn.Stop()
+			r.fofn = nil
+		}
+
+		return
+	}
+
+	if r.fofn == nil || r.fofn.reader.baseDir != c.fofnDir {
+		if r.fofn != nil {
+			r.fofn.Stop()
+		}
+
+		r.fofn = newFofnCache(NewFofnStatusReader(c.fofnDir), d)
+	}
+}
+
+func (r *reCache) Stop() {
+	if r.main != nil {
+		r.main.Stop()
+	}
+
+	if r.fofn != nil {
+		r.fofn.Stop()
+	}
 }
 
 // MultiCache contains multiple ibackup caches that can be selected by path.
 type MultiCache struct {
 	d time.Duration
 
-	mu         sync.RWMutex
-	caches     map[string]reCache
-	fofnCaches map[string]reFofnCache
+	mu     sync.RWMutex
+	caches map[string]cacheInterface
 }
 
 // NewMultiCache creates a new MultiClient from the given MultiClient, calling
@@ -649,29 +780,19 @@ type MultiCache struct {
 // The Stop() method must be before replacing (or otherwise losing this pointer
 // to) this cache.
 func NewMultiCache(mc *MultiClient, d time.Duration) *MultiCache {
-	caches := make(map[string]reCache, len(mc.clients))
-	fofnCaches := make(map[string]reFofnCache)
+	caches := make(map[string]cacheInterface, len(mc.clients))
 
 	for re, c := range mc.clients {
-		caches[re] = reCache{re: c.re, Cache: NewCache(c.client, d)}
-
-		if c.fofnDir == "" {
-			continue
-		}
-
-		fofnCaches[re] = reFofnCache{
-			re:        c.re,
-			fofnCache: newFofnCache(NewFofnStatusReader(c.fofnDir), d),
-		}
+		caches[re] = newReCache(c, d)
 	}
 
-	return &MultiCache{caches: caches, fofnCaches: fofnCaches, d: d}
+	return &MultiCache{caches: caches, d: d}
 }
 
 // GetBackupActivity retrieves a cache using the given path, and then calls the
 // normal GetBackupActivity method.
 func (m *MultiCache) GetBackupActivity(path, setName, requester string) (*SetBackupActivity, error) {
-	c := m.getClient(path)
+	c := m.getCache(path)
 	if c == nil {
 		return nil, ErrUnknownClient
 	}
@@ -683,34 +804,21 @@ func (m *MultiCache) GetBackupActivity(path, setName, requester string) (*SetBac
 // and set name. Returns nil if no fofndir is configured for the path or no
 // status file exists.
 func (m *MultiCache) GetFofnBackupActivity(path, setName string) (*SetBackupActivity, error) {
-	c := m.getFofnCache(path)
+	c := m.getCache(path)
 	if c == nil {
 		return nil, nil //nolint:nilnil
 	}
 
-	return c.GetBackupActivity(setName)
+	return c.GetFofnBackupActivity(setName)
 }
 
-func (m *MultiCache) getClient(path string) *Cache {
+func (m *MultiCache) getCache(path string) cacheInterface {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
 	for _, c := range m.caches {
-		if c.re.MatchString(path) {
-			return c.Cache
-		}
-	}
-
-	return nil
-}
-
-func (m *MultiCache) getFofnCache(path string) *fofnCache {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	for _, c := range m.fofnCaches {
-		if c.re.MatchString(path) {
-			return c.fofnCache
+		if c.Match(path) {
+			return c
 		}
 	}
 
@@ -725,67 +833,17 @@ func (m *MultiCache) Update(mc *MultiClient) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.updateClientCaches(mc)
-	m.removeStaleCaches(mc)
-}
-
-func (m *MultiCache) updateClientCaches(mc *MultiClient) {
 	for re, c := range mc.clients {
-		m.syncMainCache(re, c)
-		m.syncFofnCache(re, c)
-	}
-}
+		exist, ok := m.caches[re]
+		if ok {
+			exist.Update(c, m.d)
 
-func (m *MultiCache) syncMainCache(re string, c *clientTransformer) {
-	if exist, ok := m.caches[re]; ok {
-		exist.UpdateClient(c.client)
+			continue
+		}
 
-		return
+		m.caches[re] = newReCache(c, m.d)
 	}
 
-	m.caches[re] = reCache{re: c.re, Cache: NewCache(c.client, m.d)}
-}
-
-func (m *MultiCache) syncFofnCache(re string, c *clientTransformer) {
-	exist, ok := m.fofnCaches[re]
-
-	if c.fofnDir == "" {
-		m.removeFofnCacheIfPresent(re, exist, ok)
-
-		return
-	}
-
-	if !ok || exist.reader.baseDir != c.fofnDir {
-		m.replaceFofnCache(re, c, exist, ok)
-	}
-}
-
-func (m *MultiCache) removeFofnCacheIfPresent(re string, exist reFofnCache, ok bool) {
-	if !ok {
-		return
-	}
-
-	exist.Stop()
-	delete(m.fofnCaches, re)
-}
-
-func (m *MultiCache) replaceFofnCache(re string, c *clientTransformer, exist reFofnCache, ok bool) {
-	if ok {
-		exist.Stop()
-	}
-
-	m.fofnCaches[re] = reFofnCache{
-		re:        c.re,
-		fofnCache: newFofnCache(NewFofnStatusReader(c.fofnDir), m.d),
-	}
-}
-
-func (m *MultiCache) removeStaleCaches(mc *MultiClient) {
-	m.removeStaleMainCaches(mc)
-	m.removeStaleFofnCaches(mc)
-}
-
-func (m *MultiCache) removeStaleMainCaches(mc *MultiClient) {
 	for re, cache := range m.caches {
 		if _, ok := mc.clients[re]; ok {
 			continue
@@ -796,24 +854,9 @@ func (m *MultiCache) removeStaleMainCaches(mc *MultiClient) {
 	}
 }
 
-func (m *MultiCache) removeStaleFofnCaches(mc *MultiClient) {
-	for re, cache := range m.fofnCaches {
-		if _, ok := mc.clients[re]; ok {
-			continue
-		}
-
-		cache.Stop()
-		delete(m.fofnCaches, re)
-	}
-}
-
 // Stop stops the concurrent retrieval backup statuses for each client.
 func (m *MultiCache) Stop() {
 	for _, c := range m.caches {
-		c.Stop()
-	}
-
-	for _, c := range m.fofnCaches {
 		c.Stop()
 	}
 }
