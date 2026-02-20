@@ -8,6 +8,7 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey" //nolint:staticcheck,revive
 	"github.com/wtsi-hgi/backup-plans/ibackup"
+	"github.com/wtsi-hgi/backup-plans/internal/testirods"
 	gas "github.com/wtsi-hgi/go-authserver"
 	"github.com/wtsi-hgi/ibackup/baton"
 	"github.com/wtsi-hgi/ibackup/server"
@@ -86,6 +87,10 @@ func NewMultiClient(t *testing.T) *ibackup.MultiClient { //nolint:funlen
 // path, a function you should defer to stop the server, and an error.
 func NewTestIbackupServer(t *testing.T) (*server.Server, string, string, func() error, error) { //nolint:unparam
 	t.Helper()
+
+	if err := testirods.AddPseudoIRODsToolsToPathIfRequired(t); err != nil {
+		return nil, "", "", nil, err
+	}
 
 	s, certPath, keyPath, err := newConfiguredTestServer(t)
 	if err != nil {
