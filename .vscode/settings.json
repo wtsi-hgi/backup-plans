@@ -1,0 +1,23 @@
+{
+  "editor.detectIndentation": false,
+  "editor.formatOnSave": false,
+  "[go]": {
+    "editor.formatOnSave": true
+  },
+  "[typescript]": {
+    "editor.insertSpaces": false,
+    "editor.tabSize": 4
+  },
+  "[typescriptreact]": {
+    "editor.insertSpaces": false,
+    "editor.tabSize": 4
+  },
+  "[javascript]": {
+    "editor.insertSpaces": false,
+    "editor.tabSize": 4
+  },
+  "[javascriptreact]": {
+    "editor.insertSpaces": false,
+    "editor.tabSize": 4
+  }
+}
