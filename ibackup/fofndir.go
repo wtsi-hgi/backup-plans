@@ -26,7 +26,6 @@
 package ibackup
 
 import (
-	"errors"
 	"iter"
 	"os"
 	"path/filepath"
@@ -107,16 +106,7 @@ func SafeName(setName string) string {
 }
 
 func ensureConfigTargetExists(subDir string) error {
-	info, err := os.Stat(subDir)
-	if err != nil {
-		return err
-	}
-
-	if !info.IsDir() {
-		return os.ErrNotExist
-	}
-
-	_, err = os.Stat(filepath.Join(subDir, "config.yml"))
+	_, err := os.Stat(filepath.Join(subDir, "config.yml"))
 
 	return err
 }
@@ -146,7 +136,7 @@ func (f *FofnDirWriter) shouldWrite(setName string, frequency int) (bool, error)
 		return false, nil
 	}
 
-	window := time.Hour*24*time.Duration(frequency-1) +
+	window := time.Hour*24*time.Duration(frequency) -
 		time.Hour*frequencyWindowOffsetHours
 
 	if !stat.ModTime().Add(window).Before(time.Now()) {
@@ -180,16 +170,19 @@ func streamToFofn(subDir string, files iter.Seq[string]) (*os.File, bool, error)
 	wrote := false
 
 	for path := range files {
-		fd, err := ensureFofnFile(subDir, fofnFD)
-		if err != nil {
-			return nil, false, err
+		if fofnFD == nil {
+			fd, err := createFofnFile(subDir)
+			if err != nil {
+				return nil, false, err
+			}
+
+			fofnFD = fd
 		}
 
-		fofnFD = fd
+		if err := writePath(fofnFD, path); err != nil {
+			_ = closeFofnFile(fofnFD)
 
-		err = writePath(fofnFD, path)
-		if err != nil {
-			return nil, false, closeWithWriteError(fofnFD, err)
+			return nil, false, err
 		}
 
 		wrote = true
@@ -206,14 +199,6 @@ func closeFofnFile(fofnFD *os.File) error {
 	return fofnFD.Close()
 }
 
-func ensureFofnFile(subDir string, fofnFD *os.File) (*os.File, error) {
-	if fofnFD != nil {
-		return fofnFD, nil
-	}
-
-	return createFofnFile(subDir)
-}
-
 func createFofnFile(subDir string) (*os.File, error) {
 	err := os.MkdirAll(subDir, fofnDirPerm)
 	if err != nil {
@@ -221,15 +206,6 @@ func createFofnFile(subDir string) (*os.File, error) {
 	}
 
 	return os.Create(filepath.Join(subDir, "fofn"))
-}
-
-func closeWithWriteError(fofnFD *os.File, err error) error {
-	closeErr := closeFofnFile(fofnFD)
-	if closeErr != nil {
-		return errors.Join(err, closeErr)
-	}
-
-	return err
 }
 
 func writePath(fofnFD *os.File, path string) error {

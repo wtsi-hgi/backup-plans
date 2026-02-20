@@ -90,9 +90,14 @@ func getStatusFileInfo(statusPath string) (os.FileInfo, error) {
 }
 
 func mapStatusCounts(setName string, counts fofn.StatusCounts) *SetBackupActivity {
+	failures := uint64(0)
+	if counts.Failed > 0 {
+		failures = uint64(counts.Failed)
+	}
+
 	return &SetBackupActivity{
 		Name:       setName,
-		Failures:   nonNegativeUint64(counts.Failed),
+		Failures:   failures,
 		Uploaded:   counts.Uploaded,
 		Replaced:   counts.Replaced,
 		Unmodified: counts.Unmodified,
@@ -181,12 +186,4 @@ func (f *fofnCache) runCache(ctx context.Context, d time.Duration) {
 
 func (f *fofnCache) Stop() {
 	f.stop()
-}
-
-func nonNegativeUint64(count int) uint64 {
-	if count < 0 {
-		return 0
-	}
-
-	return uint64(count)
 }

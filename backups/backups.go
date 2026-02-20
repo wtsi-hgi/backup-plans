@@ -5,6 +5,7 @@ import (
 	"iter"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -284,7 +285,7 @@ func writeFofnSetIfConfigured(writers map[string]fofnDirWriter,
 		"remove":    time.Unix(dir.RemoveDate, 0).Format(time.DateOnly),
 	}
 
-	wrote, err := writer.Write(setName, transformer, sliceToSeq(files),
+	wrote, err := writer.Write(setName, transformer, slices.Values(files),
 		int(dir.Frequency), metadata) //nolint:gosec
 	if err != nil {
 		return err
@@ -296,16 +297,6 @@ func writeFofnSetIfConfigured(writers map[string]fofnDirWriter,
 
 	return updateConfigWhenRequestorChanged(writer, fofnDir, setName, transformer,
 		dir, metadata)
-}
-
-func sliceToSeq(values []string) iter.Seq[string] {
-	return func(yield func(string) bool) {
-		for _, value := range values {
-			if !yield(value) {
-				return
-			}
-		}
-	}
 }
 
 func updateConfigWhenRequestorChanged(writer fofnDirWriter, fofnDir, setName,
