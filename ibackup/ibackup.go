@@ -26,10 +26,12 @@
 package ibackup
 
 import (
+	"bufio"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"iter"
 	"log/slog"
 	"maps"
 	"os"
@@ -410,21 +412,40 @@ func (m *MultiClient) Stop() {
 // Backup function.
 func (m *MultiClient) Backup(path string, setName, requester string, files []string,
 	frequency int, review, remove int64) error {
+	return m.BackupStream(path, setName, requester, slices.Values(files),
+		frequency, review, remove)
+}
+
+// BackupStream retrieves a client using the given path and then backs up the
+// streamed files. This writes to fofndir directly from the stream and only
+// materialises a slice in-memory when adapting to API set creation.
+func (m *MultiClient) BackupStream(path string, setName, requester string,
+	files iter.Seq[string], frequency int, review, remove int64) error {
 	c := m.getClient(path)
 	if c == nil {
 		return ErrUnknownClient
 	}
 
-	if err := writeFofnSetIfConfigured(c, setName, requester, files,
+	spooled, err := newSpooledSeq(files)
+	if err != nil {
+		return err
+	}
+
+	defer spooled.Close()
+
+	if err := writeFofnSetIfConfigured(c, setName, requester, spooled.Seq(),
 		frequency, review, remove); err != nil {
 		return err
 	}
+
+	apiFiles := spooled.ToSlice()
 
 	if c.client == nil {
 		return nil
 	}
 
-	return Backup(c.client.Load(), c.transformer, setName, requester, files, frequency, review, remove)
+	return Backup(c.client.Load(), c.transformer, setName, requester, apiFiles,
+		frequency, review, remove)
 }
 
 // GetFofnDir returns the fofn directory configured for the server matching the
@@ -475,8 +496,8 @@ func (m *MultiClient) GetBackupActivity(path, setName, requester string) (*SetBa
 }
 
 func writeFofnSetIfConfigured(c *clientTransformer, setName, requester string,
-	files []string, frequency int, review, remove int64) error {
-	if c.fofnDir == "" || len(files) == 0 {
+	files iter.Seq[string], frequency int, review, remove int64) error {
+	if c.fofnDir == "" {
 		return nil
 	}
 
@@ -487,7 +508,7 @@ func writeFofnSetIfConfigured(c *clientTransformer, setName, requester string,
 		"remove":    time.Unix(remove, 0).Format(time.DateOnly),
 	}
 
-	wrote, err := writer.Write(setName, c.transformer, slices.Values(files),
+	wrote, err := writer.Write(setName, c.transformer, files,
 		frequency, metadata)
 	if err != nil {
 		return err
@@ -502,7 +523,80 @@ func writeFofnSetIfConfigured(c *clientTransformer, setName, requester string,
 		return err
 	}
 
-	return writer.UpdateConfig(setName, c.transformer, frequency == 0, metadata)
+	return writer.UpdateConfig(setName, c.transformer,
+		frequency == 0, metadata)
+}
+
+type spooledSeq struct {
+	path string
+}
+
+func newSpooledSeq(files iter.Seq[string]) (*spooledSeq, error) {
+	fd, err := os.CreateTemp("", "backup-plans-ibackup-seq-*")
+	if err != nil {
+		return nil, err
+	}
+
+	for path := range files {
+		_, err = fd.WriteString(path)
+		if err != nil {
+			fd.Close()
+			os.Remove(fd.Name())
+
+			return nil, err
+		}
+
+		_, err = fd.WriteString("\n")
+		if err != nil {
+			fd.Close()
+			os.Remove(fd.Name())
+
+			return nil, err
+		}
+	}
+
+	err = fd.Close()
+	if err != nil {
+		os.Remove(fd.Name())
+
+		return nil, err
+	}
+
+	return &spooledSeq{path: fd.Name()}, nil
+}
+
+func (s *spooledSeq) Seq() iter.Seq[string] {
+	return func(yield func(string) bool) {
+		fd, err := os.Open(s.path)
+		if err != nil {
+			return
+		}
+
+		defer fd.Close()
+
+		scanner := bufio.NewScanner(fd)
+		scanner.Buffer(make([]byte, 0, 1024), 1024*1024)
+
+		for scanner.Scan() {
+			if !yield(scanner.Text()) {
+				return
+			}
+		}
+	}
+}
+
+func (s *spooledSeq) ToSlice() []string {
+	files := make([]string, 0)
+
+	for path := range s.Seq() {
+		files = append(files, path)
+	}
+
+	return files
+}
+
+func (s *spooledSeq) Close() {
+	os.Remove(s.path)
 }
 
 func requestorChanged(fofnDir, setName, requestor string) (bool, error) {
