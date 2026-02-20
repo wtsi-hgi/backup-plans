@@ -16,7 +16,7 @@
     top: 50%;
 }
 
-.userclaims h1 {
+.userclaims h2 {
     margin: 0;
     position: relative;
 }
@@ -24,26 +24,34 @@
 .claimstats-filter-container {
     border: 1px solid currentColor;
     border-radius: 1em;
+    margin: 2em 0 0 2em;
+    padding: 0.8em;
+    display: flex;
+    gap: 1em;
+    width: 95vw;
 }
 
-.claimstats-container {
+.claimstats-container,
+.main-container {
     display: flex;
     justify-content: center;
     flex-direction: column;
-    /* gap: 2em;
-    margin: 1em 0 0 1em;
-    overflow: hidden;
-    padding: 1em;
-    width: 100%; */
+    gap: 2em;
+}
+
+.claimstats-container {
+    margin: 1em 1em 0 1em;
+    padding: 1em 1em 0 1em;
+}
+
+.main-container {
+    width: 100vw !important;
 }
 
 .claimstats-container,
 .claimstats-filter-container {
     gap: 2em;
-    margin: 1em 0 0 1em;
     overflow: hidden;
-    padding: 1em;
-    width: 100%;
 }
 
 .claiminfo {

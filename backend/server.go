@@ -29,7 +29,6 @@ package backend
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -54,7 +53,7 @@ type Server struct {
 	directoryRules map[string]*ruletree.DirRules
 	dirs           map[uint64]*db.Directory
 	rules          map[uint64]*db.Rule
-	dirGroups      map[uint64]string // Directory id -> gid
+	dirGroups      map[int64]string
 
 	config   *config.Config
 	gitCache *git.Cache
@@ -82,18 +81,12 @@ func New(db *db.DB, getUser func(r *http.Request) string, c *config.Config) (*Se
 
 	s.gitCache = git.NewCache(time.Hour)
 
-	// err = s.loadDirGroups()
-	// if err != nil {
-	// 	return nil, err
-	// }
-
 	return s, nil
 }
 
+// LoadDirGroups will populate s.dirGroups with a map of directory ID -> group name.
 func (s *Server) LoadDirGroups() error {
-	fmt.Println("generating dirgroups :)")
-
-	dirGroups := make(map[uint64]string)
+	dirGroups := make(map[int64]string)
 
 	for _, dir := range s.directoryRules {
 		dirSummary, err := s.rootDir.Summary(dir.Path)
@@ -106,12 +99,11 @@ func (s *Server) LoadDirGroups() error {
 		}
 
 		_, gid := dirSummary.IDs()
-		dirGroups[uint64(dir.ID())] = users.Group(gid)
+		dirGroups[dir.ID()] = users.Group(gid)
 	}
 
 	s.dirGroups = dirGroups
 
-	fmt.Println("dirGroups generated, got:", dirGroups)
 	return nil
 }
 

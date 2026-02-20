@@ -52,6 +52,13 @@ type DirStats struct {
 	RuleStats    []ruleStats
 }
 
+type filter struct {
+	user        string
+	group       string
+	filterUser  bool
+	filterGroup bool
+}
+
 // ClaimStats is an HTTP endpoint that produces a DirStats summary for every claimed directory.
 func (s *Server) ClaimStats(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.claimstats)
@@ -61,6 +68,53 @@ func (s *Server) claimstats(w http.ResponseWriter, r *http.Request) error {
 	s.rulesMu.RLock()
 	defer s.rulesMu.RUnlock()
 
+	f := s.getUserGroup(r)
+	claimstats := []DirStats{}
+
+	for _, dir := range s.directoryRules {
+		if !(s.matchesFilter(dir, f)) {
+			continue
+		}
+
+		dirSummary, err := s.rootDir.Summary(dir.Path)
+		if err != nil {
+			if errors.As(err, new(tree.ChildNotFoundError)) {
+				continue
+			}
+
+			return err
+		}
+
+		dirStats, err := s.generateDirStats(dir, dirSummary)
+		if err != nil {
+			return err
+		}
+
+		claimstats = append(claimstats, *dirStats)
+	}
+
+	w.Header().Set("Content-type", "application/json")
+
+	return json.NewEncoder(w).Encode(claimstats)
+}
+
+func (s *Server) matchesFilter(dir *ruletree.DirRules, f filter) bool {
+	if !f.filterUser && !f.filterGroup {
+		return false
+	}
+
+	if dir.ClaimedBy == "" || (f.filterUser && f.user != dir.ClaimedBy) {
+		return false
+	}
+
+	if f.filterGroup && s.dirGroups[dir.ID()] != f.group {
+		return false
+	}
+
+	return true
+}
+
+func (s *Server) getUserGroup(r *http.Request) filter {
 	filterUser := false
 	filterGroup := false
 
@@ -74,43 +128,7 @@ func (s *Server) claimstats(w http.ResponseWriter, r *http.Request) error {
 		filterGroup = true
 	}
 
-	if !filterUser && !filterGroup {
-		return ErrNoFilter
-	}
-
-	claimstats := []DirStats{}
-
-	for _, dir := range s.directoryRules {
-		if dir.ClaimedBy == "" || (filterUser && user != dir.ClaimedBy) {
-			continue
-		}
-
-		dirGroup := s.dirGroups[uint64(dir.ID())]
-
-		if filterGroup && dirGroup != group {
-			continue
-		}
-
-		dirSummary, err := s.rootDir.Summary(dir.Path)
-		if err != nil {
-			if errors.As(err, new(tree.ChildNotFoundError)) {
-				continue
-			}
-
-			return err
-		}
-
-		dirStats, err := s.generateDirStats(dir, dirSummary) // thread here?
-		if err != nil {
-			return err
-		}
-
-		claimstats = append(claimstats, *dirStats)
-	}
-
-	w.Header().Set("Content-type", "application/json")
-
-	return json.NewEncoder(w).Encode(claimstats)
+	return filter{user, group, filterUser, filterGroup}
 }
 
 func (s *Server) generateDirStats(dir *ruletree.DirRules, dirSummary *ruletree.DirSummary) (*DirStats, error) {
