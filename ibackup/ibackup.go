@@ -26,12 +26,10 @@
 package ibackup
 
 import (
-	"bufio"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"iter"
 	"log/slog"
 	"maps"
 	"os"
@@ -54,11 +52,6 @@ var (
 	ErrUnknownClient = errors.New("cannot determine client from path")
 	ErrFrozenSet     = errors.New("cannot update frozen backup")
 	errNoAddrOrFofn  = errors.New("server requires addr or fofndir")
-)
-
-const (
-	initialScannerBufferBytes = 1024
-	maxScannerTokenBytes      = 1024 * 1024
 )
 
 // ServerDetails contains the connection details for a particular ibackup
@@ -377,6 +370,174 @@ func GetBackupActivity(client Client, setName, requester string) (*SetBackupActi
 	return &sba, nil
 }
 
+// SetWriter accumulates file paths for a backup set and routes them to
+// the appropriate destination (fofn file, API, or both). For fofn-backed
+// servers, paths are streamed directly to the fofn file during Add calls.
+// For API-backed servers, paths are collected in memory.
+//
+// Call Finish after adding all paths to complete the backup (close fofn,
+// write config, call API). Call Close to release resources on error.
+type SetWriter struct {
+	c         *clientTransformer
+	setName   string
+	requester string
+	frequency int
+	review    int64
+	remove    int64
+
+	fofnDir     string
+	fofnSubDir  string
+	fofnFD      *os.File
+	fofnSkipped bool
+	fofnWrote   bool
+
+	files    []string
+	count    int
+	err      error
+	finished bool
+}
+
+// Add appends a file path to this set. For fofn destinations the path
+// is written directly to disk; for API destinations it is collected in
+// memory.
+func (sw *SetWriter) Add(filePath string) error {
+	if sw.err != nil {
+		return sw.err
+	}
+
+	sw.count++
+
+	if sw.fofnDir != "" && !sw.fofnSkipped {
+		if err := sw.writeFofnPath(filePath); err != nil {
+			sw.err = err
+
+			return err
+		}
+	}
+
+	if sw.c.client != nil {
+		sw.files = append(sw.files, filePath)
+	}
+
+	return nil
+}
+
+func (sw *SetWriter) writeFofnPath(filePath string) error {
+	if sw.fofnFD == nil {
+		fd, err := createFofnFile(sw.fofnSubDir)
+		if err != nil {
+			return err
+		}
+
+		sw.fofnFD = fd
+	}
+
+	err := writePath(sw.fofnFD, filePath)
+	if err != nil {
+		sw.fofnFD.Close()
+		sw.fofnFD = nil
+
+		return err
+	}
+
+	sw.fofnWrote = true
+
+	return nil
+}
+
+// Count returns the number of paths added.
+func (sw *SetWriter) Count() int {
+	return sw.count
+}
+
+// Finish completes the backup: closes the fofn file, writes config,
+// and submits to the API server. It must be called exactly once.
+func (sw *SetWriter) Finish() error {
+	if sw.finished {
+		return nil
+	}
+
+	sw.finished = true
+
+	if sw.err != nil {
+		sw.Close()
+
+		return sw.err
+	}
+
+	if err := sw.finishFofn(); err != nil {
+		sw.Close()
+
+		return err
+	}
+
+	if sw.c.client == nil || len(sw.files) == 0 {
+		return nil
+	}
+
+	return Backup(sw.c.client.Load(), sw.c.transformer, sw.setName,
+		sw.requester, sw.files, sw.frequency, sw.review, sw.remove)
+}
+
+func (sw *SetWriter) fofnMetadata() map[string]string {
+	return map[string]string{
+		"requestor": sw.requester,
+		"review":    time.Unix(sw.review, 0).Format(time.DateOnly),
+		"remove":    time.Unix(sw.remove, 0).Format(time.DateOnly),
+	}
+}
+
+func (sw *SetWriter) finishFofn() error {
+	if sw.fofnDir == "" {
+		return nil
+	}
+
+	if sw.fofnFD != nil {
+		if err := sw.fofnFD.Close(); err != nil {
+			return err
+		}
+
+		sw.fofnFD = nil
+	}
+
+	metadata := sw.fofnMetadata()
+
+	if sw.fofnWrote {
+		return writeConfig(sw.fofnSubDir, sw.c.transformer,
+			sw.frequency == 0, metadata)
+	}
+
+	changed, err := requestorChanged(sw.fofnDir, sw.setName,
+		sw.requester)
+	if err != nil || !changed {
+		return err
+	}
+
+	return NewFofnDirWriter(sw.fofnDir).UpdateConfig(sw.setName,
+		sw.c.transformer, sw.frequency == 0, metadata)
+}
+
+func requestorChanged(fofnDir, setName, requestor string) (bool, error) {
+	config, err := fofn.ReadConfig(filepath.Join(fofnDir, SafeName(setName)))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+
+		return false, err
+	}
+
+	return config.Metadata["requestor"] != requestor, nil
+}
+
+// Close releases resources. It is safe to call multiple times.
+func (sw *SetWriter) Close() {
+	if sw.fofnFD != nil {
+		sw.fofnFD.Close()
+		sw.fofnFD = nil
+	}
+}
+
 // MultiClient contains multiple ibackup clients that can be selected by path.
 type MultiClient struct {
 	clients map[string]*clientTransformer
@@ -413,100 +574,61 @@ func (m *MultiClient) Stop() {
 	m.stop()
 }
 
-// Backup retrieves a client using the given path, and then calls the normal
-// Backup function.
+// Backup retrieves a client using the given path and backs up the files.
+// For fofn-backed servers the files are streamed directly to the fofn
+// file; for API-backed servers they are passed as a slice.
 func (m *MultiClient) Backup(path string, setName, requester string, files []string,
 	frequency int, review, remove int64) error {
-	return m.BackupStream(path, setName, requester, slices.Values(files),
-		frequency, review, remove)
+	w, err := m.NewSetWriter(path, setName, requester, frequency, review, remove)
+	if err != nil {
+		return err
+	}
+
+	defer w.Close()
+
+	for _, f := range files {
+		if err := w.Add(f); err != nil {
+			return err
+		}
+	}
+
+	return w.Finish()
 }
 
-// BackupStream retrieves a client using the given path and then backs up the
-// streamed files. This writes to fofndir directly from the stream and only
-// materialises a slice in-memory when adapting to API set creation.
-func (m *MultiClient) BackupStream(path string, setName, requester string,
-	files iter.Seq[string], frequency int, review, remove int64) error {
+// NewSetWriter creates a writer for the backup set matching the given
+// path. The writer streams paths directly to fofn (when configured)
+// and collects them in memory for the API (when an API server exists).
+func (m *MultiClient) NewSetWriter(path, setName, requester string,
+	frequency int, review, remove int64) (*SetWriter, error) {
 	c := m.getClient(path)
 	if c == nil {
-		return ErrUnknownClient
+		return nil, ErrUnknownClient
 	}
 
-	spooled, err := newSpooledSeq(files)
-	if err != nil {
-		return err
+	sw := &SetWriter{
+		c:         c,
+		setName:   setName,
+		requester: requester,
+		frequency: frequency,
+		review:    review,
+		remove:    remove,
 	}
 
-	defer spooled.Close()
+	if c.fofnDir != "" {
+		sw.fofnDir = c.fofnDir
+		sw.fofnSubDir = filepath.Join(c.fofnDir, SafeName(setName))
 
-	if err := writeFofnSetIfConfigured(c, setName, requester, spooled.Seq(),
-		frequency, review, remove); err != nil {
-		return err
+		writer := NewFofnDirWriter(c.fofnDir)
+
+		shouldWrite, err := writer.shouldWrite(setName, frequency)
+		if err != nil {
+			return nil, err
+		}
+
+		sw.fofnSkipped = !shouldWrite
 	}
 
-	apiFiles := spooled.ToSlice()
-
-	if c.client == nil {
-		return nil
-	}
-
-	return Backup(c.client.Load(), c.transformer, setName, requester, apiFiles,
-		frequency, review, remove)
-}
-
-func newSpooledSeq(files iter.Seq[string]) (*spooledSeq, error) {
-	fd, err := os.CreateTemp("", "backup-plans-ibackup-seq-*")
-	if err != nil {
-		return nil, err
-	}
-
-	err = writeSeqToSpool(fd, files)
-	if err != nil {
-		fd.Close()
-		os.Remove(fd.Name())
-
-		return nil, err
-	}
-
-	err = fd.Close()
-	if err != nil {
-		os.Remove(fd.Name())
-
-		return nil, err
-	}
-
-	return &spooledSeq{path: fd.Name()}, nil
-}
-
-func writeFofnSetIfConfigured(c *clientTransformer, setName, requester string,
-	files iter.Seq[string], frequency int, review, remove int64) error {
-	if c.fofnDir == "" {
-		return nil
-	}
-
-	writer := NewFofnDirWriter(c.fofnDir)
-	metadata := map[string]string{
-		"requestor": requester,
-		"review":    time.Unix(review, 0).Format(time.DateOnly),
-		"remove":    time.Unix(remove, 0).Format(time.DateOnly),
-	}
-
-	wrote, err := writer.Write(setName, c.transformer, files,
-		frequency, metadata)
-	if err != nil {
-		return err
-	}
-
-	if wrote {
-		return nil
-	}
-
-	changed, err := requestorChanged(c.fofnDir, setName, requester)
-	if err != nil || !changed {
-		return err
-	}
-
-	return writer.UpdateConfig(setName, c.transformer,
-		frequency == 0, metadata)
+	return sw, nil
 }
 
 // GetFofnDir returns the fofn directory configured for the server matching the
@@ -554,44 +676,6 @@ func (m *MultiClient) GetBackupActivity(path, setName, requester string) (*SetBa
 	}
 
 	return GetBackupActivity(c.client, setName, requester)
-}
-
-type spooledSeq struct {
-	path string
-}
-
-func (s *spooledSeq) Seq() iter.Seq[string] {
-	return func(yield func(string) bool) {
-		fd, err := os.Open(s.path)
-		if err != nil {
-			return
-		}
-
-		defer fd.Close()
-
-		scanner := bufio.NewScanner(fd)
-		scanner.Buffer(make([]byte, 0, initialScannerBufferBytes), maxScannerTokenBytes)
-
-		for scanner.Scan() {
-			if !yield(scanner.Text()) {
-				return
-			}
-		}
-	}
-}
-
-func (s *spooledSeq) ToSlice() []string {
-	files := make([]string, 0)
-
-	for path := range s.Seq() {
-		files = append(files, path)
-	}
-
-	return files
-}
-
-func (s *spooledSeq) Close() {
-	os.Remove(s.path)
 }
 
 type ServerConnectionError struct {
@@ -935,38 +1019,4 @@ func (m *MultiCache) Stop() {
 	for _, c := range m.caches {
 		c.Stop()
 	}
-}
-
-func writeSeqToSpool(fd *os.File, files iter.Seq[string]) error {
-	for path := range files {
-		if err := appendLine(fd, path); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func appendLine(fd *os.File, line string) error {
-	_, err := fd.WriteString(line)
-	if err != nil {
-		return err
-	}
-
-	_, err = fd.WriteString("\n")
-
-	return err
-}
-
-func requestorChanged(fofnDir, setName, requestor string) (bool, error) {
-	config, err := fofn.ReadConfig(filepath.Join(fofnDir, SafeName(setName)))
-	if err != nil {
-		if os.IsNotExist(err) {
-			return false, nil
-		}
-
-		return false, err
-	}
-
-	return config.Metadata["requestor"] != requestor, nil
 }
