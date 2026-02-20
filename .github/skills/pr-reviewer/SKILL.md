@@ -1,6 +1,6 @@
 ---
 name: pr-reviewer
-description: Reviews committed and uncommitted changes on the current branch compared to a base branch (default develop). Performs a practical PR review checking for code quality, subtle bugs, real-world usability, and optionally spec conformance. Fixes issues via go-implementor subagents, pausing after each fix for the caller to commit.
+description: Reviews committed and uncommitted changes on the current branch compared to a base branch (default develop). Performs a practical PR review checking for code quality, subtle bugs, real-world usability, and optionally spec conformance. Fixes issues via go-implementor subagents, then replies to/resolves addressed PR threads and commits each fix batch.
 ---
 
 # PR Reviewer Skill
@@ -207,22 +207,30 @@ Include in its prompt:
 - If the fix is unsatisfactory, launch a new subagent with corrective
   feedback. Repeat until satisfied.
 
-#### d. Suggest a commit
+#### d. Update PR review threads (when applicable)
 
-Stop and present the caller with:
+If the fix addresses one or more unresolved PR review threads:
 
-- A summary of what was fixed.
-- A suggested commit message (single line, imperative mood, max
-  72 characters). For example:
-  ```
-  Fix race condition in server upload handler
-  ```
-- Ask the caller to review and commit (or amend the message).
+- Post a reply on each addressed thread explaining what was changed
+  (start with `fixed - ...` and keep it specific).
+- Resolve each addressed thread after replying.
+- If a thread is only partially addressed, do not resolve it; reply
+  with what is done and what remains.
 
-**Wait for the caller to confirm before proceeding to the next
-finding.**
+Use GitHub API calls directly when needed (REST/GraphQL), and verify
+the thread state changed to resolved.
 
-#### e. Repeat
+#### e. Commit the fix batch
+
+Create a commit for the fix (or style-only batch) once tests/lint pass
+and related threads are updated.
+
+- Commit message requirements: single line, imperative mood, max
+  72 characters.
+- Prefer one commit per finding; purely cosmetic findings may be batched
+  into one style-cleanup commit.
+
+#### f. Repeat
 
 Move to the next finding and repeat from step 8b.
 
@@ -230,13 +238,14 @@ Move to the next finding and repeat from step 8b.
 
 - Do NOT implement fixes directly — always use go-implementor
   subagents.
-- Do NOT commit changes — always ask the caller to commit.
 - Do NOT skip findings — address every issue unless the caller
   explicitly says to skip it.
-- Do NOT combine multiple findings into one commit — one fix per
-  commit keeps history clean.
+- Do NOT combine multiple non-cosmetic findings into one commit — one
+  fix per commit keeps history clean.
 - Findings that are purely cosmetic (e.g. comment typos) should be
   batched into a single "style cleanup" commit.
+- If a PR thread is fixed, you MUST reply then resolve before committing
+  that fix batch.
 - Never write outside the repository directory.
 - Do NOT use repository default branch as diff base when a PR exists.
 - Do NOT continue if PR `base.ref` cannot be resolved and no caller base is
