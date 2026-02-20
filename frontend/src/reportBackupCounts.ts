@@ -21,6 +21,9 @@ export const fofnCountColumns = [
     "Hardlink"
 ] as const;
 
-export function hasFofnCountData(backups: BackupStatusCounts[]) {
-    return backups.some(backup => fofnCountColumns.some(column => backup[column]));
+export function formatFofnCountDetails(backup: BackupStatusCounts) {
+    return fofnCountColumns
+        .filter(column => (backup[column] ?? 0) > 0)
+        .map(column => `${column}: ${(backup[column] ?? 0).toLocaleString()}`)
+        .join("\n");
 }
