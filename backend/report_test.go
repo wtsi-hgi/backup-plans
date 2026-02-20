@@ -2,6 +2,7 @@ package backend
 
 import (
 	"encoding/json"
+	"fmt"
 	"maps"
 	"net/http"
 	"os"
@@ -82,12 +83,8 @@ func TestReport(t *testing.T) {
 		err = single.TriggerDiscovery(exampleSet.ID(), false)
 		So(err, ShouldBeNil)
 		Convey("A summary can be retrieved", func() {
-			code, str := getResponse(srv.Summary, "/api/reports", nil)
-			So(code, ShouldEqual, http.StatusOK)
-
-			var gotSummary summary
-
-			err = json.NewDecoder(strings.NewReader(str)).Decode(&gotSummary)
+			gotSummary, err := awaitSummaryWithSuccessfulBackup(srv,
+				"/lustre/scratch123/humgen/a/c/", beforeTrigger)
 			So(err, ShouldBeNil)
 
 			rules := slices.Collect(testDB.ReadRules().Iter)
@@ -273,14 +270,41 @@ func TestReport(t *testing.T) {
 
 				slices.Sort(gotSummary.Directories["/lustre/scratch123/humgen/a/b/"])
 
-				So(gotSummary.BackupStatus["/lustre/scratch123/humgen/a/c/"].LastSuccess, ShouldHappenAfter, beforeTrigger)
-
 				gotSummary.BackupStatus["/lustre/scratch123/humgen/a/c/"].LastSuccess = time.Time{}
 
 				So(gotSummary, ShouldResemble, expectedSummary)
 			})
 		})
 	})
+}
+
+func awaitSummaryWithSuccessfulBackup(srv *Server, dir string, after time.Time) (summary, error) {
+	const (
+		pollEvery = 100 * time.Millisecond
+		timeout   = 10 * time.Second
+	)
+
+	deadline := time.Now().Add(timeout)
+
+	for {
+		code, str := getResponse(srv.Summary, "/api/reports", nil)
+		if code == http.StatusOK {
+			var got summary
+
+			err := json.NewDecoder(strings.NewReader(str)).Decode(&got)
+			if err == nil {
+				if status, ok := got.BackupStatus[dir]; ok && status != nil && status.LastSuccess.After(after) {
+					return got, nil
+				}
+			}
+		}
+
+		if time.Now().After(deadline) {
+			return summary{}, fmt.Errorf("timeout waiting for successful backup status for %s", dir)
+		}
+
+		time.Sleep(pollEvery)
+	}
 }
 
 // getSingleClientFromMultiClient returns the client from a MultiClient
