@@ -280,33 +280,45 @@ func createClients(servers map[string]*serverClient, c Config) (map[string]*clie
 	clients := make(map[string]*clientTransformer, len(c.PathToServer))
 
 	for re, server := range c.PathToServer {
-		details, ok := c.Servers[server.ServerName]
-		if !ok {
-			return nil, UnknownServerError(server.ServerName)
-		}
-
-		var s *serverClient
-		if details.Addr != "" {
-			s, ok = servers[server.ServerName]
-			if !ok {
-				return nil, UnknownServerError(server.ServerName)
-			}
-		}
-
-		r, err := regexp.Compile(re)
+		ct, err := buildClientTransformer(servers, c.Servers, re, server)
 		if err != nil {
 			return nil, err
 		}
 
-		clients[re] = &clientTransformer{
-			re:          r,
-			client:      s,
-			transformer: server.Transformer,
-			fofnDir:     details.FofnDir,
-		}
+		clients[re] = ct
 	}
 
 	return clients, nil
+}
+
+func buildClientTransformer(servers map[string]*serverClient,
+	serverDetails map[string]ServerDetails, re string, server ServerTransformer,
+) (*clientTransformer, error) {
+	details, ok := serverDetails[server.ServerName]
+	if !ok {
+		return nil, UnknownServerError(server.ServerName)
+	}
+
+	var s *serverClient
+
+	if details.Addr != "" {
+		s, ok = servers[server.ServerName]
+		if !ok {
+			return nil, UnknownServerError(server.ServerName)
+		}
+	}
+
+	r, err := regexp.Compile(re)
+	if err != nil {
+		return nil, err
+	}
+
+	return &clientTransformer{
+		re:          r,
+		client:      s,
+		transformer: server.Transformer,
+		fofnDir:     details.FofnDir,
+	}, nil
 }
 
 type clientTransformer struct {
