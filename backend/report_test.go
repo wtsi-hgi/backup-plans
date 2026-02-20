@@ -280,6 +280,19 @@ func TestReport(t *testing.T) {
 	})
 }
 
+// getSingleClientFromMultiClient returns the client from a MultiClient
+// containing only one ibackup client.
+func getSingleClientFromMultiClient(t *testing.T, client *ibackup.MultiClient) *server.Client {
+	t.Helper()
+
+	clientMap := *(*map[string]**atomic.Pointer[server.Client])(unsafe.Pointer(client))
+	So(len(clientMap), ShouldEqual, 1)
+
+	singleClient := *slices.Collect(maps.Values(clientMap))[0]
+
+	return singleClient.Load()
+}
+
 func awaitSummaryWithSuccessfulBackup(srv *Server, dir string, after time.Time) (summary, error) {
 	const (
 		pollEvery = 100 * time.Millisecond
@@ -315,19 +328,6 @@ func awaitSummaryWithSuccessfulBackup(srv *Server, dir string, after time.Time) 
 
 		time.Sleep(pollEvery)
 	}
-}
-
-// getSingleClientFromMultiClient returns the client from a MultiClient
-// containing only one ibackup client.
-func getSingleClientFromMultiClient(t *testing.T, client *ibackup.MultiClient) *server.Client {
-	t.Helper()
-
-	clientMap := *(*map[string]**atomic.Pointer[server.Client])(unsafe.Pointer(client))
-	So(len(clientMap), ShouldEqual, 1)
-
-	singleClient := *slices.Collect(maps.Values(clientMap))[0]
-
-	return singleClient.Load()
 }
 
 // copyRule returns the rule without id's.
@@ -404,6 +404,9 @@ func TestPopulateIbackupStatusWithFofnStatus(t *testing.T) {
 		So(apiStatus.Name, ShouldEqual, planName)
 		So(apiStatus.Requester, ShouldEqual, claimedBy)
 		So(apiStatus.Failures, ShouldEqual, 5)
+		So(apiStatus.Uploaded, ShouldEqual, 1)
+		So(apiStatus.Unmodified, ShouldEqual, 2)
+		So(apiStatus.Frozen, ShouldEqual, 3)
 
 		fofnStatus, ok := dirSummary.BackupStatus["fofn:"+dir]
 		So(ok, ShouldBeTrue)
@@ -508,8 +511,13 @@ func TestPopulateIbackupStatusWithFofnOnlyServer(t *testing.T) {
 
 		srv.populateIbackupStatus(map[string]string{dir: claimedBy}, dirSummary)
 
-		_, ok := dirSummary.BackupStatus[dir]
-		So(ok, ShouldBeFalse)
+		primaryStatus, ok := dirSummary.BackupStatus[dir]
+		So(ok, ShouldBeTrue)
+		So(primaryStatus, ShouldNotBeNil)
+		So(primaryStatus.Name, ShouldEqual, planName)
+		So(primaryStatus.Requester, ShouldEqual, claimedBy)
+		So(primaryStatus.Uploaded, ShouldEqual, 4)
+		So(primaryStatus.Frozen, ShouldEqual, 1)
 
 		fofnStatus, ok := dirSummary.BackupStatus["fofn:"+dir]
 		So(ok, ShouldBeTrue)

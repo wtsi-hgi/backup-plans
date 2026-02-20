@@ -42,6 +42,17 @@ import (
 
 const unplanned = -1
 
+func mergeFofnCounts(dst, src *ibackup.SetBackupActivity) {
+	dst.Uploaded = src.Uploaded
+	dst.Replaced = src.Replaced
+	dst.Unmodified = src.Unmodified
+	dst.Missing = src.Missing
+	dst.Frozen = src.Frozen
+	dst.Orphaned = src.Orphaned
+	dst.Warning = src.Warning
+	dst.Hardlink = src.Hardlink
+}
+
 type summary struct {
 	Summaries             map[string]*ruletree.DirSummary
 	Rules                 map[uint64]*db.Rule
@@ -174,6 +185,12 @@ func (s *Server) populateFofnStatus(cache *ibackup.MultiCache, dir, planName,
 
 	fofnStatus.Requester = claimedBy
 	dirSummary.BackupStatus["fofn:"+dir] = fofnStatus
+
+	if existing, ok := dirSummary.BackupStatus[dir]; ok {
+		mergeFofnCounts(existing, fofnStatus)
+	} else {
+		dirSummary.BackupStatus[dir] = fofnStatus
+	}
 }
 
 func (s *Server) populateManualIBackupStatus(manualIbackup map[string][]dirSet, dirSummary *summary) {
