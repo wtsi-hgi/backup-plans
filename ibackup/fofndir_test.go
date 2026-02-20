@@ -26,11 +26,13 @@
 package ibackup_test
 
 import (
+	"encoding/hex"
 	"fmt"
 	"iter"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -47,6 +49,45 @@ func TestSafeName(t *testing.T) {
 		So(ibackup.SafeName("plan::/"), ShouldEqual, "／")
 		So(ibackup.SafeName("/lustre/scratch/"), ShouldEqual, "／lustre／scratch／")
 		So(ibackup.SafeName(""), ShouldEqual, "")
+	})
+
+	Convey("SafeName short names keep existing behaviour", t, func() {
+		name := "plan::/a/b/c/"
+		So(ibackup.SafeName(name), ShouldEqual, "／a／b／c／")
+	})
+
+	Convey("SafeName long names are truncated with a deterministic hash suffix", t,
+		func() {
+			name := "plan::/" + strings.Repeat("\u77ed", 200)
+			safeName := ibackup.SafeName(name)
+
+			So(len([]byte(safeName)), ShouldBeLessThan, 255)
+
+			suffixStart := strings.LastIndex(safeName, "--")
+			So(suffixStart, ShouldBeGreaterThan, 0)
+
+			hashPart := safeName[suffixStart+2:]
+			So(len(hashPart), ShouldEqual, 16)
+
+			_, err := hex.DecodeString(hashPart)
+			So(err, ShouldBeNil)
+		})
+
+	Convey("SafeName is deterministic for long names", t, func() {
+		name := "plan::/" + strings.Repeat("abcdef", 80)
+
+		So(ibackup.SafeName(name), ShouldEqual, ibackup.SafeName(name))
+	})
+
+	Convey("SafeName avoids collisions for names sharing long prefixes", t, func() {
+		prefix := "plan::/" + strings.Repeat("prefix/", 70)
+		nameA := prefix + "tail-a"
+		nameB := prefix + "tail-b"
+
+		safeA := ibackup.SafeName(nameA)
+		safeB := ibackup.SafeName(nameB)
+
+		So(safeA, ShouldNotEqual, safeB)
 	})
 }
 

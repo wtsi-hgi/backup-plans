@@ -26,17 +26,23 @@
 package ibackup
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"iter"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/wtsi-hgi/ibackup/fofn"
 )
 
 const (
 	fullwidthSolidus           = "／"
+	safeNameMaxComponentBytes  = 240
+	safeNameHashHexChars       = 16
+	safeNameHashSeparator      = "--"
 	fofnDirPerm                = 0o755
 	frequencyWindowOffsetHours = 12
 )
@@ -101,8 +107,20 @@ func (f *FofnDirWriter) UpdateConfig(setName string, transformer string,
 // "plan::" prefix and replacing forward slashes.
 func SafeName(setName string) string {
 	setName = strings.TrimPrefix(setName, "plan::")
+	safeName := strings.ReplaceAll(setName, "/", fullwidthSolidus)
 
-	return strings.ReplaceAll(setName, "/", fullwidthSolidus)
+	if len([]byte(safeName)) <= safeNameMaxComponentBytes {
+		return safeName
+	}
+
+	hashSuffix := safeNameHashSeparator + shortSHA256Hex(safeName)
+
+	prefixLimit := safeNameMaxComponentBytes - len(hashSuffix)
+	if prefixLimit <= 0 {
+		return hashSuffix
+	}
+
+	return truncateToUTF8ByteLength(safeName, prefixLimit) + hashSuffix
 }
 
 func ensureConfigTargetExists(subDir string) error {
@@ -197,6 +215,32 @@ func closeFofnFile(fofnFD *os.File) error {
 	}
 
 	return fofnFD.Close()
+}
+
+func shortSHA256Hex(input string) string {
+	hash := sha256.Sum256([]byte(input))
+	encoded := hex.EncodeToString(hash[:])
+
+	return encoded[:safeNameHashHexChars]
+}
+
+func truncateToUTF8ByteLength(input string, maxBytes int) string {
+	if maxBytes <= 0 {
+		return ""
+	}
+
+	consumedBytes := 0
+
+	for i, r := range input {
+		runeBytes := utf8.RuneLen(r)
+		if consumedBytes+runeBytes > maxBytes {
+			return input[:i]
+		}
+
+		consumedBytes += runeBytes
+	}
+
+	return input
 }
 
 func createFofnFile(subDir string) (*os.File, error) {
