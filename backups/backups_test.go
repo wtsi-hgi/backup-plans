@@ -206,8 +206,7 @@ func TestBackupsC1(t *testing.T) {
 			So(s, ShouldNotBeNil)
 
 			testDB, _ := plandb.PopulateExamplePlanDB(t)
-			setInfos, err := BackupWithFofnWriter(testDB, exampleTree(), client,
-				ibackup.NewFofnDirWriter)
+			setInfos, err := Backup(testDB, exampleTree(), client)
 			So(err, ShouldBeNil)
 			So(setInfos, ShouldHaveLength, 1)
 			So(setInfos[0].BackupSetName, ShouldEqual,
@@ -254,8 +253,7 @@ func TestBackupsC1(t *testing.T) {
 			Reset(func() { client.Stop() })
 
 			testDB, _ := plandb.PopulateExamplePlanDB(t)
-			_, err = BackupWithFofnWriter(testDB, exampleTree(), client,
-				ibackup.NewFofnDirWriter)
+			_, err = Backup(testDB, exampleTree(), client)
 			So(err, ShouldBeNil)
 
 			_, err = os.Stat(filepath.Join(fofnDir,
@@ -295,8 +293,7 @@ func TestBackupsC1(t *testing.T) {
 			Reset(func() { client.Stop() })
 
 			testDB, _ := plandb.PopulateExamplePlanDB(t)
-			_, err = BackupWithFofnWriter(testDB, exampleTree(), client,
-				ibackup.NewFofnDirWriter)
+			_, err = Backup(testDB, exampleTree(), client)
 			So(err, ShouldBeNil)
 
 			activity, err := client.GetBackupActivity("/lustre/scratch123/humgen/a/b/",
@@ -329,8 +326,7 @@ func TestBackupsC1(t *testing.T) {
 			testDB, _ := plandb.CreateTestDatabase(t)
 			createIBackupDirectory(testDB, "/lustre/scratch123/humgen/a/b/", "userA", 0)
 
-			_, err = BackupWithFofnWriter(testDB, exampleTree(), client,
-				ibackup.NewFofnDirWriter)
+			_, err = Backup(testDB, exampleTree(), client)
 			So(err, ShouldBeNil)
 
 			subDir := filepath.Join(fofnDir,
@@ -367,8 +363,7 @@ func TestBackupsC1(t *testing.T) {
 			createIBackupDirectory(testDB, "/lustre/scratch123/humgen/a/b/", "userA", 1)
 			createIBackupDirectory(testDB, "/lustre/scratch123/humgen/b/", "userB", 1)
 
-			_, err = BackupWithFofnWriter(testDB, exampleTree(), client,
-				ibackup.NewFofnDirWriter)
+			_, err = Backup(testDB, exampleTree(), client)
 			So(err, ShouldBeNil)
 
 			_, err = os.Stat(filepath.Join(fofnDirOne,
@@ -400,8 +395,7 @@ func TestBackupsC1(t *testing.T) {
 			testDB, _ := plandb.CreateTestDatabase(t)
 			dir := createIBackupDirectory(testDB, "/lustre/scratch123/humgen/a/b/", "userA", 7)
 
-			_, err = BackupWithFofnWriter(testDB, exampleTree(), client,
-				ibackup.NewFofnDirWriter)
+			_, err = Backup(testDB, exampleTree(), client)
 			So(err, ShouldBeNil)
 
 			setName := "plan::/lustre/scratch123/humgen/a/b/"
@@ -413,8 +407,7 @@ func TestBackupsC1(t *testing.T) {
 			dir.ClaimedBy = "userB"
 			So(testDB.UpdateDirectory(dir), ShouldBeNil)
 
-			_, err = BackupWithFofnWriter(testDB, exampleTree(), client,
-				ibackup.NewFofnDirWriter)
+			_, err = Backup(testDB, exampleTree(), client)
 			So(err, ShouldBeNil)
 
 			after, err := os.Stat(fofnPath)
@@ -446,8 +439,7 @@ func TestBackupsC1(t *testing.T) {
 			testDB, _ := plandb.CreateTestDatabase(t)
 			dir := createIBackupDirectory(testDB, "/lustre/scratch123/humgen/a/b/", "userA", 1)
 
-			_, err = BackupWithFofnWriter(testDB, exampleTree(), client,
-				ibackup.NewFofnDirWriter)
+			_, err = Backup(testDB, exampleTree(), client)
 			So(err, ShouldBeNil)
 
 			setName := "plan::/lustre/scratch123/humgen/a/b/"
@@ -458,8 +450,7 @@ func TestBackupsC1(t *testing.T) {
 
 			So(testDB.RemoveDirectory(dir), ShouldBeNil)
 
-			_, err = BackupWithFofnWriter(testDB, exampleTree(), client,
-				ibackup.NewFofnDirWriter)
+			_, err = Backup(testDB, exampleTree(), client)
 			So(err, ShouldBeNil)
 
 			_, err = os.Stat(filepath.Join(subDir, "fofn"))

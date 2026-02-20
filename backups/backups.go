@@ -59,17 +59,6 @@ func backupSetWithStream(client *ibackup.MultiClient, setInfo *db.Directory,
 	}, nil
 }
 
-// BackupWithFofnWriter will back up all files in the given treeNode that match
-// rules in the given planDB, using the given ibackup client and fofn writer.
-// It returns a list of set IDs created.
-func BackupWithFofnWriter(planDB *db.DB, treeNode tree.Node,
-	client *ibackup.MultiClient,
-	newFofnDirWriter func(baseDir string) *ibackup.FofnDirWriter) ([]SetInfo, error) {
-	_ = newFofnDirWriter
-
-	return Backup(planDB, treeNode, client)
-}
-
 // Backup will back up all files in the given treeNode that match rules in the
 // given planDB, using the given ibackup client. It returns a list of the set IDs
 // created.
