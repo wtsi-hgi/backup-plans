@@ -110,7 +110,7 @@ func (s *serverClient) Store(c Client) {
 }
 
 func (s *serverClient) Load() Client {
-	return s.Value.Load().(Client)
+	return s.Value.Load().(Client) //nolint:errcheck,forcetypeassert
 }
 
 func (s *serverClient) GetSetByName(requester, setName string) (*set.Set, error) {
@@ -184,7 +184,7 @@ func createServers(ctx context.Context, c Config) (map[string]*serverClient, err
 	for name, details := range c.Servers {
 		var client serverClient
 
-		if details.FOFNDir != "" {
+		if details.FOFNDir != "" { //nolint:nestif
 			client.Store(NewFOFNClient(details.FOFNDir))
 		} else if c, err := connect(
 			jwtBasename(details.Token),

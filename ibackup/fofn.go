@@ -66,7 +66,7 @@ func (fc *FOFNClient) GetSetByName(requester, setName string) (*set.Set, error) 
 	}
 
 	statusFile := fc.path(s.ID(), statusFile)
-	_, counts, _ := fofn.ParseStatus(statusFile)
+	_, counts, _ := fofn.ParseStatus(statusFile) //nolint:errcheck
 
 	completed, err := os.Stat(statusFile)
 	if err == nil {
@@ -77,17 +77,21 @@ func (fc *FOFNClient) GetSetByName(requester, setName string) (*set.Set, error) 
 		}
 	}
 
-	s.Uploaded = uint64(counts.Uploaded)
-	s.Replaced = uint64(counts.Replaced)
-	s.Missing = uint64(counts.Missing)
-	s.Failed = uint64(counts.Failed)
-	s.Orphaned = uint64(counts.Orphaned)
-	s.Hardlinks = uint64(counts.Hardlink)
+	setSetData(s, counts, config)
+
+	return s, nil
+}
+
+func setSetData(s *set.Set, counts fofn.StatusCounts, config fofn.SubDirConfig) {
+	s.Uploaded = uint64(counts.Uploaded)  //nolint:gosec
+	s.Replaced = uint64(counts.Replaced)  //nolint:gosec
+	s.Missing = uint64(counts.Missing)    //nolint:gosec
+	s.Failed = uint64(counts.Failed)      //nolint:gosec
+	s.Orphaned = uint64(counts.Orphaned)  //nolint:gosec
+	s.Hardlinks = uint64(counts.Hardlink) //nolint:gosec
 	s.Transformer = config.Transformer
 	s.Frozen = config.Freeze
 	s.Metadata = swapMetadataKeys(config.Metadata, fullwidthColon, ":")
-
-	return s, nil
 }
 
 func swapMetadataKeys(m map[string]string, replace, with string) map[string]string {
@@ -103,7 +107,7 @@ func swapMetadataKeys(m map[string]string, replace, with string) map[string]stri
 func (fc *FOFNClient) AddOrUpdateSet(set *set.Set) error {
 	fofnPath := fc.path(set.ID(), "")
 
-	if err := os.MkdirAll(fofnPath, 0755); err != nil {
+	if err := os.MkdirAll(fofnPath, 0755); err != nil { //nolint:mnd
 		return err
 	}
 
@@ -150,7 +154,7 @@ func (fc *FOFNClient) MergeFiles(setID string, paths []string) (err error) {
 	return b.Flush()
 }
 
-func (fc *FOFNClient) TriggerDiscovery(setID string, forceRemovals bool) error {
+func (fc *FOFNClient) TriggerDiscovery(setID string, _ bool) error {
 	fofnPath := fc.path(setID, fofnFile)
 
 	return os.Rename(fofnPath+".tmp", fofnPath)

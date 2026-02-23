@@ -198,13 +198,13 @@ func TestMultiIbackup(t *testing.T) {
 	})
 }
 
-type client interface {
+type ibackupClient interface {
 	ibackup.Client
-	GetSets(string) ([]*set.Set, error)
+	GetSets(user string) ([]*set.Set, error)
 }
 
 func TestIbackup(t *testing.T) {
-	ibackupTests(t, func() (client, func(*set.Set) error) {
+	ibackupTests(t, func() (ibackupClient, func(*set.Set) error) {
 		t.Helper()
 
 		s, addr, certPath, dfn, err := ib.NewTestIbackupServer(t)
@@ -219,7 +219,7 @@ func TestIbackup(t *testing.T) {
 	})
 }
 
-func ibackupTests(t *testing.T, createClient func() (client, func(*set.Set) error)) {
+func ibackupTests(t *testing.T, createClient func() (ibackupClient, func(*set.Set) error)) {
 	t.Helper()
 
 	Convey("Given a new ibackup server", t, func() {
@@ -462,7 +462,7 @@ func (fc *fofnClientWrapper) TriggerDiscovery(setID string, forceRemovals bool) 
 }
 
 func (fc *fofnClientWrapper) GetSets(user string) ([]*set.Set, error) {
-	var sets []*set.Set
+	var sets []*set.Set //nolint:prealloc
 
 	for _, setName := range fc.sets[user] {
 		got, err := fc.GetSetByName(user, setName)
@@ -477,7 +477,7 @@ func (fc *fofnClientWrapper) GetSets(user string) ([]*set.Set, error) {
 }
 
 func TestIbackupFOFN(t *testing.T) {
-	ibackupTests(t, func() (client, func(*set.Set) error) {
+	ibackupTests(t, func() (ibackupClient, func(*set.Set) error) {
 		t.Helper()
 
 		base := t.TempDir()
@@ -535,7 +535,7 @@ func setSet(s *server.Server, got *set.Set) error {
 	})
 }
 
-func runTestBackups(client client, setname, requester string, files []string,
+func runTestBackups(client ibackupClient, setname, requester string, files []string,
 	frequency int, review, remove int64) {
 	err := ibackup.Backup(client, "prefix=/lustre/:/remote/", setname, requester, files, frequency, review, remove)
 	So(err, ShouldBeNil)
@@ -546,15 +546,15 @@ type mergeCall struct {
 	paths []string
 }
 type MockClient struct {
-	client
+	ibackupClient
 	Discoveries map[string]time.Time
 	MergeCalls  []mergeCall
 }
 
-func newMockClient(client client) *MockClient {
+func newMockClient(client ibackupClient) *MockClient {
 	return &MockClient{
-		client:      client,
-		Discoveries: make(map[string]time.Time),
+		ibackupClient: client,
+		Discoveries:   make(map[string]time.Time),
 	}
 }
 
