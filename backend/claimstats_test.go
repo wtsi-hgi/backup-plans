@@ -75,7 +75,9 @@ func TestClaimStats(t *testing.T) {
 
 			So(claimstatsA, ShouldResemble, []DirStats{
 				{
-					Path: "/lustre/scratch123/humgen/a/b/",
+					Path:      "/lustre/scratch123/humgen/a/b/",
+					ClaimedBy: "userA",
+					Group:     "",
 					BackupStatus: ibackup.SetBackupActivity{
 						Name:      "plan::/lustre/scratch123/humgen/a/b/",
 						Requester: userA,
@@ -106,8 +108,8 @@ func TestClaimStats(t *testing.T) {
 				},
 			})
 
-			u = "userB"
-			code, resp = getResponse(s.ClaimStats, "/api/claimstats", nil)
+			u = userB
+			code, resp = getResponse(s.ClaimStats, "/api/claimstats?user=userB", nil)
 			So(code, ShouldEqual, http.StatusOK)
 
 			var claimstatsB []DirStats
@@ -119,7 +121,9 @@ func TestClaimStats(t *testing.T) {
 
 			So(claimstatsB, ShouldResemble, []DirStats{
 				{
-					Path: "/lustre/scratch123/humgen/a/c/",
+					Path:      "/lustre/scratch123/humgen/a/c/",
+					ClaimedBy: userB,
+					Group:     "",
 					BackupStatus: ibackup.SetBackupActivity{
 						Name:      "plan::/lustre/scratch123/humgen/a/c/",
 						Requester: userB,

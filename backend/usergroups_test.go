@@ -41,7 +41,6 @@ import (
 	"vimagination.zapto.org/tree"
 )
 
-// NOTE: This test could do with being expanded to evaluate a larger set of test data.
 func TestUserGroups(t *testing.T) {
 	Convey("With a configured backend", t, func() {
 		var u userHandler

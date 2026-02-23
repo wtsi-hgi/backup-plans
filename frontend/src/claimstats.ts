@@ -33,13 +33,10 @@ function createClaimStatsSection() {
             if (!users.has(dirStats.ClaimedBy)) {
                 users.add(dirStats.ClaimedBy);
                 userList.append(option({ "label": "User: " + dirStats.ClaimedBy }, dirStats.ClaimedBy));
-                console.log("Adding ", dirStats.ClaimedBy, "to userList");
             };
-            if (!groups.has(dirStats.Group)) {
+            if (!groups.has(dirStats.Group) && dirStats.Group != "") {
                 groups.add(dirStats.Group);
                 groupList.append(option({ "label": "Group: " + dirStats.Group }, dirStats.Group));
-                console.log("Adding ", dirStats.Group, "to groupList");
-                console.log(dirStats);
             };
 
             page.appendChild(fieldset({ "class": "userclaims", "data-user": dirStats.ClaimedBy, "data-group": dirStats.Group }, [
@@ -87,7 +84,6 @@ userList.append(...Array.from(users).map((user) => option({ "label": "User: " + 
 
 const groupList = datalist({ "id": "claimstatsGroups" });
 groupList.append(...Array.from(groups).map((group) => option({ "label": "Group: " + group }, group)));
-console.log(userList, groupList);
 
 function createFilterSection() {
     return div({ "class": "claimstats-filter-container" }, [

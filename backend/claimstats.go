@@ -37,7 +37,7 @@ import (
 	"vimagination.zapto.org/tree"
 )
 
-var ErrNoFilter = errors.New("Must provide a user and/or group to filter by")
+var ErrNoFilter = errors.New("must provide a user and/or group to filter by")
 
 type ruleStats struct {
 	*db.Rule
@@ -85,10 +85,7 @@ func (s *Server) claimstats(w http.ResponseWriter, r *http.Request) error {
 			return err
 		}
 
-		dirStats, err := s.generateDirStats(dir, dirSummary)
-		if err != nil {
-			return err
-		}
+		dirStats := s.generateDirStats(dir, dirSummary)
 
 		claimstats = append(claimstats, *dirStats)
 	}
@@ -103,15 +100,25 @@ func (s *Server) matchesFilter(dir *ruletree.DirRules, f filter) bool {
 		return false
 	}
 
-	if dir.ClaimedBy == "" || (f.filterUser && f.user != dir.ClaimedBy) {
+	if s.filterOutUser(dir, f) {
 		return false
 	}
 
-	if f.filterGroup && s.dirGroups[dir.ID()] != f.group {
+	if s.filterOutGroup(dir, f) {
 		return false
 	}
 
 	return true
+}
+
+// filterOutUser will return true if the user does not match the filter.
+func (s *Server) filterOutUser(dir *ruletree.DirRules, f filter) bool {
+	return dir.ClaimedBy == "" || (f.filterUser && f.user != dir.ClaimedBy)
+}
+
+// filterGroup will return true if the group does not match the filter.
+func (s *Server) filterOutGroup(dir *ruletree.DirRules, f filter) bool {
+	return f.filterGroup && s.dirGroups[dir.ID()] != f.group
 }
 
 func (s *Server) getUserGroup(r *http.Request) filter {
@@ -131,11 +138,8 @@ func (s *Server) getUserGroup(r *http.Request) filter {
 	return filter{user, group, filterUser, filterGroup}
 }
 
-func (s *Server) generateDirStats(dir *ruletree.DirRules, dirSummary *ruletree.DirSummary) (*DirStats, error) {
-	rulestats, err := s.generateRuleStats(dir, dirSummary)
-	if err != nil {
-		return nil, err
-	}
+func (s *Server) generateDirStats(dir *ruletree.DirRules, dirSummary *ruletree.DirSummary) *DirStats {
+	rulestats := s.generateRuleStats(dir, dirSummary)
 
 	sba, err := s.config.GetIBackupClient().GetBackupActivity(dir.Path, "plan::"+dir.Path, dir.ClaimedBy, false)
 	if err != nil {
@@ -152,12 +156,12 @@ func (s *Server) generateDirStats(dir *ruletree.DirRules, dirSummary *ruletree.D
 		Group:        dirSummary.Group,
 		BackupStatus: *sba,
 		RuleStats:    rulestats,
-	}, nil
+	}
 }
 
 // generateRuleStats will create a []RuleStats slice for the given directory, containing a RuleStats object for every
 // rule on the directory.
-func (s *Server) generateRuleStats(dir *ruletree.DirRules, dirSummary *ruletree.DirSummary) ([]ruleStats, error) {
+func (s *Server) generateRuleStats(dir *ruletree.DirRules, dirSummary *ruletree.DirSummary) []ruleStats {
 	ids := s.gatherDirRules(dir)
 	rulestats := []ruleStats{}
 
@@ -167,7 +171,7 @@ func (s *Server) generateRuleStats(dir *ruletree.DirRules, dirSummary *ruletree.
 		}
 	}
 
-	return rulestats, nil
+	return rulestats
 }
 
 func (s *Server) generateStatsForRule(r *ruletree.Rule) ruleStats {
