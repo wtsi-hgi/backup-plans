@@ -44,10 +44,13 @@ const (
 	fofnFile   = "fofn"
 )
 
+// FOFNClient represents a configured `ibackup watchfofns` client.
 type FOFNClient struct {
 	base string
 }
 
+// NewFOFNClient create a new client for `ibackup watchfofns`, using the given
+// path as the watch directory.
 func NewFOFNClient(path string) *FOFNClient {
 	return &FOFNClient{base: path}
 }
@@ -56,6 +59,10 @@ func (fc *FOFNClient) path(id string, filename string) string {
 	return filepath.Join(fc.base, id, filename)
 }
 
+// GetSetByName gets details about a given requesters backup set from the watch
+// directory.
+//
+// Returns an error if the requester has no set with the given name.
 func (fc *FOFNClient) GetSetByName(requester, setName string) (*set.Set, error) {
 	s := &set.Set{Name: setName, Requester: requester}
 
@@ -103,6 +110,7 @@ func swapMetadataKeys(m map[string]string, oldPrefix, newPrefix string) map[stri
 	return newMap
 }
 
+// AddOrUpdateSet adds details about a backup set to the watch directory.
 func (fc *FOFNClient) AddOrUpdateSet(set *set.Set) error {
 	fofnPath := fc.path(set.ID(), "")
 
@@ -124,6 +132,10 @@ func (fc *FOFNClient) AddOrUpdateSet(set *set.Set) error {
 	})
 }
 
+// MergeFiles sets the given paths as the file paths for the backup set with the
+// given ID.
+//
+// The paths are stored in a temporary file until TriggerDiscovery is called.
 func (fc *FOFNClient) MergeFiles(setID string, paths []string) (err error) {
 	var f *os.File
 
@@ -153,6 +165,9 @@ func (fc *FOFNClient) MergeFiles(setID string, paths []string) (err error) {
 	return b.Flush()
 }
 
+// TriggerDiscovery renames the temporary file created by the MergeFiles call so
+// that `ibackup watchfofns` can fine it and start the process of backing up the
+// files.
 func (fc *FOFNClient) TriggerDiscovery(setID string, _ bool) error {
 	fofnPath := fc.path(setID, fofnFile)
 
