@@ -74,13 +74,16 @@ function createClaimStatsSection() {
 }
 
 const userList = datalist({ "id": "claimstatsUsers" });
-userList.append(...Array.from(users).map((user) => option({ "label": "User " + user }, user)));
+userList.append(...Array.from(users).map((user) => option({ "label": "User: " + user }, user)));
 
-const groupList = datalist({ "id": "claimstatsGroup" });
+const groupList = datalist({ "id": "claimstatsGroups" });
 groupList.append(...Array.from(groups).map((group) => option({ "label": "Group: " + group }, group)));
+console.log(userList, groupList);
 
 function createFilterSection() {
     return div({ "class": "claimstats-filter-container" }, [
+        userList,
+        groupList,
         input({ "placeholder": "Username", "list": "claimstatsUsers", "value": user, "input": function (this: HTMLInputElement) { filter.user = this.value } }),
         input({ "placeholder": "Group", "list": "claimstatsGroups", "input": function (this: HTMLInputElement) { filter.group = this.value } }),
         button({
