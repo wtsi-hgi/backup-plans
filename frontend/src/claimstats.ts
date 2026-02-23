@@ -39,6 +39,7 @@ function createClaimStatsSection() {
                 groups.add(dirStats.Group);
                 groupList.append(option({ "label": "Group: " + dirStats.Group }, dirStats.Group));
                 console.log("Adding ", dirStats.Group, "to groupList");
+                console.log(dirStats);
             };
 
             page.appendChild(fieldset({ "class": "userclaims", "data-user": dirStats.ClaimedBy, "data-group": dirStats.Group }, [
