@@ -40,9 +40,8 @@ import (
 )
 
 const (
-	statusFile     = "status"
-	fofnFile       = "fofn"
-	fullwidthColon = "\uff1a"
+	statusFile = "status"
+	fofnFile   = "fofn"
 )
 
 type FOFNClient struct {
@@ -91,14 +90,14 @@ func setSetData(s *set.Set, counts fofn.StatusCounts, config fofn.SubDirConfig) 
 	s.Hardlinks = uint64(counts.Hardlink) //nolint:gosec
 	s.Transformer = config.Transformer
 	s.Frozen = config.Freeze
-	s.Metadata = swapMetadataKeys(config.Metadata, fullwidthColon, ":")
+	s.Metadata = swapMetadataKeys(config.Metadata, "", transfer.MetaNamespace)
 }
 
-func swapMetadataKeys(m map[string]string, replace, with string) map[string]string {
+func swapMetadataKeys(m map[string]string, oldPrefix, newPrefix string) map[string]string {
 	newMap := make(map[string]string, len(m))
 
 	for k, v := range m {
-		newMap[strings.ReplaceAll(k, replace, with)] = v
+		newMap[newPrefix+strings.TrimPrefix(k, oldPrefix)] = v
 	}
 
 	return newMap
@@ -120,7 +119,7 @@ func (fc *FOFNClient) AddOrUpdateSet(set *set.Set) error {
 
 	return fofn.WriteConfig(fofnPath, fofn.SubDirConfig{
 		Transformer: set.Transformer,
-		Metadata:    swapMetadataKeys(set.Metadata, ":", fullwidthColon),
+		Metadata:    swapMetadataKeys(set.Metadata, transfer.MetaNamespace, ""),
 		Freeze:      set.Frozen,
 	})
 }
