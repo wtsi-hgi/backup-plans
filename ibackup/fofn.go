@@ -115,7 +115,7 @@ func (fc *FOFNClient) AddOrUpdateSet(set *set.Set) error {
 	}
 
 	set.Metadata[transfer.MetaKeySets] = set.Name
-	set.Metadata[transfer.MetaKeyOwner] = set.Requester
+	set.Metadata[transfer.MetaKeyRequester] = set.Requester
 
 	return fofn.WriteConfig(fofnPath, fofn.SubDirConfig{
 		Transformer: set.Transformer,
