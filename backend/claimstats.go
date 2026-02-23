@@ -29,12 +29,12 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/ibackup"
 	"github.com/wtsi-hgi/backup-plans/ruletree"
-	"vimagination.zapto.org/tree"
 )
 
 var ErrNoFilter = errors.New("must provide a user and/or group to filter by")
@@ -69,25 +69,38 @@ func (s *Server) claimstats(w http.ResponseWriter, r *http.Request) error {
 	defer s.rulesMu.RUnlock()
 
 	f := s.getUserGroup(r)
-	claimstats := []DirStats{}
+	claimstats := make([]DirStats, 0, len(s.directoryRules))
+	channel := make(chan DirStats)
+
+	var wg sync.WaitGroup
 
 	for _, dir := range s.directoryRules {
 		if !(s.matchesFilter(dir, f)) {
 			continue
 		}
 
-		dirSummary, err := s.rootDir.Summary(dir.Path)
-		if err != nil {
-			if errors.As(err, new(tree.ChildNotFoundError)) {
-				continue
+		wg.Add(1)
+
+		go func(dir *ruletree.DirRules) {
+			defer wg.Done()
+
+			dirSummary, err := s.rootDir.Summary(dir.Path) //nolint:errcheck
+			if err != nil {
+				return
 			}
 
-			return err
-		}
+			dirStats := s.generateDirStats(dir, dirSummary)
+			channel <- *dirStats
+		}(dir)
+	}
 
-		dirStats := s.generateDirStats(dir, dirSummary)
+	go func() {
+		wg.Wait()
+		close(channel)
+	}()
 
-		claimstats = append(claimstats, *dirStats)
+	for item := range channel {
+		claimstats = append(claimstats, item)
 	}
 
 	w.Header().Set("Content-type", "application/json")
