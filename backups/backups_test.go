@@ -14,7 +14,6 @@ import (
 	"github.com/wtsi-hgi/backup-plans/internal/directories"
 	internal "github.com/wtsi-hgi/backup-plans/internal/ibackup"
 	"github.com/wtsi-hgi/backup-plans/internal/plandb"
-	"github.com/wtsi-hgi/backup-plans/internal/testirods"
 	"github.com/wtsi-hgi/backup-plans/ruletree"
 	"github.com/wtsi-hgi/wrstat-ui/summary"
 	"github.com/wtsi-hgi/wrstat-ui/summary/group"
@@ -195,8 +194,6 @@ func ptr[T any](n T) *T {
 
 func TestBackups(t *testing.T) {
 	Convey("Given a plan database, a tree of wrstat info and an ibackup server", t, func() {
-		So(testirods.AddPseudoIRODsToolsToPathIfRequired(t), ShouldBeNil)
-
 		s, addr, certPath, dfn, err := internal.NewTestIbackupServer(t)
 		So(err, ShouldBeNil)
 

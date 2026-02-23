@@ -11,7 +11,8 @@ import (
 	"github.com/wtsi-hgi/backup-plans/ibackup"
 	ibackup_test "github.com/wtsi-hgi/backup-plans/internal/ibackup"
 	"github.com/wtsi-hgi/backup-plans/internal/plandb"
-	"github.com/wtsi-hgi/backup-plans/internal/testirods"
+	"github.com/wtsi-hgi/ibackup/fofn"
+	"github.com/wtsi-hgi/ibackup/set"
 	"gopkg.in/yaml.v2"
 )
 
@@ -45,10 +46,6 @@ func TestCommands(t *testing.T) {
 	mysqlConnection := os.Getenv("BACKUP_PLANS_CONNECTION_TEST")
 
 	os.Unsetenv("BACKUP_PLANS_CONNECTION_TEST")
-
-	if err := testirods.AddPseudoIRODsToolsToPathIfRequired(t); err != nil {
-		t.Fatal(err)
-	}
 
 	Convey("Given an ibackup test server", t, func() {
 		So(appExe, ShouldNotBeEmpty)
@@ -128,6 +125,51 @@ func TestCommands(t *testing.T) {
 				"--tree", "testdata/tree.db", "--config", config).Run()
 
 			So(err, ShouldBeNil)
+		})
+
+		Convey("The backups command produces FOFNs when configured to do so", func() {
+			fofnDir := t.TempDir()
+
+			f, err := os.Create(config)
+			So(err, ShouldBeNil)
+
+			So(yaml.NewEncoder(f).Encode(&cmdConfig{
+				IBackup: ibackup.Config{
+					Servers: map[string]ibackup.ServerDetails{
+						"": {
+							FOFNDir: fofnDir,
+						},
+					},
+					PathToServer: map[string]ibackup.ServerTransformer{
+						"^": {
+							Transformer: "prefix=/:/remote/",
+						},
+					},
+				},
+			}), ShouldBeNil)
+
+			So(f.Close(), ShouldBeNil)
+
+			_, dbPath := plandb.PopulateExamplePlanDB(t)
+
+			out, err := exec.Command(appExe, "backup", "--plan", dbPath, //nolint:noctx
+				"--tree", "testdata/tree.db", "--config", config).CombinedOutput()
+
+			So(string(out), ShouldContainSubstring,
+				"ibackup set 'plan::/lustre/scratch123/humgen/a/b/' created for userA with 2 files\n")
+			So(err, ShouldBeNil)
+
+			id := (&set.Set{Requester: "userA", Name: "plan::/lustre/scratch123/humgen/a/b/"}).ID()
+
+			data, err := os.ReadFile(filepath.Join(fofnDir, id, "fofn"))
+			So(err, ShouldBeNil)
+			So(data, ShouldEqual, []byte("/lustre/scratch123/humgen/a/b/1.jpg\x00/lustre/scratch123/humgen/a/b/2.jpg\x00"))
+
+			Convey("…and a valid FOFN config file", func() {
+				cfg, err := fofn.ReadConfig(filepath.Join(fofnDir, id))
+				So(err, ShouldBeNil)
+				So(cfg.Transformer, ShouldEqual, "prefix=/:/remote/")
+			})
 		})
 
 		if mysqlConnection == "" {
