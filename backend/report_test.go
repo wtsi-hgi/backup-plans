@@ -295,10 +295,10 @@ func copyRule(rule *db.Rule) *db.Rule {
 func getSingleClientFromMultiClient(t *testing.T, client *ibackup.MultiClient) *server.Client {
 	t.Helper()
 
-	clientMap := *(*map[string]**atomic.Pointer[server.Client])(unsafe.Pointer(client))
+	clientMap := *(*map[string]**atomic.Value)(unsafe.Pointer(client))
 	So(len(clientMap), ShouldEqual, 1)
 
 	singleClient := *slices.Collect(maps.Values(clientMap))[0]
 
-	return singleClient.Load()
+	return singleClient.Load().(*server.Client)
 }
