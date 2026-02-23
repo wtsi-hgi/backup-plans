@@ -300,5 +300,5 @@ func getSingleClientFromMultiClient(t *testing.T, client *ibackup.MultiClient) *
 
 	singleClient := *slices.Collect(maps.Values(clientMap))[0]
 
-	return singleClient.Load().(*server.Client)
+	return singleClient.Load().(*server.Client) //nolint:errcheck,forcetypeassert
 }
