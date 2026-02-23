@@ -420,9 +420,6 @@ func (fc *fofnClientWrapper) GetSetByName(requester, setName string) (*set.Set, 
 	got.Missing = got.NumFiles
 	got.Status = set.Complete
 
-	delete(got.Metadata, transfer.MetaKeyRequester)
-	delete(got.Metadata, transfer.MetaKeySets)
-
 	return got, nil
 }
 

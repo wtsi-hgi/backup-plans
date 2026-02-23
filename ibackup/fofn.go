@@ -31,7 +31,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/wtsi-hgi/ibackup/fofn"
 	"github.com/wtsi-hgi/ibackup/server"
@@ -97,17 +96,15 @@ func setSetData(s *set.Set, counts fofn.StatusCounts, config fofn.SubDirConfig) 
 	s.Hardlinks = uint64(counts.Hardlink) //nolint:gosec
 	s.Transformer = config.Transformer
 	s.Frozen = config.Freeze
-	s.Metadata = swapMetadataKeys(config.Metadata, "", transfer.MetaNamespace)
-}
+	s.Metadata = config.Metadata
 
-func swapMetadataKeys(m map[string]string, oldPrefix, newPrefix string) map[string]string {
-	newMap := make(map[string]string, len(m))
-
-	for k, v := range m {
-		newMap[newPrefix+strings.TrimPrefix(k, oldPrefix)] = v
+	if s.Metadata == nil {
+		s.Metadata = make(map[string]string)
 	}
 
-	return newMap
+	s.Metadata[transfer.MetaKeyReview] = config.Review
+	s.Metadata[transfer.MetaKeyRemoval] = config.Remove
+	s.Metadata[transfer.MetaKeyReason] = config.Reason
 }
 
 // AddOrUpdateSet adds details about a backup set to the watch directory.
@@ -122,13 +119,23 @@ func (fc *FOFNClient) AddOrUpdateSet(set *set.Set) error {
 		set.Metadata = make(map[string]string)
 	}
 
-	set.Metadata[transfer.MetaKeySets] = set.Name
-	set.Metadata[transfer.MetaKeyRequester] = set.Requester
+	review := set.Metadata[transfer.MetaKeyReview]
+	remove := set.Metadata[transfer.MetaKeyRemoval]
+	reason := set.Metadata[transfer.MetaKeyReason]
+
+	delete(set.Metadata, transfer.MetaKeyReview)
+	delete(set.Metadata, transfer.MetaKeyRemoval)
+	delete(set.Metadata, transfer.MetaKeyReason)
 
 	return fofn.WriteConfig(fofnPath, fofn.SubDirConfig{
 		Transformer: set.Transformer,
-		Metadata:    swapMetadataKeys(set.Metadata, transfer.MetaNamespace, ""),
+		Metadata:    set.Metadata,
 		Freeze:      set.Frozen,
+		Requester:   set.Requester,
+		Name:        set.Name,
+		Review:      review,
+		Remove:      remove,
+		Reason:      reason,
 	})
 }
 
