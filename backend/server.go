@@ -54,6 +54,7 @@ type Server struct {
 	dirs           map[uint64]*db.Directory
 	rules          map[uint64]*db.Rule
 	dirGroups      map[int64]string
+	dirBoms        map[int64]string
 
 	config   *config.Config
 	gitCache *git.Cache
@@ -84,9 +85,21 @@ func New(db *db.DB, getUser func(r *http.Request) string, c *config.Config) (*Se
 	return s, nil
 }
 
-// LoadDirGroups will populate s.dirGroups with a map of directory ID -> group name.
-func (s *Server) LoadDirGroups() error {
+// TODO: Split into two funcs
+// LoadDirGroups will populate
+//   - s.dirGroups: map(directory ID -> group name)
+//   - s.dirBoms: map(directory ID -> BOM)
+func (s *Server) LoadDirMaps() error {
 	dirGroups := make(map[int64]string)
+	dirBoms := make(map[int64]string)
+	bomMap := s.config.GetBOMs()             // bom -> groups
+	reverseBomMap := make(map[string]string) // group -> bom
+
+	for bom, groups := range bomMap {
+		for _, group := range groups {
+			reverseBomMap[group] = bom
+		}
+	}
 
 	for _, dir := range s.directoryRules {
 		dirSummary, err := s.rootDir.Summary(dir.Path)
@@ -99,10 +112,13 @@ func (s *Server) LoadDirGroups() error {
 		}
 
 		_, gid := dirSummary.IDs()
-		dirGroups[dir.ID()] = users.Group(gid)
+		groupname := users.Group(gid)
+		dirGroups[dir.ID()] = groupname
+		dirBoms[dir.ID()] = reverseBomMap[groupname]
 	}
 
 	s.dirGroups = dirGroups
+	s.dirBoms = dirBoms
 
 	return nil
 }

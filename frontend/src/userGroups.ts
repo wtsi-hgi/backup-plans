@@ -4,9 +4,11 @@ export const boms = new Map<string, string>(),
     owners = new Map<string, string>(),
     users = new Set<string>(),
     groups = new Set<string>(),
+    bomSet = new Set<string>(),
     userGroups = await getUserGroups();
 
 for (const [bom, groups] of Object.entries(userGroups.BOM ?? {})) {
+    bomSet.add(bom);
     for (const group of groups) {
         boms.set(group, bom);
     }

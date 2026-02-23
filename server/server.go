@@ -70,7 +70,7 @@ func start(listen net.Listener, d *db.DB, getUser func(*http.Request) string,
 		return err
 	}
 
-	err = b.LoadDirGroups()
+	err = b.LoadDirMaps()
 	if err != nil {
 		return err
 	}

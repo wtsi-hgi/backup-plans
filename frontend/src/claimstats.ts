@@ -5,7 +5,7 @@ import { BackupType } from "./consts.js";
 import { svg, title, use } from "./lib/svg.js";
 import { load } from './load.js';
 import { amendNode, clearNode } from "./lib/dom.js";
-import { users, groups, boms } from './userGroups.js';
+import { users, groups, bomSet } from './userGroups.js';
 
 const base = div({ "class": "main-container" });
 const container = div();
@@ -23,24 +23,17 @@ export function updateClaimStats() {
 
 let filter = {
     "user": user,
-    "group": ""
+    "groupbom": ""
 }
 
 function createClaimStatsSection() {
-    console.log(boms);
     let page = div({ "class": "claimstats-container" });
-    getClaimStats(filter.user, filter.group).then(claimstats => {
+    getClaimStats(filter.user, filter.groupbom).then(claimstats => {
         claimstats.length > 0 ? claimstats.map((dirStats) => {
             if (!users.has(dirStats.ClaimedBy)) {
                 users.add(dirStats.ClaimedBy);
                 userList.append(option({ "label": "User: " + dirStats.ClaimedBy }, dirStats.ClaimedBy));
             };
-            if (!groups.has(dirStats.Group) && dirStats.Group != "") {
-                groups.add(dirStats.Group);
-                groupList.append(option({ "label": "Group: " + dirStats.Group }, dirStats.Group));
-            };
-
-            console.log("Path:", dirStats.Path, "Group:", dirStats.Group, "BOM:", boms.get(dirStats.Group))
 
             page.appendChild(fieldset({ "class": "userclaims", "data-user": dirStats.ClaimedBy, "data-group": dirStats.Group }, [
                 legend({ "class": "claimstats-legend" }, [h2(dirStats.Path), button({
@@ -85,11 +78,12 @@ function createClaimStatsSection() {
 const userList = datalist({ "id": "claimstatsUsers" });
 userList.append(...Array.from(users).map((user) => option({ "label": "User: " + user }, user)));
 
-const groupList = datalist({ "id": "claimstatsGroups" });
-groupList.append(...Array.from(groups).map((group) => option({ "label": "Group: " + group }, group)));
+const groupBomList = datalist({ "id": "claimstatsGroupBoms" });
+groupBomList.append(...Array.from(groups).map((group) => option({ "label": "Group: " + group }, group)));
+groupBomList.append(...Array.from(bomSet).map((bom) => option({ "label": "BOM: " + bom }, bom)));
 
 function filterClaimStats() {
-    if (filter.user != "" || filter.group != "") {
+    if (filter.user != "" || filter.groupbom != "") {
         updateClaimStats()
     } else {
         alert("Please enter a user and/or group to filter by.");
@@ -99,7 +93,7 @@ function filterClaimStats() {
 function createFilterSection() {
     return div({ "class": "claimstats-filter-container" }, [
         userList,
-        groupList,
+        groupBomList,
         input({
             "placeholder": "Username",
             "list": "claimstatsUsers",
@@ -108,9 +102,9 @@ function createFilterSection() {
             "keypress": function (this: HTMLInputElement, e: KeyboardEvent) { if (e.key === "Enter") filterClaimStats() }
         }),
         input({
-            "placeholder": "Group",
-            "list": "claimstatsGroups",
-            "input": function (this: HTMLInputElement) { filter.group = this.value },
+            "placeholder": "Group, BOM",
+            "list": "claimstatsGroupBoms",
+            "input": function (this: HTMLInputElement) { filter.groupbom = this.value },
             "keypress": function (this: HTMLInputElement, e: KeyboardEvent) { if (e.key === "Enter") filterClaimStats() }
         }),
         button({ "click": filterClaimStats }, "Filter"),

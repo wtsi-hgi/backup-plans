@@ -68,7 +68,7 @@ func (s *Server) claimstats(w http.ResponseWriter, r *http.Request) error { //no
 	s.rulesMu.RLock()
 	defer s.rulesMu.RUnlock()
 
-	f := s.getUserGroup(r)
+	f := s.getFormValues(r)
 	claimstats := make([]DirStats, 0, len(s.directoryRules))
 	channel := make(chan DirStats, len(s.directoryRules))
 
@@ -113,7 +113,7 @@ func (s *Server) matchesFilter(dir *ruletree.DirRules, f filter) bool {
 		return false
 	}
 
-	if s.filterOutUser(dir, f) || s.filterOutGroup(dir, f) {
+	if s.filterOutUser(dir, f) || s.filterOutGroupBom(dir, f) {
 		return false
 	}
 
@@ -125,12 +125,12 @@ func (s *Server) filterOutUser(dir *ruletree.DirRules, f filter) bool {
 	return dir.ClaimedBy == "" || (f.filterUser && f.user != dir.ClaimedBy)
 }
 
-// filterGroup will return true if the group does not match the filter.
-func (s *Server) filterOutGroup(dir *ruletree.DirRules, f filter) bool {
-	return f.filterGroup && s.dirGroups[dir.ID()] != f.group
+// filterGroup will return true if the group/bom does not match the filter.
+func (s *Server) filterOutGroupBom(dir *ruletree.DirRules, f filter) bool {
+	return f.filterGroup && (s.dirGroups[dir.ID()] != f.group || s.dirBoms[dir.ID()] != f.group)
 }
 
-func (s *Server) getUserGroup(r *http.Request) filter {
+func (s *Server) getFormValues(r *http.Request) filter {
 	filterUser := false
 	filterGroup := false
 
