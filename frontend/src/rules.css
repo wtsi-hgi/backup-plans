@@ -334,7 +334,7 @@ select:not(:has(option:checked[value="backup"])):not(:has(option:checked[value="
 	overflow: unset;
 }
 
-.tooltip:hover::after {
+.tooltip[data-tooltip]:hover::after {
 	content: attr(data-tooltip);
 	background-color: var(--background);
 	position: absolute;
