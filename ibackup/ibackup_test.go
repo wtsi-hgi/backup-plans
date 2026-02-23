@@ -6,7 +6,8 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
-	"strconv"
+	"reflect"
+	"slices"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -35,17 +36,19 @@ func TestMultiIbackup(t *testing.T) {
 
 		servers := make(map[string]ibackup.ServerDetails)
 
-		for i := range 2 {
-			_, addr, certPath, dfn, err := ib.NewTestIbackupServer(t)
-			So(err, ShouldBeNil)
+		_, addr, certPath, dfn, err := ib.NewTestIbackupServer(t)
+		So(err, ShouldBeNil)
 
-			Reset(func() { dfn() }) //nolint:errcheck
+		Reset(func() { dfn() }) //nolint:errcheck
 
-			servers["example_"+strconv.Itoa(i+1)] = ibackup.ServerDetails{
-				Addr:  addr,
-				Cert:  certPath,
-				Token: filepath.Join(filepath.Dir(certPath), ".ibackup.token"),
-			}
+		servers["example_1"] = ibackup.ServerDetails{
+			Addr:  addr,
+			Cert:  certPath,
+			Token: filepath.Join(filepath.Dir(certPath), ".ibackup.token"),
+		}
+
+		servers["example_2"] = ibackup.ServerDetails{
+			FOFNDir: t.TempDir(),
 		}
 
 		config := ibackup.Config{
@@ -178,8 +181,8 @@ func TestMultiIbackup(t *testing.T) {
 					So(err, ShouldBeNil)
 					So(ba, ShouldResemble, baa)
 
-					for _, client := range *(*map[string]**atomic.Pointer[server.Client])(unsafe.Pointer(mc)) {
-						*(*string)(unsafe.Pointer((*client).Load())) = ""
+					for _, client := range *(*map[string]**atomic.Value)(unsafe.Pointer(mc)) {
+						*(*string)(reflect.ValueOf((*client).Load()).UnsafePointer()) = ""
 					}
 
 					ba, err = mcache.GetBackupActivity("/some/path/a/dir/", setName, u.Username)
@@ -195,19 +198,36 @@ func TestMultiIbackup(t *testing.T) {
 	})
 }
 
+type client interface {
+	ibackup.Client
+	GetSets(string) ([]*set.Set, error)
+}
+
 func TestIbackup(t *testing.T) {
-	Convey("Given a new ibackup server", t, func() {
-		So(testirods.AddPseudoIRODsToolsToPathIfRequired(t), ShouldBeNil)
+	ibackupTests(t, func() (client, func(*set.Set) error) {
+		t.Helper()
 
 		s, addr, certPath, dfn, err := ib.NewTestIbackupServer(t)
 		So(err, ShouldBeNil)
 
 		Reset(func() { So(dfn(), ShouldBeNil) })
 
-		u, err := user.Current()
+		client, err := ibackup.Connect(addr, certPath, "")
 		So(err, ShouldBeNil)
 
-		client, err := ibackup.Connect(addr, certPath, "")
+		return client, func(got *set.Set) error { return setSet(s, got) }
+	})
+}
+
+func ibackupTests(t *testing.T, createClient func() (client, func(*set.Set) error)) {
+	t.Helper()
+
+	Convey("Given a new ibackup server", t, func() {
+		So(testirods.AddPseudoIRODsToolsToPathIfRequired(t), ShouldBeNil)
+
+		client, setSet := createClient()
+
+		u, err := user.Current()
 		So(err, ShouldBeNil)
 
 		mockClient := newMockClient(client)
@@ -284,7 +304,7 @@ func TestIbackup(t *testing.T) {
 				ld := time.Now().Add(-time.Hour)
 				got.LastDiscovery = ld
 
-				So(setSet(s, got), ShouldBeNil)
+				So(setSet(got), ShouldBeNil)
 				runTestBackups(client, setName, u.Username,
 					[]string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}, 1, 0, 0)
 
@@ -295,7 +315,7 @@ func TestIbackup(t *testing.T) {
 				ld = time.Now().Add(-24 * time.Hour)
 				got.LastDiscovery = ld
 
-				So(setSet(s, got), ShouldBeNil)
+				So(setSet(got), ShouldBeNil)
 
 				runTestBackups(client, setName, u.Username,
 					[]string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}, 1, review, remove)
@@ -345,7 +365,7 @@ func TestIbackup(t *testing.T) {
 				So(backupActivity.Name, ShouldEqual, setName)
 				So(backupActivity.LastSuccess, ShouldHappenAfter, before)
 
-				*(*string)(unsafe.Pointer(client)) = ""
+				*(*string)(reflect.ValueOf(client).UnsafePointer()) = ""
 
 				backupActivity, err = cache.GetBackupActivity(setName, u.Username)
 				So(err, ShouldBeNil)
@@ -382,6 +402,95 @@ func TestIbackup(t *testing.T) {
 				So(backupActivity.LastSuccess, ShouldHappenAfter, before)
 			})
 		})
+	})
+}
+
+type fofnClientWrapper struct {
+	sets            map[string][]string
+	files           map[string]uint64
+	lastDiscoveries map[string]time.Time
+	*ibackup.FOFNClient
+}
+
+func (fc *fofnClientWrapper) GetSetByName(requester, setName string) (*set.Set, error) {
+	got, err := fc.FOFNClient.GetSetByName(requester, setName)
+	if err != nil {
+		return nil, err
+	}
+
+	got.StartedDiscovery = fc.lastDiscoveries[got.ID()]
+	got.LastDiscovery = got.StartedDiscovery
+	got.LastCompleted = got.StartedDiscovery
+	got.NumFiles = fc.files[got.ID()]
+	got.Missing = got.NumFiles
+	got.Status = set.Complete
+
+	delete(got.Metadata, transfer.MetaKeyOwner)
+	delete(got.Metadata, transfer.MetaKeySets)
+
+	return got, nil
+}
+
+func (fc *fofnClientWrapper) AddOrUpdateSet(set *set.Set) error {
+	sets := fc.sets[set.Requester]
+	fc.lastDiscoveries[set.ID()] = set.LastDiscovery
+
+	if pos, exists := slices.BinarySearch(sets, set.Name); !exists {
+		sets = slices.Insert(sets, pos, set.Name)
+	}
+
+	fc.sets[set.Requester] = sets
+
+	return fc.FOFNClient.AddOrUpdateSet(set)
+}
+
+func (fc *fofnClientWrapper) MergeFiles(setID string, paths []string) (err error) {
+	fc.files[setID] = uint64(len(paths))
+
+	return fc.FOFNClient.MergeFiles(setID, paths)
+}
+
+func (fc *fofnClientWrapper) TriggerDiscovery(setID string, forceRemovals bool) error {
+	fc.lastDiscoveries[setID] = time.Now()
+
+	err := fc.FOFNClient.TriggerDiscovery(setID, forceRemovals)
+	if os.IsNotExist(err) {
+		err = nil
+	}
+
+	return err
+}
+
+func (fc *fofnClientWrapper) GetSets(user string) ([]*set.Set, error) {
+	var sets []*set.Set
+
+	for _, setName := range fc.sets[user] {
+		got, err := fc.GetSetByName(user, setName)
+		if err != nil {
+			continue
+		}
+
+		sets = append(sets, got)
+	}
+
+	return sets, nil
+}
+
+func TestIbackupFOFN(t *testing.T) {
+	ibackupTests(t, func() (client, func(*set.Set) error) {
+		t.Helper()
+
+		base := t.TempDir()
+		client := ibackup.NewFOFNClient(base)
+
+		wc := &fofnClientWrapper{
+			map[string][]string{},
+			map[string]uint64{},
+			map[string]time.Time{},
+			client,
+		}
+
+		return wc, wc.AddOrUpdateSet
 	})
 }
 
@@ -426,7 +535,7 @@ func setSet(s *server.Server, got *set.Set) error {
 	})
 }
 
-func runTestBackups(client *server.Client, setname, requester string, files []string,
+func runTestBackups(client client, setname, requester string, files []string,
 	frequency int, review, remove int64) {
 	err := ibackup.Backup(client, "prefix=/lustre/:/remote/", setname, requester, files, frequency, review, remove)
 	So(err, ShouldBeNil)
@@ -437,14 +546,14 @@ type mergeCall struct {
 	paths []string
 }
 type MockClient struct {
-	*server.Client
+	client
 	Discoveries map[string]time.Time
 	MergeCalls  []mergeCall
 }
 
-func newMockClient(client *server.Client) *MockClient {
+func newMockClient(client client) *MockClient {
 	return &MockClient{
-		Client:      client,
+		client:      client,
 		Discoveries: make(map[string]time.Time),
 	}
 }

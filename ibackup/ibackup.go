@@ -1,3 +1,28 @@
+/*******************************************************************************
+ * Copyright (c) 2026 Genome Research Ltd.
+ *
+ * Author: Michael Woolnough <mw31@sanger.ac.uk>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included
+ * in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ ******************************************************************************/
+
 package ibackup
 
 import (
@@ -29,7 +54,7 @@ var (
 // ServerDetails contains the connection details for a particular ibackup
 // server.
 type ServerDetails struct {
-	Addr, Cert, Token, Username string
+	Addr, Cert, Token, Username, FOFNDir string
 }
 
 // ServerTransformer combines a configured server name and a transformer to be
@@ -77,7 +102,15 @@ func (s ServerConnectionError) Unwrap() error {
 }
 
 type serverClient struct {
-	atomic.Pointer[server.Client]
+	atomic.Value
+}
+
+func (s *serverClient) Store(c Client) {
+	s.Value.Store(c)
+}
+
+func (s *serverClient) Load() Client {
+	return s.Value.Load().(Client)
 }
 
 func (s *serverClient) GetSetByName(requester, setName string) (*set.Set, error) {
@@ -151,11 +184,12 @@ func createServers(ctx context.Context, c Config) (map[string]*serverClient, err
 	for name, details := range c.Servers {
 		var client serverClient
 
-		c, err := connect(
+		if details.FOFNDir != "" {
+			client.Store(NewFOFNClient(details.FOFNDir))
+		} else if c, err := connect(
 			jwtBasename(details.Token),
 			details.Token, details.Addr, details.Cert, details.Username,
-		)
-		if err != nil {
+		); err != nil {
 			errs = errors.Join(errs, &ServerConnectionError{name, err})
 
 			client.Store(new(server.Client))
@@ -355,7 +389,6 @@ func createSet(client Client, setName, requester, transformer,
 		Requester:   requester,
 		Transformer: transformer,
 		Metadata:    m.LocalMeta,
-		Failed:      0,
 	}
 
 	if err := client.AddOrUpdateSet(got); err != nil {
@@ -396,6 +429,11 @@ type SetBackupActivity struct {
 	Name        string
 	Requester   string
 	Failures    uint64
+	Uploaded    uint64
+	Replaced    uint64
+	Missing     uint64
+	Orphaned    uint64
+	Hardlinks   uint64
 }
 
 // GetBackupActivity queries an ibackup server to get the last completed backup
@@ -416,6 +454,11 @@ func GetBackupActivity(client Client, setName, requester string) (*SetBackupActi
 
 	if got != nil {
 		sba.Failures = got.Failed
+		sba.Uploaded = got.Uploaded
+		sba.Replaced = got.Replaced
+		sba.Missing = got.Missing
+		sba.Orphaned = got.Orphaned
+		sba.Hardlinks = got.Hardlinks
 		sba.LastSuccess = got.LastCompleted
 	}
 
