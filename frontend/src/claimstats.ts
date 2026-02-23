@@ -30,8 +30,16 @@ function createClaimStatsSection() {
     let page = div({ "class": "claimstats-container" });
     getClaimStats(filter.user, filter.group).then(claimstats => {
         claimstats.length > 0 ? claimstats.map((dirStats) => {
-            if (!users.has(dirStats.ClaimedBy)) users.add(dirStats.ClaimedBy);
-            if (!groups.has(dirStats.Group)) groups.add(dirStats.Group);
+            if (!users.has(dirStats.ClaimedBy)) {
+                users.add(dirStats.ClaimedBy);
+                userList.append(option({ "label": "User: " + dirStats.ClaimedBy }, dirStats.ClaimedBy));
+                console.log("Adding ", dirStats.ClaimedBy, "to userList");
+            };
+            if (!groups.has(dirStats.Group)) {
+                groups.add(dirStats.Group);
+                groupList.append(option({ "label": "Group: " + dirStats.Group }, dirStats.Group));
+                console.log("Adding ", dirStats.Group, "to groupList");
+            };
 
             page.appendChild(fieldset({ "class": "userclaims", "data-user": dirStats.ClaimedBy, "data-group": dirStats.Group }, [
                 legend({ "class": "claimstats-legend" }, [h2(dirStats.Path), button({

@@ -22,6 +22,6 @@ for (const user of Array.from(userGroups.Users)) {
     users.add(user)
 }
 
-for (const group of Array.from(userGroups.Users)) {
+for (const group of Array.from(userGroups.Groups)) {
     groups.add(group)
 }
