@@ -166,7 +166,7 @@ func (fc *FOFNClient) MergeFiles(setID string, paths []string) (err error) {
 }
 
 // TriggerDiscovery renames the temporary file created by the MergeFiles call so
-// that `ibackup watchfofns` can fine it and start the process of backing up the
+// that `ibackup watchfofns` can find it and start the process of backing up the
 // files.
 func (fc *FOFNClient) TriggerDiscovery(setID string, _ bool) error {
 	fofnPath := fc.path(setID, fofnFile)
