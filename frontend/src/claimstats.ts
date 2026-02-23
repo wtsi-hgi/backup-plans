@@ -27,6 +27,7 @@ let filter = {
 }
 
 function createClaimStatsSection() {
+    console.log(boms);
     let page = div({ "class": "claimstats-container" });
     getClaimStats(filter.user, filter.group).then(claimstats => {
         claimstats.length > 0 ? claimstats.map((dirStats) => {
