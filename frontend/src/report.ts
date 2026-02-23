@@ -221,7 +221,6 @@ const groupList = datalist({ "id": "groupList" }),
 		"Replaced",
 		"Missing",
 		"Failures",
-		"Frozen",
 		"Orphaned",
 		"Hardlinks"
 	] as const,
