@@ -145,7 +145,7 @@ class ParentSummary extends Summary {
 									: new Date(backup.LastSuccess).toLocaleString()
 								: "-"
 						),
-						td(backup.Failures.toLocaleString())
+						td({ "class": "tooltip", "data-tooltip": ibackupStatusColumns.filter(c => backup[c]).map(c => `${c}: ${backup[c].toLocaleString()}`).join("\n") || false }, backup.Failures.toLocaleString())
 					])))
 				] : tr(td({ "colspan": "5" }, "No Backups")))
 			]),
@@ -216,6 +216,15 @@ class ChildSummary extends Summary {
 }
 
 const groupList = datalist({ "id": "groupList" }),
+	ibackupStatusColumns = [
+		"Uploaded",
+		"Replaced",
+		"Missing",
+		"Failures",
+		"Frozen",
+		"Orphaned",
+		"Hardlinks"
+	] as const,
 	base = div({ "id": "report" }, groupList),
 	initFilterSort = (container: HTMLDivElement, children: HTMLFieldSetElement[], [filterProject, filterAll, filterR, filterA, filterG, filterB, sortName, sortWarnSize, sortNoBackupSize, sortBackupSize]: [HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement]) => {
 		const projects = children.map(child => ({
