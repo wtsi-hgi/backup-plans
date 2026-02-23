@@ -17,7 +17,6 @@ import (
 	"github.com/ugorji/go/codec"
 	"github.com/wtsi-hgi/backup-plans/ibackup"
 	ib "github.com/wtsi-hgi/backup-plans/internal/ibackup"
-	"github.com/wtsi-hgi/backup-plans/internal/testirods"
 	gas "github.com/wtsi-hgi/go-authserver"
 	"github.com/wtsi-hgi/ibackup/server"
 	"github.com/wtsi-hgi/ibackup/set"
@@ -32,8 +31,6 @@ var (
 
 func TestMultiIbackup(t *testing.T) {
 	Convey("Given multiple ibackup servers", t, func() {
-		So(testirods.AddPseudoIRODsToolsToPathIfRequired(t), ShouldBeNil)
-
 		servers := make(map[string]ibackup.ServerDetails)
 
 		_, addr, certPath, dfn, err := ib.NewTestIbackupServer(t)
@@ -223,8 +220,6 @@ func ibackupTests(t *testing.T, createClient func() (ibackupClient, func(*set.Se
 	t.Helper()
 
 	Convey("Given a new ibackup server", t, func() {
-		So(testirods.AddPseudoIRODsToolsToPathIfRequired(t), ShouldBeNil)
-
 		client, setSet := createClient()
 
 		u, err := user.Current()

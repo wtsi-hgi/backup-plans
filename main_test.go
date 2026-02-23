@@ -11,7 +11,6 @@ import (
 	"github.com/wtsi-hgi/backup-plans/ibackup"
 	ibackup_test "github.com/wtsi-hgi/backup-plans/internal/ibackup"
 	"github.com/wtsi-hgi/backup-plans/internal/plandb"
-	"github.com/wtsi-hgi/backup-plans/internal/testirods"
 	"github.com/wtsi-hgi/ibackup/fofn"
 	"github.com/wtsi-hgi/ibackup/set"
 	"gopkg.in/yaml.v2"
@@ -47,10 +46,6 @@ func TestCommands(t *testing.T) {
 	mysqlConnection := os.Getenv("BACKUP_PLANS_CONNECTION_TEST")
 
 	os.Unsetenv("BACKUP_PLANS_CONNECTION_TEST")
-
-	if err := testirods.AddPseudoIRODsToolsToPathIfRequired(t); err != nil {
-		t.Fatal(err)
-	}
 
 	Convey("Given an ibackup test server", t, func() {
 		So(appExe, ShouldNotBeEmpty)
