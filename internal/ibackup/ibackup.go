@@ -58,7 +58,7 @@ func NewTestIbackupServer(t *testing.T) (*server.Server, string, string, func() 
 		return nil, "", "", nil, err
 	}
 
-	if err = s.LoadSetDB(filepath.Join(t.TempDir(), "db"), "", ""); err != nil {
+	if err = s.LoadSetDB(filepath.Join(t.TempDir(), "db"), ""); err != nil {
 		return nil, "", "", nil, err
 	}
 
