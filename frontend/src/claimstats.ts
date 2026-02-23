@@ -5,7 +5,7 @@ import { BackupType } from "./consts.js";
 import { svg, title, use } from "./lib/svg.js";
 import { load } from './load.js';
 import { amendNode, clearNode } from "./lib/dom.js";
-import { users, groups } from './userGroups.js';
+import { users, groups, boms } from './userGroups.js';
 
 const base = div({ "class": "main-container" });
 const container = div();
@@ -38,6 +38,8 @@ function createClaimStatsSection() {
                 groups.add(dirStats.Group);
                 groupList.append(option({ "label": "Group: " + dirStats.Group }, dirStats.Group));
             };
+
+            console.log("Path:", dirStats.Path, "Group:", dirStats.Group, "BOM:", boms.get(dirStats.Group))
 
             page.appendChild(fieldset({ "class": "userclaims", "data-user": dirStats.ClaimedBy, "data-group": dirStats.Group }, [
                 legend({ "class": "claimstats-legend" }, [h2(dirStats.Path), button({
@@ -85,21 +87,32 @@ userList.append(...Array.from(users).map((user) => option({ "label": "User: " + 
 const groupList = datalist({ "id": "claimstatsGroups" });
 groupList.append(...Array.from(groups).map((group) => option({ "label": "Group: " + group }, group)));
 
+function filterClaimStats() {
+    if (filter.user != "" || filter.group != "") {
+        updateClaimStats()
+    } else {
+        alert("Please enter a user and/or group to filter by.");
+    }
+}
+
 function createFilterSection() {
     return div({ "class": "claimstats-filter-container" }, [
         userList,
         groupList,
-        input({ "placeholder": "Username", "list": "claimstatsUsers", "value": user, "input": function (this: HTMLInputElement) { filter.user = this.value } }),
-        input({ "placeholder": "Group", "list": "claimstatsGroups", "input": function (this: HTMLInputElement) { filter.group = this.value } }),
-        button({
-            "click": function () {
-                if (filter.user != "" || filter.group != "") {
-                    updateClaimStats()
-                } else {
-                    alert("Please enter a user and/or group to filter by.");
-                }
-            }
-        }, "Filter"),
+        input({
+            "placeholder": "Username",
+            "list": "claimstatsUsers",
+            "value": user,
+            "input": function (this: HTMLInputElement) { filter.user = this.value },
+            "keypress": function (this: HTMLInputElement, e: KeyboardEvent) { if (e.key === "Enter") filterClaimStats() }
+        }),
+        input({
+            "placeholder": "Group",
+            "list": "claimstatsGroups",
+            "input": function (this: HTMLInputElement) { filter.group = this.value },
+            "keypress": function (this: HTMLInputElement, e: KeyboardEvent) { if (e.key === "Enter") filterClaimStats() }
+        }),
+        button({ "click": filterClaimStats }, "Filter"),
     ]);
 }
 

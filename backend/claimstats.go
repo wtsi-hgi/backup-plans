@@ -64,13 +64,13 @@ func (s *Server) ClaimStats(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.claimstats)
 }
 
-func (s *Server) claimstats(w http.ResponseWriter, r *http.Request) error {
+func (s *Server) claimstats(w http.ResponseWriter, r *http.Request) error { //nolint:funlen
 	s.rulesMu.RLock()
 	defer s.rulesMu.RUnlock()
 
 	f := s.getUserGroup(r)
 	claimstats := make([]DirStats, 0, len(s.directoryRules))
-	channel := make(chan DirStats)
+	channel := make(chan DirStats, len(s.directoryRules))
 
 	var wg sync.WaitGroup
 
@@ -84,7 +84,7 @@ func (s *Server) claimstats(w http.ResponseWriter, r *http.Request) error {
 		go func(dir *ruletree.DirRules) {
 			defer wg.Done()
 
-			dirSummary, err := s.rootDir.Summary(dir.Path) //nolint:errcheck
+			dirSummary, err := s.rootDir.Summary(dir.Path)
 			if err != nil {
 				return
 			}
@@ -113,11 +113,7 @@ func (s *Server) matchesFilter(dir *ruletree.DirRules, f filter) bool {
 		return false
 	}
 
-	if s.filterOutUser(dir, f) {
-		return false
-	}
-
-	if s.filterOutGroup(dir, f) {
+	if s.filterOutUser(dir, f) || s.filterOutGroup(dir, f) {
 		return false
 	}
 
