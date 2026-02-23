@@ -269,14 +269,14 @@ imeta() {
 				echo "----";
 			fi;
 
-			declare parts="$(sed -e 's@.*/\.meta/$@@' <<< "$file")";
+			declare parts="$(sed -e 's@.*/\.meta/@@' <<< "$file")";
 
 			echo "attribute: $(cut -d'/' -f1 <<< "$parts" | decode)";
 			echo "value: $(cut -d'/' -f2 <<< "$parts" | decode)";
 			echo "units: $(cut -d'/' -f3 <<< "$parts" | decode)";
 
 			found=true;
-		done < <(find "$base/metadata/$3/.meta/" -mindepth 2 2> /dev/null || true);
+		done < <(find "$base/metadata/$3/.meta/" -mindepth 3 2> /dev/null || true);
 
 		if ! $found; then
 			echo "None";
