@@ -159,6 +159,8 @@ func TestMultiIbackup(t *testing.T) {
 			So(err, ShouldBeNil)
 
 			setName := "mySet"
+			setNameB := "myOtherSet"
+			setNameC := "myFinalSet"
 
 			Convey("You can backup the same set to different servers", func() {
 				So(mc.Backup("/some/path/a/dir/", setName, u.Username,
@@ -174,10 +176,10 @@ func TestMultiIbackup(t *testing.T) {
 				nc, err := ibackup.New(config)
 				So(err, ShouldBeNil)
 
-				So(nc.Backup("/some/path/a/dir/", setName, u.Username,
-					[]string{"/some/path/a/dir/file"}, 0, 1, 2), ShouldBeNil)
-				So(nc.Backup("/some/path/another/dir/", setName, u.Username,
-					[]string{"/some/path/another/dir/file"}, 0, 1, 2), ShouldBeNil)
+				So(nc.Backup("/some/other/path/a/dir/", setNameB, u.Username,
+					[]string{"/some/other/path/a/dir/file"}, 0, 1, 2), ShouldBeNil)
+				So(nc.Backup("/some/other/path/another/dir/", setNameC, u.Username,
+					[]string{"/some/other/path/another/dir/file"}, 0, 1, 2), ShouldBeNil)
 
 				baa, err := mc.GetBackupActivity("/some/path/a/dir/", setName, u.Username, false)
 				So(err, ShouldBeNil)
@@ -190,14 +192,14 @@ func TestMultiIbackup(t *testing.T) {
 				So(err, ShouldBeNil)
 				So(baa.LastSuccess, ShouldNotEqual, bab.LastSuccess)
 
-				_, err = mc.GetBackupActivity("/some/other/path/a/dir/", setName, u.Username, false)
+				_, err = mc.GetBackupActivity("/some/other/path/another/dir/", setNameC, u.Username, false)
 				So(err, ShouldEqual, server.ErrBadSet)
 
-				bad, err := mc.GetBackupActivity("/some/other/path/a/dir/", setName, u.Username, true)
+				bad, err := mc.GetBackupActivity("/some/other/path/a/dir/", setNameB, u.Username, true)
 				So(err, ShouldBeNil)
 				So(bad, ShouldNotEqual, bab)
 
-				_, err = mc.GetBackupActivity("/some/other/path/a/dir/", setName, u.Username, true)
+				_, err = mc.GetBackupActivity("/some/other/path/another/dir/", setNameC, u.Username, true)
 				So(err, ShouldBeNil)
 
 				Convey("You can query a MultiCache", func() {

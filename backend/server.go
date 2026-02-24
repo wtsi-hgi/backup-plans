@@ -119,7 +119,7 @@ func (e Error) Error() string {
 // ibackup set with:
 //
 //	Set name: The requests metadata form value.
-//	    User: Given by the getUser func passed when creating the server with New(...)
+//	User: Given by the getUser func passed when creating the server with New(...)
 func (s *Server) SetExists(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.setExists)
 }

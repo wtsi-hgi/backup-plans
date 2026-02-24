@@ -234,15 +234,9 @@ func createClients(servers map[string]*serverClient, c Config) (map[string]*clie
 			return nil, UnknownServerError(server.ServerName)
 		}
 
-		var m *serverClient
-
-		if server.ManualServerName == "" || server.ManualServerName == server.ServerName { //nolint:nestif
-			m = s
-		} else {
-			m, ok = servers[server.ManualServerName]
-			if !ok {
-				return nil, UnknownServerError(server.ManualServerName)
-			}
+		m, err := createManualClient(s, servers, server)
+		if err != nil {
+			return nil, err
 		}
 
 		r, err := regexp.Compile(re)
@@ -259,6 +253,23 @@ func createClients(servers map[string]*serverClient, c Config) (map[string]*clie
 	}
 
 	return clients, nil
+}
+
+func createManualClient(
+	s *serverClient,
+	servers map[string]*serverClient,
+	server ServerTransformer,
+) (*serverClient, error) {
+	if server.ManualServerName == "" || server.ManualServerName == server.ServerName { //nolint:nestif
+		return s, nil
+	}
+
+	m, ok := servers[server.ManualServerName]
+	if !ok {
+		return nil, UnknownServerError(server.ManualServerName)
+	}
+
+	return m, nil
 }
 
 // Stop stops all attempts to connect to previously unreachable ibackup servers.
@@ -599,6 +610,22 @@ type reCache struct {
 	ManualCache *Cache
 }
 
+func (r reCache) UpdateClient(client Client) {
+	r.Cache.UpdateClient(client)
+
+	if r.Cache != r.ManualCache {
+		r.ManualCache.UpdateClient(client)
+	}
+}
+
+func (r reCache) Stop() {
+	r.Cache.Stop()
+
+	if r.Cache != r.ManualCache {
+		r.ManualCache.Stop()
+	}
+}
+
 // MultiCache contains multiple ibackup caches that can be selected by path.
 type MultiCache struct {
 	d time.Duration
@@ -616,20 +643,24 @@ func NewMultiCache(mc *MultiClient, d time.Duration) *MultiCache {
 	caches := make(map[string]reCache, len(mc.clients))
 
 	for re, c := range mc.clients {
-		cache := NewCache(c.client, d)
-
-		var manualCache *Cache
-
-		if c.client == c.manualClient {
-			manualCache = cache
-		} else {
-			manualCache = NewCache(c.manualClient, d)
-		}
-
-		caches[re] = reCache{re: c.re, Cache: NewCache(c.client, d), ManualCache: manualCache}
+		caches[re] = makeCache(c, d)
 	}
 
 	return &MultiCache{caches: caches, d: d}
+}
+
+func makeCache(c *clientTransformer, d time.Duration) reCache {
+	cache := NewCache(c.client, d)
+
+	var manualCache *Cache
+
+	if c.client == c.manualClient {
+		manualCache = cache
+	} else {
+		manualCache = NewCache(c.manualClient, d)
+	}
+
+	return reCache{re: c.re, Cache: cache, ManualCache: manualCache}
 }
 
 // GetBackupActivity retrieves a cache using the given path, and then calls the
@@ -676,7 +707,7 @@ func (m *MultiCache) Update(mc *MultiClient) {
 		if exist, ok := m.caches[re]; ok {
 			exist.UpdateClient(c.client)
 		} else {
-			m.caches[re] = reCache{re: c.re, Cache: NewCache(c.client, m.d)}
+			m.caches[re] = makeCache(c, m.d)
 		}
 	}
 
