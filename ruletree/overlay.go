@@ -98,6 +98,35 @@ func (r *ruleOverlay) Summary(path string, wildcard group.State[int64]) (*DirSum
 	return cr.Summary(rest, wildcard.GetStateString(child))
 }
 
+func (r *ruleOverlay) getSummaries(path string, sm group.State[bool], wcs group.State[int64], summaries map[string]*DirSummary) {
+	isTarget := sm.GetGroup()
+	if isTarget == nil {
+		return
+	}
+
+	if *isTarget {
+		summaries[path] = r.getSummaryWithChildren(wcs)
+	}
+
+	for name, child := range r.lower.Children() {
+		childState := sm.GetStateString(name)
+
+		cr := r.getChildOverlay(child.(*tree.MemTree), name) //nolint:errcheck,forcetypeassert
+
+		cr.getSummaries(path+name, childState, wcs.GetStateString(name), summaries)
+	}
+}
+
+func (r *ruleOverlay) getChildOverlay(lower *tree.MemTree, child string) *ruleOverlay {
+	var upper *tree.MemTree
+
+	if r.upper != nil {
+		upper, _ = r.upper.Child(child) //nolint:errcheck
+	}
+
+	return &ruleOverlay{lower, upper}
+}
+
 func (r *ruleOverlay) getChild(path string) (summariser, string, string, error) {
 	pos := strings.IndexByte(path, '/')
 	child := path[:pos+1]
@@ -107,13 +136,7 @@ func (r *ruleOverlay) getChild(path string) (summariser, string, string, error) 
 		return nil, "", "", err
 	}
 
-	var upper *tree.MemTree
-
-	if r.upper != nil {
-		upper, _ = r.upper.Child(child) //nolint:errcheck
-	}
-
-	cr := &ruleOverlay{lower, upper}
+	cr := r.getChildOverlay(lower, child)
 
 	return cr, path[:pos+1], path[pos+1:], nil
 }

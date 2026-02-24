@@ -48,6 +48,7 @@ type summariser interface {
 	GetOwner(path string) (uint32, uint32, error)
 	IsDirectory(path string) bool
 	glob(match string) []string
+	getSummaries(path string, sm group.State[bool], wildcard group.State[int64], summaries map[string]*DirSummary)
 }
 
 // DirRules is a Directory reference and a map of its rules, keyed by the Match.
@@ -321,6 +322,92 @@ func (r *RootDir) Summary(path string) (*DirSummary, error) {
 	}
 
 	return r.topLevelDir.Summary(strings.TrimPrefix(path, "/"), wcs.GetStateString("/"))
+}
+
+const parentPath = false
+const targetPath = true
+
+// GetSummaries returns a dirSummary for every given path.
+func (r *RootDir) GetSummaries(paths []string) (map[string]*DirSummary, error) {
+	summaryMap := make(map[string]*DirSummary)
+	mountpoints := make(map[string][]string)
+
+	for _, path := range paths {
+		mp := r.getMountPoint(path)
+
+		if mp == "" {
+			pathSummary, err := r.Summary(path)
+			if err != nil {
+				return nil, err
+			}
+
+			summaryMap[path] = pathSummary
+
+			continue
+		}
+
+		mountpoints[mp] = append(mountpoints[mp], path)
+	}
+
+	for mp, paths := range mountpoints {
+		err := r.getSummariesForMountpoint(paths, mp, summaryMap)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return summaryMap, nil
+}
+
+func (r *RootDir) getSummariesForMountpoint(paths []string, mountpoint string,
+	summaryMap map[string]*DirSummary) error {
+	parentTargetPaths := make(map[string]bool)
+
+	for _, path := range paths {
+		parentTargetPaths[path] = targetPath
+
+		for parent := range parentParts(path) {
+			if _, exists := parentTargetPaths[parent]; exists {
+				break
+			}
+
+			parentTargetPaths[parent] = parentPath
+		}
+	}
+
+	pathGroups := make([]group.PathGroup[bool], 0, len(parentTargetPaths))
+
+	for path, v := range parentTargetPaths {
+		pathGroups = append(pathGroups, group.PathGroup[bool]{Path: []byte(path), Group: &v})
+	}
+
+	sm, err := group.NewStatemachine(pathGroups)
+	if err != nil {
+		return err
+	}
+
+	r.getSummaries(mountpoint, sm.GetStateString("/"), summaryMap)
+
+	return nil
+}
+
+func (r *RootDir) getSummaries(mp string, sm group.State[bool], summaries map[string]*DirSummary) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	r.topLevelDir.getSummaries("/", sm, r.wildcards[mp].GetStateString("/"), summaries)
+}
+
+func (t *topLevelDir) getSummaries(path string, sm group.State[bool], wcs group.State[int64],
+	summaries map[string]*DirSummary) {
+	for name, child := range t.children {
+		childState := sm.GetStateString(name)
+		if childState.GetGroup() == nil {
+			continue
+		}
+
+		child.getSummaries(path+name, childState, wcs.GetStateString(name), summaries)
+	}
 }
 
 // GetOwner returns the UID and GID for the directory denoted by the given path.
@@ -610,6 +697,23 @@ func pathParts(path string) iter.Seq[string] {
 			}
 
 			path = path[pos+1:]
+		}
+	}
+}
+
+func parentParts(path string) iter.Seq[string] {
+	return func(yield func(string) bool) {
+		for len(path) > 0 {
+			pos := strings.LastIndexByte(path[:len(path)-1], '/')
+			if pos == -1 {
+				return
+			}
+
+			if !yield(path[:pos+1]) {
+				break
+			}
+
+			path = path[:pos]
 		}
 	}
 }

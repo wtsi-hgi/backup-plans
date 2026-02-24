@@ -165,58 +165,68 @@ func TestRuletree(t *testing.T) {
 				},
 			}
 
-			s, err := root.Summary("/")
-			So(err, ShouldBeNil)
-
-			So(s, ShouldResemble, &DirSummary{
-				RuleSummaries: ruleExpectations,
-				Children: map[string]*DirSummary{
-					"some/": {
-						RuleSummaries: ruleExpectations,
+			expectedSummaries := map[string]*DirSummary{
+				"/": {
+					RuleSummaries: ruleExpectations,
+					Children: map[string]*DirSummary{
+						"some/": {
+							RuleSummaries: ruleExpectations,
+						},
 					},
 				},
-			})
+				"/some/": {
+					RuleSummaries: ruleExpectations,
+					Children: map[string]*DirSummary{
+						"other/": {
+							RuleSummaries: []Rule{},
+						},
+						"path/": {
+							RuleSummaries: ruleExpectations,
+						},
+					},
+				},
+				"/some/path/": {
+					RuleSummaries: ruleExpectations,
+					Children: map[string]*DirSummary{
+						"MyDir/": {
+							RuleSummaries: []Rule{ruleExpectations[1], ruleExpectations[2]},
+							Children:      map[string]*DirSummary{},
+						},
+						"YourDir/": {
+							RuleSummaries: []Rule{ruleExpectations[3]},
+							Children:      map[string]*DirSummary{},
+						},
+						"OtherDir/": {
+							RuleSummaries: []Rule{ruleExpectations[0]},
+							Children:      map[string]*DirSummary{},
+						},
+					},
+				},
+				"/some/path/MyDir/": {
+					RuleSummaries: []Rule{ruleExpectations[1], ruleExpectations[2]},
+					Children:      map[string]*DirSummary{},
+				},
+			}
+
+			s, err := root.Summary("/")
+			So(err, ShouldBeNil)
+			So(s, ShouldResemble, expectedSummaries["/"])
 
 			s, err = root.Summary("/some/")
 			So(err, ShouldBeNil)
-			So(s, ShouldResemble, &DirSummary{
-				RuleSummaries: ruleExpectations,
-				Children: map[string]*DirSummary{
-					"other/": {
-						RuleSummaries: []Rule{},
-					},
-					"path/": {
-						RuleSummaries: ruleExpectations,
-					},
-				},
-			})
+			So(s, ShouldResemble, expectedSummaries["/some/"])
 
 			s, err = root.Summary("/some/path/")
 			So(err, ShouldBeNil)
-			So(s, ShouldResemble, &DirSummary{
-				RuleSummaries: ruleExpectations,
-				Children: map[string]*DirSummary{
-					"MyDir/": {
-						RuleSummaries: []Rule{ruleExpectations[1], ruleExpectations[2]},
-						Children:      map[string]*DirSummary{},
-					},
-					"YourDir/": {
-						RuleSummaries: []Rule{ruleExpectations[3]},
-						Children:      map[string]*DirSummary{},
-					},
-					"OtherDir/": {
-						RuleSummaries: []Rule{ruleExpectations[0]},
-						Children:      map[string]*DirSummary{},
-					},
-				},
-			})
+			So(s, ShouldResemble, expectedSummaries["/some/path/"])
 
 			s, err = root.Summary("/some/path/MyDir/")
 			So(err, ShouldBeNil)
-			So(s, ShouldResemble, &DirSummary{
-				RuleSummaries: []Rule{ruleExpectations[1], ruleExpectations[2]},
-				Children:      map[string]*DirSummary{},
-			})
+			So(s, ShouldResemble, expectedSummaries["/some/path/MyDir/"])
+
+			summaries, err := root.GetSummaries([]string{"/", "/some/", "/some/path/", "/some/path/MyDir/"})
+			So(err, ShouldBeNil)
+			So(summaries, ShouldResemble, expectedSummaries)
 		})
 
 		Convey("You can add and remove rules with basic wildcard matches", func() {
