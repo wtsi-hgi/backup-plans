@@ -113,6 +113,7 @@ export type BackupStatus = {
 	Failed: number;
 	Orphaned: number;
 	Hardlinks: number;
+	Skipped: number;
 };
 
 export type UserGroups = {
