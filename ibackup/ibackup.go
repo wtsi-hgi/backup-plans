@@ -634,6 +634,10 @@ func NewMultiCache(mc *MultiClient, d time.Duration) *MultiCache {
 
 // GetBackupActivity retrieves a cache using the given path, and then calls the
 // normal GetBackupActivity method.
+//
+// If the manual bool is set to true, the cache retrieved will be related to the
+// manual server details, if they exist, defaulting to the normal server
+// details.
 func (m *MultiCache) GetBackupActivity(path, setName, requester string, manual bool) (*SetBackupActivity, error) {
 	c := m.getClient(path, manual)
 	if c == nil {

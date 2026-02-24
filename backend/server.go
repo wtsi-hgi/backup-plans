@@ -115,7 +115,7 @@ func (e Error) Error() string {
 	return e.Err.Error()
 }
 
-// SetExists is an HTTP endpoint that will return whether there is an manual
+// SetExists is an HTTP endpoint that will return whether there is a manual
 // ibackup set with:
 //
 //	Set name: The requests metadata form value.

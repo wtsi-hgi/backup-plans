@@ -82,7 +82,7 @@ ibackup:
       transformer: prefix=/some/path/:/some/remote/path/
     ^/some/o*/path/:
       servername: serverName2
-	  manualservername: serverName3
+      manualservername: serverName3
       transformer: prefix=/some/:/remote/
 
 The key of the servers map is the server name, as used in the PathToServer
@@ -92,6 +92,9 @@ For a classic ibackup server, we need the address, the SSL certificate, the
 admin username, and the location of the admin token file.
 
 For an ibackup watchfofns setup, we need the path to the watch directory.
+
+The manualservername can be set to indicate that the automated backups and
+manual backups, for the paths specified by the regexp, use different servers.
 
 If a manualservername is unspecified, it defaults to the specified servername.
 

@@ -166,6 +166,19 @@ func TestMultiIbackup(t *testing.T) {
 				So(mc.Backup("/some/other/path/a/dir/", setName, u.Username,
 					[]string{"/some/other/path/a/dir/file"}, 0, 3, 4), ShouldBeNil)
 
+				config.PathToServer["^/some/other/path/"] = ibackup.ServerTransformer{
+					ServerName:  "example_3",
+					Transformer: "prefix=/some/other/path/:/remote/other/path/",
+				}
+
+				nc, err := ibackup.New(config)
+				So(err, ShouldBeNil)
+
+				So(nc.Backup("/some/path/a/dir/", setName, u.Username,
+					[]string{"/some/path/a/dir/file"}, 0, 1, 2), ShouldBeNil)
+				So(nc.Backup("/some/path/another/dir/", setName, u.Username,
+					[]string{"/some/path/another/dir/file"}, 0, 1, 2), ShouldBeNil)
+
 				baa, err := mc.GetBackupActivity("/some/path/a/dir/", setName, u.Username, false)
 				So(err, ShouldBeNil)
 
@@ -177,9 +190,15 @@ func TestMultiIbackup(t *testing.T) {
 				So(err, ShouldBeNil)
 				So(baa.LastSuccess, ShouldNotEqual, bab.LastSuccess)
 
-				bad, err := mc.GetBackupActivity("/some/other/path/a/dir/", setName, u.Username, true)
+				_, err = mc.GetBackupActivity("/some/other/path/a/dir/", setName, u.Username, false)
 				So(err, ShouldEqual, server.ErrBadSet)
-				So(bad, ShouldBeNil)
+
+				bad, err := mc.GetBackupActivity("/some/other/path/a/dir/", setName, u.Username, true)
+				So(err, ShouldBeNil)
+				So(bad, ShouldNotEqual, bab)
+
+				_, err = mc.GetBackupActivity("/some/other/path/a/dir/", setName, u.Username, true)
+				So(err, ShouldBeNil)
 
 				Convey("You can query a MultiCache", func() {
 					mcache := ibackup.NewMultiCache(mc, time.Second)
