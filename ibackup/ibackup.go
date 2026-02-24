@@ -60,13 +60,22 @@ type ServerDetails struct {
 // ServerTransformer combines a configured server name and a transformer to be
 // used.
 type ServerTransformer struct {
-	ServerName, Transformer string
+	ServerName, ManualServerName, Transformer string
 }
 
 type clientTransformer struct {
-	client      *serverClient
+	client, manualClient *serverClient
+
 	re          *regexp.Regexp
 	transformer string
+}
+
+func (c *clientTransformer) Client(manual bool) *serverClient {
+	if manual {
+		return c.manualClient
+	}
+
+	return c.client
 }
 
 // Config contains a map of named ibackup servers, and their connection details,
@@ -225,15 +234,27 @@ func createClients(servers map[string]*serverClient, c Config) (map[string]*clie
 			return nil, UnknownServerError(server.ServerName)
 		}
 
+		var m *serverClient
+
+		if server.ManualServerName == "" || server.ManualServerName == server.ServerName { //nolint:nestif
+			m = s
+		} else {
+			m, ok = servers[server.ManualServerName]
+			if !ok {
+				return nil, UnknownServerError(server.ManualServerName)
+			}
+		}
+
 		r, err := regexp.Compile(re)
 		if err != nil {
 			return nil, err
 		}
 
 		clients[re] = &clientTransformer{
-			re:          r,
-			client:      s,
-			transformer: server.Transformer,
+			re:           r,
+			client:       s,
+			manualClient: m,
+			transformer:  server.Transformer,
 		}
 	}
 
@@ -273,7 +294,7 @@ func (m *MultiClient) Backup(path string, setName, requester string, files []str
 		return ErrUnknownClient
 	}
 
-	return Backup(c.client.Load(), c.transformer, setName, requester, files, frequency, review, remove)
+	return Backup(c.Client(false).Load(), c.transformer, setName, requester, files, frequency, review, remove)
 }
 
 func (m *MultiClient) getClient(path string) *clientTransformer {
@@ -288,13 +309,13 @@ func (m *MultiClient) getClient(path string) *clientTransformer {
 
 // GetBackupActivity retrieves a client using the given path, and then calls the
 // normal GetBackupActivity function.
-func (m *MultiClient) GetBackupActivity(path, setName, requester string) (*SetBackupActivity, error) {
+func (m *MultiClient) GetBackupActivity(path, setName, requester string, manual bool) (*SetBackupActivity, error) {
 	c := m.getClient(path)
 	if c == nil {
 		return nil, ErrInvalidPath
 	}
 
-	return GetBackupActivity(c.client, setName, requester)
+	return GetBackupActivity(c.Client(manual), setName, requester)
 }
 
 // Connect returns a client that can talk to the given ibackup server using
@@ -575,6 +596,7 @@ func (c *Cache) Stop() {
 type reCache struct {
 	re *regexp.Regexp
 	*Cache
+	ManualCache *Cache
 }
 
 // MultiCache contains multiple ibackup caches that can be selected by path.
@@ -594,7 +616,17 @@ func NewMultiCache(mc *MultiClient, d time.Duration) *MultiCache {
 	caches := make(map[string]reCache, len(mc.clients))
 
 	for re, c := range mc.clients {
-		caches[re] = reCache{re: c.re, Cache: NewCache(c.client, d)}
+		cache := NewCache(c.client, d)
+
+		var manualCache *Cache
+
+		if c.client == c.manualClient {
+			manualCache = cache
+		} else {
+			manualCache = NewCache(c.manualClient, d)
+		}
+
+		caches[re] = reCache{re: c.re, Cache: NewCache(c.client, d), ManualCache: manualCache}
 	}
 
 	return &MultiCache{caches: caches, d: d}
@@ -602,8 +634,8 @@ func NewMultiCache(mc *MultiClient, d time.Duration) *MultiCache {
 
 // GetBackupActivity retrieves a cache using the given path, and then calls the
 // normal GetBackupActivity method.
-func (m *MultiCache) GetBackupActivity(path, setName, requester string) (*SetBackupActivity, error) {
-	c := m.getClient(path)
+func (m *MultiCache) GetBackupActivity(path, setName, requester string, manual bool) (*SetBackupActivity, error) {
+	c := m.getClient(path, manual)
 	if c == nil {
 		return nil, ErrUnknownClient
 	}
@@ -611,12 +643,16 @@ func (m *MultiCache) GetBackupActivity(path, setName, requester string) (*SetBac
 	return c.GetBackupActivity(setName, requester)
 }
 
-func (m *MultiCache) getClient(path string) *Cache {
+func (m *MultiCache) getClient(path string, manual bool) *Cache {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
 	for _, c := range m.caches {
 		if c.re.MatchString(path) {
+			if manual {
+				return c.ManualCache
+			}
+
 			return c.Cache
 		}
 	}

@@ -124,10 +124,10 @@ func TestConfig(t *testing.T) {
 				So(ib.Backup("/some/other/path/a/dir/", setName, u.Username,
 					[]string{"/some/other/path/a/dir/file"}, 0, 3, 4), ShouldBeNil)
 
-				baa, err := ib.GetBackupActivity("/some/path/a/dir/", setName, u.Username)
+				baa, err := ib.GetBackupActivity("/some/path/a/dir/", setName, u.Username, false)
 				So(err, ShouldBeNil)
 
-				bab, err := ib.GetBackupActivity("/some/other/path/a/dir/", setName, u.Username)
+				bab, err := ib.GetBackupActivity("/some/other/path/a/dir/", setName, u.Username, false)
 				So(err, ShouldBeNil)
 
 				So(baa.LastSuccess, ShouldNotEqual, bab.LastSuccess)
@@ -136,7 +136,7 @@ func TestConfig(t *testing.T) {
 
 				Reset(func() { mc.Stop() })
 
-				ba, err := mc.GetBackupActivity("/some/path/a/dir/", setName, u.Username)
+				ba, err := mc.GetBackupActivity("/some/path/a/dir/", setName, u.Username, false)
 				So(err, ShouldBeNil)
 				So(ba, ShouldResemble, baa)
 			})

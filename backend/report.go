@@ -131,7 +131,7 @@ func (s *Server) populateIbackupStatus(dirClaims map[string]string, dirSummary *
 	for dir, claimedBy := range dirClaims {
 		planName := "plan::" + dir
 
-		sba, err := s.config.GetCachedIBackupClient().GetBackupActivity(dir, planName, claimedBy)
+		sba, err := s.config.GetCachedIBackupClient().GetBackupActivity(dir, planName, claimedBy, false)
 		if err != nil {
 			slog.Error("error querying ibackup status", "dir", dir, "err", err)
 		}
@@ -150,7 +150,7 @@ func (s *Server) populateIbackupStatus(dirClaims map[string]string, dirSummary *
 func (s *Server) populateManualIBackupStatus(manualIbackup map[string][]dirSet, dirSummary *summary) {
 	for claimedBy, dirSets := range manualIbackup {
 		for _, dirSet := range dirSets {
-			sba, err := s.config.GetCachedIBackupClient().GetBackupActivity(dirSet.dir, dirSet.set, claimedBy)
+			sba, err := s.config.GetCachedIBackupClient().GetBackupActivity(dirSet.dir, dirSet.set, claimedBy, true)
 			if err != nil {
 				slog.Error("error querying manual ibackup status",
 					"dir", dirSet.dir, "claimedBy", claimedBy, "set", dirSet.set, "err", err)

@@ -74,12 +74,15 @@ ibackup:
       token: /path/to/token
     "serverName2":
       fofndir: /path/to/ibackup/fofn-dir/
+	"serverName3":
+      fofndir: /path/to/another/ibackup/fofn-dir/
   pathtoserver:
     ^/some/path/:
       servername: serverName1
       transformer: prefix=/some/path/:/some/remote/path/
     ^/some/o*/path/:
       servername: serverName2
+	  manualservername: serverName3
       transformer: prefix=/some/:/remote/
 
 The key of the servers map is the server name, as used in the PathToServer
@@ -89,6 +92,8 @@ For a classic ibackup server, we need the address, the SSL certificate, the
 admin username, and the location of the admin token file.
 
 For an ibackup watchfofns setup, we need the path to the watch directory.
+
+If a manualservername is unspecified, it defaults to the specified servername.
 
 The key of the pathtoserver map is a regexp string that will be matched
 against path; a matching path will use the server details associated with the
