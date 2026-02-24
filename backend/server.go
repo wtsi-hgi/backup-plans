@@ -98,7 +98,7 @@ func (s *Server) LoadDirMaps() error {
 	for _, dir := range s.directoryRules {
 		dirSummary, err := s.rootDir.Summary(dir.Path)
 		if err != nil {
-			if errors.As(err, new(tree.ChildNotFoundError)) {
+			if errors.As(err, new(tree.ChildNotFoundError)) || errors.Is(err, ruletree.ErrNotFound) {
 				continue
 			}
 

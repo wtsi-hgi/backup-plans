@@ -107,7 +107,7 @@ func (s *Server) claimstats(w http.ResponseWriter, r *http.Request) error { //no
 	}
 
 	for path, summary := range dirSummaries {
-		s.generateDirStats(path, summary)
+		claimstats = append(claimstats, *s.generateDirStats(path, summary))
 	}
 
 	// go func() {
