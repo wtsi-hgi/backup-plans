@@ -127,7 +127,7 @@ func (s *Server) filterOutUser(dir *ruletree.DirRules, f filter) bool {
 
 // filterGroup will return true if the group/bom does not match the filter.
 func (s *Server) filterOutGroupBom(dir *ruletree.DirRules, f filter) bool {
-	return f.filterGroup && (s.dirGroups[dir.ID()] != f.group || s.dirBoms[dir.ID()] != f.group)
+	return f.filterGroup && (s.dirGroups[dir.ID()] != f.group && s.dirBoms[dir.ID()] != f.group)
 }
 
 func (s *Server) getFormValues(r *http.Request) filter {

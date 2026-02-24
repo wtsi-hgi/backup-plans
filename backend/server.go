@@ -85,21 +85,15 @@ func New(db *db.DB, getUser func(r *http.Request) string, c *config.Config) (*Se
 	return s, nil
 }
 
-// TODO: Split into two funcs
-// LoadDirGroups will populate
-//   - s.dirGroups: map(directory ID -> group name)
-//   - s.dirBoms: map(directory ID -> BOM)
+// LoadDirMaps will populate
+//
+//	s.dirGroups: map(directory ID -> group name)
+//	s.dirBoms: map(directory ID -> BOM)
 func (s *Server) LoadDirMaps() error {
 	dirGroups := make(map[int64]string)
 	dirBoms := make(map[int64]string)
 	bomMap := s.config.GetBOMs()             // bom -> groups
-	reverseBomMap := make(map[string]string) // group -> bom
-
-	for bom, groups := range bomMap {
-		for _, group := range groups {
-			reverseBomMap[group] = bom
-		}
-	}
+	reverseBomMap := s.reverseBOMMap(bomMap) // group -> bom
 
 	for _, dir := range s.directoryRules {
 		dirSummary, err := s.rootDir.Summary(dir.Path)
@@ -121,6 +115,18 @@ func (s *Server) LoadDirMaps() error {
 	s.dirBoms = dirBoms
 
 	return nil
+}
+
+func (s *Server) reverseBOMMap(bomMap map[string][]string) map[string]string {
+	reverseBomMap := make(map[string]string)
+
+	for bom, groups := range bomMap {
+		for _, group := range groups {
+			reverseBomMap[group] = bom
+		}
+	}
+
+	return reverseBomMap
 }
 
 // WhoAmI is an HTTP endpoint that returns the result of the getUser func that
