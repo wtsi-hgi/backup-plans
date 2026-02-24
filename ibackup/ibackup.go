@@ -260,7 +260,7 @@ func createManualClient(
 	servers map[string]*serverClient,
 	server ServerTransformer,
 ) (*serverClient, error) {
-	if server.ManualServerName == "" || server.ManualServerName == server.ServerName { //nolint:nestif
+	if server.ManualServerName == "" || server.ManualServerName == server.ServerName {
 		return s, nil
 	}
 
