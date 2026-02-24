@@ -94,6 +94,7 @@ func setSetData(s *set.Set, counts fofn.StatusCounts, config fofn.SubDirConfig) 
 	s.Failed = uint64(counts.Failed)      //nolint:gosec
 	s.Orphaned = uint64(counts.Orphaned)  //nolint:gosec
 	s.Hardlinks = uint64(counts.Hardlink) //nolint:gosec
+	s.Skipped = uint64(counts.Unmodified) //nolint:gosec
 	s.Transformer = config.Transformer
 	s.Frozen = config.Freeze
 	s.Metadata = config.Metadata

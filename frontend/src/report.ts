@@ -222,7 +222,8 @@ const groupList = datalist({ "id": "groupList" }),
 		"Missing",
 		"Failures",
 		"Orphaned",
-		"Hardlinks"
+		"Hardlinks",
+		"Skipped"
 	] as const,
 	base = div({ "id": "report" }, groupList),
 	initFilterSort = (container: HTMLDivElement, children: HTMLFieldSetElement[], [filterProject, filterAll, filterR, filterA, filterG, filterB, sortName, sortWarnSize, sortNoBackupSize, sortBackupSize]: [HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement]) => {

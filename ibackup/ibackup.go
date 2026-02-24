@@ -434,6 +434,7 @@ type SetBackupActivity struct {
 	Missing     uint64
 	Orphaned    uint64
 	Hardlinks   uint64
+	Skipped     uint64
 }
 
 // GetBackupActivity queries an ibackup server to get the last completed backup
@@ -459,6 +460,7 @@ func GetBackupActivity(client Client, setName, requester string) (*SetBackupActi
 		sba.Missing = got.Missing
 		sba.Orphaned = got.Orphaned
 		sba.Hardlinks = got.Hardlinks
+		sba.Skipped = got.Skipped
 		sba.LastSuccess = got.LastCompleted
 	}
 
