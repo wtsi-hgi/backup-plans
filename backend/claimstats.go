@@ -139,7 +139,7 @@ func (s *Server) getFormValues(r *http.Request) filter {
 		filterUser = true
 	}
 
-	group := r.FormValue("group")
+	group := r.FormValue("groupbom")
 	if group != "" {
 		filterGroup = true
 	}

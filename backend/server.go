@@ -85,7 +85,7 @@ func New(db *db.DB, getUser func(r *http.Request) string, c *config.Config) (*Se
 	return s, nil
 }
 
-// LoadDirMaps will populate
+// LoadDirMaps will populate s.dirGroups and s.dirBoms with:
 //
 //	s.dirGroups: map(directory ID -> group name)
 //	s.dirBoms: map(directory ID -> BOM)
