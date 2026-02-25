@@ -29,6 +29,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/wtsi-hgi/backup-plans/db"
@@ -69,55 +70,59 @@ func (s *Server) claimstats(w http.ResponseWriter, r *http.Request) error { //no
 
 	f := s.getFormValues(r)
 	claimstats := make([]DirStats, 0, len(s.directoryRules))
-	// channel := make(chan DirStats, len(s.directoryRules))
+	channel := make(chan DirStats, len(s.directoryRules))
 
-	// var wg sync.WaitGroup
-
-	// for _, dir := range s.directoryRules {
-	// 	if !(s.matchesFilter(dir, f)) {
-	// 		continue
-	// 	}
-
-	// 	wg.Add(1)
-
-	// 	go func(dir *ruletree.DirRules) {
-	// 		defer wg.Done()
-
-	// 		dirSummary, err := s.rootDir.Summary(dir.Path)
-	// 		if err != nil {
-	// 			return
-	// 		}
-
-	// 		dirStats := s.generateDirStats(dir, dirSummary)
-	// 		channel <- *dirStats
-	// 	}(dir)
-	// }
-
-	dirPaths := make([]string, 0, len(s.directoryRules))
+	var wg sync.WaitGroup
 
 	for _, dir := range s.directoryRules {
-		if s.matchesFilter(dir, f) {
-			dirPaths = append(dirPaths, dir.Path)
+		if !(s.matchesFilter(dir, f)) {
+			continue
 		}
+
+		wg.Add(1)
+
+		go func(dir *ruletree.DirRules) {
+			defer wg.Done()
+
+			dirSummary, err := s.rootDir.Summary(dir.Path)
+			if err != nil {
+				return
+			}
+
+			dirStats := s.generateDirStats(dir.Path, dirSummary)
+			channel <- *dirStats
+		}(dir)
 	}
 
-	dirSummaries, err := s.rootDir.GetSummaries(dirPaths)
-	if err != nil {
-		return err
-	}
+	// ---
+	// dirPaths := make([]string, 0, len(s.directoryRules))
 
-	for path, summary := range dirSummaries {
-		claimstats = append(claimstats, *s.generateDirStats(path, summary))
-	}
-
-	// go func() {
-	// 	wg.Wait()
-	// 	close(channel)
-	// }()
-
-	// for item := range channel {
-	// 	claimstats = append(claimstats, item)
+	// for _, dir := range s.directoryRules {
+	// 	if s.matchesFilter(dir, f) {
+	// 		dirPaths = append(dirPaths, dir.Path)
+	// 		fmt.Println(dir.Path, dir.ClaimedBy)
+	// 	}
 	// }
+
+	// dirSummaries, err := s.rootDir.GetSummaries(dirPaths)
+	// if err != nil {
+	// 	return err
+	// }
+
+	// for path, summary := range dirSummaries {
+	// 	fmt.Println("dirSummaries:", summary.ClaimedBy)
+	// 	claimstats = append(claimstats, *s.generateDirStats(path, summary))
+	// }
+	// ----
+
+	go func() {
+		wg.Wait()
+		close(channel)
+	}()
+
+	for item := range channel {
+		claimstats = append(claimstats, item)
+	}
 
 	w.Header().Set("Content-type", "application/json")
 
@@ -172,7 +177,7 @@ func (s *Server) generateDirStats(path string, dirSummary *ruletree.DirSummary) 
 			LastSuccess: time.Time{},
 			Name:        "plan::" + path,
 			Requester:   dirSummary.ClaimedBy,
-			Failures:    0}
+		}
 	}
 
 	return &DirStats{
