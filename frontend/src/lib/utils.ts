@@ -93,3 +93,9 @@ export const formatBytes = (size: bigint) => {
 			return promise;
 		}
 	};
+
+export function CreateSpinner(): HTMLElement {
+	const spinner = document.createElement("div");
+	spinner.className = "spinner";
+	return spinner;
+};

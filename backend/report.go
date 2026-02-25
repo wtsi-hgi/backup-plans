@@ -32,6 +32,7 @@ import (
 	"net/http"
 	"slices"
 	"strings"
+	"sync"
 
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/ibackup"
@@ -122,9 +123,30 @@ func (s *Server) getClaimed(root string) string {
 
 func (s *Server) populateBackupStatus(dirClaims, repos map[string]string,
 	manualIbackup map[string][]dirSet, dirSummary *summary) {
-	s.populateIbackupStatus(dirClaims, dirSummary)
-	s.populateManualIBackupStatus(manualIbackup, dirSummary)
-	s.populateGitBackupStatus(repos, dirSummary)
+
+	var wg sync.WaitGroup
+
+	wg.Add(3)
+
+	go func() {
+		defer wg.Done()
+
+		s.populateIbackupStatus(dirClaims, dirSummary)
+	}()
+
+	go func() {
+		defer wg.Done()
+
+		s.populateManualIBackupStatus(manualIbackup, dirSummary)
+	}()
+
+	go func() {
+		defer wg.Done()
+
+		s.populateGitBackupStatus(repos, dirSummary)
+	}()
+
+	wg.Wait()
 }
 
 func (s *Server) populateIbackupStatus(dirClaims map[string]string, dirSummary *summary) {
@@ -239,7 +261,7 @@ func (s *Server) buildRootDirSummary(reportingRoots []string, dirSummary *summar
 	return nil
 }
 
-// TODO: this could skip parents by traversing the tree from the root given surely?
+// TODO: this could skip parents by traversing the tree from the root given?
 func (s *Server) collectChildDirSummaries(ds *ruletree.DirSummary, root string) {
 	for _, dir := range s.dirs {
 		if strings.HasPrefix(dir.Path, root) && dir.Path != root {

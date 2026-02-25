@@ -1,6 +1,6 @@
 import { div, h2, p, button, table, thead, tbody, th, td, tr, fieldset, legend, input, datalist, option } from "./lib/html.js";
 import { getClaimStats, user } from "./rpc.js";
-import { formatBytes, longAgoStr } from "./lib/utils.js";
+import { formatBytes, longAgoStr, CreateSpinner } from "./lib/utils.js";
 import { BackupType } from "./consts.js";
 import { svg, title, use } from "./lib/svg.js";
 import { load } from './load.js';
@@ -10,16 +10,10 @@ import { users, groups, bomSet } from './userGroups.js';
 const base = div({ "class": "main-container" });
 const container = div();
 
-function createSpinner(): HTMLElement {
-    const spinner = document.createElement("div");
-    spinner.className = "spinner";
-    return spinner;
-}
-
 function initialiseClaimStats() {
-    base.appendChild(createFilterSection());
+    base.append(createFilterSection());
     updateClaimStats();
-    base.appendChild(container);
+    base.append(container);
 }
 
 export function updateClaimStats() {
@@ -35,7 +29,7 @@ let filter = {
 function createClaimStatsSection() {
     let page = div({ "class": "claimstats-container" });
 
-    const spinner = createSpinner();
+    const spinner = CreateSpinner();
     page.appendChild(spinner);
 
 
