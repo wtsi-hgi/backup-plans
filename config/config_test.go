@@ -37,6 +37,7 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/wtsi-hgi/backup-plans/ibackup"
 	ib "github.com/wtsi-hgi/backup-plans/internal/ibackup"
+	"github.com/wtsi-hgi/ibackup/server"
 )
 
 func TestConfig(t *testing.T) {
@@ -56,6 +57,10 @@ func TestConfig(t *testing.T) {
 			}
 		}
 
+		servers["example_3"] = ibackup.ServerDetails{
+			FOFNDir: t.TempDir(),
+		}
+
 		tmp := t.TempDir()
 		y := yamlConfig{
 			IBackup: ibackup.Config{
@@ -66,8 +71,9 @@ func TestConfig(t *testing.T) {
 						Transformer: ib.CustomTransformer,
 					},
 					"^/some/other/path/": {
-						ServerName:  "example_2",
-						Transformer: "prefix=/some/other/path/:/remote/other/path/",
+						ServerName:       "example_2",
+						ManualServerName: "example_3",
+						Transformer:      "prefix=/some/other/path/:/remote/other/path/",
 					},
 				},
 			},
@@ -129,6 +135,9 @@ func TestConfig(t *testing.T) {
 
 				bab, err := ib.GetBackupActivity("/some/other/path/a/dir/", setName, u.Username, false)
 				So(err, ShouldBeNil)
+
+				_, err = ib.GetBackupActivity("/some/other/path/a/dir/", setName, u.Username, true)
+				So(err, ShouldEqual, server.ErrBadSet)
 
 				So(baa.LastSuccess, ShouldNotEqual, bab.LastSuccess)
 

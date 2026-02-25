@@ -610,11 +610,11 @@ type reCache struct {
 	ManualCache *Cache
 }
 
-func (r reCache) UpdateClient(client Client) {
-	r.Cache.UpdateClient(client)
+func (r reCache) UpdateClient(c *clientTransformer) {
+	r.Cache.UpdateClient(c.client)
 
 	if r.Cache != r.ManualCache {
-		r.ManualCache.UpdateClient(client)
+		r.ManualCache.UpdateClient(c.manualClient)
 	}
 }
 
@@ -705,7 +705,7 @@ func (m *MultiCache) Update(mc *MultiClient) {
 
 	for re, c := range mc.clients {
 		if exist, ok := m.caches[re]; ok {
-			exist.UpdateClient(c.client)
+			exist.UpdateClient(c)
 		} else {
 			m.caches[re] = makeCache(c, m.d)
 		}

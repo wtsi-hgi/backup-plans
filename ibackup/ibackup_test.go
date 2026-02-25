@@ -222,6 +222,10 @@ func TestMultiIbackup(t *testing.T) {
 					ba, err = mcache.GetBackupActivity("/some/other/path/a/dir/", setName, u.Username, false)
 					So(err, ShouldNotBeNil)
 					So(ba, ShouldBeNil)
+
+					ba, err = mcache.GetBackupActivity("/some/other/path/a/dir/", setNameB, u.Username, true)
+					So(err, ShouldBeNil)
+					So(ba, ShouldEqual, bad)
 				})
 			})
 		})

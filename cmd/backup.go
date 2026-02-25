@@ -74,7 +74,7 @@ ibackup:
       token: /path/to/token
     "serverName2":
       fofndir: /path/to/ibackup/fofn-dir/
-	"serverName3":
+    "serverName3":
       fofndir: /path/to/another/ibackup/fofn-dir/
   pathtoserver:
     ^/some/path/:
