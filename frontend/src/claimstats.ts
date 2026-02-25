@@ -10,6 +10,12 @@ import { users, groups, bomSet } from './userGroups.js';
 const base = div({ "class": "main-container" });
 const container = div();
 
+function createSpinner(): HTMLElement {
+    const spinner = document.createElement("div");
+    spinner.className = "spinner";
+    return spinner;
+}
+
 function initialiseClaimStats() {
     base.appendChild(createFilterSection());
     updateClaimStats();
@@ -28,7 +34,13 @@ let filter = {
 
 function createClaimStatsSection() {
     let page = div({ "class": "claimstats-container" });
+
+    const spinner = createSpinner();
+    page.appendChild(spinner);
+
+
     getClaimStats(filter.user, filter.groupbom).then(claimstats => {
+        page.removeChild(spinner);
         claimstats.length > 0 ? claimstats.map((dirStats) => {
             console.log(dirStats);
             if (!users.has(dirStats.ClaimedBy)) {
