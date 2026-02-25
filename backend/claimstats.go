@@ -96,27 +96,6 @@ func (s *Server) claimstats(w http.ResponseWriter, r *http.Request) error { //no
 		}(dir)
 	}
 
-	// ---
-	// dirPaths := make([]string, 0, len(s.directoryRules))
-
-	// for _, dir := range s.directoryRules {
-	// 	if s.matchesFilter(dir, f) {
-	// 		dirPaths = append(dirPaths, dir.Path)
-	// 		fmt.Println(dir.Path, dir.ClaimedBy)
-	// 	}
-	// }
-
-	// dirSummaries, err := s.rootDir.GetSummaries(dirPaths)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// for path, summary := range dirSummaries {
-	// 	fmt.Println("dirSummaries:", summary.ClaimedBy)
-	// 	claimstats = append(claimstats, *s.generateDirStats(path, summary))
-	// }
-	// ----
-
 	go func() {
 		wg.Wait()
 		close(channel)
