@@ -48,18 +48,18 @@ var ErrNoTrees = errors.New("no tree dbs specified")
 
 // Start creates and start a new server after loading the trees given.
 func Start(listen string, d *db.DB, getUser func(*http.Request) string,
-	config *config.Config, initialTrees ...string) error {
+	logout http.Handler, config *config.Config, initialTrees ...string) error {
 	l, err := net.Listen("tcp", listen) //nolint:noctx
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
 	}
 	defer l.Close()
 
-	return start(l, d, getUser, config, initialTrees...)
+	return start(l, d, getUser, logout, config, initialTrees...)
 }
 
 func start(listen net.Listener, d *db.DB, getUser func(*http.Request) string,
-	config *config.Config, initialTrees ...string) error {
+	logout http.Handler, config *config.Config, initialTrees ...string) error {
 	b, err := backend.New(d, getUser, config)
 	if err != nil {
 		return err
@@ -70,10 +70,10 @@ func start(listen net.Listener, d *db.DB, getUser func(*http.Request) string,
 		return err
 	}
 
-	return addHandlesAndListen(b, listen)
+	return addHandlesAndListen(b, listen, logout)
 }
 
-func addHandlesAndListen(b *backend.Server, listen net.Listener) error {
+func addHandlesAndListen(b *backend.Server, listen net.Listener, logout http.Handler) error {
 	http.Handle("/api/whoami", http.HandlerFunc(b.WhoAmI))
 	http.Handle("/api/tree", http.HandlerFunc(b.Tree))
 	http.Handle("/api/dir/claim", http.HandlerFunc(b.ClaimDir))
@@ -90,6 +90,7 @@ func addHandlesAndListen(b *backend.Server, listen net.Listener) error {
 	http.Handle("/api/usergroups", http.HandlerFunc(b.UserGroups))
 	http.Handle("/api/mainprogrammes", http.HandlerFunc(b.GetMainProgrammes))
 	http.Handle("/", frontend.Index)
+	http.Handle("/logout", logout)
 
 	slog.Info("Serving...")
 
