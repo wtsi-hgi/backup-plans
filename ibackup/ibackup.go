@@ -59,6 +59,9 @@ type ServerDetails struct {
 
 // ServerTransformer combines a configured server name and a transformer to be
 // used.
+//
+// An alternate backup server name can be specified for manual backups; it will
+// default to the ServerName if left blank.
 type ServerTransformer struct {
 	ServerName, ManualServerName, Transformer string
 }
