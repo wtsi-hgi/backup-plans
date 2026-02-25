@@ -115,11 +115,11 @@ func (e Error) Error() string {
 	return e.Err.Error()
 }
 
-// SetExists is an HTTP endpoint that will return whether there is an ibackup
-// set with:
+// SetExists is an HTTP endpoint that will return whether there is a manual
+// ibackup set with:
 //
 //	Set name: The requests metadata form value.
-//		User: Given by the getUser func passed when creating the server with New(...)
+//	User: Given by the getUser func passed when creating the server with New(...)
 func (s *Server) SetExists(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.setExists)
 }
@@ -133,7 +133,7 @@ func (s *Server) setExists(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	got, err := s.config.GetCachedIBackupClient().GetBackupActivity(dir, setName, user)
+	got, err := s.config.GetCachedIBackupClient().GetBackupActivity(dir, setName, user, true)
 	if err != nil {
 		if err.Error() != "set with that id does not exist" {
 			return err

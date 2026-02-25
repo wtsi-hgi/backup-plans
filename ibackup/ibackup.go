@@ -59,14 +59,26 @@ type ServerDetails struct {
 
 // ServerTransformer combines a configured server name and a transformer to be
 // used.
+//
+// An alternate backup server name can be specified for manual backups; it will
+// default to the ServerName if left blank.
 type ServerTransformer struct {
-	ServerName, Transformer string
+	ServerName, ManualServerName, Transformer string
 }
 
 type clientTransformer struct {
-	client      *serverClient
+	client, manualClient *serverClient
+
 	re          *regexp.Regexp
 	transformer string
+}
+
+func (c *clientTransformer) Client(manual bool) *serverClient {
+	if manual {
+		return c.manualClient
+	}
+
+	return c.client
 }
 
 // Config contains a map of named ibackup servers, and their connection details,
@@ -225,19 +237,42 @@ func createClients(servers map[string]*serverClient, c Config) (map[string]*clie
 			return nil, UnknownServerError(server.ServerName)
 		}
 
+		m, err := createManualClient(s, servers, server)
+		if err != nil {
+			return nil, err
+		}
+
 		r, err := regexp.Compile(re)
 		if err != nil {
 			return nil, err
 		}
 
 		clients[re] = &clientTransformer{
-			re:          r,
-			client:      s,
-			transformer: server.Transformer,
+			re:           r,
+			client:       s,
+			manualClient: m,
+			transformer:  server.Transformer,
 		}
 	}
 
 	return clients, nil
+}
+
+func createManualClient(
+	s *serverClient,
+	servers map[string]*serverClient,
+	server ServerTransformer,
+) (*serverClient, error) {
+	if server.ManualServerName == "" || server.ManualServerName == server.ServerName {
+		return s, nil
+	}
+
+	m, ok := servers[server.ManualServerName]
+	if !ok {
+		return nil, UnknownServerError(server.ManualServerName)
+	}
+
+	return m, nil
 }
 
 // Stop stops all attempts to connect to previously unreachable ibackup servers.
@@ -273,7 +308,7 @@ func (m *MultiClient) Backup(path string, setName, requester string, files []str
 		return ErrUnknownClient
 	}
 
-	return Backup(c.client.Load(), c.transformer, setName, requester, files, frequency, review, remove)
+	return Backup(c.Client(false).Load(), c.transformer, setName, requester, files, frequency, review, remove)
 }
 
 func (m *MultiClient) getClient(path string) *clientTransformer {
@@ -288,13 +323,13 @@ func (m *MultiClient) getClient(path string) *clientTransformer {
 
 // GetBackupActivity retrieves a client using the given path, and then calls the
 // normal GetBackupActivity function.
-func (m *MultiClient) GetBackupActivity(path, setName, requester string) (*SetBackupActivity, error) {
+func (m *MultiClient) GetBackupActivity(path, setName, requester string, manual bool) (*SetBackupActivity, error) {
 	c := m.getClient(path)
 	if c == nil {
 		return nil, ErrInvalidPath
 	}
 
-	return GetBackupActivity(c.client, setName, requester)
+	return GetBackupActivity(c.Client(manual), setName, requester)
 }
 
 // Connect returns a client that can talk to the given ibackup server using
@@ -575,6 +610,23 @@ func (c *Cache) Stop() {
 type reCache struct {
 	re *regexp.Regexp
 	*Cache
+	ManualCache *Cache
+}
+
+func (r reCache) UpdateClient(c *clientTransformer) {
+	r.Cache.UpdateClient(c.client)
+
+	if r.Cache != r.ManualCache {
+		r.ManualCache.UpdateClient(c.manualClient)
+	}
+}
+
+func (r reCache) Stop() {
+	r.Cache.Stop()
+
+	if r.Cache != r.ManualCache {
+		r.ManualCache.Stop()
+	}
 }
 
 // MultiCache contains multiple ibackup caches that can be selected by path.
@@ -594,16 +646,34 @@ func NewMultiCache(mc *MultiClient, d time.Duration) *MultiCache {
 	caches := make(map[string]reCache, len(mc.clients))
 
 	for re, c := range mc.clients {
-		caches[re] = reCache{re: c.re, Cache: NewCache(c.client, d)}
+		caches[re] = makeCache(c, d)
 	}
 
 	return &MultiCache{caches: caches, d: d}
 }
 
+func makeCache(c *clientTransformer, d time.Duration) reCache {
+	cache := NewCache(c.client, d)
+
+	var manualCache *Cache
+
+	if c.client == c.manualClient {
+		manualCache = cache
+	} else {
+		manualCache = NewCache(c.manualClient, d)
+	}
+
+	return reCache{re: c.re, Cache: cache, ManualCache: manualCache}
+}
+
 // GetBackupActivity retrieves a cache using the given path, and then calls the
 // normal GetBackupActivity method.
-func (m *MultiCache) GetBackupActivity(path, setName, requester string) (*SetBackupActivity, error) {
-	c := m.getClient(path)
+//
+// If the manual bool is set to true, the cache retrieved will be related to the
+// manual server details, if they exist, defaulting to the normal server
+// details.
+func (m *MultiCache) GetBackupActivity(path, setName, requester string, manual bool) (*SetBackupActivity, error) {
+	c := m.getClient(path, manual)
 	if c == nil {
 		return nil, ErrUnknownClient
 	}
@@ -611,12 +681,16 @@ func (m *MultiCache) GetBackupActivity(path, setName, requester string) (*SetBac
 	return c.GetBackupActivity(setName, requester)
 }
 
-func (m *MultiCache) getClient(path string) *Cache {
+func (m *MultiCache) getClient(path string, manual bool) *Cache {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
 	for _, c := range m.caches {
 		if c.re.MatchString(path) {
+			if manual {
+				return c.ManualCache
+			}
+
 			return c.Cache
 		}
 	}
@@ -634,9 +708,9 @@ func (m *MultiCache) Update(mc *MultiClient) {
 
 	for re, c := range mc.clients {
 		if exist, ok := m.caches[re]; ok {
-			exist.UpdateClient(c.client)
+			exist.UpdateClient(c)
 		} else {
-			m.caches[re] = reCache{re: c.re, Cache: NewCache(c.client, m.d)}
+			m.caches[re] = makeCache(c, m.d)
 		}
 	}
 
