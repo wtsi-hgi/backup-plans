@@ -125,7 +125,6 @@ func (s *Server) populateBackupStatus(dirClaims, repos map[string]string,
 	s.populateIbackupStatus(dirClaims, dirSummary)
 	s.populateManualIBackupStatus(manualIbackup, dirSummary)
 	s.populateGitBackupStatus(repos, dirSummary)
-
 }
 
 func (s *Server) populateIbackupStatus(dirClaims map[string]string, dirSummary *summary) {
@@ -240,7 +239,6 @@ func (s *Server) buildRootDirSummary(reportingRoots []string, dirSummary *summar
 	return nil
 }
 
-// TODO: this could skip parents by traversing the tree from the root given?
 func (s *Server) collectChildDirSummaries(ds *ruletree.DirSummary, root string) {
 	for _, dir := range s.dirs {
 		if strings.HasPrefix(dir.Path, root) && dir.Path != root {

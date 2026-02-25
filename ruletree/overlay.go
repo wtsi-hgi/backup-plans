@@ -98,7 +98,8 @@ func (r *ruleOverlay) Summary(path string, wildcard group.State[int64]) (*DirSum
 	return cr.Summary(rest, wildcard.GetStateString(child))
 }
 
-func (r *ruleOverlay) getSummaries(path string, sm group.State[bool], wcs group.State[int64], summaries map[string]*DirSummary) {
+func (r *ruleOverlay) getSummaries(path string, sm group.State[bool], wcs group.State[int64],
+	summaries map[string]*DirSummary) {
 	isTarget := sm.GetGroup()
 	if isTarget == nil {
 		return

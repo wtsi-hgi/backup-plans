@@ -229,7 +229,7 @@ func (s *Server) gatherDirRules(dirSummary *ruletree.DirSummary) map[uint64]stru
 	ids := make(map[uint64]struct{})
 
 	for _, rule := range dirSummary.RuleSummaries {
-		ids[uint64(rule.ID)] = struct{}{} //nolint:gosec
+		ids[rule.ID] = struct{}{}
 	}
 
 	return ids

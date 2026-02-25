@@ -36,7 +36,6 @@ function createClaimStatsSection() {
     getClaimStats(filter.user, filter.groupbom).then(claimstats => {
         page.removeChild(spinner);
         claimstats.length > 0 ? claimstats.map((dirStats) => {
-            console.log(dirStats);
             if (!users.has(dirStats.ClaimedBy)) {
                 users.add(dirStats.ClaimedBy);
                 userList.append(option({ "label": "User: " + dirStats.ClaimedBy }, dirStats.ClaimedBy));
