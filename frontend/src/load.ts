@@ -11,10 +11,8 @@ const debounce = debouncer<void>(),
 	handlers: LoadHandler[] = [];
 
 export const registerLoader = (fn: LoadHandler) => handlers.push(fn),
-	load = (path?: string) => {
-		if (!path) {
-			path = lastPath;
-		}
+	load = (path = lastPath) => {
+		lastPath = path;
 
 		return debounce(() => (setState("path", path), Load(path)).then(data => {
 			for (const fn of handlers) {
@@ -23,4 +21,4 @@ export const registerLoader = (fn: LoadHandler) => handlers.push(fn),
 		}))
 	};
 
-handleState("path", path => load(lastPath = path || lastPath));
+handleState("path", path => load(path || lastPath));
