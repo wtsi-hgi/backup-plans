@@ -188,5 +188,5 @@ func logout(w http.ResponseWriter, r *http.Request) {
 		HttpOnly: true,
 	})
 
-	http.Redirect(w, r, "", http.StatusFound)
+	http.Redirect(w, r, "/", http.StatusFound)
 }

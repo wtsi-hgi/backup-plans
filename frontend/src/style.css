@@ -18,10 +18,17 @@ body {
 }
 
 #user {
-	position: absolute;
-	top: 0;
-	right: 0;
 	margin-top: 0.25em;
+	float: right;
+}
+
+@media (min-width: 700px) {
+	#user {
+		position: absolute;
+		top: 0;
+		right: 0;
+		float: none;
+	}
 }
 
 #user button {

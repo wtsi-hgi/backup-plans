@@ -17,7 +17,7 @@ import { user } from './rpc.js';
 	.then(() => document.body.replaceChildren(
 		symbols,
 		div({ "id": "user" }, ["User: ", user, button({
-			"click": () => window.location.pathname = ("" + window.location.pathname).slice(0, ("" + window.location).lastIndexOf("/") + 1) + "logout"
+			"click": () => window.location.pathname = window.location.pathname.replace(/[^/]*$/, "logout")
 		},
 			"Logout"
 		)]),
