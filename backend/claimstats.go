@@ -89,6 +89,8 @@ func (s *Server) claimstats(w http.ResponseWriter, r *http.Request) error { //no
 				return
 			}
 
+			dirSummary.ClaimedBy = s.getClaimed(dir.Path)
+
 			dirStats := s.generateDirStats(dir.Path, dirSummary)
 			channel <- *dirStats
 		}(dir)
