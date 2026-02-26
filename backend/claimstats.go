@@ -183,14 +183,14 @@ func (s *Server) generateRuleStats(path string, dirSummary *ruletree.DirSummary)
 
 	for _, r := range dirSummary.RuleSummaries {
 		if _, exists := ids[r.ID]; exists || r.ID == 0 {
-			rulestats = append(rulestats, s.generateStatsForRule(&r))
+			rulestats = append(rulestats, s.generateStatsForRule(r))
 		}
 	}
 
 	return rulestats
 }
 
-func (s *Server) generateStatsForRule(r *ruletree.Rule) ruleStats {
+func (s *Server) generateStatsForRule(r ruletree.Rule) ruleStats {
 	totalSize := uint64(0)
 	totalCount := uint64(0)
 
