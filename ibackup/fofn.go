@@ -73,6 +73,11 @@ func (fc *FOFNClient) GetSetByName(requester, setName string) (*set.Set, error) 
 	statusFile := fc.path(s.ID(), statusFile)
 	_, counts, _ := fofn.ParseStatus(statusFile) //nolint:errcheck
 
+	fofn, err := os.Stat(fc.path(s.ID(), fofnFile))
+	if err == nil {
+		s.LastDiscovery = fofn.ModTime()
+	}
+
 	completed, err := os.Stat(statusFile)
 	if err == nil {
 		s.LastCompleted = completed.ModTime()
@@ -127,6 +132,7 @@ func (fc *FOFNClient) AddOrUpdateSet(set *set.Set) error {
 	delete(set.Metadata, transfer.MetaKeyReview)
 	delete(set.Metadata, transfer.MetaKeyRemoval)
 	delete(set.Metadata, transfer.MetaKeyReason)
+	fc.setLastDiscovery(set)
 
 	return fofn.WriteConfig(fofnPath, fofn.SubDirConfig{
 		Transformer: set.Transformer,
@@ -138,6 +144,12 @@ func (fc *FOFNClient) AddOrUpdateSet(set *set.Set) error {
 		Remove:      remove,
 		Reason:      reason,
 	})
+}
+
+func (fc *FOFNClient) setLastDiscovery(set *set.Set) {
+	if !set.LastDiscovery.IsZero() {
+		os.Chtimes(fc.path(set.ID(), fofnFile), set.LastDiscovery, set.LastDiscovery) //nolint:errcheck
+	}
 }
 
 // MergeFiles sets the given paths as the file paths for the backup set with the
