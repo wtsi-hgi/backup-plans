@@ -29,6 +29,8 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -105,6 +107,8 @@ func (s *Server) claimstats(w http.ResponseWriter, r *http.Request) error { //no
 	for item := range channel {
 		claimstats = append(claimstats, item)
 	}
+
+	slices.SortFunc(claimstats, func(a, b DirStats) int { return strings.Compare(a.Path, b.Path) })
 
 	w.Header().Set("Content-type", "application/json")
 

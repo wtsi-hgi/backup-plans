@@ -58,9 +58,10 @@ func TestClaimStats(t *testing.T) {
 		s, err := New(testDB, u.getUser, config.NewConfig(t, nil, nil, nil, 0))
 		So(err, ShouldBeNil)
 
+		So(s.LoadDirMaps(), ShouldBeNil)
 		So(s.AddTree(treeFile), ShouldBeNil)
 
-		Convey("Claimstats should return all claimed directories per user", func() {
+		Convey("Claimstats should return all claimed directories, filtered by user, group or bom", func() {
 			u = userA
 
 			code, resp := getResponse(s.ClaimStats, "/api/claimstats?user=userA", nil)
@@ -109,7 +110,8 @@ func TestClaimStats(t *testing.T) {
 			})
 
 			u = userB
-			code, resp = getResponse(s.ClaimStats, "/api/claimstats?user=userB", nil)
+			code, resp = getResponse(s.ClaimStats, "/api/claimstats?groupbom=daemon", nil)
+
 			So(code, ShouldEqual, http.StatusOK)
 
 			var claimstatsB []DirStats
@@ -120,6 +122,38 @@ func TestClaimStats(t *testing.T) {
 			rules = slices.Collect(testDB.ReadRules().Iter)
 
 			So(claimstatsB, ShouldResemble, []DirStats{
+				{
+					Path:      "/lustre/scratch123/humgen/a/b/",
+					ClaimedBy: "userA",
+					Group:     "",
+					BackupStatus: ibackup.SetBackupActivity{
+						Name:      "plan::/lustre/scratch123/humgen/a/b/",
+						Requester: userA,
+					},
+					RuleStats: []ruleStats{
+						{
+							Rule: nil,
+							SizeCount: SizeCount{
+								Size:  14,
+								Count: 2,
+							},
+						},
+						{
+							Rule: copyRule(rules[0]),
+							SizeCount: SizeCount{
+								Size:  17,
+								Count: 2,
+							},
+						},
+						{
+							Rule: copyRule(rules[1]),
+							SizeCount: SizeCount{
+								Size:  8,
+								Count: 1,
+							},
+						},
+					},
+				},
 				{
 					Path:      "/lustre/scratch123/humgen/a/c/",
 					ClaimedBy: userB,
