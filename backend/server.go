@@ -150,5 +150,7 @@ func (s *Server) GetMainProgrammes(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getMainProgrammes(w http.ResponseWriter, _ *http.Request) error {
+	w.Header().Set("Content-type", "application/json")
+
 	return json.NewEncoder(w).Encode(s.config.GetMainProgrammes())
 }
