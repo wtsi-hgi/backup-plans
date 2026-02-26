@@ -451,7 +451,6 @@ func (fc *fofnClientWrapper) GetSetByName(requester, setName string) (*set.Set, 
 	}
 
 	got.StartedDiscovery = fc.lastDiscoveries[got.ID()]
-	got.LastDiscovery = got.StartedDiscovery
 	got.LastCompleted = got.StartedDiscovery
 	got.NumFiles = fc.files[got.ID()]
 	got.Missing = got.NumFiles
