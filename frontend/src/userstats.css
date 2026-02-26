@@ -4,7 +4,6 @@
 
 #userStats table {
     min-width: 5vw !important;
-    word-break: break-all;
 }
 
 #userStats td {

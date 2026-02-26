@@ -3,7 +3,7 @@ import type { Children } from "./lib/dom.js";
 import { amendNode } from "./lib/dom.js";
 import { a, br, button, datalist, details, div, fieldset, h1, h2, input, label, legend, li, option, p, span, summary, table, tbody, td, th, thead, tr, ul } from "./lib/html.js";
 import { svg, title, use } from "./lib/svg.js";
-import { action, formatBytes, longAgo, secondsInWeek, setAndReturn, stringSort } from "./lib/utils.js";
+import { action, formatBytes, longAgo, secondsInWeek, setAndReturn, splitLongPath, stringSort } from "./lib/utils.js";
 import { getReportSummary } from "./rpc.js";
 import { BackupType, MainProgrammes } from "./consts.js";
 import { render } from "./disktree.js";
@@ -134,9 +134,9 @@ class ParentSummary extends Summary {
 				])),
 				tbody(this.backups.size ? [
 					Array.from(this.backups).map(([path, backups]) => backups.map(backup => tr([
-						td(path),
+						td(splitLongPath(path)),
 						td(backup.Requester),
-						td(backup.Name),
+						td(splitLongPath(backup.Name)),
 						td(
 							backup.LastSuccess
 								// If status exists but is equal to zero time (ibackup broken) show pending
