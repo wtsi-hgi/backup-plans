@@ -64,7 +64,7 @@ func (s *Server) ClaimStats(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.claimstats)
 }
 
-func (s *Server) claimstats(w http.ResponseWriter, r *http.Request) error { //nolint:funlen
+func (s *Server) claimstats(w http.ResponseWriter, r *http.Request) error {
 	s.rulesMu.RLock()
 	defer s.rulesMu.RUnlock()
 
@@ -72,6 +72,20 @@ func (s *Server) claimstats(w http.ResponseWriter, r *http.Request) error { //no
 	claimstats := make([]DirStats, 0, len(s.directoryRules))
 	channel := make(chan DirStats, len(s.directoryRules))
 
+	s.collectDirStats(f, channel)
+
+	for item := range channel {
+		claimstats = append(claimstats, item)
+	}
+
+	slices.SortFunc(claimstats, func(a, b DirStats) int { return strings.Compare(a.Path, b.Path) })
+
+	w.Header().Set("Content-type", "application/json")
+
+	return json.NewEncoder(w).Encode(claimstats)
+}
+
+func (s *Server) collectDirStats(f filter, channel chan DirStats) {
 	var wg sync.WaitGroup
 
 	for _, dir := range s.directoryRules {
@@ -100,16 +114,6 @@ func (s *Server) claimstats(w http.ResponseWriter, r *http.Request) error { //no
 		wg.Wait()
 		close(channel)
 	}()
-
-	for item := range channel {
-		claimstats = append(claimstats, item)
-	}
-
-	slices.SortFunc(claimstats, func(a, b DirStats) int { return strings.Compare(a.Path, b.Path) })
-
-	w.Header().Set("Content-type", "application/json")
-
-	return json.NewEncoder(w).Encode(claimstats)
 }
 
 func (s *Server) matchesFilter(dir *ruletree.DirRules, f filter) bool {
