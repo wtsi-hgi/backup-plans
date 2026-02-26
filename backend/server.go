@@ -120,8 +120,8 @@ func (s *Server) LoadDirMaps() error {
 
 // UpdateDirMaps will update s.dirGroups and s.dirBoms for the given root.
 func (s *Server) UpdateDirMaps(rootPath string) error {
-	s.rulesMu.RLock()
-	defer s.rulesMu.RUnlock()
+	s.rulesMu.Lock()
+	defer s.rulesMu.Unlock()
 
 	mp := s.rootDir.GetMountPoint(rootPath)
 	reverseBomMap := s.reverseBOMMap(s.config.GetBOMs())
