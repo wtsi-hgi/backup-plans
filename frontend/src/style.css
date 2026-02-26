@@ -17,6 +17,24 @@ body {
 	font-size: var(--fontSize);
 }
 
+#user {
+	margin-top: 0.25em;
+	float: right;
+}
+
+@media (min-width: 700px) {
+	#user {
+		position: absolute;
+		top: 0;
+		right: 0;
+		float: none;
+	}
+}
+
+#user button {
+	margin: 0 1em;
+}
+
 button {
 	cursor: pointer;
 }

@@ -32,6 +32,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/wtsi-hgi/backup-plans/config"
@@ -144,7 +145,7 @@ The ReportingRoots is a list of paths that will appear on the Top Level Report.
 			return err
 		}
 
-		return server.Start(fmt.Sprintf(":%d", serverPort), d, getUser, config, args...)
+		return server.Start(fmt.Sprintf(":%d", serverPort), d, getUser, http.HandlerFunc(logout), config, args...)
 	},
 }
 
@@ -177,4 +178,15 @@ func getUser(r *http.Request) string {
 	}
 
 	return ""
+}
+
+func logout(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     "nginxauth",
+		Path:     "/",
+		Expires:  time.Unix(0, 0),
+		HttpOnly: true,
+	})
+
+	http.Redirect(w, r, "/", http.StatusFound)
 }

@@ -1,4 +1,4 @@
-import { div } from './lib/html.js';
+import { button, div } from './lib/html.js';
 import Breadcrumbs from './breadcrumbs.js';
 import DiskTree from './disktree.js';
 import Filter from './filter.js';
@@ -11,10 +11,16 @@ import UserStats from './userstats.js';
 import { symbols } from './symbols.js';
 import { tab } from './state.js';
 import Graph from './graph.js';
+import { user } from './rpc.js';
 
 (document.readyState === "complete" ? Promise.resolve() : new Promise(successFn => window.addEventListener("load", successFn, { "once": true })))
 	.then(() => document.body.replaceChildren(
 		symbols,
+		div({ "id": "user" }, ["User: ", user, button({
+			"click": () => window.location.pathname = window.location.pathname.replace(/[^/]*$/, "logout")
+		},
+			"Logout"
+		)]),
 		div({ "class": "tabs" }, [
 			tab({ "name": "tabs", "summary": "Rule Tree", "open": true }, [
 				Breadcrumbs,

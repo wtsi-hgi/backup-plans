@@ -74,7 +74,7 @@ func TestSeverDBUpdate(t *testing.T) {
 			cfg := config.NewConfig(t, nil, nil, nil, 0)
 
 			go func() {
-				errCh <- start(l, tdb, func(*http.Request) string { return u.Username }, cfg, tmp)
+				errCh <- start(l, tdb, func(*http.Request) string { return u.Username }, http.NotFoundHandler(), cfg, tmp)
 			}()
 
 			baseURL := fmt.Sprintf("http://127.0.0.1:%d/", l.Addr().(*net.TCPAddr).Port) //nolint:errcheck,forcetypeassert
