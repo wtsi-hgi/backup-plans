@@ -3,7 +3,7 @@
 (
 	cd "src";
 	head -n1 index.html;
-	head -n4 index.html | tail -n+2 | tr -d '\n\t';
+	head -n5 index.html | tail -n+2 | tr -d '\n\t';
 	echo -n "<style type=\"text/css\">";
 	while read -r line; do
 		if [ "${line:0:11}" = "@import url" ]; then
