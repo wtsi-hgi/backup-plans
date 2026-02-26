@@ -90,7 +90,7 @@ groupBomList.append(...Array.from(groups).map((group) => option({ "label": "Grou
 groupBomList.append(...Array.from(bomSet).map((bom) => option({ "label": "BOM: " + bom }, bom)));
 
 function filterClaimStats() {
-    if (filter.user != "" || filter.groupbom != "") {
+    if (filter.user !== "" || filter.groupbom !== "") {
         updateClaimStats()
     } else {
         alert("Please enter a user and/or group to filter by.");

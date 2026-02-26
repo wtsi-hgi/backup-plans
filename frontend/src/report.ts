@@ -337,7 +337,6 @@ base.appendChild(spinner);
 getReportSummary()
 	.then(data => {
 		base.removeChild(spinner);
-		// userGroups
 		summaryData = data;
 		now = +new Date();
 

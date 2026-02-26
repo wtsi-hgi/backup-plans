@@ -27,7 +27,6 @@ package backend
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 	"slices"
 	"strings"
@@ -38,8 +37,6 @@ import (
 	"github.com/wtsi-hgi/backup-plans/ibackup"
 	"github.com/wtsi-hgi/backup-plans/ruletree"
 )
-
-var ErrNoFilter = errors.New("must provide a user, group or BOM to filter by")
 
 type ruleStats struct {
 	*db.Rule
