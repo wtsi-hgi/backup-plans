@@ -157,7 +157,9 @@ func (s *Server) getFormValues(r *http.Request) filter {
 func (s *Server) generateDirStats(path string, dirSummary *ruletree.DirSummary) *DirStats {
 	rulestats := s.generateRuleStats(path, dirSummary)
 
-	sba, _ := s.config.GetCachedIBackupClient().GetBackupActivity(path, "plan::"+path, dirSummary.ClaimedBy, false)
+	c := s.config.GetCachedIBackupClient()
+
+	sba, _ := c.GetBackupActivity(path, "plan::"+path, dirSummary.ClaimedBy, false) //nolint:errcheck
 	if sba == nil {
 		sba = &ibackup.SetBackupActivity{
 			LastSuccess: time.Time{},

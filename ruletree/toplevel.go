@@ -522,7 +522,7 @@ func isDirectory(path string, getChild func(string) (summariser, string, string,
 // AddTree adds a tree database, specified by the given file path, to the
 // RootDir, possibly overriding an existing database if they share the same
 // root.
-func (r *RootDir) AddTree(file string) (rootPath string, err error) { //nolint:funlen
+func (r *RootDir) AddTree(file string) (string, error) { //nolint:funlen,unparam
 	db, closer, err := openDB(file)
 	if err != nil {
 		return "", err
