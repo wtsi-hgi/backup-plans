@@ -73,9 +73,9 @@ func (fc *FOFNClient) GetSetByName(requester, setName string) (*set.Set, error) 
 	statusFile := fc.path(s.ID(), statusFile)
 	_, counts, _ := fofn.ParseStatus(statusFile) //nolint:errcheck
 
-	fofn, err := os.Stat(fc.path(s.ID(), fofnFile))
+	fofnInfo, err := os.Stat(fc.path(s.ID(), fofnFile))
 	if err == nil {
-		s.LastDiscovery = fofn.ModTime()
+		s.LastDiscovery = fofnInfo.ModTime()
 	}
 
 	completed, err := os.Stat(statusFile)
