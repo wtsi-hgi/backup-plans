@@ -50,8 +50,8 @@ registerLoader((path: string, data: DirectoryWithChildren) => {
 								passDirClaim(path, passTo.value)
 									.then(() => {
 										load(path);
+										updateClaimStats();
 										overlay.remove();
-										// updateClaimStats();
 									})
 									.catch((e: Error) => {
 										overlay.setAttribute("closedby", "any");

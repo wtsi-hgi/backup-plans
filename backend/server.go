@@ -30,6 +30,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -113,6 +114,34 @@ func (s *Server) LoadDirMaps() error {
 
 	s.dirGroups = dirGroups
 	s.dirBoms = dirBoms
+
+	return nil
+}
+
+// UpdateDirMaps will update s.dirGroups and s.dirBoms for the given root.
+func (s *Server) UpdateDirMaps(rootPath string) error {
+	mp := s.rootDir.GetMountPoint(rootPath)
+
+	for _, dir := range s.directoryRules {
+		if !strings.HasPrefix(dir.Path, mp) {
+			continue
+		}
+
+		dirSummary, err := s.rootDir.Summary(dir.Path)
+		if err != nil {
+			if errors.As(err, new(tree.ChildNotFoundError)) || errors.Is(err, ruletree.ErrNotFound) {
+				continue
+			}
+
+			return err
+		}
+
+		_, gid := dirSummary.IDs()
+		groupname := users.Group(gid)
+		s.dirGroups[dir.ID()] = groupname
+		reverseBomMap := s.reverseBOMMap(s.config.GetBOMs())
+		s.dirBoms[dir.ID()] = reverseBomMap[groupname]
+	}
 
 	return nil
 }

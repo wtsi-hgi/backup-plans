@@ -3,7 +3,7 @@ import type { Children } from "./lib/dom.js";
 import { amendNode } from "./lib/dom.js";
 import { a, br, button, datalist, details, div, fieldset, h1, h2, input, label, legend, li, option, span, summary, table, tbody, td, th, thead, tr, ul } from "./lib/html.js";
 import { svg, title, use } from "./lib/svg.js";
-import { action, formatBytes, longAgo, secondsInWeek, setAndReturn, splitLongPath, stringSort, CreateSpinner } from "./lib/utils.js";
+import { action, formatBytes, longAgo, secondsInWeek, setAndReturn, splitLongPath, stringSort, createSpinner } from "./lib/utils.js";
 import { getReportSummary } from "./rpc.js";
 import { BackupType, MainProgrammes } from "./consts.js";
 import { render } from "./disktree.js";
@@ -331,13 +331,13 @@ function getUnplannedFraction(counts: Map<BackupType, SizeCount>) {
 	return Number(unplannedSize * 100n / totalSize) / 100
 }
 
-const spinner = CreateSpinner();
+const spinner = createSpinner();
 base.appendChild(spinner);
 
 getReportSummary()
 	.then(data => {
 		base.removeChild(spinner);
-		userGroups
+		// userGroups
 		summaryData = data;
 		now = +new Date();
 

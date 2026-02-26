@@ -47,7 +47,8 @@ func TestGlob(t *testing.T) {
 		root, err := NewRoot(nil)
 		So(err, ShouldBeNil)
 
-		So(root.AddTree(treeDBPathA), ShouldBeNil)
+		_, err = root.AddTree(treeDBPathA)
+		So(err, ShouldBeNil)
 
 		Convey("You can Glob paths in it", func() {
 			So(root.GlobPath("/some/path/*/"), ShouldResemble, []string{

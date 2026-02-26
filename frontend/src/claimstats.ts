@@ -1,6 +1,6 @@
 import { div, h2, p, button, table, thead, tbody, th, td, tr, fieldset, legend, input, datalist, option } from "./lib/html.js";
 import { getClaimStats, user } from "./rpc.js";
-import { formatBytes, longAgoStr, CreateSpinner } from "./lib/utils.js";
+import { formatBytes, longAgoStr, createSpinner } from "./lib/utils.js";
 import { BackupType } from "./consts.js";
 import { svg, title, use } from "./lib/svg.js";
 import { load } from './load.js';
@@ -29,7 +29,7 @@ let filter = {
 function createClaimStatsSection() {
     let page = div({ "class": "claimstats-container" });
 
-    const spinner = CreateSpinner();
+    const spinner = createSpinner();
     page.appendChild(spinner);
 
 
@@ -77,7 +77,10 @@ function createClaimStatsSection() {
             ]))
         }
         ) : page.appendChild(h2("No claimed directories."))
-    });
+    })
+    // .catch((e: Error) => {
+    //     alert("Error: " + e);
+    // });
 
     return page
 }

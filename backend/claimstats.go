@@ -37,13 +37,14 @@ import (
 	"github.com/wtsi-hgi/backup-plans/ruletree"
 )
 
-var ErrNoFilter = errors.New("must provide a user and/or group to filter by")
+var ErrNoFilter = errors.New("must provide a user, group or BOM to filter by")
 
 type ruleStats struct {
 	*db.Rule
 	SizeCount
 }
 
+// DirStats holds information about a claimed directory and its rules.
 type DirStats struct {
 	Path         string
 	ClaimedBy    string
@@ -150,10 +151,10 @@ func (s *Server) getFormValues(r *http.Request) filter {
 }
 
 func (s *Server) generateDirStats(path string, dirSummary *ruletree.DirSummary) *DirStats {
-	rulestats := s.generateRuleStats(dirSummary)
+	rulestats := s.generateRuleStats(path, dirSummary)
 
-	sba, err := s.config.GetIBackupClient().GetBackupActivity(path, "plan::"+path, dirSummary.ClaimedBy, false)
-	if err != nil {
+	sba, _ := s.config.GetCachedIBackupClient().GetBackupActivity(path, "plan::"+path, dirSummary.ClaimedBy, false)
+	if sba == nil {
 		sba = &ibackup.SetBackupActivity{
 			LastSuccess: time.Time{},
 			Name:        "plan::" + path,
@@ -172,8 +173,9 @@ func (s *Server) generateDirStats(path string, dirSummary *ruletree.DirSummary) 
 
 // generateRuleStats will create a []RuleStats slice for the given directory, containing a RuleStats object for every
 // rule on the directory.
-func (s *Server) generateRuleStats(dirSummary *ruletree.DirSummary) []ruleStats {
-	ids := s.gatherDirRules(dirSummary)
+func (s *Server) generateRuleStats(path string, dirSummary *ruletree.DirSummary) []ruleStats {
+	ids := s.gatherDirRules(path)
+
 	rulestats := []ruleStats{}
 
 	for _, r := range dirSummary.RuleSummaries {
@@ -204,11 +206,16 @@ func (s *Server) generateStatsForRule(r *ruletree.Rule) ruleStats {
 }
 
 // gatherDirRules will return the ID's of all rules on the directory given.
-func (s *Server) gatherDirRules(dirSummary *ruletree.DirSummary) map[uint64]struct{} {
+func (s *Server) gatherDirRules(path string) map[uint64]struct{} {
+	dirRules := s.directoryRules[path]
+	if dirRules == nil {
+		return nil
+	}
+
 	ids := make(map[uint64]struct{})
 
-	for _, rule := range dirSummary.RuleSummaries {
-		ids[rule.ID] = struct{}{}
+	for _, rule := range dirRules.Rules {
+		ids[uint64(rule.ID())] = struct{}{} //nolint:gosec
 	}
 
 	return ids
