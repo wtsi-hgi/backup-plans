@@ -121,6 +121,7 @@ func (s *Server) LoadDirMaps() error {
 // UpdateDirMaps will update s.dirGroups and s.dirBoms for the given root.
 func (s *Server) UpdateDirMaps(rootPath string) error {
 	mp := s.rootDir.GetMountPoint(rootPath)
+	reverseBomMap := s.reverseBOMMap(s.config.GetBOMs())
 
 	for _, dir := range s.directoryRules {
 		if !strings.HasPrefix(dir.Path, mp) {
@@ -139,7 +140,6 @@ func (s *Server) UpdateDirMaps(rootPath string) error {
 		_, gid := dirSummary.IDs()
 		groupname := users.Group(gid)
 		s.dirGroups[dir.ID()] = groupname
-		reverseBomMap := s.reverseBOMMap(s.config.GetBOMs())
 		s.dirBoms[dir.ID()] = reverseBomMap[groupname]
 	}
 

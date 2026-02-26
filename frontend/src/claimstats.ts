@@ -77,10 +77,7 @@ function createClaimStatsSection() {
             ]))
         }
         ) : page.appendChild(h2("No claimed directories."))
-    })
-    // .catch((e: Error) => {
-    //     alert("Error: " + e);
-    // });
+    });
 
     return page
 }
