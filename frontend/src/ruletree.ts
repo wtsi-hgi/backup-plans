@@ -61,7 +61,10 @@ const base = div({ "id": "affectingRules" }),
 
 		return (hasChildren ? details : div)({ "class": "rule-section", "open": hasChildren, }, [
 			(hasChildren ? summary : div)({ "class": "summary-header" }, div({
-				"click": (e: Event) => load(data.fullPath || fullPath).then(() => window.scrollTo(0, 0))
+				"click": (e: Event) => {
+					e.stopPropagation();
+					load(data.fullPath || fullPath).then(() => window.scrollTo(0, 0));
+				}
 			}, ruleChildren)),
 			treeChildren
 		]);
