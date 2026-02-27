@@ -1,9 +1,8 @@
-import type { DirectoryWithChildren } from './types.js';
-import { br, button, datalist, details, div, input, option, select, summary } from './lib/html.js';
+import { br, button, datalist, div, option } from './lib/html.js';
 import { debouncer, setAndReturn, stringSort } from './lib/utils.js';
 import { boms, owners, userGroups } from './userGroups.js';
 import { handleState, inputState, selectState, setState, tab } from './state.js';
-import { load, registerLoader } from './load.js';
+import { load } from './load.js';
 import { filter } from './data.js';
 
 const userOpts: HTMLOptionElement[] = [],

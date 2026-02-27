@@ -122,3 +122,20 @@ export type UserGroups = {
 	Owners: Record<string, string[]>;
 	BOM: Record<string, string[]>;
 }
+
+export type RuleInfo = Rule & SizeCount;
+
+export type SetBackupActivity = {
+	LastSuccess: string;
+	Name: string;
+	Requester: string;
+	Failures: number;
+}
+
+export type DirStats = {
+	Path: string;
+	ClaimedBy: string;
+	Group: string;
+	BackupStatus: SetBackupActivity;
+	RuleStats: RuleInfo[];
+}

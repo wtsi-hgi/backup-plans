@@ -1,9 +1,9 @@
 import type { BackupStatus, ClaimedDir, ReportSummary, Rule, SizeCount, SizeCountTime, Stats } from "./types.js";
 import type { Children } from "./lib/dom.js";
 import { amendNode } from "./lib/dom.js";
-import { a, br, button, datalist, details, div, fieldset, h1, h2, input, label, legend, li, option, p, span, summary, table, tbody, td, th, thead, tr, ul } from "./lib/html.js";
+import { a, br, button, datalist, details, div, fieldset, h1, h2, input, label, legend, li, option, span, summary, table, tbody, td, th, thead, tr, ul } from "./lib/html.js";
 import { svg, title, use } from "./lib/svg.js";
-import { action, formatBytes, longAgo, secondsInWeek, setAndReturn, splitLongPath, stringSort } from "./lib/utils.js";
+import { action, formatBytes, longAgo, secondsInWeek, setAndReturn, splitLongPath, stringSort, createSpinner } from "./lib/utils.js";
 import { getReportSummary } from "./rpc.js";
 import { BackupType, MainProgrammes } from "./consts.js";
 import { render } from "./disktree.js";
@@ -331,9 +331,12 @@ function getUnplannedFraction(counts: Map<BackupType, SizeCount>) {
 	return Number(unplannedSize * 100n / totalSize) / 100
 }
 
+const spinner = createSpinner();
+base.appendChild(spinner);
+
 getReportSummary()
 	.then(data => {
-		userGroups
+		base.removeChild(spinner);
 		summaryData = data;
 		now = +new Date();
 

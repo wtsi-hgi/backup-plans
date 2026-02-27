@@ -26,6 +26,11 @@ import (
 	"vimagination.zapto.org/tree"
 )
 
+const (
+	userA = "userA"
+	userB = "userB"
+)
+
 func TestReport(t *testing.T) {
 	Convey("Given a test db, tree, roots and ibackup client, a backup can be made", t, func() {
 		testDB, _ := plandb.PopulateBigExamplePlanDB(t)
@@ -89,7 +94,7 @@ func TestReport(t *testing.T) {
 				expectedSummary := summary{
 					Summaries: map[string]*ruletree.DirSummary{
 						"/lustre/scratch123/humgen/a/b/": {
-							ClaimedBy: "userA",
+							ClaimedBy: userA,
 							User:      firstUser.Username,
 							Group:     firstGroup.Name,
 							RuleSummaries: []ruletree.Rule{

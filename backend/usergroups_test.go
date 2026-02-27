@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2025 Genome Research Ltd.
+ * Copyright (c) 2026 Genome Research Ltd.
  *
  * Author: Sky Haines <sh55@sanger.ac.uk>
  *
@@ -26,27 +26,23 @@
 package backend
 
 import (
-	"io"
+	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 	"os"
+	"os/user"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
-	"github.com/wtsi-hgi/backup-plans/backups"
 	"github.com/wtsi-hgi/backup-plans/internal/config"
 	"github.com/wtsi-hgi/backup-plans/internal/plandb"
-	"github.com/wtsi-hgi/backup-plans/internal/testdb"
-	"github.com/wtsi-hgi/backup-plans/internal/testirods"
 	"vimagination.zapto.org/tree"
 )
 
-func TestEndpoints(t *testing.T) {
-	Convey("Given an ibackup server with backed up sets", t, func() {
-		So(testirods.AddPseudoIRODsToolsToPathIfRequired(t), ShouldBeNil)
-
+func TestUserGroups(t *testing.T) {
+	Convey("With a configured backend", t, func() {
 		var u userHandler
 
 		testDB, _ := plandb.PopulateExamplePlanDB(t)
@@ -59,59 +55,40 @@ func TestEndpoints(t *testing.T) {
 		So(tree.Serialise(f, tr), ShouldBeNil)
 		So(f.Close(), ShouldBeNil)
 
-		s, err := New(testdb.CreateTestDatabase(t), u.getUser, config.NewConfig(t, nil, nil, nil, 0))
+		s, err := New(testDB, u.getUser, config.NewConfig(t, nil, nil, nil, 0))
 		So(err, ShouldBeNil)
 
 		So(s.AddTree(treeFile), ShouldBeNil)
 
-		setInfos, err := backups.Backup(testDB, tr, s.config.GetIBackupClient())
-		So(err, ShouldBeNil)
-		So(setInfos, ShouldNotBeNil)
-
-		Convey("You can use the setExists endpoint to retrieve whether a set with a given name exists", func() {
-			u = userA
-			code, resp := getResponse(
-				s.SetExists,
-				"/api/setExists?dir=/lustre/&metadata=plan::/lustre/scratch123/humgen/a/b/",
-				nil,
-			)
-
+		Convey("You can call getUserGroups to retrieve a collection of user, BOM and group information", func() {
+			code, resp := getResponse(s.UserGroups, "/api/usergroups", nil)
 			So(code, ShouldEqual, http.StatusOK)
-			So(resp, ShouldEqual, "true\n")
 
-			u = "userB"
-			code, resp = getResponse(
-				s.SetExists,
-				"/api/setExists?dir=/lustre/&metadata=plan::/lustre/scratch123/humgen/a/b/",
-				nil,
-			)
+			var usergroups = userGroupsBOM{}
 
-			So(code, ShouldEqual, http.StatusOK)
-			So(resp, ShouldEqual, "false\n")
-		})
+			err = json.NewDecoder(strings.NewReader(resp)).Decode(&usergroups)
+			So(err, ShouldBeNil)
 
-		Convey("You can check if a slice of paths refers to directories or files", func() {
-			u = userA
-			code, resp := getResponse(
-				s.GetDirectories,
-				"/test?",
-				strings.NewReader(`[
-					"lustre/scratch123/humgen/a/b/",
-					"/lustre/scratch123/humgen/a",
-					"/lustre/scratch123/humgen/a/b/1.jpg"
-				]`),
-			)
+			user1, err := user.LookupId("1")
+			So(err, ShouldBeNil)
+			user2, err := user.LookupId("2")
+			So(err, ShouldBeNil)
+			group1, err := user.LookupGroupId("1")
+			So(err, ShouldBeNil)
+			group2, err := user.LookupGroupId("2")
+			So(err, ShouldBeNil)
 
-			So(resp, ShouldEqual, "[true,true,false]\n")
-			So(code, ShouldEqual, http.StatusOK)
+			sort.Strings(usergroups.Users)
+			sort.Strings(usergroups.Groups)
+
+			expectedUsers := []string{user1.Username, user2.Username}
+			sort.Strings(expectedUsers)
+
+			expectedGroups := []string{group1.Name, group2.Name}
+			sort.Strings(expectedGroups)
+
+			So(usergroups.Users, ShouldResemble, expectedUsers)
+			So(usergroups.Groups, ShouldResemble, expectedGroups)
 		})
 	})
-}
-
-func getResponse(fn http.HandlerFunc, url string, body io.Reader) (int, string) {
-	w := httptest.NewRecorder()
-
-	fn(w, httptest.NewRequest(http.MethodGet, url, body))
-
-	return w.Code, w.Body.String()
 }

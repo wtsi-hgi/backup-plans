@@ -30,6 +30,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -39,6 +40,7 @@ import (
 	"github.com/wtsi-hgi/backup-plans/ruletree"
 	"vimagination.zapto.org/httpbuffer"
 	_ "vimagination.zapto.org/httpbuffer/gzip" //
+	"vimagination.zapto.org/tree"
 )
 
 // Server represents all of the data required to run the backend server.
@@ -51,6 +53,8 @@ type Server struct {
 	directoryRules map[string]*ruletree.DirRules
 	dirs           map[uint64]*db.Directory
 	rules          map[uint64]*db.Rule
+	dirGroups      map[int64]string
+	dirBoms        map[int64]string
 
 	config   *config.Config
 	gitCache *git.Cache
@@ -61,9 +65,11 @@ type Server struct {
 // New creates a new Backend API server.
 func New(db *db.DB, getUser func(r *http.Request) string, c *config.Config) (*Server, error) {
 	s := &Server{
-		getUser: getUser,
-		rulesDB: db,
-		config:  c,
+		getUser:   getUser,
+		rulesDB:   db,
+		config:    c,
+		dirGroups: make(map[int64]string),
+		dirBoms:   make(map[int64]string),
 	}
 
 	rules, err := s.loadRules()
@@ -79,6 +85,56 @@ func New(db *db.DB, getUser func(r *http.Request) string, c *config.Config) (*Se
 	s.gitCache = git.NewCache(time.Hour)
 
 	return s, nil
+}
+
+func (s *Server) addToDirMaps(id int64, dirSummary *ruletree.DirSummary) {
+	reverseBomMap := s.reverseBOMMap(s.config.GetBOMs())
+
+	groupname := dirSummary.Group
+
+	s.dirGroups[id] = groupname
+	s.dirBoms[id] = reverseBomMap[groupname]
+}
+
+// updateDirMaps will update s.dirGroups and s.dirBoms for the given root. If no
+// root is given, it will update all of them.
+//
+//	s.dirGroups: map(directory ID -> group name)
+//	s.dirBoms: map(directory ID -> BOM)
+func (s *Server) updateDirMaps(rootPath string) error { //nolint:gocognit
+	s.rulesMu.Lock()
+	defer s.rulesMu.Unlock()
+
+	for _, dir := range s.directoryRules {
+		if rootPath != "" && !strings.HasPrefix(dir.Path, rootPath) {
+			continue
+		}
+
+		dirSummary, err := s.rootDir.Summary(dir.Path)
+		if err != nil {
+			if errors.As(err, new(tree.ChildNotFoundError)) || errors.Is(err, ruletree.ErrNotFound) {
+				continue
+			}
+
+			return err
+		}
+
+		s.addToDirMaps(dir.ID(), dirSummary)
+	}
+
+	return nil
+}
+
+func (s *Server) reverseBOMMap(bomMap map[string][]string) map[string]string {
+	reverseBomMap := make(map[string]string)
+
+	for bom, groups := range bomMap {
+		for _, group := range groups {
+			reverseBomMap[group] = bom
+		}
+	}
+
+	return reverseBomMap
 }
 
 // WhoAmI is an HTTP endpoint that returns the result of the getUser func that

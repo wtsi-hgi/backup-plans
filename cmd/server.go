@@ -95,6 +95,9 @@ reloadtime: 3600
 reportingroots:
  - /path/to/be/reported/
  - /other-path/to/be/reported/
+mainprogrammes:
+ - Programme
+ - Other Main Programme
 
 The key of the Servers map is the server name, as used in the PathToServer
 map.

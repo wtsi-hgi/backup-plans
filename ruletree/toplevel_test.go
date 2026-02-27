@@ -54,7 +54,7 @@ func TestTopLevel(t *testing.T) {
 		root, err := NewRoot(nil)
 		So(err, ShouldBeNil)
 
-		err = root.AddTree(treeDBPathA)
+		_, err = root.AddTree(treeDBPathA)
 		So(err, ShouldBeNil)
 
 		Convey("You can check if given children are directories", func() {

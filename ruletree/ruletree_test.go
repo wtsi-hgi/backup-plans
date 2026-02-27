@@ -68,8 +68,10 @@ func TestRuletree(t *testing.T) {
 			root, err := NewRoot(rules)
 			So(err, ShouldBeNil)
 
-			So(root.AddTree(treeDBPathA), ShouldBeNil)
-			So(root.AddTree(treeDBPathB), ShouldBeNil)
+			_, err = root.AddTree(treeDBPathA)
+			So(err, ShouldBeNil)
+			_, err = root.AddTree(treeDBPathB)
+			So(err, ShouldBeNil)
 
 			ruleExpectations := []Rule{
 				{
@@ -165,58 +167,73 @@ func TestRuletree(t *testing.T) {
 				},
 			}
 
-			s, err := root.Summary("/")
-			So(err, ShouldBeNil)
-
-			So(s, ShouldResemble, &DirSummary{
-				RuleSummaries: ruleExpectations,
-				Children: map[string]*DirSummary{
-					"some/": {
-						RuleSummaries: ruleExpectations,
+			expectedSummaries := map[string]*DirSummary{
+				"/": {
+					RuleSummaries: ruleExpectations,
+					Children: map[string]*DirSummary{
+						"some/": {
+							RuleSummaries: ruleExpectations,
+						},
 					},
 				},
-			})
+				"/some/": {
+					RuleSummaries: ruleExpectations,
+					Children: map[string]*DirSummary{
+						"other/": {
+							RuleSummaries: []Rule{},
+						},
+						"path/": {
+							RuleSummaries: ruleExpectations,
+						},
+					},
+				},
+				"/some/path/": {
+					RuleSummaries: ruleExpectations,
+					Children: map[string]*DirSummary{
+						"MyDir/": {
+							RuleSummaries: []Rule{ruleExpectations[1], ruleExpectations[2]},
+							Children:      map[string]*DirSummary{},
+							Group:         "root",
+						},
+						"YourDir/": {
+							RuleSummaries: []Rule{ruleExpectations[3]},
+							Children:      map[string]*DirSummary{},
+							Group:         "root",
+						},
+						"OtherDir/": {
+							RuleSummaries: []Rule{ruleExpectations[0]},
+							Children:      map[string]*DirSummary{},
+							Group:         "root",
+						},
+					},
+					Group: "root",
+				},
+				"/some/path/MyDir/": {
+					RuleSummaries: []Rule{ruleExpectations[1], ruleExpectations[2]},
+					Children:      map[string]*DirSummary{},
+					Group:         "root",
+				},
+			}
+
+			s, err := root.Summary("/")
+			So(err, ShouldBeNil)
+			So(s, ShouldResemble, expectedSummaries["/"])
 
 			s, err = root.Summary("/some/")
 			So(err, ShouldBeNil)
-			So(s, ShouldResemble, &DirSummary{
-				RuleSummaries: ruleExpectations,
-				Children: map[string]*DirSummary{
-					"other/": {
-						RuleSummaries: []Rule{},
-					},
-					"path/": {
-						RuleSummaries: ruleExpectations,
-					},
-				},
-			})
+			So(s, ShouldResemble, expectedSummaries["/some/"])
 
 			s, err = root.Summary("/some/path/")
 			So(err, ShouldBeNil)
-			So(s, ShouldResemble, &DirSummary{
-				RuleSummaries: ruleExpectations,
-				Children: map[string]*DirSummary{
-					"MyDir/": {
-						RuleSummaries: []Rule{ruleExpectations[1], ruleExpectations[2]},
-						Children:      map[string]*DirSummary{},
-					},
-					"YourDir/": {
-						RuleSummaries: []Rule{ruleExpectations[3]},
-						Children:      map[string]*DirSummary{},
-					},
-					"OtherDir/": {
-						RuleSummaries: []Rule{ruleExpectations[0]},
-						Children:      map[string]*DirSummary{},
-					},
-				},
-			})
+			So(s, ShouldResemble, expectedSummaries["/some/path/"])
 
 			s, err = root.Summary("/some/path/MyDir/")
 			So(err, ShouldBeNil)
-			So(s, ShouldResemble, &DirSummary{
-				RuleSummaries: []Rule{ruleExpectations[1], ruleExpectations[2]},
-				Children:      map[string]*DirSummary{},
-			})
+			So(s, ShouldResemble, expectedSummaries["/some/path/MyDir/"])
+
+			summaries, err := root.GetSummaries([]string{"/", "/some/", "/some/path/", "/some/path/MyDir/"})
+			So(err, ShouldBeNil)
+			So(summaries, ShouldResemble, expectedSummaries)
 		})
 
 		Convey("You can add and remove rules with basic wildcard matches", func() {
@@ -232,7 +249,8 @@ func TestRuletree(t *testing.T) {
 
 			treeDBPath := createTree(t, treeDB)
 
-			So(root.AddTree(treeDBPath), ShouldBeNil)
+			_, err = root.AddTree(treeDBPath)
+			So(err, ShouldBeNil)
 
 			wildcardRuleID := createRule(t, tdb, root, "/path/wildcard/", "*")
 
@@ -289,7 +307,8 @@ func TestRuletree(t *testing.T) {
 			})
 
 			treeDBPath := createTree(t, treeDB)
-			So(root.AddTree(treeDBPath), ShouldBeNil)
+			_, err = root.AddTree(treeDBPath)
+			So(err, ShouldBeNil)
 
 			createRule(t, tdb, root, "/path/temp/", "complex*a")
 			So(ruleIDCount(t, root, "/"), ShouldResemble, map[uint64]uint64{0: 6})
@@ -319,7 +338,8 @@ func TestRuletree(t *testing.T) {
 			})
 
 			treeDBPath := createTree(t, treeDB)
-			So(root.AddTree(treeDBPath), ShouldBeNil)
+			_, err = root.AddTree(treeDBPath)
+			So(err, ShouldBeNil)
 
 			r1 := createRule(t, tdb, root, "/path/dir/", "f*")
 			So(ruleIDCount(t, root, "/path/dir/"), ShouldResemble, map[uint64]uint64{0: 2, r1: 2})
@@ -343,7 +363,8 @@ func TestRuletree(t *testing.T) {
 			})
 
 			treeDBPath := createTree(t, treeDB)
-			So(root.AddTree(treeDBPath), ShouldBeNil)
+			_, err = root.AddTree(treeDBPath)
+			So(err, ShouldBeNil)
 
 			r1 := createRule(t, tdb, root, "/path/dir/", "*.txt")
 			So(ruleIDCount(t, root, "/path/dir/"), ShouldResemble, map[uint64]uint64{0: 2, r1: 2})
@@ -365,7 +386,8 @@ func TestRuletree(t *testing.T) {
 			})
 
 			treeDBPath := createTree(t, treeDB)
-			So(root.AddTree(treeDBPath), ShouldBeNil)
+			_, err = root.AddTree(treeDBPath)
+			So(err, ShouldBeNil)
 
 			r1 := createRule(t, tdb, root, "/path/dir/", "b/*", true)
 			So(ruleIDCount(t, root, "/path/dir/"), ShouldResemble, map[uint64]uint64{0: 1, r1: 1})
@@ -390,7 +412,8 @@ func TestRuletree(t *testing.T) {
 			})
 
 			treeDBPath := createTree(t, treeDB)
-			So(root.AddTree(treeDBPath), ShouldBeNil)
+			_, err = root.AddTree(treeDBPath)
+			So(err, ShouldBeNil)
 
 			r1 := createRule(t, tdb, root, "/path/dir/", "b/c/*", true)
 			So(ruleIDCount(t, root, "/path/dir/"), ShouldResemble, map[uint64]uint64{0: 3, r1: 1})
@@ -441,7 +464,8 @@ func TestRuletree(t *testing.T) {
 			So(err, ShouldBeNil)
 
 			treeDBPath := createTree(t, treeDB)
-			So(root.AddTree(treeDBPath), ShouldBeNil)
+			_, err = root.AddTree(treeDBPath)
+			So(err, ShouldBeNil)
 
 			So(ruleIDCount(t, root, "/lustre/scratch123/humgen/a/"), ShouldResemble, map[uint64]uint64{0: 4, 1: 2, 2: 1, 3: 3, 4: 1, 5: 2, 6: 2}) //nolint:lll
 			So(ruleIDCount(t, root, "/lustre/scratch123/humgen/a/b/"), ShouldResemble, map[uint64]uint64{0: 3, 1: 2, 2: 1, 4: 1, 5: 2})           //nolint:lll

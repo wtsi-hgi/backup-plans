@@ -48,6 +48,7 @@ type summariser interface {
 	GetOwner(path string) (uint32, uint32, error)
 	IsDirectory(path string) bool
 	glob(match string) []string
+	getSummaries(path string, sm group.State[bool], wildcard group.State[int64], summaries map[string]*DirSummary)
 }
 
 // DirRules is a Directory reference and a map of its rules, keyed by the Match.
@@ -125,7 +126,7 @@ func (r *RootDir) AddRules(topPath string, dirRules []DirRule) error {
 		return err
 	}
 
-	if err := r.regenRules(r.getMountPoint(topPath), directoryRules, dirs...); err != nil {
+	if err := r.regenRules(r.GetMountPoint(topPath), directoryRules, dirs...); err != nil {
 		return err
 	}
 
@@ -150,7 +151,9 @@ func addRules(directoryRules map[string]*DirRules, dirRules []DirRule) ([]string
 	return dirs, nil
 }
 
-func (r *RootDir) getMountPoint(dir string) string {
+// GetMountPoint will return the mountpoint for the directory given, it will
+// return an empty string if none is found.
+func (r *RootDir) GetMountPoint(dir string) string {
 	for mp := range r.closers {
 		if strings.HasPrefix(dir, mp) {
 			return mp
@@ -177,7 +180,7 @@ func (r *RootDir) updateRule(dir *db.Directory, rule *db.Rule,
 		return err
 	}
 
-	if err := r.regenRules(r.getMountPoint(dir.Path), directoryRules, dir.Path); err != nil {
+	if err := r.regenRules(r.GetMountPoint(dir.Path), directoryRules, dir.Path); err != nil {
 		return err
 	}
 
@@ -315,12 +318,98 @@ func (r *RootDir) Summary(path string) (*DirSummary, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	wcs, ok := r.wildcards[r.getMountPoint(path)]
+	wcs, ok := r.wildcards[r.GetMountPoint(path)]
 	if !ok {
 		wcs = emptyWildcard
 	}
 
 	return r.topLevelDir.Summary(strings.TrimPrefix(path, "/"), wcs.GetStateString("/"))
+}
+
+const parentPath = false
+const targetPath = true
+
+// GetSummaries returns a dirSummary for every given path.
+func (r *RootDir) GetSummaries(paths []string) (map[string]*DirSummary, error) {
+	summaryMap := make(map[string]*DirSummary)
+	mountpoints := make(map[string][]string)
+
+	for _, path := range paths {
+		mp := r.GetMountPoint(path)
+
+		if mp == "" {
+			pathSummary, err := r.Summary(path)
+			if err != nil {
+				return nil, err
+			}
+
+			summaryMap[path] = pathSummary
+
+			continue
+		}
+
+		mountpoints[mp] = append(mountpoints[mp], path)
+	}
+
+	for mp, paths := range mountpoints {
+		err := r.GetSummariesForMountpoint(paths, mp, summaryMap)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return summaryMap, nil
+}
+
+func (r *RootDir) GetSummariesForMountpoint(paths []string, mountpoint string,
+	summaryMap map[string]*DirSummary) error {
+	parentTargetPaths := make(map[string]bool)
+
+	for _, path := range paths {
+		parentTargetPaths[path] = targetPath
+
+		for parent := range parentParts(path) {
+			if _, exists := parentTargetPaths[parent]; exists {
+				break
+			}
+
+			parentTargetPaths[parent] = parentPath
+		}
+	}
+
+	pathGroups := make([]group.PathGroup[bool], 0, len(parentTargetPaths))
+
+	for path, v := range parentTargetPaths {
+		pathGroups = append(pathGroups, group.PathGroup[bool]{Path: []byte(path), Group: &v})
+	}
+
+	sm, err := group.NewStatemachine(pathGroups)
+	if err != nil {
+		return err
+	}
+
+	r.getSummaries(mountpoint, sm.GetStateString("/"), summaryMap)
+
+	return nil
+}
+
+func (r *RootDir) getSummaries(mp string, sm group.State[bool], summaries map[string]*DirSummary) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	r.topLevelDir.getSummaries("/", sm, r.wildcards[mp].GetStateString("/"), summaries)
+}
+
+func (t *topLevelDir) getSummaries(path string, sm group.State[bool], wcs group.State[int64],
+	summaries map[string]*DirSummary) {
+	for name, child := range t.children {
+		childState := sm.GetStateString(name)
+		if childState.GetGroup() == nil {
+			continue
+		}
+
+		child.getSummaries(path+name, childState, wcs.GetStateString(name), summaries)
+	}
 }
 
 // GetOwner returns the UID and GID for the directory denoted by the given path.
@@ -435,10 +524,10 @@ func isDirectory(path string, getChild func(string) (summariser, string, string,
 // AddTree adds a tree database, specified by the given file path, to the
 // RootDir, possibly overriding an existing database if they share the same
 // root.
-func (r *RootDir) AddTree(file string) (err error) { //nolint:funlen
+func (r *RootDir) AddTree(file string) (string, error) { //nolint:funlen,unparam
 	db, closer, err := openDB(file)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	defer func() {
@@ -449,7 +538,7 @@ func (r *RootDir) AddTree(file string) (err error) { //nolint:funlen
 
 	treeRoot, rootPath, err := getRoot(db)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	r.buildMu.Lock()
@@ -460,14 +549,14 @@ func (r *RootDir) AddTree(file string) (err error) { //nolint:funlen
 	r.mu.RUnlock()
 
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	if err = createTopLevelDirs(processed, rootPath, &r.topLevelDir); err != nil {
-		return err
+		return "", err
 	}
 
 	if existing, ok := r.closers[rootPath]; ok {
@@ -478,7 +567,7 @@ func (r *RootDir) AddTree(file string) (err error) { //nolint:funlen
 
 	r.wildcards[rootPath] = wcs.GetState(nil)
 
-	return nil
+	return rootPath, nil
 }
 
 func openDB(file string) (*tree.MemTree, func(), error) { //nolint:funlen
@@ -610,6 +699,23 @@ func pathParts(path string) iter.Seq[string] {
 			}
 
 			path = path[pos+1:]
+		}
+	}
+}
+
+func parentParts(path string) iter.Seq[string] {
+	return func(yield func(string) bool) {
+		for len(path) > 0 {
+			pos := strings.LastIndexByte(path[:len(path)-1], '/')
+			if pos == -1 {
+				return
+			}
+
+			if !yield(path[:pos+1]) {
+				break
+			}
+
+			path = path[:pos]
 		}
 	}
 }

@@ -50,7 +50,12 @@ var (
 // AddTree adds a tree database, specified by the given file path, to the
 // server, possibly overriding an existing database if they share the same root.
 func (s *Server) AddTree(file string) error {
-	return s.rootDir.AddTree(file)
+	rootPath, err := s.rootDir.AddTree(file)
+	if err != nil {
+		return err
+	}
+
+	return s.updateDirMaps(rootPath)
 }
 
 type treeDB struct {
