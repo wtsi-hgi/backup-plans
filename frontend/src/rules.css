@@ -335,7 +335,6 @@ select:not(:has(option:checked[value="backup"])):not(:has(option:checked[value="
 }
 
 .tooltip[data-tooltip]:hover::after {
-	word-break: normal;
 	content: attr(data-tooltip);
 	background-color: var(--background);
 	position: absolute;

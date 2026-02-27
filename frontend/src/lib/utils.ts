@@ -1,6 +1,6 @@
 import { BackupType } from "../consts.js";
 import type { Children } from "./dom.js";
-import { button, dialog, div } from "./html.js";
+import { button, dialog, div, wbr } from "./html.js";
 
 const byteSizes = ["B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB", "RiB", "QiB"],
 	actions = ["No Backup", "IBackup", "Manual Backup: iBackup", "Manual Backup: Git", "Manual Backup: Unchecked", "Manual Backup: Prefect"];
@@ -16,6 +16,7 @@ export const formatBytes = (size: bigint) => {
 
 	return "∞";
 },
+	splitLongPath = (path: string) => path.split(/(?<=\/)/).map(e => [e, wbr()]),
 	secondsInDay = 86400,
 	secondsInWeek = secondsInDay * 7,
 	longAgo = (unix: number) => {
