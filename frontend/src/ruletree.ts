@@ -1,8 +1,7 @@
 import type { DirectoryWithChildren, RuleStats } from './types.js';
 import type { Children } from "./lib/dom.js";
 import { clearNode } from "./lib/dom.js";
-import { button, details, div, h2, span, summary } from "./lib/html.js";
-import { svg, title, use } from "./lib/svg.js";
+import { details, div, h2, span, summary } from "./lib/html.js";
 import { action, formatBytes, stringSort } from "./lib/utils.js";
 import { load, registerLoader } from './load.js';
 
@@ -12,26 +11,12 @@ export type TreeNode = {
 	fullPath?: string;
 };
 
-const base = div({ class: "affectingRules" });
-
-export default base;
-
-registerLoader((path: string, data: DirectoryWithChildren) => {
-	const rulesList = Object.entries(data.rules)
-		.map(([path, rule]) => [path, rule.filter(r => r.count)] as [string, RuleStats[]])
-		.filter(([dir, rules]) => dir && dir !== path && rules.length)
-		.toSorted(([a], [b]) => stringSort(a, b));
-
-	if (!Object.entries(rulesList).some(([dir, rules]) => dir && dir !== path && rules.length)) {
-		clearNode(base);
-
-		return;
-	}
-
-	const buildTree = (flatList: [string, RuleStats[]][]): Record<string, TreeNode> => {
+const base = div({ "id": "affectingRules" }),
+	buildTree = (flatList: [string, RuleStats[]][]): Record<string, TreeNode> => {
 		const root: Record<string, TreeNode> = {};
+
 		for (const [fullPath, rules] of flatList) {
-			const parts = fullPath.split("/").filter(Boolean);
+			const parts = fullPath.split(/(?<=\/)/).filter(Boolean);
 			let node = root;
 
 			parts.forEach((part, i) => {
@@ -49,17 +34,8 @@ registerLoader((path: string, data: DirectoryWithChildren) => {
 		}
 
 		return root;
-	};
-
-	const hasDeepRules = (node: TreeNode): boolean => {
-		if (node.rules.length > 0) {
-			return true;
-		}
-
-		return Object.values(node.children).some(hasDeepRules);
-	};
-
-	const getRuleSummaryElements = (rules: RuleStats[]): Children => {
+	},
+	getRuleSummaryElements = (rules: RuleStats[]): Children => {
 		if (!rules || rules.length === 0) {
 			return [];
 		}
@@ -70,51 +46,49 @@ registerLoader((path: string, data: DirectoryWithChildren) => {
 			return div({ "class": "rule-badge" }, [
 				span({ "class": "file-type", "data-override": rule.Override }, rule.Match),
 				span({ "class": "file-summary" }, ` ${rule.count.toLocaleString()} files • ${formatBytes(rule.size)} `),
-				span({ "class": `action-pill`, "data-action": actionText }, actionText),
+				span({ "class": "action-pill", "data-action": actionText }, actionText),
 			]);
 		});
-	};
+	},
+	renderTree = (path: string, node: Record<string, TreeNode>, parentPath = ""): Children => Object.entries(node).map(([dir, data]) => {
+		const fullPath = parentPath + dir,
+			hasChildren = Object.keys(data.children).length > 0,
+			treeChildren = hasChildren ? div({ "class": "tree-children" }, renderTree(path, data.children, fullPath)) : [],
+			ruleChildren: Children = [
+				span({ "class": "dir-title" }, dir),
+				getRuleSummaryElements(data.rules),
+			];
 
-	const renderTree = (node: Record<string, TreeNode>, parentPath = "", depth = 0): Children => Object.entries(node).map(([dir, data]) => {
-		const fullPath = parentPath + "/" + dir;
-		const hasRules = data.rules.length > 0;
-		const hasChildren = Object.keys(data.children).length > 0;
-		const treeChildren = hasChildren ? div({ "class": "tree-children" }, renderTree(data.children, fullPath, depth + 1)) : [];
-		const ruleChildren: Children = [
-			svg({ "class": "folder-button" }, [
-				title("Folder"),
-				use({ "href": "#folder" }),
-			]),
-			span({ "class": "dir-title" }, dir),
-			hasRules ? button({
-				"class": "load-button",
+		return (hasChildren ? details : div)({ "class": "rule-section", "open": hasChildren, }, [
+			(hasChildren ? summary : div)({ "class": "summary-header" }, div({
 				"click": (e: Event) => {
 					e.stopPropagation();
 					load(data.fullPath || fullPath).then(() => window.scrollTo(0, 0));
 				}
-			}, svg([title("Go to"), use({ href: "#goto" })])) : [],
-			getRuleSummaryElements(data.rules),
-		];
-
-		if (hasChildren) {
-			return details(
-				{ "class": "rule-section", [depth !== Math.max(4, Array.from(path).reduce((a, b) => (b === "/" ? a + 1 : a), 0)) ? "open" : "closed"]: "" }, [
-				summary({ class: "summary-header" }, ruleChildren),
-				treeChildren
-			]);
-		}
-
-		return div({ class: "summary-header" }, [
-			ruleChildren,
+			}, ruleChildren)),
 			treeChildren
 		]);
 	});
+
+registerLoader((path: string, data: DirectoryWithChildren) => {
+	const rulesList = Object.entries(data.rules)
+		.map(([path, rule]) => [path, rule.filter(r => r.count)] as [string, RuleStats[]])
+		.filter(([dir, rules]) => dir && dir !== path && rules.length)
+		.toSorted(([a], [b]) => stringSort(a, b));
+
+	if (!Object.entries(rulesList).some(([dir, rules]) => dir && dir !== path && rules.length)) {
+		clearNode(base);
+
+		return;
+	}
 
 	clearNode(
 		base,
 		div({ "class": "card-container" }, [
 			div({ "class": "card-header" }, h2({ "class": "card-title" }, "Rules affecting files within this directory tree")),
-			renderTree(buildTree(rulesList)),
+			renderTree(path, buildTree(rulesList)),
 		])
 	);
 });
+
+export default base;
