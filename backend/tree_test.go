@@ -68,14 +68,14 @@ func TestTree(t *testing.T) {
 				nil,
 			)
 			So(code, ShouldEqual, http.StatusOK)
-			So(resp, ShouldEqual, "{\"RuleSummaries\":[{\"ID\":0,\"Users\":["+
+			So(resp, ShouldEqual, "{\"Group\":\"root\",\"RuleSummaries\":[{\"ID\":0,\"Users\":["+
 				"{\"Name\":\"root\",\"MTime\":4,\"Files\":1,\"Size\":3},"+
 				"{\"Name\":\""+user.Username+"\",\"MTime\":6,\"Files\":1,\"Size\":5}],"+
 				"\"Groups\":["+
 				"{\"Name\":\""+users.Group(2)+"\",\"MTime\":6,\"Files\":2,\"Size\":8}]}"+
-				"],\"Children\":{\"ChildToClaim/\":{\"ClaimedBy\":\"\",\"RuleSummaries\""+
+				"],\"Children\":{\"ChildToClaim/\":{\"Group\":\"root\",\"ClaimedBy\":\"\",\"RuleSummaries\""+
 				":[],\"Children\":{}},\"ChildToNotClaim/\""+
-				":{\"ClaimedBy\":\"\",\"RuleSummaries\":[],\""+
+				":{\"Group\":\"root\",\"ClaimedBy\":\"\",\"RuleSummaries\":[],\""+
 				"Children\":{}}},\"ClaimedBy\":\"\",\"Rules\":{},\"Unauthorised\":[],\"CanClaim\""+
 				":true,\"Frequency\":0,\"ReviewDate\":0,\"RemoveDate\":0}\n")
 
@@ -103,7 +103,7 @@ func TestTree(t *testing.T) {
 			re := regexp.MustCompile("[0-9]{5,}")
 			resp = re.ReplaceAllString(resp, "0")
 
-			So(resp, ShouldEqual, "{\"RuleSummaries\":[{\"ID\":0,\"Users\":["+
+			So(resp, ShouldEqual, "{\"Group\":\"root\",\"RuleSummaries\":[{\"ID\":0,\"Users\":["+
 				"{\"Name\":\""+user.Username+"\",\"MTime\":6,\"Files\":1,\"Size\":5}"+
 				"],\"Groups\":["+
 				"{\"Name\":\""+users.Username(2)+"\",\"MTime\":6,\"Files\":1,\"Size\":5}]},"+
@@ -111,9 +111,9 @@ func TestTree(t *testing.T) {
 				"{\"Name\":\"root\",\"MTime\":4,\"Files\":1,\"Size\":3}"+
 				"],\"Groups\":["+
 				"{\"Name\":\""+users.Group(2)+"\",\"MTime\":4,\"Files\":1,\"Size\":3}]}"+
-				"],\"Children\":{\"ChildToClaim/\":{\"ClaimedBy\":\"\",\"RuleSummaries\":"+
+				"],\"Children\":{\"ChildToClaim/\":{\"Group\":\"root\",\"ClaimedBy\":\"\",\"RuleSummaries\":"+
 				"[],\"Children\":{}},\"ChildToNotClaim/\""+
-				":{\"ClaimedBy\":\"\",\"RuleSummaries\":[],\"Children\":{}}},\"ClaimedBy\":\"root\",\"Rules\":{"+
+				":{\"Group\":\"root\",\"ClaimedBy\":\"\",\"RuleSummaries\":[],\"Children\":{}}},\"ClaimedBy\":\"root\",\"Rules\":{"+
 				"\"/some/path/MyDir/\":{\"1\":{\"BackupType\":1,\"Metadata\":\"\","+
 				"\"Match\":\"*.txt\",\"Override\":false,\"Created\":0,\"Modified\":0}}},"+
 				"\"Unauthorised\":[],\"CanClaim\":true,"+

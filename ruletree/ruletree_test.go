@@ -193,20 +193,25 @@ func TestRuletree(t *testing.T) {
 						"MyDir/": {
 							RuleSummaries: []Rule{ruleExpectations[1], ruleExpectations[2]},
 							Children:      map[string]*DirSummary{},
+							Group:         "root",
 						},
 						"YourDir/": {
 							RuleSummaries: []Rule{ruleExpectations[3]},
 							Children:      map[string]*DirSummary{},
+							Group:         "root",
 						},
 						"OtherDir/": {
 							RuleSummaries: []Rule{ruleExpectations[0]},
 							Children:      map[string]*DirSummary{},
+							Group:         "root",
 						},
 					},
+					Group: "root",
 				},
 				"/some/path/MyDir/": {
 					RuleSummaries: []Rule{ruleExpectations[1], ruleExpectations[2]},
 					Children:      map[string]*DirSummary{},
+					Group:         "root",
 				},
 			}
 
