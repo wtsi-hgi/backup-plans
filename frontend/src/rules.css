@@ -12,7 +12,7 @@ button.actionButton svg {
 	background-color: rgba(0, 0, 0, 0.75);
 }
 
-.affectingRules {
+#affectingRules {
 	gap: 1em;
 }
 
@@ -26,10 +26,6 @@ button.actionButton svg {
 	color: var(--colour);
 }
 
-.card-container>details {
-	padding-left: 1.2em;
-}
-
 .card-header {
 	margin-bottom: 8px;
 }
@@ -41,41 +37,16 @@ button.actionButton svg {
 	color: var(--colour);
 }
 
-.rule-section {
-	border-radius: 8px;
-	background: var(--tableEventBG);
-}
 
-.rule-section summary {
+.rule-section>div:first-child {
 	list-style: none;
 	padding: 4px 6px;
 	user-select: none;
 	cursor: pointer;
 }
 
-.rule-section summary:hover {
+.rule-section>div:first-child:hover {
 	background-color: var(--tableHoverBG);
-}
-
-details.rule-section>summary:before {
-	display: inline-block;
-	content: "+";
-	text-align: center;
-	font-weight: bold;
-	font-family: monospace;
-	margin-right: 4px;
-	color: var(--colour);
-	cursor: pointer;
-	user-select: none;
-	transition: color 0.15s ease;
-}
-
-details[open].rule-section>summary:before {
-	content: "–";
-}
-
-details.rule-section>summary:not(:has(button:hover)):hover::marker {
-	color: var(--inputAccent);
 }
 
 .summary-header {
@@ -87,20 +58,7 @@ details.rule-section>summary:not(:has(button:hover)):hover::marker {
 	margin-left: 20px;
 }
 
-.load-button {
-	background: none;
-	border: none;
-	padding: 0;
-	margin-left: auto;
-}
-
-.load-button:hover svg use {
-	color: var(--inputAccent) !important;
-	transition: color 0.15s ease;
-}
-
-.folder-button,
-.load-button svg {
+.folder-button {
 	width: 16px !important;
 	height: 16px !important;
 	padding-left: 0.25em;
@@ -110,7 +68,7 @@ details.rule-section>summary:not(:has(button:hover)):hover::marker {
 
 .rule-badge {
 	color: var(--rule-badge-text);
-	margin-right: 6px;
+	margin-left: 6px;
 	margin-bottom: 4px;
 	word-break: keep-all;
 	display: inline-block;
@@ -345,4 +303,11 @@ select:not(:has(option:checked[value="backup"])):not(:has(option:checked[value="
 	white-space: pre-wrap;
 	max-width: 90vw;
 	pointer-events: none;
+}
+
+.dir-title {
+	padding-left: 20px;
+	min-height: 24px;
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3,4 h5 l2,3 h11 v13 h-18 z' fill='%23f4b400'/%3E%3C/svg%3E");
+	background-repeat: no-repeat;
 }
