@@ -1,7 +1,7 @@
 import type { DirectoryWithChildren, RuleStats } from './types.js';
 import type { Children } from "./lib/dom.js";
 import { clearNode } from "./lib/dom.js";
-import { div, h2, span } from "./lib/html.js";
+import { details, div, h2, span, summary } from "./lib/html.js";
 import { action, formatBytes, stringSort } from "./lib/utils.js";
 import { load, registerLoader } from './load.js';
 
@@ -59,11 +59,10 @@ const base = div({ "id": "affectingRules" }),
 				getRuleSummaryElements(data.rules),
 			];
 
-		return div({ "class": "rule-section" }, [
-			div({
-				"class": "summary-header",
+		return (hasChildren ? details : div)({ "class": "rule-section", "open": hasChildren, }, [
+			(hasChildren ? summary : div)({ "class": "summary-header" }, div({
 				"click": (e: Event) => load(data.fullPath || fullPath).then(() => window.scrollTo(0, 0))
-			}, ruleChildren),
+			}, ruleChildren)),
 			treeChildren
 		]);
 	});

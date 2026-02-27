@@ -38,20 +38,32 @@ button.actionButton svg {
 }
 
 
-.rule-section>div:first-child {
+.summary-header:first-child {
 	list-style: none;
 	padding: 4px 6px;
 	user-select: none;
 	cursor: pointer;
 }
 
-.rule-section>div:first-child:hover {
+.summary-header:hover {
 	background-color: var(--tableHoverBG);
 }
 
 .summary-header {
 	padding: 4px 6px;
 	user-select: none;
+}
+
+summary.summary-header:before {
+	content: "+";
+	font-weight: bold;
+	font-family: monospace;
+	float: left;
+	margin-right: 0.5em;
+}
+
+details[open]>summary.summary-header:before {
+	content: "-";
 }
 
 .tree-children {
