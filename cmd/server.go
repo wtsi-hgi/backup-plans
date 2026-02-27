@@ -168,7 +168,7 @@ func init() {
 
 func getUser(r *http.Request) string {
 	for _, cookie := range r.Cookies() {
-		if cookie.Name == "nginxauth" {
+		if cookie.Name == "nginxauth" && (cookie.Path == "/" || cookie.Path == "") {
 			data, err := base64.StdEncoding.DecodeString(cookie.Value)
 			if err != nil {
 				return ""
