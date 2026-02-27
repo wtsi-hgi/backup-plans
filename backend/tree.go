@@ -55,11 +55,7 @@ func (s *Server) AddTree(file string) error {
 		return err
 	}
 
-	if s.dirGroups != nil {
-		return s.UpdateDirMaps(rootPath)
-	}
-
-	return nil
+	return s.updateDirMaps(rootPath)
 }
 
 type treeDB struct {

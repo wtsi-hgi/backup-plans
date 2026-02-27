@@ -58,7 +58,6 @@ func TestClaimStats(t *testing.T) {
 		s, err := New(testDB, u.getUser, config.NewConfig(t, nil, nil, nil, 0))
 		So(err, ShouldBeNil)
 
-		So(s.LoadDirMaps(), ShouldBeNil)
 		So(s.AddTree(treeFile), ShouldBeNil)
 
 		Convey("Claimstats should return all claimed directories, filtered by user, group or bom", func() {

@@ -21,39 +21,38 @@ export function updateClaimStats() {
     amendNode(container, createClaimStatsSection());
 }
 
-let filter = {
+const filter = {
     "user": user,
     "groupbom": ""
 }
 
 function createClaimStatsSection() {
-    let page = div({ "class": "claimstats-container" });
-
+    const page = div({ "class": "claimstats-container" });
     const spinner = createSpinner();
     page.appendChild(spinner);
 
-
     getClaimStats(filter.user, filter.groupbom).then(claimstats => {
-        page.removeChild(spinner);
-        claimstats.length > 0 ? claimstats.map((dirStats) => {
+        page.replaceChildren(...claimstats.length > 0 ? claimstats.map((dirStats) => {
             if (!users.has(dirStats.ClaimedBy)) {
                 users.add(dirStats.ClaimedBy);
                 userList.append(option({ "label": "User: " + dirStats.ClaimedBy }, dirStats.ClaimedBy));
             };
 
-            page.appendChild(fieldset({ "class": "userclaims", "data-user": dirStats.ClaimedBy, "data-group": dirStats.Group }, [
+            return fieldset({ "class": "userclaims", "data-user": dirStats.ClaimedBy, "data-group": dirStats.Group }, [
                 legend({ "class": "claimstats-legend" }, [h2(dirStats.Path), button({
                     "class": "load-button",
                     "click": () => load(dirStats.Path).then(() => {
                         window.scrollTo(0, 0);
                         document.getElementsByTagName("summary")[0].click();
+                    }).catch((e: Error) => {
+                        alert("Error: " + e.message);
                     })
                 }, svg([title("Go to"), use({ href: "#goto" })]))]),
                 div([
                     div({ "class": "claiminfo" }, [
                         p("Last successful backup: " + (dirStats.BackupStatus.LastSuccess === "0001-01-01T00:00:00Z" ? "Pending" : longAgoStr(dirStats.BackupStatus.LastSuccess))),
                         p("Failures: " + dirStats.BackupStatus.Failures),
-                        (filter.groupbom !== "" && filter.user === "") ? p("Claimed by: " + dirStats.ClaimedBy) : p()
+                        (filter.groupbom !== "" && filter.user === "") ? p("Claimed by: " + dirStats.ClaimedBy) : []
                     ]),
                     table({ "class": "summary" }, [
                         thead(tr([
@@ -74,13 +73,14 @@ function createClaimStatsSection() {
                         ])
                     ])
                 ])
-            ]))
-        }
-        ) : page.appendChild(h2("No claimed directories."))
-    });
+            ])
+        }) : [h2("No claimed directories.")]);
+    }).catch((e: Error) => {
+        alert("Error: " + e.message);
+    })
 
     return page
-}
+};
 
 const userList = datalist({ "id": "claimstatsUsers" });
 userList.append(...Array.from(users).map((user) => option({ "label": "User: " + user }, user)));

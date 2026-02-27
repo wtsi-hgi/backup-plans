@@ -66,9 +66,11 @@ type Server struct {
 // New creates a new Backend API server.
 func New(db *db.DB, getUser func(r *http.Request) string, c *config.Config) (*Server, error) {
 	s := &Server{
-		getUser: getUser,
-		rulesDB: db,
-		config:  c,
+		getUser:   getUser,
+		rulesDB:   db,
+		config:    c,
+		dirGroups: make(map[int64]string),
+		dirBoms:   make(map[int64]string),
 	}
 
 	rules, err := s.loadRules()
@@ -86,48 +88,19 @@ func New(db *db.DB, getUser func(r *http.Request) string, c *config.Config) (*Se
 	return s, nil
 }
 
-// LoadDirMaps will populate s.dirGroups and s.dirBoms with:
+// updateDirMaps will update s.dirGroups and s.dirBoms for the given root. If no
+// root is given, it will update all of them.
 //
 //	s.dirGroups: map(directory ID -> group name)
 //	s.dirBoms: map(directory ID -> BOM)
-func (s *Server) LoadDirMaps() error {
-	dirGroups := make(map[int64]string)
-	dirBoms := make(map[int64]string)
-	bomMap := s.config.GetBOMs()             // bom -> groups
-	reverseBomMap := s.reverseBOMMap(bomMap) // group -> bom
-
-	for _, dir := range s.directoryRules {
-		dirSummary, err := s.rootDir.Summary(dir.Path)
-		if err != nil {
-			if errors.As(err, new(tree.ChildNotFoundError)) || errors.Is(err, ruletree.ErrNotFound) {
-				continue
-			}
-
-			return err
-		}
-
-		_, gid := dirSummary.IDs()
-		groupname := users.Group(gid)
-		dirGroups[dir.ID()] = groupname
-		dirBoms[dir.ID()] = reverseBomMap[groupname]
-	}
-
-	s.dirGroups = dirGroups
-	s.dirBoms = dirBoms
-
-	return nil
-}
-
-// UpdateDirMaps will update s.dirGroups and s.dirBoms for the given root.
-func (s *Server) UpdateDirMaps(rootPath string) error {
+func (s *Server) updateDirMaps(rootPath string) error { //nolint:gocognit
 	s.rulesMu.Lock()
 	defer s.rulesMu.Unlock()
 
-	mp := s.rootDir.GetMountPoint(rootPath)
 	reverseBomMap := s.reverseBOMMap(s.config.GetBOMs())
 
 	for _, dir := range s.directoryRules {
-		if !strings.HasPrefix(dir.Path, mp) {
+		if rootPath != "" && !strings.HasPrefix(dir.Path, rootPath) {
 			continue
 		}
 
@@ -142,8 +115,10 @@ func (s *Server) UpdateDirMaps(rootPath string) error {
 
 		_, gid := dirSummary.IDs()
 		groupname := users.Group(gid)
-		s.dirGroups[dir.ID()] = groupname
-		s.dirBoms[dir.ID()] = reverseBomMap[groupname]
+		id := dir.ID()
+
+		s.dirGroups[id] = groupname
+		s.dirBoms[id] = reverseBomMap[groupname]
 	}
 
 	return nil

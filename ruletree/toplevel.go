@@ -151,6 +151,8 @@ func addRules(directoryRules map[string]*DirRules, dirRules []DirRule) ([]string
 	return dirs, nil
 }
 
+// GetMountPoint will return the mountpoint for the directory given, it will
+// return an empty string if none is found.
 func (r *RootDir) GetMountPoint(dir string) string {
 	for mp := range r.closers {
 		if strings.HasPrefix(dir, mp) {
