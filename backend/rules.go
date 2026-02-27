@@ -223,6 +223,13 @@ func (s *Server) claimDirectory(fileDir, user string, dirdetails dirDetails) err
 
 	s.dirs[uint64(directory.ID())] = directory //nolint:gosec
 
+	dirSummary, err := s.rootDir.Summary(directory.Path)
+	if err != nil {
+		return err
+	}
+
+	s.addToDirMaps(directory.ID(), dirSummary)
+
 	return nil
 }
 

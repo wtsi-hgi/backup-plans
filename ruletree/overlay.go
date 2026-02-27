@@ -202,6 +202,7 @@ func (r *ruleOverlay) getSummary(wildcard int64) *DirSummary {
 
 	ds.uid = uint32(sr.ReadUintX()) //nolint:gosec
 	ds.gid = uint32(sr.ReadUintX()) //nolint:gosec
+	ds.Group = users.Group(ds.gid)
 
 	ds.RuleSummaries = make([]Rule, sr.ReadUintX())
 

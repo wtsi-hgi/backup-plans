@@ -38,7 +38,6 @@ import (
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/git"
 	"github.com/wtsi-hgi/backup-plans/ruletree"
-	"github.com/wtsi-hgi/backup-plans/users"
 	"vimagination.zapto.org/httpbuffer"
 	_ "vimagination.zapto.org/httpbuffer/gzip" //
 	"vimagination.zapto.org/tree"
@@ -88,6 +87,15 @@ func New(db *db.DB, getUser func(r *http.Request) string, c *config.Config) (*Se
 	return s, nil
 }
 
+func (s *Server) addToDirMaps(id int64, dirSummary *ruletree.DirSummary) {
+	reverseBomMap := s.reverseBOMMap(s.config.GetBOMs())
+
+	groupname := dirSummary.Group
+
+	s.dirGroups[id] = groupname
+	s.dirBoms[id] = reverseBomMap[groupname]
+}
+
 // updateDirMaps will update s.dirGroups and s.dirBoms for the given root. If no
 // root is given, it will update all of them.
 //
@@ -96,8 +104,6 @@ func New(db *db.DB, getUser func(r *http.Request) string, c *config.Config) (*Se
 func (s *Server) updateDirMaps(rootPath string) error { //nolint:gocognit
 	s.rulesMu.Lock()
 	defer s.rulesMu.Unlock()
-
-	reverseBomMap := s.reverseBOMMap(s.config.GetBOMs())
 
 	for _, dir := range s.directoryRules {
 		if rootPath != "" && !strings.HasPrefix(dir.Path, rootPath) {
@@ -113,12 +119,7 @@ func (s *Server) updateDirMaps(rootPath string) error { //nolint:gocognit
 			return err
 		}
 
-		_, gid := dirSummary.IDs()
-		groupname := users.Group(gid)
-		id := dir.ID()
-
-		s.dirGroups[id] = groupname
-		s.dirBoms[id] = reverseBomMap[groupname]
+		s.addToDirMaps(dir.ID(), dirSummary)
 	}
 
 	return nil
