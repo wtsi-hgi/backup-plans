@@ -35,13 +35,6 @@ const base = div({ "id": "affectingRules" }),
 
 		return root;
 	},
-	hasDeepRules = (node: TreeNode): boolean => {
-		if (node.rules.length > 0) {
-			return true;
-		}
-
-		return Object.values(node.children).some(hasDeepRules);
-	},
 	getRuleSummaryElements = (rules: RuleStats[]): Children => {
 		if (!rules || rules.length === 0) {
 			return [];
@@ -57,16 +50,16 @@ const base = div({ "id": "affectingRules" }),
 			]);
 		});
 	},
-	renderTree = (path: string, node: Record<string, TreeNode>, parentPath = "", depth = 0): Children => Object.entries(node).map(([dir, data]) => {
+	renderTree = (path: string, node: Record<string, TreeNode>, parentPath = ""): Children => Object.entries(node).map(([dir, data]) => {
 		const fullPath = parentPath + dir,
 			hasChildren = Object.keys(data.children).length > 0,
-			treeChildren = hasChildren ? div({ "class": "tree-children" }, renderTree(path, data.children, fullPath, depth + 1)) : [],
+			treeChildren = hasChildren ? div({ "class": "tree-children" }, renderTree(path, data.children, fullPath)) : [],
 			ruleChildren: Children = [
 				span({ "class": "dir-title" }, dir),
 				getRuleSummaryElements(data.rules),
 			];
 
-		return div({ class: "rule-section" }, [
+		return div({ "class": "rule-section" }, [
 			div({
 				"class": "summary-header",
 				"click": (e: Event) => load(data.fullPath || fullPath).then(() => window.scrollTo(0, 0))
