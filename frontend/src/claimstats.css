@@ -69,6 +69,7 @@
 
 .claimstats-legend h2:hover {
     background-color: var(--tableHoverBG);
+    cursor: pointer;
 }
 
 .hidden {
