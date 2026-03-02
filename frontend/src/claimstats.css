@@ -71,10 +71,6 @@
     background-color: var(--tableHoverBG);
 }
 
-/* .claimstats-legend svg {
-    position: relative;
-} */
-
 .hidden {
     display: none;
 }
