@@ -19,6 +19,7 @@
 .userclaims h2 {
     margin: 0;
     position: relative;
+    padding: 2px;
 }
 
 .claimstats-filter-container {
@@ -66,9 +67,13 @@
     flex-direction: row;
 }
 
-.claimstats-legend svg {
-    position: relative;
+.claimstats-legend h2:hover {
+    background-color: var(--tableHoverBG);
 }
+
+/* .claimstats-legend svg {
+    position: relative;
+} */
 
 .hidden {
     display: none;

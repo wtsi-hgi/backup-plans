@@ -39,15 +39,14 @@ function createClaimStatsSection() {
             };
 
             return fieldset({ "class": "userclaims", "data-user": dirStats.ClaimedBy, "data-group": dirStats.Group }, [
-                legend({ "class": "claimstats-legend" }, [h2(dirStats.Path), button({
-                    "class": "load-button",
+                legend({ "class": "claimstats-legend" }, [h2({
                     "click": () => load(dirStats.Path).then(() => {
                         window.scrollTo(0, 0);
                         document.getElementsByTagName("summary")[0].click();
                     }).catch((e: Error) => {
                         alert("Error: " + e.message);
                     })
-                }, svg([title("Go to"), use({ href: "#goto" })]))]),
+                }, dirStats.Path),]),
                 div([
                     div({ "class": "claiminfo" }, [
                         p("Last successful backup: " + (dirStats.BackupStatus.LastSuccess === "0001-01-01T00:00:00Z" ? "Pending" : longAgoStr(dirStats.BackupStatus.LastSuccess))),
@@ -106,7 +105,8 @@ function createFilterSection() {
             "list": "claimstatsUsers",
             "value": user,
             "input": function (this: HTMLInputElement) { filter.user = this.value },
-            "keypress": function (this: HTMLInputElement, e: KeyboardEvent) { if (e.key === "Enter") filterClaimStats() }
+            "keypress": function (this: HTMLInputElement, e: KeyboardEvent) { if (e.key === "Enter") filterClaimStats() },
+            "dblclick": function (this: HTMLInputElement) { this.select(); }
         }),
         input({
             "placeholder": "Group, BOM",
