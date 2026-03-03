@@ -159,7 +159,7 @@ func TestClaimDir(t *testing.T) {
 
 				code, resp = getResponse(
 					s.SetDirDetails,
-					"/api/dir/setDirDetails?dir=/some/path/MyDir/&frequency=10&review="+now+"&remove="+future,
+					"/api/dir/setDirDetails?dir=/some/path/MyDir/&frequency=10&frozen=false&review="+now+"&remove="+future,
 					nil,
 				)
 				So(resp, ShouldEqual, "invalid user\n")
@@ -169,7 +169,7 @@ func TestClaimDir(t *testing.T) {
 
 				code, resp = getResponse(
 					s.SetDirDetails,
-					"/api/dir/setDirDetails?dir=/some/path/MyDir/&frequency=10&review="+now+"&remove="+future,
+					"/api/dir/setDirDetails?dir=/some/path/MyDir/&frequency=10&frozen=false&review="+now+"&remove="+future,
 					nil,
 				)
 
@@ -182,13 +182,13 @@ func TestClaimDir(t *testing.T) {
 					nil,
 				)
 				So(code, ShouldEqual, http.StatusOK)
-				So(resp, ShouldContainSubstring, "\"Frequency\":10,\"ReviewDate\":"+now+",\"RemoveDate\":"+future)
+				So(resp, ShouldContainSubstring, "\"Frequency\":10,\"Frozen\":false,\"ReviewDate\":"+now+",\"RemoveDate\":"+future)
 			})
 
 			Convey("You cannot set invalid directory details", func() {
 				code, resp = getResponse(
 					s.SetDirDetails,
-					"/api/dir/setDirDetails?dir=/some/path/MyDir/&frequency=-1&review="+now+"&remove="+future,
+					"/api/dir/setDirDetails?dir=/some/path/MyDir/&frequency=-1&frozen=false&review="+now+"&remove="+future,
 					nil,
 				)
 
@@ -197,7 +197,7 @@ func TestClaimDir(t *testing.T) {
 
 				code, resp = getResponse(
 					s.SetDirDetails,
-					"/api/dir/setDirDetails?dir=/some/path/MyDir/&frequency=10&review=0&remove="+future,
+					"/api/dir/setDirDetails?dir=/some/path/MyDir/&frequency=10&frozen=false&review=0&remove="+future,
 					nil,
 				)
 
@@ -206,7 +206,7 @@ func TestClaimDir(t *testing.T) {
 
 				code, resp = getResponse(
 					s.SetDirDetails,
-					"/api/dir/setDirDetails?dir=/some/path/MyDir/&frequency=10&review="+future+"&remove="+now,
+					"/api/dir/setDirDetails?dir=/some/path/MyDir/&frequency=10&frozen=false&review="+future+"&remove="+now,
 					nil,
 				)
 

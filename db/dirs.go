@@ -102,7 +102,8 @@ func scanDirectory(scanner scanner) (*Directory, error) {
 func (d *DB) UpdateDirectory(dir *Directory) error {
 	dir.Modified = time.Now().Unix()
 
-	return d.exec(updateDirectory, dir.ClaimedBy, dir.Modified, dir.Frequency, dir.Frozen, dir.ReviewDate, dir.RemoveDate, dir.id)
+	return d.exec(updateDirectory, dir.ClaimedBy, dir.Modified, dir.Frequency,
+		dir.Frozen, dir.ReviewDate, dir.RemoveDate, dir.id)
 }
 
 // RemoveDirectory will remove the given Directory from the database.
