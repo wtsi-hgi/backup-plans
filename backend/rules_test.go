@@ -299,6 +299,45 @@ func TestRules(t *testing.T) {
 				So(resp, ShouldEqual, "no matching rule\n")
 			})
 		})
+
+		Convey("You can add rules of every type", func() {
+			currUser, err := user.Current()
+			So(err, ShouldBeNil)
+
+			secondGroup, err := user.LookupGroupId("2")
+			So(err, ShouldBeNil)
+
+			code, resp := getResponse(
+				s.ClaimDir,
+				"/api/dir/claim?dir=/some/path/ChildDir/Child/",
+				nil,
+			)
+			So(code, ShouldEqual, http.StatusOK)
+			So(resp, ShouldEqual, "\""+root+"\"\n")
+
+			for n, typ := range [...]string{
+				"nobackup", "backup", "manualibackup",
+				"manualgit", "manualunchecked", "manualprefect", "manualnfs",
+			} {
+				Convey(typ, func() {
+					code, resp = getResponse(
+						s.CreateRule,
+						"/api/rules/create?dir=/some/path/ChildDir/Child/&action="+typ+"&match=*&frequency=7&review=100&remove=200",
+						nil,
+					)
+					So(code, ShouldEqual, http.StatusNoContent)
+					So(resp, ShouldEqual, "")
+
+					code, resp = getResponse(
+						s.Tree,
+						"/api/tree?dir=/some/path/ChildDir/Child/",
+						nil,
+					)
+					So(code, ShouldEqual, http.StatusOK)
+					So(resp, ShouldStartWith, `{"Group":"root","RuleSummaries":[{"ID":1,"Users":[{"Name":"`+currUser.Username+`","MTime":36,"Files":1,"Size":35}],"Groups":[{"Name":"`+secondGroup.Name+`","MTime":36,"Files":1,"Size":35}]}],"Children":{},"ClaimedBy":"root","Rules":{"/some/path/ChildDir/Child/":{"1":{"BackupType":`+strconv.Itoa(n)+`,"Metadata":"","Match":"*","Override":false,"Created":`) //nolint:lll
+				})
+			}
+		})
 	})
 }
 

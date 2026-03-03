@@ -25,7 +25,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 				metadataHelpIcon.setAttribute("data-tooltip", backupType.metadataToolTip());
 			}
 		},
-			BackupType.all.map(bt => option({ "value": bt.toString(), "selected": +backupType === +bt }, bt.optionLabel()))
+			BackupType.selectable.map(bt => option({ "value": bt.toString(), "selected": +backupType === +bt }, bt.optionLabel()))
 		);
 
 	return [

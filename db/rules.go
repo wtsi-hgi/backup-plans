@@ -39,6 +39,7 @@ const (
 	BackupManualGit
 	BackupManualUnchecked
 	BackupManualPrefect
+	BackupManualNFS
 )
 
 // Rule represents a defined rule.
