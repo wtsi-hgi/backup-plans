@@ -2,7 +2,6 @@ import { div, h2, p, button, table, thead, tbody, th, td, tr, fieldset, legend, 
 import { getClaimStats, user } from "./rpc.js";
 import { formatBytes, longAgoStr, createSpinner } from "./lib/utils.js";
 import { BackupType } from "./consts.js";
-import { svg, title, use } from "./lib/svg.js";
 import { load } from './load.js';
 import { amendNode, clearNode } from "./lib/dom.js";
 import { users, groups, bomSet } from './userGroups.js';
@@ -112,7 +111,8 @@ function createFilterSection() {
             "placeholder": "Group, BOM",
             "list": "claimstatsGroupBoms",
             "input": function (this: HTMLInputElement) { filter.groupbom = this.value },
-            "keypress": function (this: HTMLInputElement, e: KeyboardEvent) { if (e.key === "Enter") filterClaimStats() }
+            "keypress": function (this: HTMLInputElement, e: KeyboardEvent) { if (e.key === "Enter") filterClaimStats() },
+            "dblclick": function (this: HTMLInputElement) { this.select(); }
         }),
         button({ "click": filterClaimStats }, "Filter"),
     ]);
