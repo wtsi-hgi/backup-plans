@@ -164,9 +164,9 @@ func TestMultiIbackup(t *testing.T) {
 
 			Convey("You can backup the same set to different servers", func() {
 				So(mc.Backup("/some/path/a/dir/", setName, u.Username,
-					[]string{"/some/path/a/dir/file", "/some/path/a/dir/file2"}, 0, 1, 2), ShouldBeNil)
+					[]string{"/some/path/a/dir/file", "/some/path/a/dir/file2"}, 0, true, 1, 2), ShouldBeNil)
 				So(mc.Backup("/some/other/path/a/dir/", setName, u.Username,
-					[]string{"/some/other/path/a/dir/file"}, 0, 3, 4), ShouldBeNil)
+					[]string{"/some/other/path/a/dir/file"}, 0, true, 3, 4), ShouldBeNil)
 
 				config.PathToServer["^/some/other/path/"] = ibackup.ServerTransformer{
 					ServerName:  "example_3",
@@ -177,9 +177,9 @@ func TestMultiIbackup(t *testing.T) {
 				So(err, ShouldBeNil)
 
 				So(nc.Backup("/some/other/path/a/dir/", setNameB, u.Username,
-					[]string{"/some/other/path/a/dir/file"}, 0, 1, 2), ShouldBeNil)
+					[]string{"/some/other/path/a/dir/file"}, 0, true, 1, 2), ShouldBeNil)
 				So(nc.Backup("/some/other/path/another/dir/", setNameC, u.Username,
-					[]string{"/some/other/path/another/dir/file"}, 0, 1, 2), ShouldBeNil)
+					[]string{"/some/other/path/another/dir/file"}, 0, true, 1, 2), ShouldBeNil)
 
 				baa, err := mc.GetBackupActivity("/some/path/a/dir/", setName, u.Username, false)
 				So(err, ShouldBeNil)
@@ -271,7 +271,7 @@ func ibackupTests(t *testing.T, createClient func() (ibackupClient, func(*set.Se
 
 			setName := "mySet"
 
-			err = ibackup.Backup(client, "prefix=/lustre/:/remote/", setName, u.Username, []string{}, 0, 0, 0)
+			err = ibackup.Backup(client, "prefix=/lustre/:/remote/", setName, u.Username, []string{}, 0, true, 0, 0)
 			So(err, ShouldBeNil)
 
 			sets, err = client.GetSets(u.Username)
@@ -285,7 +285,7 @@ func ibackupTests(t *testing.T, createClient func() (ibackupClient, func(*set.Se
 			setName += "2"
 
 			runTestBackups(client, setName, u.Username,
-				[]string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}, 1, review, remove)
+				[]string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}, 1, false, review, remove)
 
 			sets, err = client.GetSets(u.Username)
 			So(err, ShouldBeNil)
@@ -311,20 +311,72 @@ func ibackupTests(t *testing.T, createClient func() (ibackupClient, func(*set.Se
 			So(err, ShouldBeNil)
 			So(sba.LastSuccess, ShouldHappenAfter, before)
 
-			Convey("You can create a freeze, which cannot be overwritten", func() {
+			Convey("You can mark a set as frozen, and change that status later", func() {
 				u.Username += "2"
 
 				runTestBackups(client, setName, u.Username,
-					[]string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}, 0, 0, 0)
+					[]string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}, 1, true, 2, 3)
+
+				sets, err = client.GetSets(u.Username)
+				So(err, ShouldBeNil)
+				So(checkTimes(sets), ShouldResemble, []*set.Set{
+					{
+						Name:        setName,
+						Requester:   u.Username,
+						Transformer: "prefix=/lustre/:/remote/",
+						Frozen:      true,
+						Metadata: map[string]string{
+							transfer.MetaKeyReason:  "archive",
+							transfer.MetaKeyReview:  timeToMeta(2),
+							transfer.MetaKeyRemoval: timeToMeta(3),
+						},
+						NumFiles: 1,
+						Missing:  1,
+						Status:   set.Complete,
+					},
+				})
+
+				ld := time.Now().Add(-24 * time.Hour)
+				sets[0].LastDiscovery = ld
+
+				So(setSet(sets[0]), ShouldBeNil)
+
+				runTestBackups(client, setName, u.Username,
+					[]string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}, 1, false, 2, 3)
+
+				sets, err = client.GetSets(u.Username)
+				So(err, ShouldBeNil)
+				So(checkTimes(sets), ShouldResemble, []*set.Set{
+					{
+						Name:        setName,
+						Requester:   u.Username,
+						Transformer: "prefix=/lustre/:/remote/",
+						Metadata: map[string]string{
+							transfer.MetaKeyReason:  "backup",
+							transfer.MetaKeyReview:  timeToMeta(2),
+							transfer.MetaKeyRemoval: timeToMeta(3),
+						},
+						NumFiles: 1,
+						Missing:  1,
+						Status:   set.Complete,
+					},
+				})
+			})
+
+			Convey("You can create a set with a 0 frequency, which cannot be updated", func() {
+				u.Username += "2"
+
+				runTestBackups(client, setName, u.Username,
+					[]string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}, 0, true, 0, 0)
 
 				sba, err := ibackup.GetBackupActivity(client, setName, u.Username)
 				So(err, ShouldBeNil)
 				So(sba.LastSuccess, ShouldNotBeNil)
 
 				err = ibackup.Backup(mockClient, "prefix=/lustre/:/remote/", setName, u.Username,
-					[]string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}, 0, 0, 0)
+					[]string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}, 0, true, 0, 0)
 
-				So(err, ShouldEqual, ibackup.ErrFrozenSet)
+				So(err, ShouldEqual, ibackup.ErrNoUpdate)
 
 				So(len(mockClient.Discoveries), ShouldBeZeroValue)
 			})
@@ -338,7 +390,7 @@ func ibackupTests(t *testing.T, createClient func() (ibackupClient, func(*set.Se
 
 				So(setSet(got), ShouldBeNil)
 				runTestBackups(client, setName, u.Username,
-					[]string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}, 1, 0, 0)
+					[]string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}, 1, false, 0, 0)
 
 				got, err = client.GetSetByName(u.Username, setName)
 				So(err, ShouldBeNil)
@@ -350,7 +402,7 @@ func ibackupTests(t *testing.T, createClient func() (ibackupClient, func(*set.Se
 				So(setSet(got), ShouldBeNil)
 
 				runTestBackups(client, setName, u.Username,
-					[]string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}, 1, review, remove)
+					[]string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}, 1, false, review, remove)
 
 				got, err = client.GetSetByName(u.Username, setName)
 				So(err, ShouldBeNil)
@@ -564,8 +616,8 @@ func setSet(s *server.Server, got *set.Set) error {
 }
 
 func runTestBackups(client ibackupClient, setname, requester string, files []string,
-	frequency int, review, remove int64) {
-	err := ibackup.Backup(client, "prefix=/lustre/:/remote/", setname, requester, files, frequency, review, remove)
+	frequency int, frozen bool, review, remove int64) {
+	err := ibackup.Backup(client, "prefix=/lustre/:/remote/", setname, requester, files, frequency, frozen, review, remove)
 	So(err, ShouldBeNil)
 }
 

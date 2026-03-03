@@ -12,7 +12,8 @@ directories, regardless of their rules (unless their rules are more specific).`,
     "MetadataUnchecked": `Provide any information that could help you manually check the backup status of the matched files.`,
     "FOFN": `Add the same rule to multiple files in one go by providing a FOFN. Paths can be full or relative.
 `,
-    "Frequency": `How often all files in this directory, matched with an iBackup rule, will be backed up. Measured in days.`,
+    "Frequency": `How often all files in this directory, matched with an iBackup rule, will be backed up. Measured in days. A zero will mean a backup set will be created, but never updated.`,
+    "Frozen": `A frozen set is one in which files are only ever backed-up a single time; updates will be ignore, but new files will be backed-up when discovered.`,
     "Review": `Date at which a reminder will be issued to check if the plan is still up to date.`,
     "Remove": `Date at which the backup data will be automatically removed.`
 }

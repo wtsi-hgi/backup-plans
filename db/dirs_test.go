@@ -42,6 +42,7 @@ func TestDirs(t *testing.T) {
 				Frequency:  7,
 				ReviewDate: 1,
 				RemoveDate: 2,
+				Frozen:     true,
 			}
 			dirB := &Directory{
 				Path:      "/some/other/path/",

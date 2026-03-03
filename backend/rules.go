@@ -362,6 +362,7 @@ func (s *Server) setDirDetails(_ http.ResponseWriter, r *http.Request) error { /
 	directory.Frequency = dDetails.Frequency
 	directory.ReviewDate = dDetails.ReviewDate
 	directory.RemoveDate = dDetails.RemoveDate
+	directory.Frozen = dDetails.Frozen
 
 	return s.rulesDB.UpdateDirectory(directory.Directory)
 }
@@ -387,6 +388,7 @@ func validateDirDetails(d dirDetails) error {
 
 type dirDetails struct {
 	Frequency  uint
+	Frozen     bool
 	ReviewDate int64
 	RemoveDate int64
 }
@@ -395,6 +397,7 @@ func getDirDetails(r *http.Request) (dirDetails, error) {
 	frequencyStr := r.FormValue("frequency")
 	reviewStr := r.FormValue("review")
 	removeStr := r.FormValue("remove")
+	frozenStr := r.FormValue("frozen")
 
 	frequency, err := strconv.ParseUint(frequencyStr, 10, 64)
 	if err != nil {
@@ -403,6 +406,11 @@ func getDirDetails(r *http.Request) (dirDetails, error) {
 
 	if frequency > frequencyLimit {
 		return dirDetails{}, ErrInvalidFrequency
+	}
+
+	frozen, err := strconv.ParseBool(frozenStr)
+	if err != nil {
+		return dirDetails{}, Error{Err: err, Code: http.StatusBadRequest}
 	}
 
 	review, err := strconv.ParseInt(reviewStr, 10, 64)
@@ -415,7 +423,7 @@ func getDirDetails(r *http.Request) (dirDetails, error) {
 		return dirDetails{}, Error{Err: err, Code: http.StatusBadRequest}
 	}
 
-	return dirDetails{Frequency: uint(frequency), ReviewDate: review, RemoveDate: remove}, nil
+	return dirDetails{Frequency: uint(frequency), Frozen: frozen, ReviewDate: review, RemoveDate: remove}, nil
 }
 
 // CreateRule allows the claimant of a directory to add a rule to that

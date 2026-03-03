@@ -33,6 +33,7 @@ var tables = [...]string{
 		"`directoryHash` " + hashColumnStart + "`directory`" + hashColumnEnd + ", " +
 		"`claimedBy` TEXT NOT NULL, " +
 		"`frequency` INTEGER NOT NULL, " +
+		"`frozen` BOOLEAN DEFAULT FALSE, " +
 		"`reviewDate` BIGINT NOT NULL, " +
 		"`removeDate` BIGINT NOT NULL, " +
 		"`created` BIGINT NOT NULL, " +
@@ -75,11 +76,12 @@ const (
 		"`directory`, " +
 		"`claimedBy`, " +
 		"`frequency`, " +
+		"`frozen`, " +
 		"`reviewDate`, " +
 		"`removeDate`, " +
 		"`created`, " +
 		"`modified`" +
-		") VALUES (?, ?, ?, ?, ?, ?, ?);"
+		") VALUES (?, ?, ?, ?, ?, ?, ?, ?);"
 	createRule = "INSERT INTO `rules` " +
 		"(`directoryID`, `type`, `metadata`, `match`, `override`, `created`, `modified`) " +
 		"VALUES (?, ?, ?, ?, ?, ?, ?);"
@@ -89,6 +91,7 @@ const (
 		"`directory`, " +
 		"`claimedBy`, " +
 		"`frequency`, " +
+		"`frozen`, " +
 		"`reviewDate`, " +
 		"`removeDate`, " +
 		"`created`, " +
@@ -109,6 +112,7 @@ const (
 		"`claimedBy` = ?, " +
 		"`modified` = ?, " +
 		"`frequency` = ?, " +
+		"`frozen` = ?, " +
 		"`reviewDate` = ?, " +
 		"`removeDate` = ? " +
 		"WHERE `id` = ?;"

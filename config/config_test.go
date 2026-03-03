@@ -126,9 +126,9 @@ func TestConfig(t *testing.T) {
 				Reset(func() { ib.Stop() })
 
 				So(ib.Backup("/some/path/a/dir/", setName, u.Username,
-					[]string{"/some/path/a/dir/file", "/some/path/a/dir/file2"}, 0, 1, 2), ShouldBeNil)
+					[]string{"/some/path/a/dir/file", "/some/path/a/dir/file2"}, 0, true, 1, 2), ShouldBeNil)
 				So(ib.Backup("/some/other/path/a/dir/", setName, u.Username,
-					[]string{"/some/other/path/a/dir/file"}, 0, 3, 4), ShouldBeNil)
+					[]string{"/some/other/path/a/dir/file"}, 0, true, 3, 4), ShouldBeNil)
 
 				baa, err := ib.GetBackupActivity("/some/path/a/dir/", setName, u.Username, false)
 				So(err, ShouldBeNil)

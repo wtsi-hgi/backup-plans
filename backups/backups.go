@@ -185,7 +185,7 @@ func addFofnsToIBackup(client *ibackup.MultiClient, setFofns map[*db.Directory][
 		backupSetName := setNamePrefix + setInfo.Path
 
 		err := client.Backup(setInfo.Path, backupSetName, setInfo.ClaimedBy, fofns,
-			int(setInfo.Frequency), setInfo.ReviewDate, setInfo.RemoveDate) //nolint:gosec
+			int(setInfo.Frequency), setInfo.Frozen, setInfo.ReviewDate, setInfo.RemoveDate) //nolint:gosec
 		if err != nil {
 			errs = errors.Join(errs, err)
 

@@ -48,7 +48,7 @@ import (
 var (
 	ErrInvalidPath   = errors.New("cannot determine transformer from path")
 	ErrUnknownClient = errors.New("cannot determine client from path")
-	ErrFrozenSet     = errors.New("cannot update frozen backup")
+	ErrNoUpdate      = errors.New("frequency 0 set is already backed up")
 )
 
 // ServerDetails contains the connection details for a particular ibackup
@@ -302,13 +302,13 @@ func IsOnlyConnectionErrors(err error) bool {
 // Backup retrieves a client using the given path, and then calls the normal
 // Backup function.
 func (m *MultiClient) Backup(path string, setName, requester string, files []string,
-	frequency int, review, remove int64) error {
+	frequency int, frozen bool, review, remove int64) error {
 	c := m.getClient(path)
 	if c == nil {
 		return ErrUnknownClient
 	}
 
-	return Backup(c.Client(false).Load(), c.transformer, setName, requester, files, frequency, review, remove)
+	return Backup(c.Client(false).Load(), c.transformer, setName, requester, files, frequency, frozen, review, remove)
 }
 
 func (m *MultiClient) getClient(path string) *clientTransformer {
@@ -368,7 +368,7 @@ type Client interface {
 // Backup creates a new set called setName for the requester if it has been
 // longer than the frequency since the last discovery for that set.
 func Backup(client Client, transformer, setName, requester string, files []string,
-	frequency int, review, remove int64) error {
+	frequency int, frozen bool, review, remove int64) error {
 	if len(files) == 0 {
 		return nil
 	}
@@ -377,7 +377,7 @@ func Backup(client Client, transformer, setName, requester string, files []strin
 	removeDate := time.Unix(remove, 0).Format(time.DateOnly)
 
 	got, err := createOrUpdateSet(client, setName, requester, transformer,
-		frequency, reviewDate, removeDate)
+		frequency, frozen, reviewDate, removeDate)
 	if err != nil {
 		return err
 	} else if got == nil {
@@ -392,25 +392,25 @@ func Backup(client Client, transformer, setName, requester string, files []strin
 }
 
 func createOrUpdateSet(client Client, setName, requester, transformer string,
-	frequency int, reviewDate, removeDate string) (*set.Set, error) {
+	frequency int, frozen bool, reviewDate, removeDate string) (*set.Set, error) {
 	got, err := client.GetSetByName(requester, setName)
 	if errors.Is(err, server.ErrBadSet) {
-		return createSet(client, setName, requester, transformer, reviewDate, removeDate, frequency)
+		return createSet(client, setName, requester, transformer, reviewDate, removeDate, frozen)
 	} else if err != nil {
 		return nil, err
 	}
 
 	if frequency == 0 {
-		return got, ErrFrozenSet
+		return got, ErrNoUpdate
 	}
 
-	return updateSet(client, got, frequency, reviewDate, removeDate)
+	return updateSet(client, got, frequency, frozen, reviewDate, removeDate)
 }
 
 func createSet(client Client, setName, requester, transformer,
-	reviewDate, removeDate string, frequency int) (*set.Set, error) {
+	reviewDate, removeDate string, frozen bool) (*set.Set, error) {
 	reason := transfer.Backup
-	if frequency == 0 {
+	if frozen {
 		reason = transfer.Archive
 	}
 
@@ -424,6 +424,7 @@ func createSet(client Client, setName, requester, transformer,
 		Requester:   requester,
 		Transformer: transformer,
 		Metadata:    m.LocalMeta,
+		Frozen:      frozen,
 	}
 
 	if err := client.AddOrUpdateSet(got); err != nil {
@@ -434,20 +435,29 @@ func createSet(client Client, setName, requester, transformer,
 }
 
 func updateSet(client Client, got *set.Set,
-	frequency int, reviewDate, removeDate string) (*set.Set, error) {
+	frequency int, frozen bool, reviewDate, removeDate string) (*set.Set, error) {
 	if got.LastDiscovery.Add(time.Hour*24*time.Duration(frequency-1) + time.Hour*12).After(time.Now()) {
 		return nil, nil //nolint:nilnil
 	}
 
-	m, err := transfer.HandleMeta("", 0, reviewDate, removeDate, nil)
+	reason := transfer.Backup
+
+	if frozen {
+		reason = transfer.Archive
+	}
+
+	m, err := transfer.HandleMeta("", reason, reviewDate, removeDate, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	if got.Metadata[transfer.MetaKeyReview] != m.LocalMeta[transfer.MetaKeyReview] ||
+	if got.Frozen != frozen ||
+		got.Metadata[transfer.MetaKeyReview] != m.LocalMeta[transfer.MetaKeyReview] ||
 		got.Metadata[transfer.MetaKeyRemoval] != m.LocalMeta[transfer.MetaKeyRemoval] {
+		got.Frozen = frozen
 		got.Metadata[transfer.MetaKeyReview] = m.LocalMeta[transfer.MetaKeyReview]
 		got.Metadata[transfer.MetaKeyRemoval] = m.LocalMeta[transfer.MetaKeyRemoval]
+		got.Metadata[transfer.MetaKeyReason] = m.LocalMeta[transfer.MetaKeyReason]
 
 		if err := client.AddOrUpdateSet(got); err != nil {
 			return nil, err
