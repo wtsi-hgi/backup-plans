@@ -103,10 +103,6 @@ func (s *Server) loadRules() ([]ruletree.DirRule, error) { //nolint:funlen
 	dirRules := make([]ruletree.DirRule, 0)
 
 	if err := s.rulesDB.ReadDirectories().ForEach(func(dir *db.Directory) error {
-		// dr := &ruletree.DirRules{
-		// 	Directory: dir,
-		// 	Rules:     make(map[string]*db.Rule),
-		// }
 		dr := Directory{
 			&ruletree.DirRules{
 				Directory: dir,
@@ -631,7 +627,7 @@ func (s *Server) RemoveRule(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.removeRule)
 }
 
-func (s *Server) removeRule(w http.ResponseWriter, r *http.Request) error {
+func (s *Server) removeRule(w http.ResponseWriter, r *http.Request) error { //nolint:funlen
 	dir, err := getDir(r)
 	if err != nil {
 		return err

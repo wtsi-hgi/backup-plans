@@ -99,10 +99,7 @@ func (s *Server) summary(w http.ResponseWriter, _ *http.Request) error {
 		return err
 	}
 
-	err = s.buildRootDirSummary(reportingRoots, &dirSummary)
-	if err != nil {
-		return err
-	}
+	s.buildRootDirSummary(reportingRoots, &dirSummary)
 
 	w.Header().Set("Content-type", "application/json")
 
@@ -205,30 +202,18 @@ func (s *Server) getBackupTypeForTotals(id uint64) int {
 	return int(s.rules[id].BackupType)
 }
 
-func (s *Server) buildRootDirSummary(reportingRoots []string, dirSummary *summary) error {
+func (s *Server) buildRootDirSummary(reportingRoots []string, dirSummary *summary) {
 	dirClaims := make(map[string]string)
 	repos := make(map[string]string)
 	manualIbackup := make(map[string][]dirSet)
 
 	for _, root := range reportingRoots {
-		// TODO: use cache :)
-		// something todo with reporting roots not being claimed but still in here? so checking for them? not sure
-
-		// ds, err := s.rootDir.Summary(root)
-		// if errors.Is(err, ruletree.ErrNotFound) || errors.As(err, new(tree.ChildNotFoundError)) {
-		// 	continue
-		// } else if err != nil {
-		// 	return err
-		// }
-
 		dr, ok := s.directoryRules[root]
 		if !ok || dr.DirSummary == nil {
 			continue
 		}
 
 		ds := dr.DirSummary
-
-		// clear(ds.Children)
 
 		nds := &ruletree.DirSummary{
 			RuleSummaries: ds.RuleSummaries,
@@ -238,9 +223,7 @@ func (s *Server) buildRootDirSummary(reportingRoots []string, dirSummary *summar
 		uid, gid := ds.IDs()
 		nds.User = users.Username(uid)
 		nds.Group = users.Group(gid)
-
 		s.collectChildDirSummaries(nds, root)
-
 		nds.ClaimedBy = s.getClaimed(root)
 		dirSummary.Summaries[root] = nds
 
@@ -248,19 +231,11 @@ func (s *Server) buildRootDirSummary(reportingRoots []string, dirSummary *summar
 	}
 
 	s.populateBackupStatus(dirClaims, repos, manualIbackup, dirSummary)
-
-	return nil
 }
 
 func (s *Server) collectChildDirSummaries(ds *ruletree.DirSummary, root string) {
 	for _, dir := range s.dirs {
 		if strings.HasPrefix(dir.Path, root) && dir.Path != root {
-			// child, err := s.rootDir.Summary(dir.Path)
-			// if err != nil {
-			// 	continue
-			// }
-
-			// fmt.Println("CollectingChildDirSummaries for", dir.Path)
 			child := s.directoryRules[dir.Path].DirSummary
 			if child == nil {
 				continue
