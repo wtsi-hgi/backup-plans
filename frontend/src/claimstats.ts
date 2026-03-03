@@ -104,14 +104,14 @@ function createFilterSection() {
             "list": "claimstatsUsers",
             "value": user,
             "input": function (this: HTMLInputElement) { filter.user = this.value },
-            "keypress": function (this: HTMLInputElement, e: KeyboardEvent) { if (e.key === "Enter") filterClaimStats() },
+            "keydown": function (this: HTMLInputElement, e: KeyboardEvent) { if (e.key === "Enter") filterClaimStats() },
             "dblclick": function (this: HTMLInputElement) { this.select(); }
         }),
         input({
             "placeholder": "Group, BOM",
             "list": "claimstatsGroupBoms",
             "input": function (this: HTMLInputElement) { filter.groupbom = this.value },
-            "keypress": function (this: HTMLInputElement, e: KeyboardEvent) { if (e.key === "Enter") filterClaimStats() },
+            "keydown": function (this: HTMLInputElement, e: KeyboardEvent) { if (e.key === "Enter") filterClaimStats() },
             "dblclick": function (this: HTMLInputElement) { this.select(); }
         }),
         button({ "click": filterClaimStats }, "Filter"),
