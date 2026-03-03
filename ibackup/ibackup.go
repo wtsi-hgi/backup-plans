@@ -409,12 +409,7 @@ func createOrUpdateSet(client Client, setName, requester, transformer string,
 
 func createSet(client Client, setName, requester, transformer,
 	reviewDate, removeDate string, frozen bool) (*set.Set, error) {
-	reason := transfer.Backup
-	if frozen {
-		reason = transfer.Archive
-	}
-
-	m, err := transfer.HandleMeta("", reason, reviewDate, removeDate, nil)
+	m, err := transfer.HandleMeta("", backupReason(frozen), reviewDate, removeDate, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -434,19 +429,21 @@ func createSet(client Client, setName, requester, transformer,
 	return got, nil
 }
 
+func backupReason(frozen bool) transfer.Reason {
+	if frozen {
+		return transfer.Archive
+	}
+
+	return transfer.Backup
+}
+
 func updateSet(client Client, got *set.Set,
 	frequency int, frozen bool, reviewDate, removeDate string) (*set.Set, error) {
 	if got.LastDiscovery.Add(time.Hour*24*time.Duration(frequency-1) + time.Hour*12).After(time.Now()) {
 		return nil, nil //nolint:nilnil
 	}
 
-	reason := transfer.Backup
-
-	if frozen {
-		reason = transfer.Archive
-	}
-
-	m, err := transfer.HandleMeta("", reason, reviewDate, removeDate, nil)
+	m, err := transfer.HandleMeta("", backupReason(frozen), reviewDate, removeDate, nil)
 	if err != nil {
 		return nil, err
 	}
