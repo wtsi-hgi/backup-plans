@@ -63,6 +63,7 @@ export default (path: string) => getTree(path)
 			"Unauthorised": [""],
 			"CanClaim": false,
 			"Frequency": 0,
+			"Frozen": false,
 			"ReviewDate": 0,
 			"RemoveDate": 0
 		} as Tree;
@@ -87,6 +88,7 @@ export default (path: string) => getTree(path)
 			"unauthorised": data.Unauthorised.includes(""),
 			"canClaim": data.CanClaim,
 			"Frequency": data.Frequency,
+			"Frozen": data.Frozen,
 			"ReviewDate": data.ReviewDate,
 			"RemoveDate": data.RemoveDate,
 			"ruleSummaries": data.RuleSummaries

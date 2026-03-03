@@ -199,6 +199,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 	},
 	dirDetailOverlay = (path: string, dirDetails: dirDetails) => {
 		const frequency = input({ "id": "frequency", "type": "number", "min": "0", "value": dirDetails.Frequency + "" }),
+			frozen = input({ "id": "frozen", "type": "checkbox", "checked": dirDetails.Frozen }),
 			review = input({ "id": "review", "type": "date", "value": new Date(dirDetails.ReviewDate * 1000).toISOString().substring(0, 10) }),
 			remove = input({ "id": "remove", "type": "date", "value": new Date(dirDetails.RemoveDate * 1000).toISOString().substring(0, 10) }),
 			set = button({ "value": "set" }, "Set"),
@@ -208,6 +209,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 				set.toggleAttribute("disabled", true);
 				cancel.toggleAttribute("disabled", true);
 				frequency.toggleAttribute("disabled", true);
+				frozen.toggleAttribute("disabled", true);
 				review.toggleAttribute("disabled", true);
 				remove.toggleAttribute("disabled", true);
 			},
@@ -216,6 +218,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 				set.removeAttribute("disabled");
 				cancel.removeAttribute("disabled");
 				frequency.removeAttribute("disabled");
+				frozen.removeAttribute("disabled");
 				review.removeAttribute("disabled");
 				remove.removeAttribute("disabled");
 			},
@@ -232,7 +235,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 					}
 					disableInputs();
 
-					setDirDetails(path, frequency.valueAsNumber, + review.valueAsDate / 1000, + remove.valueAsDate / 1000)
+					setDirDetails(path, frequency.valueAsNumber, frozen.checked, + review.valueAsDate / 1000, + remove.valueAsDate / 1000)
 						.then(() => {
 							load(path);
 							overlay.remove();
@@ -244,6 +247,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 				}
 			}, [
 				label({ "for": "frequency" }, "Frequency"), getHelpIcon(helpText.Frequency), frequency, br(),
+				label({ "for": "frozen" }, "Frozen"), getHelpIcon(helpText.Frozen), frozen, br(),
 				label({ "for": "review" }, "Review Date"), getHelpIcon(helpText.Review), review, br(),
 				label({ "for": "remove" }, "Remove Date"), getHelpIcon(helpText.Remove), remove, br(),
 				set,

@@ -77,7 +77,7 @@ func TestTree(t *testing.T) {
 				":[],\"Children\":{}},\"ChildToNotClaim/\""+
 				":{\"Group\":\"root\",\"ClaimedBy\":\"\",\"RuleSummaries\":[],\""+
 				"Children\":{}}},\"ClaimedBy\":\"\",\"Rules\":{},\"Unauthorised\":[],\"CanClaim\""+
-				":true,\"Frequency\":0,\"ReviewDate\":0,\"RemoveDate\":0}\n")
+				":true,\"Frequency\":0,\"Frozen\":false,\"ReviewDate\":0,\"RemoveDate\":0}\n")
 
 			code, _ = getResponse(
 				s.ClaimDir,
@@ -117,7 +117,7 @@ func TestTree(t *testing.T) {
 				"\"/some/path/MyDir/\":{\"1\":{\"BackupType\":1,\"Metadata\":\"\","+
 				"\"Match\":\"*.txt\",\"Override\":false,\"Created\":0,\"Modified\":0}}},"+
 				"\"Unauthorised\":[],\"CanClaim\":true,"+
-				"\"Frequency\":7,\"ReviewDate\":0,\"RemoveDate\":0}\n")
+				"\"Frequency\":7,\"Frozen\":false,\"ReviewDate\":0,\"RemoveDate\":0}\n")
 		})
 	})
 }

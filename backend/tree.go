@@ -121,6 +121,7 @@ func (s *Server) tree(w http.ResponseWriter, r *http.Request) error { //nolint:f
 
 		t.dirDetails = dirDetails{
 			Frequency:  dirRules.Frequency,
+			Frozen:     dirRules.Frozen,
 			ReviewDate: dirRules.ReviewDate,
 			RemoveDate: dirRules.RemoveDate,
 		}

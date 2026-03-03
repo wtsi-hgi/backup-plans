@@ -49,6 +49,7 @@ export type Rule = {
 
 export type dirDetails = {
 	Frequency: number;
+	Frozen: boolean;
 	ReviewDate: number;
 	RemoveDate: number;
 };

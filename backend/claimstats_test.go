@@ -29,6 +29,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"os"
+	"os/user"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -44,6 +45,9 @@ import (
 func TestClaimStats(t *testing.T) {
 	Convey("With a configured backend", t, func() {
 		var u userHandler
+
+		firstGroup, err := user.LookupGroupId("1")
+		So(err, ShouldBeNil)
 
 		testDB, _ := plandb.PopulateExamplePlanDB(t)
 		tr := plandb.ExampleTree()
@@ -77,7 +81,7 @@ func TestClaimStats(t *testing.T) {
 				{
 					Path:      "/lustre/scratch123/humgen/a/b/",
 					ClaimedBy: "userA",
-					Group:     "daemon",
+					Group:     firstGroup.Name,
 					BackupStatus: ibackup.SetBackupActivity{
 						Name:      "plan::/lustre/scratch123/humgen/a/b/",
 						Requester: userA,
@@ -109,7 +113,7 @@ func TestClaimStats(t *testing.T) {
 			})
 
 			u = userB
-			code, resp = getResponse(s.ClaimStats, "/api/claimstats?groupbom=daemon", nil)
+			code, resp = getResponse(s.ClaimStats, "/api/claimstats?groupbom="+firstGroup.Name, nil)
 
 			So(code, ShouldEqual, http.StatusOK)
 
@@ -124,7 +128,7 @@ func TestClaimStats(t *testing.T) {
 				{
 					Path:      "/lustre/scratch123/humgen/a/b/",
 					ClaimedBy: "userA",
-					Group:     "daemon",
+					Group:     firstGroup.Name,
 					BackupStatus: ibackup.SetBackupActivity{
 						Name:      "plan::/lustre/scratch123/humgen/a/b/",
 						Requester: userA,
@@ -156,7 +160,7 @@ func TestClaimStats(t *testing.T) {
 				{
 					Path:      "/lustre/scratch123/humgen/a/c/",
 					ClaimedBy: userB,
-					Group:     "daemon",
+					Group:     firstGroup.Name,
 					BackupStatus: ibackup.SetBackupActivity{
 						Name:      "plan::/lustre/scratch123/humgen/a/c/",
 						Requester: userB,
