@@ -50,7 +50,7 @@ type Server struct {
 	buildMu        sync.Mutex
 	rulesMu        sync.RWMutex
 	rulesDB        *db.DB
-	directoryRules map[string]*ruletree.DirRules
+	directoryRules map[string]*Directory
 	dirs           map[uint64]*db.Directory
 	rules          map[uint64]*db.Rule
 	dirGroups      map[int64]string
@@ -60,6 +60,11 @@ type Server struct {
 	gitCache *git.Cache
 
 	rootDir *ruletree.RootDir
+}
+
+type Directory struct {
+	*ruletree.DirRules
+	DirSummary *ruletree.DirSummary
 }
 
 // New creates a new Backend API server.

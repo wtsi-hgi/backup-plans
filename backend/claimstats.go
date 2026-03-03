@@ -95,13 +95,14 @@ func (s *Server) collectDirStats(f filter, channel chan DirStats) {
 
 		wg.Add(1)
 
-		go func(dir *ruletree.DirRules) {
+		go func(dir *Directory) {
 			defer wg.Done()
 
-			dirSummary, err := s.rootDir.Summary(dir.Path)
-			if err != nil {
-				return
-			}
+			// dirSummary, err := s.rootDir.Summary(dir.Path)
+			// if err != nil {
+			// 	return
+			// }
+			dirSummary := dir.DirSummary
 
 			dirSummary.ClaimedBy = s.getClaimed(dir.Path)
 
@@ -116,7 +117,7 @@ func (s *Server) collectDirStats(f filter, channel chan DirStats) {
 	}()
 }
 
-func (s *Server) matchesFilter(dir *ruletree.DirRules, f filter) bool {
+func (s *Server) matchesFilter(dir *Directory, f filter) bool {
 	if !f.filterUser && !f.filterGroup {
 		return false
 	}
@@ -125,12 +126,12 @@ func (s *Server) matchesFilter(dir *ruletree.DirRules, f filter) bool {
 }
 
 // filterOutUser will return true if the user does not match the filter.
-func (s *Server) filterOutUser(dir *ruletree.DirRules, f filter) bool {
+func (s *Server) filterOutUser(dir *Directory, f filter) bool {
 	return f.filterUser && f.user != dir.ClaimedBy
 }
 
 // filterOutGroupBom will return true if the group/bom does not match the filter.
-func (s *Server) filterOutGroupBom(dir *ruletree.DirRules, f filter) bool {
+func (s *Server) filterOutGroupBom(dir *Directory, f filter) bool {
 	return f.filterGroup && (s.dirGroups[dir.ID()] != f.group && s.dirBoms[dir.ID()] != f.group)
 }
 
@@ -202,7 +203,7 @@ func (s *Server) generateStatsForRule(r ruletree.Rule) ruleStats {
 
 // gatherDirRules will return the IDs of all rules on the directory given.
 func (s *Server) gatherDirRules(path string) map[uint64]struct{} {
-	dirRules := s.directoryRules[path]
+	dirRules := s.directoryRules[path].DirRules
 	if dirRules == nil {
 		return nil
 	}

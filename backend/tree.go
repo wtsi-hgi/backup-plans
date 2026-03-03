@@ -28,8 +28,10 @@ package backend
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"slices"
+	"strings"
 
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/ruletree"
@@ -55,7 +57,61 @@ func (s *Server) AddTree(file string) error {
 		return err
 	}
 
+	err = s.populateDirSummaries(rootPath)
+	if err != nil {
+		return err
+	}
+
 	return s.updateDirMaps(rootPath)
+}
+
+func (s *Server) populateDirSummaries(rootPath string) error {
+	toPopulate := make([]string, 0, len(s.directoryRules))
+
+	for path := range s.directoryRules {
+		if strings.HasPrefix(path, rootPath) {
+			toPopulate = append(toPopulate, path)
+		}
+	}
+
+	summaries, err := s.rootDir.GetSummaries(toPopulate)
+	if err != nil {
+		return err
+	}
+
+	for path, summary := range summaries {
+		dir := s.directoryRules[path]
+		dir.DirSummary = summary
+	}
+
+	return nil
+}
+
+// TODO: De-dupe these two funcs
+
+func (s *Server) UpdateDirSummaries(path string) error {
+	toUpdate := make([]string, 0, len(s.directoryRules))
+
+	for p := range s.directoryRules {
+		fmt.Println(p)
+		if strings.HasPrefix(p, path) || strings.HasPrefix(path, p) {
+			toUpdate = append(toUpdate, p)
+		}
+	}
+
+	summaries, err := s.rootDir.GetSummaries(toUpdate)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("Updating", toUpdate)
+
+	for path, summary := range summaries {
+		dir := s.directoryRules[path]
+		dir.DirSummary = summary
+	}
+
+	return nil
 }
 
 type treeDB struct {

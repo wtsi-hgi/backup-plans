@@ -78,7 +78,7 @@ func addHandlesAndListen(b *backend.Server, listen net.Listener, logout http.Han
 	http.Handle("/api/tree", http.HandlerFunc(b.Tree))
 	http.Handle("/api/dir/claim", http.HandlerFunc(b.ClaimDir))
 	http.Handle("/api/dir/pass", http.HandlerFunc(b.PassDirClaim))
-	http.Handle("/api/dir/revoke", http.HandlerFunc(b.RevokeDirClaim))
+	http.Handle("/api/dir/revoke", http.HandlerFunc(b.RevokeDirClaim)) // TODO: Should this remove it from the cache?
 	http.Handle("/api/rules/create", http.HandlerFunc(b.CreateRule))
 	http.Handle("/api/rules/update", http.HandlerFunc(b.UpdateRule))
 	http.Handle("/api/rules/remove", http.HandlerFunc(b.RemoveRule))

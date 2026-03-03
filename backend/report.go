@@ -27,7 +27,6 @@ package backend
 
 import (
 	"encoding/json"
-	"errors"
 	"log/slog"
 	"net/http"
 	"slices"
@@ -37,7 +36,6 @@ import (
 	"github.com/wtsi-hgi/backup-plans/ibackup"
 	"github.com/wtsi-hgi/backup-plans/ruletree"
 	"github.com/wtsi-hgi/backup-plans/users"
-	"vimagination.zapto.org/tree"
 )
 
 type summary struct {
@@ -213,25 +211,40 @@ func (s *Server) buildRootDirSummary(reportingRoots []string, dirSummary *summar
 	manualIbackup := make(map[string][]dirSet)
 
 	for _, root := range reportingRoots {
-		ds, err := s.rootDir.Summary(root)
-		if errors.Is(err, ruletree.ErrNotFound) || errors.As(err, new(tree.ChildNotFoundError)) {
+		// TODO: use cache :)
+		// something todo with reporting roots not being claimed but still in here? so checking for them? not sure
+
+		// ds, err := s.rootDir.Summary(root)
+		// if errors.Is(err, ruletree.ErrNotFound) || errors.As(err, new(tree.ChildNotFoundError)) {
+		// 	continue
+		// } else if err != nil {
+		// 	return err
+		// }
+
+		dr, ok := s.directoryRules[root]
+		if !ok || dr.DirSummary == nil {
 			continue
-		} else if err != nil {
-			return err
 		}
 
-		clear(ds.Children)
+		ds := dr.DirSummary
+
+		// clear(ds.Children)
+
+		nds := &ruletree.DirSummary{
+			RuleSummaries: ds.RuleSummaries,
+			Children:      map[string]*ruletree.DirSummary{},
+		}
 
 		uid, gid := ds.IDs()
-		ds.User = users.Username(uid)
-		ds.Group = users.Group(gid)
+		nds.User = users.Username(uid)
+		nds.Group = users.Group(gid)
 
-		s.collectChildDirSummaries(ds, root)
+		s.collectChildDirSummaries(nds, root)
 
-		ds.ClaimedBy = s.getClaimed(root)
-		dirSummary.Summaries[root] = ds
+		nds.ClaimedBy = s.getClaimed(root)
+		dirSummary.Summaries[root] = nds
 
-		s.collectRuleMetadata(ds, dirSummary, dirClaims, repos, manualIbackup)
+		s.collectRuleMetadata(nds, dirSummary, dirClaims, repos, manualIbackup)
 	}
 
 	s.populateBackupStatus(dirClaims, repos, manualIbackup, dirSummary)
@@ -242,20 +255,28 @@ func (s *Server) buildRootDirSummary(reportingRoots []string, dirSummary *summar
 func (s *Server) collectChildDirSummaries(ds *ruletree.DirSummary, root string) {
 	for _, dir := range s.dirs {
 		if strings.HasPrefix(dir.Path, root) && dir.Path != root {
-			child, err := s.rootDir.Summary(dir.Path)
-			if err != nil {
+			// child, err := s.rootDir.Summary(dir.Path)
+			// if err != nil {
+			// 	continue
+			// }
+
+			// fmt.Println("CollectingChildDirSummaries for", dir.Path)
+			child := s.directoryRules[dir.Path].DirSummary
+			if child == nil {
 				continue
 			}
 
-			clear(child.Children)
+			nchild := &ruletree.DirSummary{
+				RuleSummaries: ds.RuleSummaries,
+			}
 
 			uid, gid := child.IDs()
 
-			child.User = users.Username(uid)
-			child.Group = users.Group(gid)
+			nchild.User = users.Username(uid)
+			nchild.Group = users.Group(gid)
 
-			child.ClaimedBy = s.getClaimed(dir.Path)
-			ds.Children[dir.Path] = child
+			nchild.ClaimedBy = s.getClaimed(dir.Path)
+			ds.Children[dir.Path] = nchild
 		}
 	}
 }
@@ -286,7 +307,7 @@ func (s *Server) collectRuleMetadata(ds *ruletree.DirSummary, dirSummary *summar
 			continue
 		}
 
-		s.collectRules(dirSummary, dir)
+		s.collectRules(dirSummary, dir.DirRules)
 	}
 }
 
