@@ -31,14 +31,13 @@ import (
 	"encoding/hex"
 	"errors"
 	"log/slog"
-	"maps"
 	"path/filepath"
 	"regexp"
-	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/wtsi-hgi/backup-plans/cache"
 	gas "github.com/wtsi-hgi/go-authserver"
 	"github.com/wtsi-hgi/ibackup/server"
 	"github.com/wtsi-hgi/ibackup/set"
@@ -516,11 +515,9 @@ type setRequester struct {
 // Cache wraps the GetBackupActivity method for an ibackup client, caching, and
 // on a schedule re-retrieving, requested set backup information.
 type Cache struct {
+	mu     sync.RWMutex
 	client Client
-	stop   func()
-
-	mu    sync.RWMutex
-	cache map[setRequester]*SetBackupActivity
+	cache  *cache.Cache[setRequester, *SetBackupActivity]
 }
 
 // NewCache creates a cache for a particular ibackup client, that will
@@ -530,75 +527,27 @@ type Cache struct {
 // The Stop() method must be before replacing (or otherwise losing this pointer
 // to) this cache.
 func NewCache(client Client, d time.Duration) *Cache {
-	ctx, fn := context.WithCancel(context.Background())
-
-	cache := &Cache{
+	c := &Cache{
 		client: client,
-		cache:  make(map[setRequester]*SetBackupActivity),
-		stop:   fn,
 	}
 
-	if d > 0 {
-		go cache.runCache(ctx, d)
-	}
+	c.cache = cache.New(d, c.getBackupActivity)
 
-	return cache
+	return c
+}
+
+func (c *Cache) getBackupActivity(sr setRequester) (*SetBackupActivity, error) {
+	c.mu.RLock()
+	client := c.client
+	c.mu.RUnlock()
+
+	return GetBackupActivity(client, sr.set, sr.requester)
 }
 
 // GetBackupActivity acts like the GetBackupActivity function, but looks in its
 // cache for the information before retrieving from the stored client.
 func (c *Cache) GetBackupActivity(setName, requester string) (*SetBackupActivity, error) {
-	sr := setRequester{set: setName, requester: requester}
-
-	c.mu.RLock()
-	existing, ok := c.cache[sr]
-	c.mu.RUnlock()
-
-	if ok {
-		return existing, nil
-	}
-
-	sba, err := GetBackupActivity(c.client, setName, requester)
-
-	c.mu.Lock()
-	c.cache[sr] = sba
-	c.mu.Unlock()
-
-	if err != nil {
-		return nil, err
-	}
-
-	return sba, nil
-}
-
-func (c *Cache) runCache(ctx context.Context, d time.Duration) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(d):
-		}
-
-		c.mu.RLock()
-		keys := slices.Collect(maps.Keys(c.cache))
-		client := c.client
-		c.mu.RUnlock()
-
-		updates := make(map[setRequester]*SetBackupActivity)
-
-		for _, set := range keys {
-			ba, err := GetBackupActivity(client, set.set, set.requester)
-			if err != nil {
-				continue
-			}
-
-			updates[set] = ba
-		}
-
-		c.mu.Lock()
-		maps.Copy(c.cache, updates)
-		c.mu.Unlock()
-	}
+	return c.cache.Get(setRequester{set: setName, requester: requester})
 }
 
 // UpdateClient replaces the store client with the given one, keeping the stored
@@ -611,7 +560,7 @@ func (c *Cache) UpdateClient(client Client) {
 
 // Stop stops the concurrent retrieval of backup statuses.
 func (c *Cache) Stop() {
-	c.stop()
+	c.cache.Stop()
 }
 
 type reCache struct {
