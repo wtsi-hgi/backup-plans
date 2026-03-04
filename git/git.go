@@ -26,11 +26,7 @@
 package git
 
 import (
-	"context"
 	"errors"
-	"maps"
-	"slices"
-	"sync"
 	"time"
 
 	"github.com/go-git/go-git/v6"
@@ -39,6 +35,7 @@ import (
 	"github.com/go-git/go-git/v6/plumbing/transport"
 	transporthttp "github.com/go-git/go-git/v6/plumbing/transport/http"
 	"github.com/go-git/go-git/v6/storage/memory"
+	"github.com/wtsi-hgi/backup-plans/cache"
 )
 
 // GetLatestCommitDate returns the commit date for the HEAD of the supplied
@@ -108,10 +105,7 @@ func getRepo(url string) (*git.Repository, error) {
 // Cache wraps the GetLatestCommitDate method, caching, and on a schedule
 // re-retrieving, requested repo information.
 type Cache struct {
-	stop func()
-
-	mu    sync.RWMutex
-	cache map[string]time.Time
+	cache *cache.Cache[string, time.Time]
 }
 
 // NewCache creates a cache storing the last commit date for git repos, that
@@ -121,70 +115,16 @@ type Cache struct {
 // The Stop() method must be before replacing (or otherwise losing this pointer
 // to) this cache.
 func NewCache(d time.Duration) *Cache {
-	ctx, fn := context.WithCancel(context.Background())
-
-	cache := &Cache{
-		cache: make(map[string]time.Time),
-		stop:  fn,
-	}
-
-	if d > 0 {
-		go cache.runCache(ctx, d)
-	}
-
-	return cache
-}
-
-func (c *Cache) runCache(ctx context.Context, d time.Duration) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(d):
-		}
-
-		c.mu.RLock()
-		keys := slices.Collect(maps.Keys(c.cache))
-		c.mu.RUnlock()
-
-		updates := make(map[string]time.Time)
-
-		for _, repo := range keys {
-			commitDate, err := GetLatestCommitDate(repo)
-			if err != nil {
-				continue
-			}
-
-			updates[repo] = commitDate
-		}
-
-		c.mu.Lock()
-		maps.Copy(c.cache, updates)
-		c.mu.Unlock()
-	}
+	return &Cache{cache.New(d, GetLatestCommitDate)}
 }
 
 // GetBackupActivity retrieves a cache using the given path, and then calls the
 // normal GetBackupActivity method.
 func (c *Cache) GetLatestCommitDate(repo string) (time.Time, error) {
-	c.mu.RLock()
-	existing, ok := c.cache[repo]
-	c.mu.RUnlock()
-
-	if ok {
-		return existing, nil
-	}
-
-	t, err := GetLatestCommitDate(repo)
-
-	c.mu.Lock()
-	c.cache[repo] = t
-	c.mu.Unlock()
-
-	return t, err
+	return c.cache.Get(repo)
 }
 
 // Stop stops the concurrent retrieval of backup statuses.
 func (c *Cache) Stop() {
-	c.stop()
+	c.cache.Stop()
 }
