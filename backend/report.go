@@ -125,56 +125,68 @@ func (s *Server) populateBackupStatus(dirClaims, repos map[string]string,
 func (s *Server) populateIbackupStatus(dirClaims map[string]string, dirSummary *summary) {
 	for dir, claimedBy := range dirClaims {
 		planName := "plan::" + dir
-
-		sba, err := s.config.GetCachedIBackupClient().GetBackupActivity(dir, planName, claimedBy, false)
-		if err != nil {
-			slog.Error("error querying ibackup status", "dir", dir, "err", err)
-		}
-
-		if sba == nil {
-			sba = &ibackup.SetBackupActivity{
-				Name:      planName,
-				Requester: claimedBy,
-			}
-		}
-
-		dirSummary.BackupStatus[dir] = sba
+		dirSummary.BackupStatus[dir] = s.getIBackupBackupStatus(planName, dir, claimedBy)
 	}
+}
+
+func (s *Server) getIBackupBackupStatus(planName, dir, claimedBy string) *ibackup.SetBackupActivity {
+	sba, err := s.config.GetCachedIBackupClient().GetBackupActivity(dir, planName, claimedBy, false)
+	if err != nil {
+		slog.Error("error querying ibackup status", "dir", dir, "err", err)
+	}
+
+	if sba == nil {
+		sba = &ibackup.SetBackupActivity{
+			Name:      planName,
+			Requester: claimedBy,
+		}
+	}
+
+	return sba
 }
 
 func (s *Server) populateManualIBackupStatus(manualIbackup map[string][]dirSet, dirSummary *summary) {
 	for claimedBy, dirSets := range manualIbackup {
 		for _, dirSet := range dirSets {
-			sba, err := s.config.GetCachedIBackupClient().GetBackupActivity(dirSet.dir, dirSet.set, claimedBy, true)
-			if err != nil {
-				slog.Error("error querying manual ibackup status",
-					"dir", dirSet.dir, "claimedBy", claimedBy, "set", dirSet.set, "err", err)
-			}
-
-			if sba == nil {
-				sba = &ibackup.SetBackupActivity{
-					Name:      dirSet.set,
-					Requester: claimedBy,
-				}
-			}
-
+			sba := s.getManualIBackupStatus(dirSet, claimedBy)
 			dirSummary.BackupStatus[claimedBy+":"+dirSet.set] = sba
 		}
 	}
 }
 
+func (s *Server) getManualIBackupStatus(dirSet dirSet, claimedBy string) *ibackup.SetBackupActivity {
+	sba, err := s.config.GetCachedIBackupClient().GetBackupActivity(dirSet.dir, dirSet.set, claimedBy, true)
+	if err != nil {
+		slog.Error("error querying manual ibackup status",
+			"dir", dirSet.dir, "claimedBy", claimedBy, "set", dirSet.set, "err", err)
+	}
+
+	if sba == nil {
+		sba = &ibackup.SetBackupActivity{
+			Name:      dirSet.set,
+			Requester: claimedBy,
+		}
+	}
+
+	return sba
+}
+
 func (s *Server) populateGitBackupStatus(repos map[string]string, dirSummary *summary) {
 	for repo, claimedBy := range repos {
-		t, err := s.gitCache.GetLatestCommitDate(repo)
-		if err != nil {
-			slog.Error("error querying repo status", "repo", repo, "err", err)
-		}
+		dirSummary.BackupStatus[repo] = s.getGitBackupStatus(repo, claimedBy)
+	}
+}
 
-		dirSummary.BackupStatus[repo] = &ibackup.SetBackupActivity{
-			LastSuccess: t,
-			Name:        repo,
-			Requester:   claimedBy,
-		}
+func (s *Server) getGitBackupStatus(repo, claimedBy string) *ibackup.SetBackupActivity {
+	t, err := s.gitCache.GetLatestCommitDate(repo)
+	if err != nil {
+		slog.Error("error querying repo status", "repo", repo, "err", err)
+	}
+
+	return &ibackup.SetBackupActivity{
+		LastSuccess: t,
+		Name:        repo,
+		Requester:   claimedBy,
 	}
 }
 
@@ -244,9 +256,6 @@ func (s *Server) collectChildDirSummaries(ds *ruletree.DirSummary, root string) 
 
 			nchild := *child
 			nchild.Children = map[string]*ruletree.DirSummary{}
-			// nchild := &ruletree.DirSummary{
-			// 	RuleSummaries: ds.RuleSummaries,
-			// }
 
 			uid, gid := child.IDs()
 

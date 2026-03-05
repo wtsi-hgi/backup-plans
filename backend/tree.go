@@ -28,7 +28,6 @@ package backend
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"slices"
 	"strings"
@@ -57,7 +56,6 @@ func (s *Server) AddTree(file string) error {
 		return err
 	}
 
-	// err = s.populateDirSummaries(rootPath)
 	err = s.UpdateDirSummaries(rootPath)
 	if err != nil {
 		return err
@@ -66,32 +64,7 @@ func (s *Server) AddTree(file string) error {
 	return s.updateDirMaps(rootPath)
 }
 
-// func (s *Server) populateDirSummaries(rootPath string) error {
-// 	toPopulate := make([]string, 0, len(s.directoryRules))
-
-// 	for path := range s.directoryRules {
-// 		if strings.HasPrefix(path, rootPath) {
-// 			toPopulate = append(toPopulate, path)
-// 		}
-// 	}
-
-// 	summaries, err := s.rootDir.GetSummaries(toPopulate)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	for path, summary := range summaries {
-// 		dir := s.directoryRules[path]
-// 		dir.DirSummary = summary
-// 	}
-
-// 	return nil
-// }
-
-// TODO: De-dupe these two funcs
-
 func (s *Server) UpdateDirSummaries(path string) error {
-	fmt.Println("UpdateDirSummaries called for", path)
 	toUpdate := make([]string, 0, len(s.directoryRules))
 
 	for p := range s.directoryRules {

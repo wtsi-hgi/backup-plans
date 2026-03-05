@@ -162,7 +162,7 @@ func TestClaimStats(t *testing.T) {
 					ClaimedBy: userB,
 					Group:     firstGroup.Name,
 					BackupStatus: ibackup.SetBackupActivity{
-						Name:      "plan::/lustre/scratch123/humgen/a/c/",
+						Name:      "manualSetName",
 						Requester: userB,
 					},
 					RuleStats: []ruleStats{
