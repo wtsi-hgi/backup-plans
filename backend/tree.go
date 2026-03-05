@@ -28,6 +28,7 @@ package backend
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"slices"
 	"strings"
@@ -90,6 +91,7 @@ func (s *Server) AddTree(file string) error {
 // TODO: De-dupe these two funcs
 
 func (s *Server) UpdateDirSummaries(path string) error {
+	fmt.Println("UpdateDirSummaries called for", path)
 	toUpdate := make([]string, 0, len(s.directoryRules))
 
 	for p := range s.directoryRules {

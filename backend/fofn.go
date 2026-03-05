@@ -154,7 +154,7 @@ func (s *Server) validateClaimAndRule(user, dir, file string, uid uint32, groups
 		}
 	}
 
-	if got := s.directoryRules[fileDir].DirRules; got != nil { //nolint:nestif
+	if got := s.directoryRules[fileDir]; got != nil { //nolint:nestif
 		if got.ClaimedBy != user {
 			return ErrDirectoryClaimed
 		}
@@ -209,9 +209,11 @@ func (s *Server) createRulesToAdd(user string, rule db.Rule, files []string,
 func (s *Server) claimAndCreateDirRules(file, user string, dirDetails dirDetails,
 	detailsSet map[*ruletree.DirRules]bool) (*ruletree.DirRules, error) {
 	fileDir, _ := splitDir(file)
-	dirRules := s.directoryRules[fileDir].DirRules
+	// dirRules := s.directoryRules[fileDir].DirRules TODO: refactor
+	directory := s.directoryRules[fileDir]
+	var dirRules *ruletree.DirRules
 
-	if dirRules == nil {
+	if directory == nil {
 		if err := s.claimDirectory(fileDir, user, dirDetails); err != nil {
 			return nil, err
 		}
@@ -219,6 +221,8 @@ func (s *Server) claimAndCreateDirRules(file, user string, dirDetails dirDetails
 		dirRules = s.directoryRules[fileDir].DirRules
 
 		return dirRules, nil
+	} else {
+		dirRules = directory.DirRules
 	}
 
 	if !detailsSet[dirRules] {
