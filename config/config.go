@@ -211,7 +211,7 @@ func (c *Config) loadWRStat() error {
 	}
 
 	client, err := wrstat.New(
-		time.Second*time.Duration(c.yamlConfig.WRStatCacheDuration),
+		time.Second*time.Duration(c.yamlConfig.WRStatCacheDuration), //nolint:gosec
 		c.yamlConfig.WRStat,
 	)
 	if err != nil {
