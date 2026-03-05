@@ -271,7 +271,9 @@ func TestReport(t *testing.T) {
 
 				slices.Sort(gotSummary.Directories["/lustre/scratch123/humgen/a/b/"])
 
-				So(gotSummary.BackupStatus["/lustre/scratch123/humgen/a/c/"].LastSuccess, ShouldHappenAfter, beforeTrigger)
+				bs := gotSummary.BackupStatus["/lustre/scratch123/humgen/a/c/"]
+				So(bs, ShouldNotBeNil)
+				So(bs.LastSuccess, ShouldHappenAfter, beforeTrigger)
 
 				gotSummary.BackupStatus["/lustre/scratch123/humgen/a/c/"].LastSuccess = time.Time{}
 

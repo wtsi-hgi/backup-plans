@@ -134,7 +134,6 @@ func (c *Config) loadConfig() error {
 	if err != nil {
 		return err
 	}
-
 	defer f.Close()
 
 	err = yaml.NewDecoder(f).Decode(&c.yamlConfig)
@@ -181,6 +180,10 @@ func (c *Config) reload() {
 }
 
 func (c *Config) loadIBackup() error {
+	if len(c.yamlConfig.IBackup.Servers) == 0 {
+		return nil
+	}
+
 	mc, err := ibackup.New(c.yamlConfig.IBackup)
 	if err != nil {
 		if !ibackup.IsOnlyConnectionErrors(err) {
@@ -206,6 +209,10 @@ func (c *Config) loadIBackup() error {
 }
 
 func (c *Config) loadWRStat() error {
+	if c.yamlConfig.WRStat.ServerURL == "" {
+		return nil
+	}
+
 	if c.wrstatClient != nil {
 		return c.wrstatClient.UpdateConfig(c.yamlConfig.WRStat)
 	}
