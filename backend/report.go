@@ -193,6 +193,9 @@ func (s *Server) getGitBackupStatus(repo, claimedBy string) *ibackup.SetBackupAc
 
 func (s *Server) populateNFSStatus(paths map[string]string, dirSummary *summary) {
 	client := s.config.GetWRStatClient()
+	if client == nil {
+		return
+	}
 
 	for path, claimedBy := range paths {
 		t, err := client.GetWRStatModTime(path)
@@ -293,7 +296,7 @@ func (s *Server) collectChildDirSummaries(ds *ruletree.DirSummary, root string) 
 	}
 }
 
-func (s *Server) collectRuleMetadata(ds *ruletree.DirSummary, dirSummary *summary,
+func (s *Server) collectRuleMetadata(ds *ruletree.DirSummary, dirSummary *summary, //nolint:gocyclo
 	dirClaims, repos, nfs map[string]string, manualIbackup map[string][]dirSet) {
 	for _, ruleSummary := range ds.RuleSummaries {
 		rule := s.rules[ruleSummary.ID]

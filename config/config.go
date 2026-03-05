@@ -44,12 +44,14 @@ import (
 const csvCols = 2
 
 var (
-	nullWRStat       *wrstat.Client
-	nullIBackupCache = ibackup.NewMultiCache(&ibackup.MultiClient{}, 0)
+	nullWRStat        *wrstat.Client
+	nullIBackupClient *ibackup.MultiClient
+	nullIBackupCache  = ibackup.NewMultiCache(&ibackup.MultiClient{}, 0)
 )
 
 func init() {
 	nullWRStat, _ = wrstat.New(0, wrstat.Config{})
+	nullIBackupClient, _ = ibackup.New(ibackup.Config{})
 }
 
 type yamlConfig struct {
@@ -147,7 +149,6 @@ func (c *Config) loadConfig() error {
 	if err != nil {
 		return err
 	}
-
 	defer f.Close()
 
 	err = yaml.NewDecoder(f).Decode(&c.yamlConfig)
@@ -194,6 +195,13 @@ func (c *Config) reload() {
 }
 
 func (c *Config) loadIBackup() error {
+	if len(c.yamlConfig.IBackup.Servers) == 0 {
+		c.ibackupClient = nullIBackupClient
+		c.ibackupCachedClient = nullIBackupCache
+
+		return nil
+	}
+
 	mc, err := ibackup.New(c.yamlConfig.IBackup)
 	if err != nil {
 		if !ibackup.IsOnlyConnectionErrors(err) {
@@ -217,6 +225,12 @@ func (c *Config) loadIBackup() error {
 }
 
 func (c *Config) loadWRStat() error {
+	if c.yamlConfig.WRStat.ServerURL == "" {
+		c.wrstatClient = nullWRStat
+
+		return nil
+	}
+
 	if c.wrstatClient != nullWRStat {
 		return c.wrstatClient.UpdateConfig(c.yamlConfig.WRStat)
 	}
