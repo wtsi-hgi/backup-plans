@@ -30,7 +30,6 @@ import (
 	"net/http"
 	"slices"
 	"strings"
-	"sync"
 
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/ibackup"
@@ -68,14 +67,7 @@ func (s *Server) claimstats(w http.ResponseWriter, r *http.Request) error {
 	defer s.rulesMu.RUnlock()
 
 	f := createClaimstatsFilter(r)
-	claimstats := make([]DirStats, 0, len(s.directoryRules))
-	channel := make(chan DirStats, len(s.directoryRules))
-
-	s.collectDirStats(f, channel)
-
-	for item := range channel {
-		claimstats = append(claimstats, item)
-	}
+	claimstats := s.collectDirStats(f)
 
 	slices.SortFunc(claimstats, func(a, b DirStats) int { return strings.Compare(a.Path, b.Path) })
 
@@ -84,32 +76,20 @@ func (s *Server) claimstats(w http.ResponseWriter, r *http.Request) error {
 	return json.NewEncoder(w).Encode(claimstats)
 }
 
-func (s *Server) collectDirStats(f filter, channel chan DirStats) {
-	var wg sync.WaitGroup
+func (s *Server) collectDirStats(f filter) []DirStats {
+	claimstats := make([]DirStats, 0, len(s.directoryRules))
 
 	for _, dir := range s.directoryRules {
 		if !(s.matchesFilter(dir, f)) {
 			continue
 		}
 
-		wg.Add(1)
-
-		go func(dir *Directory) {
-			defer wg.Done()
-
-			dirSummary := dir.DirSummary
-
-			dirSummary.ClaimedBy = s.getClaimed(dir.Path)
-
-			dirStats := s.generateDirStats(dir.Path, dirSummary)
-			channel <- *dirStats
-		}(dir)
+		dirSummary := dir.DirSummary
+		dirSummary.ClaimedBy = s.getClaimed(dir.Path)
+		claimstats = append(claimstats, *s.generateDirStats(dir.Path, dirSummary))
 	}
 
-	go func() {
-		wg.Wait()
-		close(channel)
-	}()
+	return claimstats
 }
 
 func (s *Server) matchesFilter(dir *Directory, f filter) bool {
