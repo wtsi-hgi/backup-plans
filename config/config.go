@@ -38,6 +38,7 @@ import (
 	"github.com/goccy/go-yaml"
 	"github.com/wtsi-hgi/backup-plans/ibackup"
 	"github.com/wtsi-hgi/backup-plans/users"
+	"github.com/wtsi-hgi/backup-plans/wrstat"
 )
 
 const csvCols = 2
@@ -45,6 +46,8 @@ const csvCols = 2
 type yamlConfig struct {
 	IBackup              ibackup.Config
 	IBackupCacheDuration uint64
+	WRStat               wrstat.Config
+	WRStatCacheDuration  uint64
 	BOMFile              string
 	OwnersFile           string
 	ReportingRoots       []string
@@ -66,6 +69,7 @@ type Config struct {
 	mu                  sync.RWMutex
 	ibackupClient       *ibackup.MultiClient
 	ibackupCachedClient *ibackup.MultiCache
+	wrstatClient        *wrstat.Client
 	boms                map[string][]string
 	owners              map[string][]string
 	yamlConfig          yamlConfig
@@ -142,6 +146,10 @@ func (c *Config) loadConfig() error {
 		return err
 	}
 
+	if err = c.loadWRStat(); err != nil {
+		return err
+	}
+
 	if err = c.loadBOMs(); err != nil {
 		return err
 	}
@@ -193,6 +201,24 @@ func (c *Config) loadIBackup() error {
 	}
 
 	c.ibackupClient = mc
+
+	return nil
+}
+
+func (c *Config) loadWRStat() error {
+	if c.wrstatClient != nil {
+		return c.wrstatClient.UpdateConfig(c.yamlConfig.WRStat)
+	}
+
+	client, err := wrstat.New(
+		time.Second*time.Duration(c.yamlConfig.WRStatCacheDuration),
+		c.yamlConfig.WRStat,
+	)
+	if err != nil {
+		return err
+	}
+
+	c.wrstatClient = client
 
 	return nil
 }
@@ -295,6 +321,15 @@ func (c *Config) GetIBackupClient() *ibackup.MultiClient {
 	defer c.mu.RUnlock()
 
 	return c.ibackupClient
+}
+
+// GetWRStatClient returns an wrstat client that connects to a WRStat server to
+// retrieve a latest mtime for a directory.
+func (c *Config) GetWRStatClient() *wrstat.Client {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	return c.wrstatClient
 }
 
 // GetCachedIBackupClient returns an ibackup client that connects to multiple

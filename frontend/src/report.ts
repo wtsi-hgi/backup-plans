@@ -387,6 +387,7 @@ getReportSummary()
 
 							break;
 						case BackupType.BackupManualGit:
+						case BackupType.BackupManualNFS:
 							dirSummary.addBackupStatus(childDir, data.BackupStatus[rule.Metadata]);
 					}
 
