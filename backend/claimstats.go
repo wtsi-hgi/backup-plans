@@ -27,6 +27,7 @@ package backend
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"slices"
 	"strings"
@@ -148,16 +149,7 @@ func createClaimstatsFilter(r *http.Request) filter {
 func (s *Server) generateDirStats(path string, dirSummary *ruletree.DirSummary) *DirStats {
 	rulestats := s.generateRuleStats(path, dirSummary)
 
-	c := s.config.GetCachedIBackupClient()
-
-	sba, _ := c.GetBackupActivity(path, "plan::"+path, dirSummary.ClaimedBy, false) //nolint:errcheck
-	if sba == nil {
-		sba = &ibackup.SetBackupActivity{
-			LastSuccess: time.Time{},
-			Name:        "plan::" + path,
-			Requester:   dirSummary.ClaimedBy,
-		}
-	}
+	sba := s.getBackupActivity(path, dirSummary)
 
 	return &DirStats{
 		Path:         path,
@@ -166,6 +158,70 @@ func (s *Server) generateDirStats(path string, dirSummary *ruletree.DirSummary) 
 		BackupStatus: *sba,
 		RuleStats:    rulestats,
 	}
+}
+
+// TODO: Refactor this to dedupe code with populateBackupStatus and its subparts
+func (s *Server) getBackupActivity(path string, dirSummary *ruletree.DirSummary) *ibackup.SetBackupActivity {
+	for _, ruleSummary := range dirSummary.RuleSummaries {
+		rule := s.rules[ruleSummary.ID]
+
+		dirID := rule.DirID()
+		if dirID <= 0 {
+			continue
+		}
+
+		dirPath := s.dirs[uint64(dirID)].Path
+		dir := s.directoryRules[dirPath]
+
+		switch rule.BackupType {
+		case db.BackupIBackup:
+			c := s.config.GetCachedIBackupClient()
+
+			sba, _ := c.GetBackupActivity(path, "plan::"+path, dirSummary.ClaimedBy, false) //nolint:errcheck
+			if sba == nil {
+				sba = &ibackup.SetBackupActivity{
+					LastSuccess: time.Time{},
+					Name:        "plan::" + path,
+					Requester:   dirSummary.ClaimedBy,
+				}
+			}
+
+			return sba
+		case db.BackupManualIBackup:
+			dirSet := dirSet{dir.Path, rule.Metadata}
+
+			sba, err := s.config.GetCachedIBackupClient().GetBackupActivity(dirSet.dir, dirSet.set, dir.ClaimedBy, true)
+			if err != nil {
+				slog.Error("error querying manual ibackup status",
+					"dir", dirSet.dir, "claimedBy", dir.ClaimedBy, "set", dirSet.set, "err", err)
+			}
+
+			if sba == nil {
+				sba = &ibackup.SetBackupActivity{
+					Name:      dirSet.set,
+					Requester: dir.ClaimedBy,
+				}
+			}
+
+			return sba
+		case db.BackupManualGit:
+			repo := rule.Metadata
+
+			t, err := s.gitCache.GetLatestCommitDate(repo)
+			if err != nil {
+				slog.Error("error querying repo status", "repo", repo, "err", err)
+			}
+
+			return &ibackup.SetBackupActivity{
+				LastSuccess: t,
+				Name:        repo,
+				Requester:   dir.ClaimedBy,
+			}
+			// default:
+			// 	slog.Error("Error querying sba", dir.Path)
+		}
+	}
+	return &ibackup.SetBackupActivity{}
 }
 
 // generateRuleStats will create a []RuleStats slice for the given directory, containing a RuleStats object for every
