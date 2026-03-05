@@ -145,7 +145,7 @@ class ParentSummary extends Summary {
 									: new Date(backup.LastSuccess).toLocaleString()
 								: "-"
 						),
-						td({ "class": "tooltip", "data-tooltip": ibackupStatusColumns.filter(c => backup[c]).map(c => `${c}: ${backup[c].toLocaleString()}`).join("\n") || false }, backup.Failures.toLocaleString())
+						backup.Failures === -1 ? td("-") : td({ "class": "tooltip", "data-tooltip": ibackupStatusColumns.filter(c => backup[c]).map(c => `${c}: ${backup[c].toLocaleString()}`).join("\n") || false }, backup.Failures.toLocaleString())
 					])))
 				] : tr(td({ "colspan": "5" }, "No Backups")))
 			]),
@@ -388,6 +388,8 @@ getReportSummary()
 							break;
 						case BackupType.BackupManualGit:
 						case BackupType.BackupManualNFS:
+							data.BackupStatus[rule.Metadata].Failures = -1;
+
 							dirSummary.addBackupStatus(childDir, data.BackupStatus[rule.Metadata]);
 					}
 
