@@ -153,7 +153,7 @@ func (s *Server) populateIbackupStatus(dirClaims map[string]string, dirSummary *
 	}
 }
 
-func (s *Server) populateManualIBackupStatus(manualIbackup map[string][]dirSet, dirSummary *summary) {
+func (s *Server) populateManualIBackupStatus(manualIbackup map[string][]dirSet, dirSummary *summary) { //nolint:gocognit
 	client := s.config.GetCachedIBackupClient()
 	if client == nil {
 		return
