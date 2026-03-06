@@ -248,21 +248,20 @@ func (s *Server) buildRootDirSummary(reportingRoots []string, dirSummary *summar
 func (s *Server) collectChildDirSummaries(ds *ruletree.DirSummary, root string) {
 	for _, dir := range s.dirs {
 		if strings.HasPrefix(dir.Path, root) && dir.Path != root {
-			child := s.directoryRules[dir.Path].DirSummary
-
-			if child == nil {
+			dir, exists := s.directoryRules[dir.Path]
+			if !exists || dir == nil {
 				continue
 			}
 
-			nchild := *child
+			nchild := *dir.DirSummary
 			nchild.Children = map[string]*ruletree.DirSummary{}
 
-			uid, gid := child.IDs()
+			uid, gid := dir.DirSummary.IDs()
 
 			nchild.User = users.Username(uid)
 			nchild.Group = users.Group(gid)
-
 			nchild.ClaimedBy = s.getClaimed(dir.Path)
+
 			ds.Children[dir.Path] = &nchild
 		}
 	}
