@@ -42,7 +42,23 @@ type Config struct {
 	OktaMode                                                          bool
 }
 
-// Client is a WRStat client with cached responses.
+func (c *Config) username() []string {
+	var username []string
+
+	if c.Username != "" {
+		username = append(username, c.Username)
+	}
+
+	return username
+}
+
+func (c *Config) client() (*gas.ClientCLI, error) {
+	return gas.NewClientCLI(
+		c.JWTBasename, c.ServerTokenBasename,
+		c.ServerURL, c.ServerCert, c.OktaMode, c.username()...,
+	)
+}
+
 type Client struct {
 	mu     sync.RWMutex
 	client *gas.ClientCLI
@@ -51,16 +67,7 @@ type Client struct {
 
 // New creates a new WRStat Client from the given config.
 func New(d time.Duration, cfg Config) (*Client, error) {
-	var username []string
-
-	if cfg.Username != "" {
-		username = append(username, cfg.Username)
-	}
-
-	client, err := gas.NewClientCLI(
-		cfg.JWTBasename, cfg.ServerTokenBasename,
-		cfg.ServerURL, cfg.ServerCert, cfg.OktaMode, username...,
-	)
+	client, err := cfg.client()
 	if err != nil {
 		return nil, err
 	}
@@ -74,10 +81,7 @@ func New(d time.Duration, cfg Config) (*Client, error) {
 
 // UpdateConfig updates the WRStat client to use the new config specified.
 func (c *Client) UpdateConfig(cfg Config) error {
-	client, err := gas.NewClientCLI(
-		cfg.JWTBasename, cfg.ServerTokenBasename,
-		cfg.ServerURL, cfg.ServerCert, cfg.OktaMode,
-	)
+	client, err := cfg.client()
 	if err != nil {
 		return err
 	}
