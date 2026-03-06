@@ -88,7 +88,7 @@ func TestWRStat(t *testing.T) {
 
 		srv := server.New(io.Discard)
 		srv.WhiteListGroups(func(_ string) bool { return true })
-		So(srv.EnableAuth(cert, key, func(_, _ string) (bool, string) { return true, "1" }), ShouldBeNil)
+		So(srv.EnableAuth(cert, key, func(_, _ string) (bool, string) { return true, "0" }), ShouldBeNil)
 		So(srv.LoadDBs([]string{run}, dgutaPath, basedirsPath, owners, "/"), ShouldBeNil)
 
 		addr, dfunc, err := gas.StartTestServer(srv, cert, key)
