@@ -113,6 +113,8 @@ func TestWRStat(t *testing.T) {
 			client, err := New(time.Hour, cfg)
 			So(err, ShouldBeNil)
 
+			Reset(client.Stop)
+
 			Convey("You can request mtimes", func() {
 				ts, err := client.GetWRStatModTime("/lustre/scratch123/humgen/a/b/")
 				So(err, ShouldBeNil)

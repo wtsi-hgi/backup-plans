@@ -37,7 +37,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/wtsi-hgi/backup-plans/cache"
+	"github.com/wtsi-hgi/activecache"
 	gas "github.com/wtsi-hgi/go-authserver"
 	"github.com/wtsi-hgi/ibackup/server"
 	"github.com/wtsi-hgi/ibackup/set"
@@ -469,7 +469,7 @@ type SetBackupActivity struct {
 	LastSuccess time.Time
 	Name        string
 	Requester   string
-	Failures    uint64
+	Failures    int64
 	Uploaded    uint64
 	Replaced    uint64
 	Missing     uint64
@@ -495,7 +495,7 @@ func GetBackupActivity(client Client, setName, requester string) (*SetBackupActi
 	}
 
 	if got != nil {
-		sba.Failures = got.Failed
+		sba.Failures = int64(got.Failed)
 		sba.Uploaded = got.Uploaded
 		sba.Replaced = got.Replaced
 		sba.Missing = got.Missing
@@ -517,7 +517,7 @@ type setRequester struct {
 type Cache struct {
 	mu     sync.RWMutex
 	client Client
-	cache  *cache.Cache[setRequester, *SetBackupActivity]
+	cache  *activecache.Cache[setRequester, *SetBackupActivity]
 }
 
 // NewCache creates a cache for a particular ibackup client, that will
@@ -531,7 +531,7 @@ func NewCache(client Client, d time.Duration) *Cache {
 		client: client,
 	}
 
-	c.cache = cache.New(d, c.getBackupActivity)
+	c.cache = activecache.New(d, c.getBackupActivity)
 
 	return c
 }
@@ -678,7 +678,7 @@ func (m *MultiCache) Update(mc *MultiClient) {
 	}
 }
 
-// Stop stops the concurrent retrieval backup statuses for each client.
+// Stop stops the concurrent retrieval of backup statuses for each client.
 func (m *MultiCache) Stop() {
 	for _, c := range m.caches {
 		c.Stop()

@@ -31,22 +31,25 @@ import (
 	"sync"
 	"time"
 
-	"github.com/wtsi-hgi/backup-plans/cache"
+	"github.com/wtsi-hgi/activecache"
 	gas "github.com/wtsi-hgi/go-authserver"
 	"github.com/wtsi-hgi/wrstat-ui/server"
 )
 
+// Config contains the required settings to connect to a WRStat server.
 type Config struct {
 	JWTBasename, ServerTokenBasename, ServerURL, ServerCert, Username string
 	OktaMode                                                          bool
 }
 
+// Client is a WRStat client with cached responses.
 type Client struct {
 	mu     sync.RWMutex
 	client *gas.ClientCLI
-	cache  *cache.Cache[string, time.Time]
+	cache  *activecache.Cache[string, time.Time]
 }
 
+// New creates a new WRStat Client from the given config.
 func New(d time.Duration, cfg Config) (*Client, error) {
 	var username []string
 
@@ -64,15 +67,16 @@ func New(d time.Duration, cfg Config) (*Client, error) {
 
 	c := &Client{client: client}
 
-	c.cache = cache.New(d, c.getWRStatModTime)
+	c.cache = activecache.New(d, c.getWRStatModTime)
 
 	return c, nil
 }
 
+// UpdateConfig updates the WRStat client to use the new config specified.
 func (c *Client) UpdateConfig(cfg Config) error {
 	client, err := gas.NewClientCLI(
 		cfg.JWTBasename, cfg.ServerTokenBasename,
-		cfg.ServerURL, cfg.ServerCert, true,
+		cfg.ServerURL, cfg.ServerCert, cfg.OktaMode,
 	)
 	if err != nil {
 		return err
@@ -102,10 +106,13 @@ func (c *Client) getWRStatModTime(path string) (time.Time, error) {
 	return dss[0].Mtime, nil
 }
 
+// GetWRStatModTime queries the configured WRStat server to retrieve the latest
+// mtime for the given path.
 func (c *Client) GetWRStatModTime(path string) (time.Time, error) {
 	return c.cache.Get(filepath.Clean(path))
 }
 
+// Stop stops the concurrent retrieval of mtimes.
 func (c *Client) Stop() {
 	c.cache.Stop()
 }

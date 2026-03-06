@@ -37,7 +37,11 @@ class Summary {
 		this.count += BigInt(rule.Files);
 	}
 
-	addBackupStatus(path: string, backupStatus: BackupStatus) {
+	addBackupStatus(path: string, backupStatus?: BackupStatus) {
+		if (!backupStatus) {
+			return;
+		}
+
 		(this.backups.get(path) ?? setAndReturn(this.backups, path, [])).push(backupStatus);
 	}
 
@@ -388,8 +392,6 @@ getReportSummary()
 							break;
 						case BackupType.BackupManualGit:
 						case BackupType.BackupManualNFS:
-							data.BackupStatus[rule.Metadata].Failures = -1;
-
 							dirSummary.addBackupStatus(childDir, data.BackupStatus[rule.Metadata]);
 					}
 

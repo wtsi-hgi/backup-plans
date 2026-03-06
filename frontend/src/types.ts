@@ -111,7 +111,6 @@ export type BackupStatus = {
 	Uploaded: number;
 	Replaced: number;
 	Missing: number;
-	Failed: number;
 	Orphaned: number;
 	Hardlinks: number;
 	Skipped: number;

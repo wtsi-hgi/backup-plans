@@ -188,6 +188,7 @@ func (s *Server) getGitBackupStatus(repo, claimedBy string) *ibackup.SetBackupAc
 		LastSuccess: t,
 		Name:        repo,
 		Requester:   claimedBy,
+		Failures:    -1,
 	}
 }
 
@@ -207,6 +208,7 @@ func (s *Server) populateNFSStatus(paths map[string]string, dirSummary *summary)
 			LastSuccess: t,
 			Name:        path,
 			Requester:   claimedBy,
+			Failures:    -1,
 		}
 	}
 }

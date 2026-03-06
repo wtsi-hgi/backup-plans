@@ -35,7 +35,7 @@ import (
 	"github.com/go-git/go-git/v6/plumbing/transport"
 	transporthttp "github.com/go-git/go-git/v6/plumbing/transport/http"
 	"github.com/go-git/go-git/v6/storage/memory"
-	"github.com/wtsi-hgi/backup-plans/cache"
+	"github.com/wtsi-hgi/activecache"
 )
 
 // GetLatestCommitDate returns the commit date for the HEAD of the supplied
@@ -105,7 +105,7 @@ func getRepo(url string) (*git.Repository, error) {
 // Cache wraps the GetLatestCommitDate method, caching, and on a schedule
 // re-retrieving, requested repo information.
 type Cache struct {
-	cache *cache.Cache[string, time.Time]
+	cache *activecache.Cache[string, time.Time]
 }
 
 // NewCache creates a cache storing the last commit date for git repos, that
@@ -115,7 +115,7 @@ type Cache struct {
 // The Stop() method must be before replacing (or otherwise losing this pointer
 // to) this cache.
 func NewCache(d time.Duration) *Cache {
-	return &Cache{cache.New(d, GetLatestCommitDate)}
+	return &Cache{activecache.New(d, GetLatestCommitDate)}
 }
 
 // GetBackupActivity retrieves a cache using the given path, and then calls the
