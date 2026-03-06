@@ -89,12 +89,12 @@ ibackup:
       transformer: prefix=/some/:/remote/
 ibackupcacheduration: 3600
 wrstat:
-	jwtbasename: .wrstat.jwt
-	servertokenbasename: /path/to/.wrstat.servertoken
-	serverurl: https://wrstat
-	servercert: /path/to/optional/ssl/cert
-	username: wrstat_admin
-	oktamode: true
+    jwtbasename: .wrstat.jwt
+    servertokenbasename: /path/to/.wrstat.servertoken
+    serverurl: https://wrstat
+    servercert: /path/to/optional/ssl/cert
+    username: wrstat_admin
+    oktamode: true
 wrstatcacheduration: 3600
 bomfile: /path/to/bom.areas
 ownersfile: /path/to/owners

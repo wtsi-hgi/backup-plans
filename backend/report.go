@@ -190,6 +190,7 @@ func (s *Server) populateGitBackupStatus(repos map[string]string, dirSummary *su
 			LastSuccess: t,
 			Name:        repo,
 			Requester:   claimedBy,
+			Failures:    -1,
 		}
 	}
 }
@@ -210,6 +211,7 @@ func (s *Server) populateNFSStatus(paths map[string]string, dirSummary *summary)
 			LastSuccess: t,
 			Name:        path,
 			Requester:   claimedBy,
+			Failures:    -1,
 		}
 	}
 }
