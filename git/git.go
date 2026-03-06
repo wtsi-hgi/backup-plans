@@ -118,7 +118,7 @@ func NewCache(d time.Duration) *Cache {
 	return &Cache{activecache.New(d, GetLatestCommitDate)}
 }
 
-// GetBackupActivity retrieves a cache using the given path, and then calls the
+// GetLatestCommitDate retrieves a cache using the given path, and then calls the
 // normal GetBackupActivity method.
 func (c *Cache) GetLatestCommitDate(repo string) (time.Time, error) {
 	return c.cache.Get(repo)
