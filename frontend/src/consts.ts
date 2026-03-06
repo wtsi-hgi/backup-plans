@@ -9,6 +9,7 @@ directories, regardless of their rules (unless their rules are more specific).`,
     "MetadataSetName": `Provide the iBackup set name that you used to manually backup the matched files.`,
     "MetadataGit": `Provide the URL to the Git repository where you backup the matched files.`,
     "MetadataPrefect": `Provide a Prefect URL related to the matched files.`,
+    "MetadataNFS": `Provide an NFS location related to the matched files.`,
     "MetadataUnchecked": `Provide any information that could help you manually check the backup status of the matched files.`,
     "FOFN": `Add the same rule to multiple files in one go by providing a FOFN. Paths can be full or relative.
 `,
@@ -31,11 +32,12 @@ export class BackupType extends Number {
     static BackupManual = new BackupType(-2, "manual");
     static BackupWarn = new BackupType(-1, "warn");
     static BackupNone = new BackupType(0, "nobackup", "No Backup");
-    static BackupIBackup = new BackupType(1, "backup", "iBackup");
+    static BackupIBackup = new BackupType(1, "backup", "IBackup");
     static BackupManualIBackup = new BackupType(2, "manualibackup", "Manual Backup: iBackup", "Set Name", helpText.MetadataSetName);
     static BackupManualGit = new BackupType(3, "manualgit", "Manual Backup: Git", "Git URL", helpText.MetadataGit);
     static BackupManualUnchecked = new BackupType(4, "manualunchecked", "Manual Backup: Unchecked", "Metadata", helpText.MetadataUnchecked);
     static BackupManualPrefect = new BackupType(5, "manualprefect", "Manual Backup: Prefect", "Prefect URL", helpText.MetadataPrefect);
+    static BackupManualNFS = new BackupType(6, "manualnfs", "Manual Backup: NFS", "NFS Location", helpText.MetadataNFS);
 
     static from(bt: string | number | BackupType) {
         const b = typeof bt === "string" ? this.#stringToType.get(bt) : this.#idToType.get(+bt);

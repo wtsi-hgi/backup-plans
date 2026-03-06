@@ -120,18 +120,24 @@ func (s *Server) getClaimed(root string) string {
 	return ""
 }
 
-func (s *Server) populateBackupStatus(dirClaims, repos map[string]string,
+func (s *Server) populateBackupStatus(dirClaims, repos, nfs map[string]string,
 	manualIbackup map[string][]dirSet, dirSummary *summary) {
 	s.populateIbackupStatus(dirClaims, dirSummary)
 	s.populateManualIBackupStatus(manualIbackup, dirSummary)
 	s.populateGitBackupStatus(repos, dirSummary)
+	s.populateNFSStatus(nfs, dirSummary)
 }
 
 func (s *Server) populateIbackupStatus(dirClaims map[string]string, dirSummary *summary) {
+	client := s.config.GetCachedIBackupClient()
+	if client == nil {
+		return
+	}
+
 	for dir, claimedBy := range dirClaims {
 		planName := "plan::" + dir
 
-		sba, err := s.config.GetCachedIBackupClient().GetBackupActivity(dir, planName, claimedBy, false)
+		sba, err := client.GetBackupActivity(dir, planName, claimedBy, false)
 		if err != nil {
 			slog.Error("error querying ibackup status", "dir", dir, "err", err)
 		}
@@ -147,10 +153,15 @@ func (s *Server) populateIbackupStatus(dirClaims map[string]string, dirSummary *
 	}
 }
 
-func (s *Server) populateManualIBackupStatus(manualIbackup map[string][]dirSet, dirSummary *summary) {
+func (s *Server) populateManualIBackupStatus(manualIbackup map[string][]dirSet, dirSummary *summary) { //nolint:gocognit
+	client := s.config.GetCachedIBackupClient()
+	if client == nil {
+		return
+	}
+
 	for claimedBy, dirSets := range manualIbackup {
 		for _, dirSet := range dirSets {
-			sba, err := s.config.GetCachedIBackupClient().GetBackupActivity(dirSet.dir, dirSet.set, claimedBy, true)
+			sba, err := client.GetBackupActivity(dirSet.dir, dirSet.set, claimedBy, true)
 			if err != nil {
 				slog.Error("error querying manual ibackup status",
 					"dir", dirSet.dir, "claimedBy", claimedBy, "set", dirSet.set, "err", err)
@@ -179,6 +190,28 @@ func (s *Server) populateGitBackupStatus(repos map[string]string, dirSummary *su
 			LastSuccess: t,
 			Name:        repo,
 			Requester:   claimedBy,
+			Failures:    -1,
+		}
+	}
+}
+
+func (s *Server) populateNFSStatus(paths map[string]string, dirSummary *summary) {
+	client := s.config.GetWRStatClient()
+	if client == nil {
+		return
+	}
+
+	for path, claimedBy := range paths {
+		t, err := client.GetWRStatModTime(path)
+		if err != nil {
+			slog.Error("error querying wrstat status", "path", path, "err", err)
+		}
+
+		dirSummary.BackupStatus[path] = &ibackup.SetBackupActivity{
+			LastSuccess: t,
+			Name:        path,
+			Requester:   claimedBy,
+			Failures:    -1,
 		}
 	}
 }
@@ -210,6 +243,7 @@ func (s *Server) getBackupTypeForTotals(id uint64) int {
 func (s *Server) buildRootDirSummary(reportingRoots []string, dirSummary *summary) error {
 	dirClaims := make(map[string]string)
 	repos := make(map[string]string)
+	nfs := make(map[string]string)
 	manualIbackup := make(map[string][]dirSet)
 
 	for _, root := range reportingRoots {
@@ -231,10 +265,10 @@ func (s *Server) buildRootDirSummary(reportingRoots []string, dirSummary *summar
 		ds.ClaimedBy = s.getClaimed(root)
 		dirSummary.Summaries[root] = ds
 
-		s.collectRuleMetadata(ds, dirSummary, dirClaims, repos, manualIbackup)
+		s.collectRuleMetadata(ds, dirSummary, dirClaims, repos, nfs, manualIbackup)
 	}
 
-	s.populateBackupStatus(dirClaims, repos, manualIbackup, dirSummary)
+	s.populateBackupStatus(dirClaims, repos, nfs, manualIbackup, dirSummary)
 
 	return nil
 }
@@ -260,8 +294,8 @@ func (s *Server) collectChildDirSummaries(ds *ruletree.DirSummary, root string) 
 	}
 }
 
-func (s *Server) collectRuleMetadata(ds *ruletree.DirSummary, dirSummary *summary,
-	dirClaims, repos map[string]string, manualIbackup map[string][]dirSet) {
+func (s *Server) collectRuleMetadata(ds *ruletree.DirSummary, dirSummary *summary, //nolint:gocyclo
+	dirClaims, repos, nfs map[string]string, manualIbackup map[string][]dirSet) {
 	for _, ruleSummary := range ds.RuleSummaries {
 		rule := s.rules[ruleSummary.ID]
 
@@ -280,6 +314,8 @@ func (s *Server) collectRuleMetadata(ds *ruletree.DirSummary, dirSummary *summar
 			manualIbackup[dir.ClaimedBy] = append(manualIbackup[dir.ClaimedBy], dirSet{dir.Path, rule.Metadata})
 		case db.BackupManualGit:
 			repos[rule.Metadata] = dir.ClaimedBy
+		case db.BackupManualNFS:
+			nfs[rule.Metadata] = dir.ClaimedBy
 		}
 
 		if _, ok := dirSummary.Directories[dirPath]; ok {

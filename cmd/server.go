@@ -88,6 +88,14 @@ ibackup:
       servername: serverName2
       transformer: prefix=/some/:/remote/
 ibackupcacheduration: 3600
+wrstat:
+    jwtbasename: .wrstat.jwt
+    servertokenbasename: /path/to/.wrstat.servertoken
+    serverurl: https://wrstat
+    servercert: /path/to/optional/ssl/cert
+    username: wrstat_admin
+    oktamode: true
+wrstatcacheduration: 3600
 bomfile: /path/to/bom.areas
 ownersfile: /path/to/owners
 admingroup: 15770
@@ -108,6 +116,9 @@ regexp.
 
 The IBackupCacheDuration is a number of seconds until the ibackup set cache will
 be updated.
+
+The WRStatCacheDuration is similar to the IBackupCacheDuration, but applies to
+the WRStat cache.
 
 OwnersFile and BOMFile strings are paths to CSV files with the following
 formats:
