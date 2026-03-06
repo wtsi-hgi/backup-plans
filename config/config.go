@@ -44,14 +44,15 @@ import (
 const csvCols = 2
 
 var (
-	nullWRStat        *wrstat.Client
-	nullIBackupClient *ibackup.MultiClient
-	nullIBackupCache  = ibackup.NewMultiCache(&ibackup.MultiClient{}, 0)
+	nullWRStat        *wrstat.Client       //nolint:gochecknoglobals
+	nullIBackupClient *ibackup.MultiClient //nolint:gochecknoglobals
+	nullIBackupCache  *ibackup.MultiCache  //nolint:gochecknoglobals
 )
 
-func init() {
-	nullWRStat, _ = wrstat.New(0, wrstat.Config{})
-	nullIBackupClient, _ = ibackup.New(ibackup.Config{})
+func init() { //nolint:gochecknoinits
+	nullWRStat, _ = wrstat.New(0, wrstat.Config{})       //nolint:errcheck
+	nullIBackupClient, _ = ibackup.New(ibackup.Config{}) //nolint:errcheck
+	nullIBackupCache = ibackup.NewMultiCache(nullIBackupClient, 0)
 }
 
 type yamlConfig struct {
@@ -131,6 +132,7 @@ type Config struct {
 func Parse(path string) (*Config, error) {
 	c := &Config{
 		path:                path,
+		ibackupClient:       nullIBackupClient,
 		ibackupCachedClient: nullIBackupCache,
 		wrstatClient:        nullWRStat,
 	}

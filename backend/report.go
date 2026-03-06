@@ -263,11 +263,6 @@ func (s *Server) buildRootDirSummary(reportingRoots []string, dirSummary *summar
 		nds.ClaimedBy = s.getClaimed(root)
 		dirSummary.Summaries[root] = nds
 
-		s.collectChildDirSummaries(ds, root)
-
-		ds.ClaimedBy = s.getClaimed(root)
-		dirSummary.Summaries[root] = ds
-
 		s.collectRuleMetadata(ds, dirSummary, dirClaims, repos, nfs, manualIbackup)
 	}
 
