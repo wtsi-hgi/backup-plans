@@ -43,7 +43,10 @@ import (
 	"vimagination.zapto.org/tree"
 )
 
-var ErrNoIBackup = Error{Code: http.StatusNotImplemented, Err: errors.New("no ibackup server registered")}
+var ErrNoIBackup = Error{
+	Code: http.StatusNotImplemented,
+	Err:  errors.New("no ibackup server registered"), //nolint:err113
+}
 
 // Server represents all of the data required to run the backend server.
 type Server struct {

@@ -495,7 +495,7 @@ func GetBackupActivity(client Client, setName, requester string) (*SetBackupActi
 	}
 
 	if got != nil {
-		sba.Failures = int64(got.Failed)
+		sba.Failures = int64(got.Failed) //nolint:gosec
 		sba.Uploaded = got.Uploaded
 		sba.Replaced = got.Replaced
 		sba.Missing = got.Missing
