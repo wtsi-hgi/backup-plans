@@ -30,6 +30,7 @@ import (
 	"errors"
 	"net/http"
 	"slices"
+	"strings"
 
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/ruletree"
@@ -55,7 +56,37 @@ func (s *Server) AddTree(file string) error {
 		return err
 	}
 
+	err = s.UpdateDirSummaries(rootPath)
+	if err != nil {
+		return err
+	}
+
 	return s.updateDirMaps(rootPath)
+}
+
+func (s *Server) UpdateDirSummaries(path string) error {
+	s.rulesMu.Lock()
+	defer s.rulesMu.Unlock()
+
+	toUpdate := make([]string, 0, len(s.directoryRules))
+
+	for p := range s.directoryRules {
+		if strings.HasPrefix(p, path) || strings.HasPrefix(path, p) {
+			toUpdate = append(toUpdate, p)
+		}
+	}
+
+	summaries, err := s.rootDir.GetSummaries(toUpdate)
+	if err != nil {
+		return err
+	}
+
+	for path, summary := range summaries {
+		dir := s.directoryRules[path]
+		dir.DirSummary = summary
+	}
+
+	return nil
 }
 
 type treeDB struct {
