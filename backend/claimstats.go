@@ -123,7 +123,7 @@ func createClaimstatsFilter(r *http.Request) filter {
 func (s *Server) generateDirStats(path string, dirSummary *ruletree.DirSummary) *DirStats {
 	rulestats := s.generateRuleStats(path, dirSummary)
 
-	sba := s.getSetBackupActivity(path, dirSummary)
+	sba := s.getSetBackupActivity(dirSummary)
 
 	return &DirStats{
 		Path:         path,
@@ -134,8 +134,8 @@ func (s *Server) generateDirStats(path string, dirSummary *ruletree.DirSummary) 
 	}
 }
 
-func (s *Server) getSetBackupActivity(path string, dirSummary *ruletree.DirSummary) *ibackup.SetBackupActivity {
-	sbas := s.gatherSBAs(path, dirSummary)
+func (s *Server) getSetBackupActivity(dirSummary *ruletree.DirSummary) *ibackup.SetBackupActivity {
+	sbas := s.gatherSBAs(dirSummary)
 
 	if len(sbas) == 0 {
 		return &ibackup.SetBackupActivity{}
@@ -151,7 +151,7 @@ func (s *Server) getSetBackupActivity(path string, dirSummary *ruletree.DirSumma
 	return mostRecentSBA
 }
 
-func (s *Server) gatherSBAs(path string, dirSummary *ruletree.DirSummary) []*ibackup.SetBackupActivity {
+func (s *Server) gatherSBAs(dirSummary *ruletree.DirSummary) []*ibackup.SetBackupActivity {
 	sbas := make([]*ibackup.SetBackupActivity, 0, len(dirSummary.RuleSummaries))
 
 	for _, ruleSummary := range dirSummary.RuleSummaries {
@@ -163,16 +163,15 @@ func (s *Server) gatherSBAs(path string, dirSummary *ruletree.DirSummary) []*iba
 		}
 
 		dirPath := s.dirs[uint64(dirID)].Path
-		dir := s.directoryRules[dirPath]
 
 		switch rule.BackupType { //nolint:exhaustive
 		case db.BackupIBackup:
-			sbas = append(sbas, s.getIBackupBackupStatus("plan::"+path, dir.Path, dirSummary.ClaimedBy))
+			sbas = append(sbas, s.getIBackupBackupStatus("plan::"+dirPath, dirPath, dirSummary.ClaimedBy))
 		case db.BackupManualIBackup:
-			dirSet := dirSet{dir.Path, rule.Metadata}
-			sbas = append(sbas, s.getManualIBackupStatus(dirSet, dir.ClaimedBy))
+			dirSet := dirSet{dirPath, rule.Metadata}
+			sbas = append(sbas, s.getManualIBackupStatus(dirSet, dirSummary.ClaimedBy))
 		case db.BackupManualGit:
-			sbas = append(sbas, s.getGitBackupStatus(rule.Metadata, dir.ClaimedBy))
+			sbas = append(sbas, s.getGitBackupStatus(rule.Metadata, dirSummary.ClaimedBy))
 		}
 	}
 

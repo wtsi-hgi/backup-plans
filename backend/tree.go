@@ -65,6 +65,9 @@ func (s *Server) AddTree(file string) error {
 }
 
 func (s *Server) UpdateDirSummaries(path string) error {
+	s.rulesMu.Lock()
+	defer s.rulesMu.Unlock()
+
 	toUpdate := make([]string, 0, len(s.directoryRules))
 
 	for p := range s.directoryRules {
