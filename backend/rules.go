@@ -96,19 +96,22 @@ const (
 )
 
 func (s *Server) loadRules() ([]ruletree.DirRule, error) { //nolint:funlen
-	s.directoryRules = make(map[string]*ruletree.DirRules)
+	s.directoryRules = make(map[string]*Directory)
 	s.dirs = make(map[uint64]*db.Directory)
 	s.rules = make(map[uint64]*db.Rule)
 	dirs := make(map[int64]*ruletree.DirRules)
 	dirRules := make([]ruletree.DirRule, 0)
 
 	if err := s.rulesDB.ReadDirectories().ForEach(func(dir *db.Directory) error {
-		dr := &ruletree.DirRules{
-			Directory: dir,
-			Rules:     make(map[string]*db.Rule),
+		dr := Directory{
+			&ruletree.DirRules{
+				Directory: dir,
+				Rules:     make(map[string]*db.Rule),
+			},
+			nil,
 		}
-		s.directoryRules[dir.Path] = dr
-		dirs[dir.ID()] = dr
+		s.directoryRules[dir.Path] = &dr
+		dirs[dir.ID()] = dr.DirRules
 		s.dirs[uint64(dir.ID())] = dir //nolint:gosec
 
 		return nil
@@ -216,17 +219,20 @@ func (s *Server) claimDirectory(fileDir, user string, dirdetails dirDetails) err
 		return err
 	}
 
-	s.directoryRules[fileDir] = &ruletree.DirRules{
-		Directory: directory,
-		Rules:     make(map[string]*db.Rule),
-	}
-
-	s.dirs[uint64(directory.ID())] = directory //nolint:gosec
-
 	dirSummary, err := s.rootDir.Summary(directory.Path)
 	if err != nil {
 		return err
 	}
+
+	s.directoryRules[fileDir] = &Directory{
+		DirRules: &ruletree.DirRules{
+			Directory: directory,
+			Rules:     make(map[string]*db.Rule),
+		},
+		DirSummary: dirSummary,
+	}
+
+	s.dirs[uint64(directory.ID())] = directory //nolint:gosec
 
 	s.addToDirMaps(directory.ID(), dirSummary)
 
@@ -475,12 +481,16 @@ func (s *Server) createRule(w http.ResponseWriter, r *http.Request) error { //no
 		return err
 	}
 
+	if err := s.updateDirSummaries(directory.Path); err != nil {
+		return err
+	}
+
 	w.WriteHeader(http.StatusNoContent)
 
 	return nil
 }
 
-func (s *Server) checkAddRule(r *http.Request, dir, match string) (*ruletree.DirRules, error) {
+func (s *Server) checkAddRule(r *http.Request, dir, match string) (*Directory, error) {
 	s.rulesMu.RLock()
 	defer s.rulesMu.RUnlock()
 
@@ -617,7 +627,7 @@ func (s *Server) RemoveRule(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.removeRule)
 }
 
-func (s *Server) removeRule(w http.ResponseWriter, r *http.Request) error {
+func (s *Server) removeRule(w http.ResponseWriter, r *http.Request) error { //nolint:funlen
 	dir, err := getDir(r)
 	if err != nil {
 		return err
@@ -643,12 +653,16 @@ func (s *Server) removeRule(w http.ResponseWriter, r *http.Request) error {
 	delete(directory.Rules, rule.Match)
 	s.rulesMu.Unlock()
 
+	if err := s.updateDirSummaries(directory.Path); err != nil {
+		return err
+	}
+
 	w.WriteHeader(http.StatusNoContent)
 
 	return nil
 }
 
-func (s *Server) getRuleToRemove(r *http.Request, dir string) (*ruletree.DirRules, *db.Rule, error) {
+func (s *Server) getRuleToRemove(r *http.Request, dir string) (*Directory, *db.Rule, error) {
 	s.rulesMu.RLock()
 	defer s.rulesMu.RUnlock()
 

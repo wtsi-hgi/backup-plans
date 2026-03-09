@@ -30,8 +30,6 @@ import (
 	"net/http"
 	"slices"
 	"strings"
-	"sync"
-	"time"
 
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/ibackup"
@@ -69,14 +67,7 @@ func (s *Server) claimstats(w http.ResponseWriter, r *http.Request) error {
 	defer s.rulesMu.RUnlock()
 
 	f := createClaimstatsFilter(r)
-	claimstats := make([]DirStats, 0, len(s.directoryRules))
-	channel := make(chan DirStats, len(s.directoryRules))
-
-	s.collectDirStats(f, channel)
-
-	for item := range channel {
-		claimstats = append(claimstats, item)
-	}
+	claimstats := s.collectDirStats(f)
 
 	slices.SortFunc(claimstats, func(a, b DirStats) int { return strings.Compare(a.Path, b.Path) })
 
@@ -85,39 +76,28 @@ func (s *Server) claimstats(w http.ResponseWriter, r *http.Request) error {
 	return json.NewEncoder(w).Encode(claimstats)
 }
 
-func (s *Server) collectDirStats(f filter, channel chan DirStats) {
-	var wg sync.WaitGroup
+func (s *Server) collectDirStats(f filter) []DirStats {
+	claimstats := make([]DirStats, 0, len(s.directoryRules))
 
 	for _, dir := range s.directoryRules {
 		if !(s.matchesFilter(dir, f)) {
 			continue
 		}
 
-		wg.Add(1)
-
-		go func(dir *ruletree.DirRules) {
-			defer wg.Done()
-
-			dirSummary, err := s.rootDir.Summary(dir.Path)
-			if err != nil {
-				return
-			}
-
-			dirSummary.ClaimedBy = s.getClaimed(dir.Path)
-
-			dirStats := s.generateDirStats(dir.Path, dirSummary)
-			channel <- *dirStats
-		}(dir)
+		dirSummary := dir.DirSummary
+		dirSummary.ClaimedBy = s.getClaimed(dir.Path)
+		claimstats = append(claimstats, *s.generateDirStats(dir.Path, dirSummary))
 	}
 
-	go func() {
-		wg.Wait()
-		close(channel)
-	}()
+	return claimstats
 }
 
-func (s *Server) matchesFilter(dir *ruletree.DirRules, f filter) bool {
+func (s *Server) matchesFilter(dir *Directory, f filter) bool {
 	if !f.filterUser && !f.filterGroup {
+		return false
+	}
+
+	if dir.DirSummary == nil {
 		return false
 	}
 
@@ -125,12 +105,12 @@ func (s *Server) matchesFilter(dir *ruletree.DirRules, f filter) bool {
 }
 
 // filterOutUser will return true if the user does not match the filter.
-func (s *Server) filterOutUser(dir *ruletree.DirRules, f filter) bool {
+func (s *Server) filterOutUser(dir *Directory, f filter) bool {
 	return f.filterUser && f.user != dir.ClaimedBy
 }
 
 // filterOutGroupBom will return true if the group/bom does not match the filter.
-func (s *Server) filterOutGroupBom(dir *ruletree.DirRules, f filter) bool {
+func (s *Server) filterOutGroupBom(dir *Directory, f filter) bool {
 	return f.filterGroup && (s.dirGroups[dir.ID()] != f.group && s.dirBoms[dir.ID()] != f.group)
 }
 
@@ -147,16 +127,7 @@ func createClaimstatsFilter(r *http.Request) filter {
 func (s *Server) generateDirStats(path string, dirSummary *ruletree.DirSummary) *DirStats {
 	rulestats := s.generateRuleStats(path, dirSummary)
 
-	c := s.config.GetCachedIBackupClient()
-
-	sba, _ := c.GetBackupActivity(path, "plan::"+path, dirSummary.ClaimedBy, false) //nolint:errcheck
-	if sba == nil {
-		sba = &ibackup.SetBackupActivity{
-			LastSuccess: time.Time{},
-			Name:        "plan::" + path,
-			Requester:   dirSummary.ClaimedBy,
-		}
-	}
+	sba := s.getSetBackupActivity(dirSummary)
 
 	return &DirStats{
 		Path:         path,
@@ -165,6 +136,51 @@ func (s *Server) generateDirStats(path string, dirSummary *ruletree.DirSummary) 
 		BackupStatus: *sba,
 		RuleStats:    rulestats,
 	}
+}
+
+func (s *Server) getSetBackupActivity(dirSummary *ruletree.DirSummary) *ibackup.SetBackupActivity {
+	sbas := s.gatherSBAs(dirSummary)
+
+	if len(sbas) == 0 {
+		return &ibackup.SetBackupActivity{}
+	}
+
+	mostRecentSBA := sbas[0]
+	for _, sba := range sbas {
+		if sba.LastSuccess.After(mostRecentSBA.LastSuccess) {
+			mostRecentSBA = sba
+		}
+	}
+
+	return mostRecentSBA
+}
+
+func (s *Server) gatherSBAs(dirSummary *ruletree.DirSummary) []*ibackup.SetBackupActivity {
+	sbas := make([]*ibackup.SetBackupActivity, 0, len(dirSummary.RuleSummaries))
+
+	for _, ruleSummary := range dirSummary.RuleSummaries {
+		rule := s.rules[ruleSummary.ID]
+
+		dirID := rule.DirID()
+		if dirID <= 0 {
+			continue
+		}
+
+		dirPath := s.dirs[uint64(dirID)].Path
+		requester := s.directoryRules[dirPath].ClaimedBy
+
+		switch rule.BackupType { //nolint:exhaustive
+		case db.BackupIBackup:
+			sbas = append(sbas, s.getIBackupBackupStatus("plan::"+dirPath, dirPath, requester))
+		case db.BackupManualIBackup:
+			dirSet := dirSet{dirPath, rule.Metadata}
+			sbas = append(sbas, s.getManualIBackupStatus(dirSet, requester))
+		case db.BackupManualGit:
+			sbas = append(sbas, s.getGitBackupStatus(rule.Metadata, requester))
+		}
+	}
+
+	return sbas
 }
 
 // generateRuleStats will create a []RuleStats slice for the given directory, containing a RuleStats object for every
@@ -202,7 +218,7 @@ func (s *Server) generateStatsForRule(r ruletree.Rule) ruleStats {
 
 // gatherDirRules will return the IDs of all rules on the directory given.
 func (s *Server) gatherDirRules(path string) map[uint64]struct{} {
-	dirRules := s.directoryRules[path]
+	dirRules := s.directoryRules[path].DirRules
 	if dirRules == nil {
 		return nil
 	}
