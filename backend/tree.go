@@ -56,7 +56,7 @@ func (s *Server) AddTree(file string) error {
 		return err
 	}
 
-	err = s.UpdateDirSummaries(rootPath)
+	err = s.updateDirSummaries(rootPath)
 	if err != nil {
 		return err
 	}
@@ -64,7 +64,7 @@ func (s *Server) AddTree(file string) error {
 	return s.updateDirMaps(rootPath)
 }
 
-func (s *Server) UpdateDirSummaries(path string) error {
+func (s *Server) updateDirSummaries(path string) error {
 	s.rulesMu.Lock()
 	defer s.rulesMu.Unlock()
 

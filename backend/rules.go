@@ -481,7 +481,7 @@ func (s *Server) createRule(w http.ResponseWriter, r *http.Request) error { //no
 		return err
 	}
 
-	if err := s.UpdateDirSummaries(directory.Path); err != nil {
+	if err := s.updateDirSummaries(directory.Path); err != nil {
 		return err
 	}
 
@@ -653,7 +653,7 @@ func (s *Server) removeRule(w http.ResponseWriter, r *http.Request) error { //no
 	delete(directory.Rules, rule.Match)
 	s.rulesMu.Unlock()
 
-	if err := s.UpdateDirSummaries(directory.Path); err != nil {
+	if err := s.updateDirSummaries(directory.Path); err != nil {
 		return err
 	}
 

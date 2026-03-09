@@ -62,6 +62,7 @@ type Server struct {
 	rootDir *ruletree.RootDir
 }
 
+// Directory holds a claimed directory's rule and summary info.
 type Directory struct {
 	*ruletree.DirRules
 	DirSummary *ruletree.DirSummary
