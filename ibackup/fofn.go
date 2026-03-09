@@ -41,6 +41,7 @@ import (
 const (
 	statusFile = "status"
 	fofnFile   = "fofn"
+	dirPerms   = 0775
 )
 
 // FOFNClient represents a configured `ibackup watchfofns` client.
@@ -117,7 +118,7 @@ func setSetData(s *set.Set, counts fofn.StatusCounts, config fofn.SubDirConfig) 
 func (fc *FOFNClient) AddOrUpdateSet(set *set.Set) error {
 	fofnPath := fc.path(set.ID(), "")
 
-	if err := os.MkdirAll(fofnPath, 0755); err != nil { //nolint:mnd
+	if err := createDirs(fofnPath); err != nil {
 		return err
 	}
 
@@ -144,6 +145,18 @@ func (fc *FOFNClient) AddOrUpdateSet(set *set.Set) error {
 		Remove:      remove,
 		Reason:      reason,
 	})
+}
+
+func createDirs(path string) error {
+	if err := os.MkdirAll(path, dirPerms); err != nil {
+		return err
+	}
+
+	if err := os.Chmod(path, dirPerms); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (fc *FOFNClient) setLastDiscovery(set *set.Set) {
