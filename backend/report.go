@@ -245,42 +245,17 @@ func (s *Server) buildRootDirSummary(reportingRoots []string, dirSummary *summar
 	s.populateBackupStatus(dirClaims, repos, manualIbackup, dirSummary)
 }
 
-// func (s *Server) collectChildDirSummaries(ds *ruletree.DirSummary, root string) {
-// 	for _, dir := range s.dirs {
-// 		if strings.HasPrefix(dir.Path, root) && dir.Path != root {
-// 			dir, exists := s.directoryRules[dir.Path]
-// 			if !exists || dir == nil || dir.DirSummary == nil {
-// 				continue
-// 			}
-
-// 			child := dir.DirSummary
-
-// 			// nchild := *dir.DirSummary
-// 			nchild := *child //line 262
-// 			nchild.Children = map[string]*ruletree.DirSummary{}
-
-// 			uid, gid := child.IDs()
-// 			// uid, gid := dir.DirSummary.IDs()
-
-// 			nchild.User = users.Username(uid)
-// 			nchild.Group = users.Group(gid)
-
-// 			nchild.ClaimedBy = s.getClaimed(dir.Path)
-// 			ds.Children[dir.Path] = &nchild
-// 		}
-// 	}
-// }
-
 func (s *Server) collectChildDirSummaries(ds *ruletree.DirSummary, root string) {
 	for _, dir := range s.dirs {
 		if strings.HasPrefix(dir.Path, root) && dir.Path != root {
-			child := s.directoryRules[dir.Path].DirSummary
-
-			if child == nil {
+			dir, exists := s.directoryRules[dir.Path]
+			if !exists || dir == nil || dir.DirSummary == nil {
 				continue
 			}
 
-			nchild := *child
+			child := dir.DirSummary
+
+			nchild := *dir.DirSummary
 			nchild.Children = map[string]*ruletree.DirSummary{}
 
 			uid, gid := child.IDs()
