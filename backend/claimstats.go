@@ -27,7 +27,6 @@ package backend
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"slices"
 	"strings"
@@ -165,18 +164,15 @@ func (s *Server) gatherSBAs(dirSummary *ruletree.DirSummary) []*ibackup.SetBacku
 
 		dirPath := s.dirs[uint64(dirID)].Path
 		requester := s.directoryRules[dirPath].ClaimedBy
-		if requester != dirSummary.ClaimedBy {
-			fmt.Println("Requester:", requester, "dirSummary.ClaimedBy", dirSummary.ClaimedBy, "dirPath", dirPath)
-		}
 
 		switch rule.BackupType { //nolint:exhaustive
 		case db.BackupIBackup:
-			sbas = append(sbas, s.getIBackupBackupStatus("plan::"+dirPath, dirPath, dirSummary.ClaimedBy))
+			sbas = append(sbas, s.getIBackupBackupStatus("plan::"+dirPath, dirPath, requester))
 		case db.BackupManualIBackup:
 			dirSet := dirSet{dirPath, rule.Metadata}
-			sbas = append(sbas, s.getManualIBackupStatus(dirSet, dirSummary.ClaimedBy))
+			sbas = append(sbas, s.getManualIBackupStatus(dirSet, requester))
 		case db.BackupManualGit:
-			sbas = append(sbas, s.getGitBackupStatus(rule.Metadata, dirSummary.ClaimedBy))
+			sbas = append(sbas, s.getGitBackupStatus(rule.Metadata, requester))
 		}
 	}
 
