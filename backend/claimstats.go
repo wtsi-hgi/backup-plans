@@ -27,7 +27,6 @@ package backend
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"slices"
 	"strings"
@@ -86,9 +85,6 @@ func (s *Server) collectDirStats(f filter) []DirStats {
 		}
 
 		dirSummary := dir.DirSummary
-		if dirSummary == nil {
-			fmt.Println("dirSummary is nil for", dir.Path)
-		}
 		dirSummary.ClaimedBy = s.getClaimed(dir.Path)
 		claimstats = append(claimstats, *s.generateDirStats(dir.Path, dirSummary))
 	}
@@ -98,6 +94,10 @@ func (s *Server) collectDirStats(f filter) []DirStats {
 
 func (s *Server) matchesFilter(dir *Directory, f filter) bool {
 	if !f.filterUser && !f.filterGroup {
+		return false
+	}
+
+	if dir.DirSummary == nil {
 		return false
 	}
 
