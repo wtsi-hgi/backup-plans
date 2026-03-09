@@ -3,6 +3,7 @@ package ibackup_test
 import (
 	"errors"
 	"io"
+	"io/fs"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -571,6 +572,22 @@ func TestIbackupFOFN(t *testing.T) {
 		}
 
 		return wc, wc.AddOrUpdateSet
+	})
+
+	Convey("The FOFN creator makes directories group-writable", t, func() {
+		base := t.TempDir()
+		client := ibackup.NewFOFNClient(base)
+		set := &set.Set{
+			Name:        "set-name",
+			Requester:   "username",
+			Transformer: "prefix=/lustre/:/remote/",
+		}
+
+		So(client.AddOrUpdateSet(set), ShouldBeNil)
+
+		fi, err := os.Lstat(filepath.Join(base, set.ID()))
+		So(err, ShouldBeNil)
+		So(fi.Mode(), ShouldEqual, fs.ModeDir|0775)
 	})
 }
 
