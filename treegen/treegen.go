@@ -151,7 +151,7 @@ func (i IDMeta) Add(id uint32, t, size int64) {
 }
 
 func (n *treeNode) Add(info *summary.FileInfo) error { //nolint:gocognit,gocyclo,cyclop
-	if info.EntryType != stats.DirType && info.EntryType != stats.FileType {
+	if info.EntryType != stats.DirType && info.EntryType != stats.FileType && info.EntryType != stats.SymlinkType {
 		return nil
 	}
 

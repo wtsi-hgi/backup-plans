@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/wtsi-hgi/backup-plans/treegen"
+	"github.com/wtsi-hgi/wrstat-ui/stats"
 	"github.com/wtsi-hgi/wrstat-ui/summary"
 	"vimagination.zapto.org/tree"
 )
@@ -211,7 +212,7 @@ func (f *File) WriteTo(w io.Writer) (int64, error) {
 }
 
 func (f *File) isNormal() bool {
-	return f.Type == 'f' || f.Type == 'd'
+	return f.Type == stats.FileType || f.Type == stats.SymlinkType
 }
 
 // AddFile adds file data to a directory, creating the directory in the tree if
