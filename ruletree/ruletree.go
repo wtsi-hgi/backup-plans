@@ -175,12 +175,16 @@ func (r *ruleProcessor) process(lowerNode, upperNode *tree.MemTree, sm State, pw
 		if ruleID := *state.GetGroup(); ruleID == processRules { //nolint:nestif
 			r.processDir(name, state, lowerChild, upperChild, &wg)
 		} else if ruleID <= 0 {
-			r.copyUpperOrAddLower(name, -ruleID, lowerChild, upperChild, &wg)
+			r.copyUpperOrAddLower(name, -ruleID, lowerChild, upperChild)
 		} else {
 			r.addLower(ruleID, lowerChild)
 		}
 	}
 
+	r.waitForChildren(&wg)
+}
+
+func (r *ruleProcessor) waitForChildren(wg *sync.WaitGroup) {
 	wg.Wait()
 
 	for _, child := range r.children {
@@ -250,7 +254,7 @@ func (r *ruleProcessor) mergeChild(child *ruleProcessor) {
 }
 
 func (r *ruleProcessor) copyUpperOrAddLower(name string, ruleID int64,
-	lowerChild, upperChild *tree.MemTree, wg *sync.WaitGroup) {
+	lowerChild, upperChild *tree.MemTree) {
 	if upperChild == nil {
 		r.addLower(ruleID, lowerChild)
 
@@ -308,7 +312,7 @@ func (r *ruleProcessor) addLower(ruleID int64, lowerChild *tree.MemTree) {
 }
 
 func (r *ruleProcessor) WriteTo(w io.Writer) (int64, error) {
-	sw := w.(*byteio.StickyLittleEndianWriter)
+	sw := w.(*byteio.StickyLittleEndianWriter) //nolint:errcheck,forcetypeassert
 
 	sw.WriteUintX(uint64(r.UID))
 	sw.WriteUintX(uint64(r.GID))
