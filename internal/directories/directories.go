@@ -19,6 +19,7 @@ const dirSize = 4096
 type child interface {
 	tree.Node
 	writeTo(w io.Writer)
+	isNormal() bool
 }
 
 type Root struct {
@@ -134,6 +135,10 @@ func (d *Directory) writeTo(w io.Writer) {
 	}
 }
 
+func (d *Directory) isNormal() bool {
+	return true
+}
+
 // AsReader returns a ReadCloser that will output a stats file as read by the
 // stats package.
 func (d *Directory) AsReader() io.ReadCloser {
@@ -162,7 +167,13 @@ func (d *Directory) Children() iter.Seq2[string, tree.Node] {
 		slices.Sort(keys)
 
 		for _, name := range keys {
-			if !yield(name, d.children[name]) {
+			child := d.children[name]
+
+			if !child.isNormal() {
+				continue
+			}
+
+			if !yield(name, child) {
 				return
 			}
 		}
@@ -197,6 +208,10 @@ func (f *File) WriteTo(w io.Writer) (int64, error) {
 	f.parent.addFileData(f.UID, f.GID, f.MTime, f.Size)
 
 	return f.File.WriteTo(w)
+}
+
+func (f *File) isNormal() bool {
+	return f.Type == 'f' || f.Type == 'd'
 }
 
 // AddFile adds file data to a directory, creating the directory in the tree if

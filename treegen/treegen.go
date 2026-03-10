@@ -32,6 +32,7 @@ import (
 	"iter"
 	"slices"
 
+	"github.com/wtsi-hgi/wrstat-ui/stats"
 	"github.com/wtsi-hgi/wrstat-ui/summary"
 	"vimagination.zapto.org/byteio"
 	"vimagination.zapto.org/tree"
@@ -150,6 +151,10 @@ func (i IDMeta) Add(id uint32, t, size int64) {
 }
 
 func (n *treeNode) Add(info *summary.FileInfo) error { //nolint:gocognit,gocyclo
+	if info.EntryType != stats.DirType && info.EntryType != stats.FileType {
+		return nil
+	}
+
 	if n.path == nil { //nolint:gocritic,nestif
 		n.path = info.Path
 		n.UID = info.UID
