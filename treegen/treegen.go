@@ -150,7 +150,7 @@ func (i IDMeta) Add(id uint32, t, size int64) {
 	existing.Bytes += uint64(size) //nolint:gosec
 }
 
-func (n *treeNode) Add(info *summary.FileInfo) error { //nolint:gocognit,gocyclo
+func (n *treeNode) Add(info *summary.FileInfo) error { //nolint:gocognit,gocyclo,cyclop
 	if info.EntryType != stats.DirType && info.EntryType != stats.FileType {
 		return nil
 	}
