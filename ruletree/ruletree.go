@@ -31,6 +31,7 @@ import (
 	"iter"
 	"slices"
 	"strings"
+	"sync"
 
 	"vimagination.zapto.org/byteio"
 	"vimagination.zapto.org/tree"
@@ -144,58 +145,63 @@ func (f *file) readFrom(lr byteio.MemLittleEndian) {
 //		fall back to the previous category if it does not, negating the
 //		directory ID to get the wildcard ID.
 type ruleProcessor struct {
-	lowerNode, upperNode *tree.MemTree
-	sm                   State
-	UID, GID             uint32
-	Rules                []Rule
+	UID, GID uint32
+	Rules    []Rule
+	children []namedNode
 }
 
-func (r *ruleProcessor) Children() iter.Seq2[string, tree.Node] {
-	sr := byteio.MemLittleEndian(r.lowerNode.Data())
+func (r *ruleProcessor) process(lowerNode, upperNode *tree.MemTree, sm State, pwg *sync.WaitGroup) {
+	defer pwg.Done()
+
+	var wg sync.WaitGroup
+
+	sr := byteio.MemLittleEndian(lowerNode.Data())
 
 	r.UID = uint32(sr.ReadUintX()) //nolint:gosec
 	r.GID = uint32(sr.ReadUintX()) //nolint:gosec
 
-	return r.children
-}
-
-func (r *ruleProcessor) children(yield func(string, tree.Node) bool) {
-	for name, child := range r.lowerNode.Children() {
+	for name, child := range lowerNode.Children() {
 		lowerChild := child.(*tree.MemTree) //nolint:errcheck,forcetypeassert
 
 		if !strings.HasSuffix(name, "/") {
-			r.processFile(name, lowerChild.Data())
+			r.processFile(sm, name, lowerChild.Data())
 
 			continue
 		}
 
-		upperChild, _ := r.upperNode.Child(name) //nolint:errcheck
-		state := r.sm.GetStateString(name)
-
-		var cont bool
+		upperChild, _ := upperNode.Child(name) //nolint:errcheck
+		state := sm.GetStateString(name)
 
 		if ruleID := *state.GetGroup(); ruleID == processRules { //nolint:nestif
-			cont = r.processDir(name, state, lowerChild, upperChild, yield)
+			r.processDir(name, state, lowerChild, upperChild, &wg)
 		} else if ruleID <= 0 {
-			cont = r.copyUpperOrAddLower(name, -ruleID, lowerChild, upperChild, yield)
+			r.copyUpperOrAddLower(name, -ruleID, lowerChild, upperChild)
 		} else {
-			cont = r.addLower(ruleID, lowerChild)
+			r.addLower(ruleID, lowerChild)
 		}
+	}
 
-		if !cont {
-			break
+	r.waitForChildren(&wg)
+}
+
+func (r *ruleProcessor) waitForChildren(wg *sync.WaitGroup) {
+	wg.Wait()
+
+	for _, child := range r.children {
+		if c, ok := child.Node.(*ruleProcessor); ok {
+			r.mergeChild(c)
 		}
 	}
 }
 
-func (r *ruleProcessor) processFile(name string, data []byte) {
+func (r *ruleProcessor) processFile(sm State, name string, data []byte) {
 	var f file
 
 	f.readFrom(data)
 
 	var ruleID int64
 
-	if rule := r.sm.GetStateString(name).GetGroup(); rule != nil {
+	if rule := sm.GetStateString(name).GetGroup(); rule != nil {
 		ruleID = *rule
 	}
 
@@ -223,20 +229,14 @@ func (r *ruleProcessor) getRulePos(ruleID int64) int {
 }
 
 func (r *ruleProcessor) processDir(name string, state State,
-	lowerChild, upperChild *tree.MemTree, yield func(string, tree.Node) bool) bool {
-	childProcessor := ruleProcessor{
-		lowerNode: lowerChild,
-		upperNode: cmp.Or(upperChild, &emptyNode),
-		sm:        state,
-	}
+	lowerChild, upperChild *tree.MemTree, wg *sync.WaitGroup) {
+	c := &ruleProcessor{}
 
-	if !yield(name, &childProcessor) {
-		return false
-	}
+	r.children = append(r.children, namedNode{name: name, Node: c})
 
-	r.mergeChild(&childProcessor)
+	wg.Add(1)
 
-	return true
+	go c.process(lowerChild, cmp.Or(upperChild, &emptyNode), state, wg)
 }
 
 func (r *ruleProcessor) mergeChild(child *ruleProcessor) {
@@ -254,9 +254,11 @@ func (r *ruleProcessor) mergeChild(child *ruleProcessor) {
 }
 
 func (r *ruleProcessor) copyUpperOrAddLower(name string, ruleID int64,
-	lowerChild, upperChild *tree.MemTree, yield func(string, tree.Node) bool) bool {
+	lowerChild, upperChild *tree.MemTree) {
 	if upperChild == nil {
-		return r.addLower(ruleID, lowerChild)
+		r.addLower(ruleID, lowerChild)
+
+		return
 	}
 
 	sr := byteio.MemLittleEndian(upperChild.Data())
@@ -271,7 +273,7 @@ func (r *ruleProcessor) copyUpperOrAddLower(name string, ruleID int64,
 		readArray(&sr, int64(ruleID), r.addGroupData) //nolint:gosec
 	}
 
-	return yield(name, upperChild)
+	r.children = append(r.children, namedNode{name: name, Node: upperChild})
 }
 
 func readArray(sr *byteio.MemLittleEndian, ruleID int64, fn func(uint32, int64, uint64, uint64, uint64)) {
@@ -297,7 +299,7 @@ func (r *ruleProcessor) addGroupData(gid uint32, ruleID int64, mtime, files, siz
 	r.Rules[pos].Groups.add(gid, mtime, files, size)
 }
 
-func (r *ruleProcessor) addLower(ruleID int64, lowerChild *tree.MemTree) bool {
+func (r *ruleProcessor) addLower(ruleID int64, lowerChild *tree.MemTree) {
 	sr := byteio.MemLittleEndian(lowerChild.Data())
 
 	sr.ReadUintX()
@@ -307,20 +309,33 @@ func (r *ruleProcessor) addLower(ruleID int64, lowerChild *tree.MemTree) bool {
 
 	readArray(&sr, ruleID, r.addUserData)
 	readArray(&sr, ruleID, r.addGroupData)
-
-	return true
 }
 
 func (r *ruleProcessor) WriteTo(w io.Writer) (int64, error) {
-	sw := byteio.StickyLittleEndianWriter{Writer: w}
+	sw := w.(*byteio.StickyLittleEndianWriter) //nolint:errcheck,forcetypeassert
 
 	sw.WriteUintX(uint64(r.UID))
 	sw.WriteUintX(uint64(r.GID))
 	sw.WriteUintX(uint64(len(r.Rules)))
 
 	for n := range r.Rules {
-		r.Rules[n].writeTo(&sw)
+		r.Rules[n].writeTo(sw)
 	}
 
 	return sw.Count, sw.Err
+}
+
+func (r *ruleProcessor) Children() iter.Seq2[string, tree.Node] {
+	return func(yield func(string, tree.Node) bool) {
+		for n := range r.children {
+			if !yield(r.children[n].name, r.children[n]) {
+				return
+			}
+		}
+	}
+}
+
+type namedNode struct {
+	name string
+	tree.Node
 }
