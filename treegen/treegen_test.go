@@ -54,6 +54,8 @@ func TestTimeTree(t *testing.T) {
 		directories.AddFile(&f.Directory, "opt/other/someDir/someFile", 2, 1, 6, 12346)
 		directories.AddFile(&f.Directory, "opt/other/someDir/someFile", 2, 1, 5, 12346)
 
+		directories.AddFile(&f.Directory, "opt/other/someDir/pipe", 2, 1, 5, 12346).Type = 'p'
+
 		p := stats.NewStatsParser(f.AsReader())
 		s := summary.NewSummariser(p)
 
