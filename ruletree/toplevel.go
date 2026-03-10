@@ -286,7 +286,14 @@ func (r *RootDir) regenRulesFor(t *topLevelDir, child *ruleOverlay, dirs []strin
 		return err
 	}
 
-	rd := ruleProcessor{lowerNode: child.lower, upperNode: child.upper, sm: sm.GetStateString(mount)}
+	var (
+		rd ruleProcessor
+		wg sync.WaitGroup
+	)
+
+	wg.Add(1)
+
+	rd.process(child.lower, child.upper, sm.GetStateString(mount), &wg)
 
 	var buf bytes.Buffer
 
@@ -636,11 +643,14 @@ func (r *RootDir) processRules(treeRoot *tree.MemTree, rootPath string) (*ruleOv
 		return nil, nil, err
 	}
 
-	rd := ruleProcessor{
-		lowerNode: treeRoot,
-		upperNode: &emptyNode,
-		sm:        sm.GetStateString(rootPath),
-	}
+	var (
+		rd ruleProcessor
+		wg sync.WaitGroup
+	)
+
+	wg.Add(1)
+
+	rd.process(treeRoot, &emptyNode, sm.GetStateString(rootPath), &wg)
 
 	var buf bytes.Buffer
 
