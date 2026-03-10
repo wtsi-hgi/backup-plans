@@ -540,6 +540,9 @@ func getRuleDetails(r *http.Request) (*db.Rule, error) { //nolint:cyclop,gocyclo
 	case "manualprefect":
 		rule.BackupType = db.BackupManualPrefect
 		requireMetadata = true
+	case "manualnfs":
+		rule.BackupType = db.BackupManualNFS
+		requireMetadata = true
 	case "manualunchecked":
 		rule.BackupType = db.BackupManualUnchecked
 		requireMetadata = true

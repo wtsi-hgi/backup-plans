@@ -43,6 +43,11 @@ import (
 	"vimagination.zapto.org/tree"
 )
 
+var ErrNoIBackup = Error{
+	Code: http.StatusNotImplemented,
+	Err:  errors.New("no ibackup server registered"), //nolint:err113
+}
+
 // Server represents all of the data required to run the backend server.
 type Server struct {
 	getUser func(r *http.Request) string
@@ -195,7 +200,12 @@ func (s *Server) setExists(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	got, err := s.config.GetCachedIBackupClient().GetBackupActivity(dir, setName, user, true)
+	client := s.config.GetCachedIBackupClient()
+	if client == nil {
+		return ErrNoIBackup
+	}
+
+	got, err := client.GetBackupActivity(dir, setName, user, true)
 	if err != nil {
 		if err.Error() != "set with that id does not exist" {
 			return err

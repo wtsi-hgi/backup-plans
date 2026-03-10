@@ -37,7 +37,11 @@ class Summary {
 		this.count += BigInt(rule.Files);
 	}
 
-	addBackupStatus(path: string, backupStatus: BackupStatus) {
+	addBackupStatus(path: string, backupStatus?: BackupStatus) {
+		if (!backupStatus) {
+			return;
+		}
+
 		(this.backups.get(path) ?? setAndReturn(this.backups, path, [])).push(backupStatus);
 	}
 
@@ -145,7 +149,7 @@ class ParentSummary extends Summary {
 									: new Date(backup.LastSuccess).toLocaleString()
 								: "-"
 						),
-						td({ "class": "tooltip", "data-tooltip": ibackupStatusColumns.filter(c => backup[c]).map(c => `${c}: ${backup[c].toLocaleString()}`).join("\n") || false }, backup.Failures.toLocaleString())
+						backup.Failures === -1 ? td("-") : td({ "class": "tooltip", "data-tooltip": ibackupStatusColumns.filter(c => backup[c]).map(c => `${c}: ${backup[c].toLocaleString()}`).join("\n") || false }, backup.Failures.toLocaleString())
 					])))
 				] : tr(td({ "colspan": "5" }, "No Backups")))
 			]),
@@ -387,6 +391,7 @@ getReportSummary()
 
 							break;
 						case BackupType.BackupManualGit:
+						case BackupType.BackupManualNFS:
 							dirSummary.addBackupStatus(childDir, data.BackupStatus[rule.Metadata]);
 					}
 

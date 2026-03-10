@@ -38,13 +38,28 @@ import (
 	"github.com/goccy/go-yaml"
 	"github.com/wtsi-hgi/backup-plans/ibackup"
 	"github.com/wtsi-hgi/backup-plans/users"
+	"github.com/wtsi-hgi/backup-plans/wrstat"
 )
 
 const csvCols = 2
 
+var (
+	nullWRStat        *wrstat.Client       //nolint:gochecknoglobals
+	nullIBackupClient *ibackup.MultiClient //nolint:gochecknoglobals
+	nullIBackupCache  *ibackup.MultiCache  //nolint:gochecknoglobals
+)
+
+func init() { //nolint:gochecknoinits
+	nullWRStat, _ = wrstat.New(0, wrstat.Config{})       //nolint:errcheck
+	nullIBackupClient, _ = ibackup.New(ibackup.Config{}) //nolint:errcheck
+	nullIBackupCache = ibackup.NewMultiCache(nullIBackupClient, 0)
+}
+
 type yamlConfig struct {
 	IBackup              ibackup.Config
 	IBackupCacheDuration uint64
+	WRStat               wrstat.Config
+	WRStatCacheDuration  uint64
 	BOMFile              string
 	OwnersFile           string
 	ReportingRoots       []string
@@ -66,6 +81,7 @@ type Config struct {
 	mu                  sync.RWMutex
 	ibackupClient       *ibackup.MultiClient
 	ibackupCachedClient *ibackup.MultiCache
+	wrstatClient        *wrstat.Client
 	boms                map[string][]string
 	owners              map[string][]string
 	yamlConfig          yamlConfig
@@ -114,7 +130,12 @@ type Config struct {
 //
 //	GroupName,BOMName
 func Parse(path string) (*Config, error) {
-	c := &Config{path: path}
+	c := &Config{
+		path:                path,
+		ibackupClient:       nullIBackupClient,
+		ibackupCachedClient: nullIBackupCache,
+		wrstatClient:        nullWRStat,
+	}
 
 	if err := c.loadConfig(); err != nil {
 		return nil, err
@@ -130,7 +151,6 @@ func (c *Config) loadConfig() error {
 	if err != nil {
 		return err
 	}
-
 	defer f.Close()
 
 	err = yaml.NewDecoder(f).Decode(&c.yamlConfig)
@@ -139,6 +159,10 @@ func (c *Config) loadConfig() error {
 	}
 
 	if err = c.loadIBackup(); err != nil {
+		return err
+	}
+
+	if err = c.loadWRStat(); err != nil {
 		return err
 	}
 
@@ -173,6 +197,13 @@ func (c *Config) reload() {
 }
 
 func (c *Config) loadIBackup() error {
+	if len(c.yamlConfig.IBackup.Servers) == 0 {
+		c.ibackupClient = nullIBackupClient
+		c.ibackupCachedClient = nullIBackupCache
+
+		return nil
+	}
+
 	mc, err := ibackup.New(c.yamlConfig.IBackup)
 	if err != nil {
 		if !ibackup.IsOnlyConnectionErrors(err) {
@@ -182,17 +213,39 @@ func (c *Config) loadIBackup() error {
 		slog.Warn("ibackup connection errors", "errs", err)
 	}
 
-	if c.ibackupCachedClient == nil {
+	if c.ibackupCachedClient == nullIBackupCache {
 		c.ibackupCachedClient = ibackup.NewMultiCache(mc, time.Second*time.Duration(c.yamlConfig.IBackupCacheDuration)) //nolint:gosec,lll
 	} else {
 		c.ibackupCachedClient.Update(mc)
 	}
 
-	if c.ibackupClient != nil {
-		c.ibackupClient.Stop()
-	}
+	c.ibackupClient.Stop()
 
 	c.ibackupClient = mc
+
+	return nil
+}
+
+func (c *Config) loadWRStat() error {
+	if c.yamlConfig.WRStat.ServerURL == "" {
+		c.wrstatClient = nullWRStat
+
+		return nil
+	}
+
+	if c.wrstatClient != nullWRStat {
+		return c.wrstatClient.UpdateConfig(c.yamlConfig.WRStat)
+	}
+
+	client, err := wrstat.New(
+		time.Second*time.Duration(c.yamlConfig.WRStatCacheDuration), //nolint:gosec
+		c.yamlConfig.WRStat,
+	)
+	if err != nil {
+		return err
+	}
+
+	c.wrstatClient = client
 
 	return nil
 }
@@ -295,6 +348,15 @@ func (c *Config) GetIBackupClient() *ibackup.MultiClient {
 	defer c.mu.RUnlock()
 
 	return c.ibackupClient
+}
+
+// GetWRStatClient returns an wrstat client that connects to a WRStat server to
+// retrieve a latest mtime for a directory.
+func (c *Config) GetWRStatClient() *wrstat.Client {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	return c.wrstatClient
 }
 
 // GetCachedIBackupClient returns an ibackup client that connects to multiple
