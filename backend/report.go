@@ -27,6 +27,7 @@ package backend
 
 import (
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 	"slices"
@@ -36,6 +37,7 @@ import (
 	"github.com/wtsi-hgi/backup-plans/ibackup"
 	"github.com/wtsi-hgi/backup-plans/ruletree"
 	"github.com/wtsi-hgi/backup-plans/users"
+	"vimagination.zapto.org/tree"
 )
 
 type summary struct {
@@ -116,7 +118,8 @@ func (s *Server) getClaimed(root string) string {
 }
 
 func (s *Server) populateBackupStatus(dirClaims, repos, nfs map[string]string,
-	manualIbackup map[string][]dirSet, dirSummary *summary) {
+	manualIbackup map[string][]dirSet, dirSummary *summary,
+) {
 	s.populateIbackupStatus(dirClaims, dirSummary)
 	s.populateManualIBackupStatus(manualIbackup, dirSummary)
 	s.populateGitBackupStatus(repos, dirSummary)
@@ -244,12 +247,10 @@ func (s *Server) buildRootDirSummary(reportingRoots []string, dirSummary *summar
 	manualIbackup := make(map[string][]dirSet)
 
 	for _, root := range reportingRoots {
-		dr, ok := s.directoryRules[root]
-		if !ok || dr.DirSummary == nil {
+		ds, err := s.getRootSummary(root)
+		if ds == nil || err != nil {
 			continue
 		}
-
-		ds := dr.DirSummary
 
 		nds := &ruletree.DirSummary{
 			RuleSummaries: ds.RuleSummaries,
@@ -267,6 +268,24 @@ func (s *Server) buildRootDirSummary(reportingRoots []string, dirSummary *summar
 	}
 
 	s.populateBackupStatus(dirClaims, repos, nfs, manualIbackup, dirSummary)
+}
+
+func (s *Server) getRootSummary(root string) (*ruletree.DirSummary, error) {
+	dr, ok := s.directoryRules[root]
+	if !ok { //nolint:nestif
+		ds, err := s.rootDir.Summary(root)
+		if errors.Is(err, ruletree.ErrNotFound) || errors.As(err, new(tree.ChildNotFoundError)) {
+			return nil, nil //nolint:nilnil
+		} else if err != nil {
+			return nil, err
+		}
+
+		return ds, nil
+	} else if dr.DirSummary == nil {
+		return nil, nil //nolint:nilnil
+	}
+
+	return dr.DirSummary, nil
 }
 
 func (s *Server) collectChildDirSummaries(ds *ruletree.DirSummary, root string) {
@@ -294,7 +313,8 @@ func (s *Server) collectChildDirSummaries(ds *ruletree.DirSummary, root string) 
 }
 
 func (s *Server) collectRuleMetadata(ds *ruletree.DirSummary, dirSummary *summary, //nolint:gocyclo
-	dirClaims, repos, nfs map[string]string, manualIbackup map[string][]dirSet) {
+	dirClaims, repos, nfs map[string]string, manualIbackup map[string][]dirSet,
+) {
 	for _, ruleSummary := range ds.RuleSummaries {
 		rule := s.rules[ruleSummary.ID]
 

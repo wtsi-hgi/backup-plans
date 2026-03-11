@@ -56,6 +56,7 @@ func TestReport(t *testing.T) {
 		So(err, ShouldBeNil)
 
 		roots := []string{
+			"/lustre/scratch123/humgen/a/",
 			"/lustre/scratch123/humgen/a/[bc]/",
 		}
 
@@ -91,21 +92,153 @@ func TestReport(t *testing.T) {
 			rules := slices.Collect(testDB.ReadRules().Iter)
 
 			Convey("Containing the correctly updated backup activity", func() {
+				abNewDir := &ruletree.DirSummary{
+					ClaimedBy: "userC",
+					User:      firstUser.Username,
+					Group:     firstGroup.Name,
+					RuleSummaries: []ruletree.Rule{
+						{
+							ID: 4,
+							Users: ruletree.RuleStats{
+								{Name: users.Username(1), MTime: 98766, Files: 1, Size: 9},
+							},
+							Groups: ruletree.RuleStats{
+								{Name: users.Group(1), MTime: 98766, Files: 1, Size: 9},
+							},
+						},
+						{
+							ID: 5,
+							Users: ruletree.RuleStats{
+								{Name: users.Username(1), MTime: 98766, Files: 1, Size: 9},
+								{Name: users.Username(2), MTime: 12346, Files: 1, Size: 6},
+							},
+							Groups: ruletree.RuleStats{
+								{Name: users.Group(1), MTime: 98766, Files: 2, Size: 15},
+							},
+						},
+					},
+					Children: map[string]*ruletree.DirSummary{},
+				}
+				testextradir := &ruletree.DirSummary{
+					ClaimedBy: "userD",
+					User:      firstUser.Username,
+					Group:     firstGroup.Name,
+					RuleSummaries: []ruletree.Rule{
+						{
+							ID: 5,
+							Users: ruletree.RuleStats{
+								{Name: users.Username(2), MTime: 12346, Files: 1, Size: 6},
+							},
+							Groups: ruletree.RuleStats{
+								{Name: users.Group(1), MTime: 12346, Files: 1, Size: 6},
+							},
+						},
+					},
+					Children: map[string]*ruletree.DirSummary{},
+				}
+				ac := &ruletree.DirSummary{
+					ClaimedBy: "userB",
+					User:      secondUser.Username,
+					Group:     firstGroup.Name,
+					RuleSummaries: []ruletree.Rule{
+						{
+							ID: 3,
+							Users: ruletree.RuleStats{
+								{Name: users.Username(1), MTime: 98766, Files: 1, Size: 9},
+								{Name: users.Username(2), MTime: 12346, Files: 2, Size: 12},
+							},
+							Groups: ruletree.RuleStats{
+								{Name: users.Group(1), MTime: 98766, Files: 3, Size: 21},
+							},
+						},
+						{
+							ID: 6,
+							Users: ruletree.RuleStats{
+								{Name: users.Username(1), MTime: 98766, Files: 2, Size: 18},
+							},
+							Groups: ruletree.RuleStats{
+								{Name: users.Group(1), MTime: 98766, Files: 2, Size: 18},
+							},
+						},
+					},
+					Children: map[string]*ruletree.DirSummary{},
+				}
+				ab := ruletree.DirSummary{
+					ClaimedBy: userA,
+					User:      firstUser.Username,
+					Group:     firstGroup.Name,
+					RuleSummaries: []ruletree.Rule{
+						{
+							ID: 0,
+							Users: ruletree.RuleStats{
+								{Name: users.Username(1), MTime: 98767, Files: 2, Size: 17},
+								{Name: users.Username(2), MTime: 12346, Files: 1, Size: 6},
+							},
+							Groups: ruletree.RuleStats{
+								{Name: users.Group(1), MTime: 98766, Files: 2, Size: 15},
+								{Name: users.Group(2), MTime: 98767, Files: 1, Size: 8},
+							},
+						},
+						{
+							ID: 1,
+							Users: ruletree.RuleStats{
+								{Name: users.Username(1), MTime: 98767, Files: 2, Size: 17},
+							},
+							Groups: ruletree.RuleStats{
+								{Name: users.Group(1), MTime: 98766, Files: 1, Size: 9},
+								{Name: users.Group(2), MTime: 98767, Files: 1, Size: 8},
+							},
+						},
+						{
+							ID: 2,
+							Users: ruletree.RuleStats{
+								{Name: users.Username(1), MTime: 98767, Files: 1, Size: 8},
+							},
+							Groups: ruletree.RuleStats{
+								{Name: users.Group(2), MTime: 98767, Files: 1, Size: 8},
+							},
+						},
+						{
+							ID: 4,
+							Users: ruletree.RuleStats{
+								{Name: users.Username(1), MTime: 98766, Files: 1, Size: 9},
+							},
+							Groups: ruletree.RuleStats{
+								{Name: users.Group(1), MTime: 98766, Files: 1, Size: 9},
+							},
+						},
+						{
+							ID: 5,
+							Users: ruletree.RuleStats{
+								{Name: users.Username(1), MTime: 98766, Files: 1, Size: 9},
+								{Name: users.Username(2), MTime: 12346, Files: 1, Size: 6},
+							},
+							Groups: ruletree.RuleStats{
+								{Name: users.Group(1), MTime: 98766, Files: 2, Size: 15},
+							},
+						},
+					},
+					Children: map[string]*ruletree.DirSummary{},
+				}
+				abWithChildren := ab
+				abWithChildren.Children = map[string]*ruletree.DirSummary{
+					"/lustre/scratch123/humgen/a/b/newdir/":              abNewDir,
+					"/lustre/scratch123/humgen/a/b/newdir/testextradir/": testextradir,
+				}
 				expectedSummary := summary{
 					Summaries: map[string]*ruletree.DirSummary{
-						"/lustre/scratch123/humgen/a/b/": {
-							ClaimedBy: userA,
-							User:      firstUser.Username,
-							Group:     firstGroup.Name,
+						"/lustre/scratch123/humgen/a/": {
+							User:  "root",
+							Group: "root",
 							RuleSummaries: []ruletree.Rule{
 								{
 									ID: 0,
 									Users: ruletree.RuleStats{
-										{Name: users.Username(1), MTime: 98767, Files: 2, Size: 17},
+										{Name: users.Username(1), MTime: 98767, Files: 3, Size: 26},
 										{Name: users.Username(2), MTime: 12346, Files: 1, Size: 6},
 									},
 									Groups: ruletree.RuleStats{
-										{Name: users.Group(1), MTime: 98766, Files: 2, Size: 15},
+										{Name: users.Group(1), MTime: 98766, Files: 3, Size: 24},
 										{Name: users.Group(2), MTime: 98767, Files: 1, Size: 8},
 									},
 								},
@@ -129,6 +262,16 @@ func TestReport(t *testing.T) {
 									},
 								},
 								{
+									ID: 3,
+									Users: ruletree.RuleStats{
+										{Name: users.Username(1), MTime: 98766, Files: 1, Size: 9},
+										{Name: users.Username(2), MTime: 12346, Files: 2, Size: 12},
+									},
+									Groups: ruletree.RuleStats{
+										{Name: users.Group(1), MTime: 98766, Files: 3, Size: 21},
+									},
+								},
+								{
 									ID: 4,
 									Users: ruletree.RuleStats{
 										{Name: users.Username(1), MTime: 98766, Files: 1, Size: 9},
@@ -147,69 +290,6 @@ func TestReport(t *testing.T) {
 										{Name: users.Group(1), MTime: 98766, Files: 2, Size: 15},
 									},
 								},
-							},
-							Children: map[string]*ruletree.DirSummary{
-								"/lustre/scratch123/humgen/a/b/newdir/": {
-									ClaimedBy: "userC",
-									User:      firstUser.Username,
-									Group:     firstGroup.Name,
-									RuleSummaries: []ruletree.Rule{
-										{
-											ID: 4,
-											Users: ruletree.RuleStats{
-												{Name: users.Username(1), MTime: 98766, Files: 1, Size: 9},
-											},
-											Groups: ruletree.RuleStats{
-												{Name: users.Group(1), MTime: 98766, Files: 1, Size: 9},
-											},
-										},
-										{
-											ID: 5,
-											Users: ruletree.RuleStats{
-												{Name: users.Username(1), MTime: 98766, Files: 1, Size: 9},
-												{Name: users.Username(2), MTime: 12346, Files: 1, Size: 6},
-											},
-											Groups: ruletree.RuleStats{
-												{Name: users.Group(1), MTime: 98766, Files: 2, Size: 15},
-											},
-										},
-									},
-									Children: map[string]*ruletree.DirSummary{},
-								},
-								"/lustre/scratch123/humgen/a/b/newdir/testextradir/": {
-									ClaimedBy: "userD",
-									User:      firstUser.Username,
-									Group:     firstGroup.Name,
-									RuleSummaries: []ruletree.Rule{
-										{
-											ID: 5,
-											Users: ruletree.RuleStats{
-												{Name: users.Username(2), MTime: 12346, Files: 1, Size: 6},
-											},
-											Groups: ruletree.RuleStats{
-												{Name: users.Group(1), MTime: 12346, Files: 1, Size: 6},
-											},
-										},
-									},
-									Children: map[string]*ruletree.DirSummary{},
-								},
-							},
-						},
-						"/lustre/scratch123/humgen/a/c/": {
-							ClaimedBy: "userB",
-							User:      secondUser.Username,
-							Group:     firstGroup.Name,
-							RuleSummaries: []ruletree.Rule{
-								{
-									ID: 3,
-									Users: ruletree.RuleStats{
-										{Name: users.Username(1), MTime: 98766, Files: 1, Size: 9},
-										{Name: users.Username(2), MTime: 12346, Files: 2, Size: 12},
-									},
-									Groups: ruletree.RuleStats{
-										{Name: users.Group(1), MTime: 98766, Files: 3, Size: 21},
-									},
-								},
 								{
 									ID: 6,
 									Users: ruletree.RuleStats{
@@ -220,8 +300,15 @@ func TestReport(t *testing.T) {
 									},
 								},
 							},
-							Children: map[string]*ruletree.DirSummary{},
+							Children: map[string]*ruletree.DirSummary{
+								"/lustre/scratch123/humgen/a/b/":                     &ab,
+								"/lustre/scratch123/humgen/a/b/newdir/":              abNewDir,
+								"/lustre/scratch123/humgen/a/b/newdir/testextradir/": testextradir,
+								"/lustre/scratch123/humgen/a/c/":                     ac,
+							},
 						},
+						"/lustre/scratch123/humgen/a/b/": &abWithChildren,
+						"/lustre/scratch123/humgen/a/c/": ac,
 					},
 					Rules: map[uint64]*db.Rule{
 						1: copyRule(rules[0]),
