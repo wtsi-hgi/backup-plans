@@ -273,14 +273,14 @@ func (s *Server) buildRootDirSummary(reportingRoots []string, dirSummary *summar
 func (s *Server) getRootSummary(root string) (*ruletree.DirSummary, error) {
 	dr, ok := s.directoryRules[root]
 	if !ok { //nolint:nestif
-		s, err := s.rootDir.Summary(root)
+		ds, err := s.rootDir.Summary(root)
 		if errors.Is(err, ruletree.ErrNotFound) || errors.As(err, new(tree.ChildNotFoundError)) {
 			return nil, nil //nolint:nilnil
 		} else if err != nil {
 			return nil, err
 		}
 
-		return s, nil
+		return ds, nil
 	} else if dr.DirSummary == nil {
 		return nil, nil //nolint:nilnil
 	}
