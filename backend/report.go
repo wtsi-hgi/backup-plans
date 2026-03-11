@@ -118,7 +118,8 @@ func (s *Server) getClaimed(root string) string {
 }
 
 func (s *Server) populateBackupStatus(dirClaims, repos, nfs map[string]string,
-	manualIbackup map[string][]dirSet, dirSummary *summary) {
+	manualIbackup map[string][]dirSet, dirSummary *summary,
+) {
 	s.populateIbackupStatus(dirClaims, dirSummary)
 	s.populateManualIBackupStatus(manualIbackup, dirSummary)
 	s.populateGitBackupStatus(repos, dirSummary)
@@ -271,17 +272,17 @@ func (s *Server) buildRootDirSummary(reportingRoots []string, dirSummary *summar
 
 func (s *Server) getRootSummary(root string) (*ruletree.DirSummary, error) {
 	dr, ok := s.directoryRules[root]
-	if !ok {
+	if !ok { //nolint:nestif
 		s, err := s.rootDir.Summary(root)
 		if errors.Is(err, ruletree.ErrNotFound) || errors.As(err, new(tree.ChildNotFoundError)) {
-			return nil, nil
+			return nil, nil //nolint:nilnil
 		} else if err != nil {
 			return nil, err
 		}
 
 		return s, nil
 	} else if dr.DirSummary == nil {
-		return nil, nil
+		return nil, nil //nolint:nilnil
 	}
 
 	return dr.DirSummary, nil
@@ -312,7 +313,8 @@ func (s *Server) collectChildDirSummaries(ds *ruletree.DirSummary, root string) 
 }
 
 func (s *Server) collectRuleMetadata(ds *ruletree.DirSummary, dirSummary *summary, //nolint:gocyclo
-	dirClaims, repos, nfs map[string]string, manualIbackup map[string][]dirSet) {
+	dirClaims, repos, nfs map[string]string, manualIbackup map[string][]dirSet,
+) {
 	for _, ruleSummary := range ds.RuleSummaries {
 		rule := s.rules[ruleSummary.ID]
 
