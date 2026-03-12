@@ -86,6 +86,10 @@ var (
 		Code: http.StatusBadRequest,
 		Err:  errors.New("no matching rule"), //nolint:err113
 	}
+	ErrNoMatches = Error{
+		Code: http.StatusBadRequest,
+		Err:  errors.New("no matches"), //nolint:err113
+	}
 )
 
 const (
@@ -453,7 +457,7 @@ func (s *Server) createRule(w http.ResponseWriter, r *http.Request) error { //no
 		return err
 	}
 
-	rule, err := getRuleDetails(r)
+	rules, err := getRuleDetails(r)
 	if err != nil {
 		return err
 	}
@@ -461,23 +465,25 @@ func (s *Server) createRule(w http.ResponseWriter, r *http.Request) error { //no
 	s.buildMu.Lock()
 	defer s.buildMu.Unlock()
 
-	directory, err := s.checkAddRule(r, dir, rule.Match)
+	directory, err := s.checkAddRules(r, dir, rules)
 	if err != nil {
 		return err
 	}
 
-	if err := s.rulesDB.CreateDirectoryRule(directory.Directory, rule); err != nil {
+	if err := s.rulesDB.CreateDirectoryRule(directory.Directory, rules...); err != nil {
 		return err
 	}
 
 	s.rulesMu.Lock()
 
-	directory.Rules[rule.Match] = rule
-	s.rules[uint64(rule.ID())] = rule //nolint:gosec
+	for _, rule := range rules {
+		directory.Rules[rule.Match] = rule
+		s.rules[uint64(rule.ID())] = rule //nolint:gosec
+	}
 
 	s.rulesMu.Unlock()
 
-	if err := s.rootDir.AddRule(directory.Directory, rule); err != nil {
+	if err := s.rootDir.AddRules(directory.Directory, rules); err != nil {
 		return err
 	}
 
@@ -490,7 +496,7 @@ func (s *Server) createRule(w http.ResponseWriter, r *http.Request) error { //no
 	return nil
 }
 
-func (s *Server) checkAddRule(r *http.Request, dir, match string) (*Directory, error) {
+func (s *Server) checkAddRules(r *http.Request, dir string, rules []*db.Rule) (*Directory, error) {
 	s.rulesMu.RLock()
 	defer s.rulesMu.RUnlock()
 
@@ -503,26 +509,17 @@ func (s *Server) checkAddRule(r *http.Request, dir, match string) (*Directory, e
 		return nil, ErrInvalidUser
 	}
 
-	if _, ok := directory.Rules[match]; ok {
-		return nil, ErrRuleExists
+	for _, rule := range rules {
+		if _, ok := directory.Rules[rule.Match]; ok {
+			return nil, ErrRuleExists
+		}
 	}
 
 	return directory, nil
 }
 
-func (s *Server) addRuleToDir(directory *ruletree.DirRules, rule *db.Rule) error {
-	if err := s.rulesDB.CreateDirectoryRule(directory.Directory, rule); err != nil {
-		return err
-	}
-
-	directory.Rules[rule.Match] = rule
-	s.rules[uint64(rule.ID())] = rule //nolint:gosec
-
-	return nil
-}
-
-func getRuleDetails(r *http.Request) (*db.Rule, error) { //nolint:cyclop,gocyclo,funlen
-	rule := new(db.Rule)
+func getRuleDetails(r *http.Request) ([]*db.Rule, error) { //nolint:cyclop,gocyclo,funlen
+	var rule db.Rule
 
 	var requireMetadata bool
 
@@ -554,18 +551,30 @@ func getRuleDetails(r *http.Request) (*db.Rule, error) { //nolint:cyclop,gocyclo
 		rule.Metadata = r.FormValue("metadata")
 	}
 
-	rule.Match = r.FormValue("match")
-	if rule.Match == "" { //nolint:gocritic,nestif
-		rule.Match = "*"
-	} else if strings.Contains(rule.Match, "\x00") {
-		return nil, ErrInvalidMatch
-	} else if strings.HasSuffix(rule.Match, "/") {
-		rule.Match += "*"
+	rule.Override = r.FormValue("override") == "true"
+	matches := r.Form["match"]
+
+	if len(matches) == 0 {
+		return nil, ErrNoMatches
 	}
 
-	rule.Override = r.FormValue("override") == "true"
+	rules := make([]*db.Rule, len(matches))
 
-	return rule, nil
+	for n, match := range r.Form["match"] {
+		if match == "" { //nolint:gocritic,nestif
+			match = "*"
+		} else if strings.Contains(match, "\x00") {
+			return nil, ErrInvalidMatch
+		} else if strings.HasSuffix(match, "/") {
+			match += "*"
+		}
+
+		rule.Match = match
+		rules[n] = new(db.Rule)
+		*rules[n] = rule
+	}
+
+	return rules, nil
 }
 
 // UpdateRule allows the claimant of a directory to update a rule for that
@@ -583,7 +592,7 @@ func (s *Server) updateRule(w http.ResponseWriter, r *http.Request) error { //no
 		return err
 	}
 
-	rule, err := getRuleDetails(r)
+	rules, err := getRuleDetails(r)
 	if err != nil {
 		return err
 	}
@@ -600,25 +609,24 @@ func (s *Server) updateRule(w http.ResponseWriter, r *http.Request) error { //no
 		return ErrInvalidUser
 	}
 
-	existingRule, ok := directory.Rules[rule.Match]
-	if !ok {
-		return ErrNoRule
+	for n, rule := range rules {
+		existingRule, ok := directory.Rules[rule.Match]
+		if !ok {
+			return ErrNoRule
+		}
+
+		existingRule.BackupType = rule.BackupType
+		existingRule.Metadata = rule.Metadata
+		rules[n] = existingRule
 	}
 
-	if err := s.updateRuleTo(existingRule, rule); err != nil {
+	if err := s.rulesDB.UpdateRule(rules...); err != nil {
 		return err
 	}
 
 	w.WriteHeader(http.StatusNoContent)
 
 	return nil
-}
-
-func (s *Server) updateRuleTo(existingRule, rule *db.Rule) error {
-	existingRule.BackupType = rule.BackupType
-	existingRule.Metadata = rule.Metadata
-
-	return s.rulesDB.UpdateRule(existingRule)
 }
 
 // RemoveRule allows the claimant of a directory to remove a rule from that
