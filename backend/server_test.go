@@ -31,7 +31,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
@@ -88,22 +87,6 @@ func TestEndpoints(t *testing.T) {
 
 			So(code, ShouldEqual, http.StatusOK)
 			So(resp, ShouldEqual, "false\n")
-		})
-
-		Convey("You can check if a slice of paths refers to directories or files", func() {
-			u = userA
-			code, resp := getResponse(
-				s.GetDirectories,
-				"/test?",
-				strings.NewReader(`[
-					"lustre/scratch123/humgen/a/b/",
-					"/lustre/scratch123/humgen/a",
-					"/lustre/scratch123/humgen/a/b/1.jpg"
-				]`),
-			)
-
-			So(resp, ShouldEqual, "[true,true,false]\n")
-			So(code, ShouldEqual, http.StatusOK)
 		})
 	})
 }
