@@ -19,7 +19,7 @@ class Summary {
 	lastestMTime = 0;
 	count = 0n;
 	backupStatus?: BackupStatus;
-	backups = new Map<string, BackupStatus[]>();
+	backups = new Map<string, Set<BackupStatus>>();
 
 	constructor(path: string, backupStatus?: BackupStatus) {
 		this.path = path;
@@ -42,7 +42,7 @@ class Summary {
 			return;
 		}
 
-		(this.backups.get(path) ?? setAndReturn(this.backups, path, [])).push(backupStatus);
+		(this.backups.get(path) ?? setAndReturn(this.backups, path, new Set())).add(backupStatus);
 	}
 
 	table() {
@@ -137,7 +137,7 @@ class ParentSummary extends Summary {
 					th("Failures")
 				])),
 				tbody(this.backups.size ? [
-					Array.from(this.backups).map(([path, backups]) => backups.map(backup => tr([
+					Array.from(this.backups).map(([path, backups]) => Array.from(backups).map(backup => tr([
 						td(splitLongPath(path)),
 						td(backup.Requester),
 						td(splitLongPath(backup.Name)),
