@@ -235,22 +235,19 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 					verifyMetadata(path, backupType.value, metadata.value)
 						.then(valid => {
 							if (!valid) {
-								alert("Set does not exist");
-								enableInputs();
-
-								return;
+								return Promise.reject({ "message": "Set does not exist" });
 							}
 
 							return (validRules.length ? createRule(path, backupType.value, validRules, metadata.value, override.checked) : Promise.reject({ "message": "No FOFN selected" }))
 								.then(() => {
 									load(path);
 									overlay.remove();
-								})
-								.catch(e => {
-									alert(e.message);
-									enableInputs();
 								});
 						})
+						.catch(e => {
+							alert(e.message);
+							enableInputs();
+						});
 				}
 			}, [
 				div({ "id": "matchfofn" }, [
@@ -351,9 +348,9 @@ export default base;
 registerLoader((path: string, data: DirectoryWithChildren) => {
 	clearNode(base, [
 		data.claimedBy ? h2("Rules on this directory") : [],
-		data.claimedBy && data.claimedBy == user && !data.rules[path]?.length ? [addRule(path), addFOFN(path, data.rules[path]), addDirDetails(path, data)] : [],
+		data.claimedBy && data.claimedBy == user && !data.rules[path]?.length ? [addRule(path), addFOFN(path, data.rules[path] ?? []), addDirDetails(path, data)] : [],
 		data.claimedBy && data.rules[path]?.length ? table({ "id": "rules", "class": "summary" }, [
-			thead(tr([th("Match"), th("Action"), th("Files"), th("Size"), data.claimedBy === user ? td([addRule(path), addFOFN(path, data.rules[path]), addDirDetails(path, data)]) : []])),
+			thead(tr([th("Match"), th("Action"), th("Files"), th("Size"), data.claimedBy === user ? td([addRule(path), addFOFN(path, data.rules[path] ?? []), addDirDetails(path, data)]) : []])),
 			tbody(Object.values(data.rules[path] ?? []).map(rule => tr([
 				td({ "data-override": rule.Override }, rule.Match),
 				td(action(rule.BackupType)),

@@ -158,7 +158,7 @@ func (d *DB) UpdateRule(rules ...*Rule) error {
 	for _, rule := range rules {
 		rule.Modified = now
 
-		if err := d.exec(
+		if _, err := tx.Exec( //nolint:noctx
 			updateRule,
 			rule.BackupType,
 			rule.Metadata,
