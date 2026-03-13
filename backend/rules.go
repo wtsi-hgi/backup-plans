@@ -552,15 +552,21 @@ func getRuleDetails(r *http.Request) ([]*db.Rule, error) { //nolint:cyclop,gocyc
 	}
 
 	rule.Override = r.FormValue("override") == "true"
-	matches := r.Form["match"]
 
-	if len(matches) == 0 {
+	rules, err := createMatchRules(rule, r.Form["match"])
+	if err != nil {
+		return nil, err
+	} else if len(rules) == 0 {
 		return nil, ErrNoMatches
 	}
 
-	rules := make([]*db.Rule, len(matches))
+	return rules, nil
+}
 
-	for n, match := range r.Form["match"] {
+func createMatchRules(rule db.Rule, matches []string) ([]*db.Rule, error) {
+	ms := make(map[string]struct{})
+
+	for _, match := range matches {
 		if match == "" { //nolint:gocritic,nestif
 			match = "*"
 		} else if strings.Contains(match, "\x00") {
@@ -569,9 +575,20 @@ func getRuleDetails(r *http.Request) ([]*db.Rule, error) { //nolint:cyclop,gocyc
 			match += "*"
 		}
 
-		rule.Match = match
-		rules[n] = new(db.Rule)
-		*rules[n] = rule
+		ms[match] = struct{}{}
+	}
+
+	rules := make([]*db.Rule, 0, len(ms))
+
+	for match := range ms {
+		r := &db.Rule{
+			BackupType: rule.BackupType,
+			Metadata:   rule.Metadata,
+			Match:      match,
+			Override:   rule.Override,
+		}
+
+		rules = append(rules, r)
 	}
 
 	return rules, nil
