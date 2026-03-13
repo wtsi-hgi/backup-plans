@@ -91,7 +91,7 @@ func TestEndpoints(t *testing.T) {
 	})
 }
 
-func getResponse(fn http.HandlerFunc, url string, body io.Reader) (int, string) {
+func getResponse(fn http.HandlerFunc, url string, body io.Reader) (int, string) { //nolint:unparam
 	w := httptest.NewRecorder()
 
 	fn(w, httptest.NewRequest(http.MethodGet, url, body))
