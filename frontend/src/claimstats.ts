@@ -49,7 +49,7 @@ function createClaimStatsSection() {
                 div([
                     div({ "class": "claiminfo" }, [
                         p("Last successful backup: " + (dirStats.BackupStatus.LastSuccess === "0001-01-01T00:00:00Z" ? "Pending" : longAgoStr(dirStats.BackupStatus.LastSuccess))),
-                        p("Failures: " + dirStats.BackupStatus.Failures),
+                        dirStats.BackupStatus.LastSuccess === "0001-01-01T00:00:00Z" ? [] : p("Failures: " + dirStats.BackupStatus.Failures),
                         (filter.groupbom !== "" && filter.user === "") ? p("Claimed by: " + dirStats.ClaimedBy) : []
                     ]),
                     table({ "class": "summary" }, [

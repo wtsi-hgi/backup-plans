@@ -113,42 +113,17 @@ func NewRoot(rules []DirRule) (*RootDir, error) {
 }
 
 // AddRules adds the given rules and regenerates the tree from the top path.
-func (r *RootDir) AddRules(topPath string, dirRules []DirRule) error {
-	r.buildMu.Lock()
-	defer r.buildMu.Unlock()
-
-	r.mu.RLock()
-	directoryRules := maps.Clone(r.directoryRules)
-	r.mu.RUnlock()
-
-	dirs, err := addRules(directoryRules, dirRules)
-	if err != nil {
-		return err
+func (r *RootDir) AddRules(dir *db.Directory, dirRules []*db.Rule) error {
+	return updateRule(r, dir, dirRules, addRules)
+}
+func addRules(directoryRules map[string]*DirRules, dir *db.Directory, dirRules []*db.Rule) error {
+	for _, rule := range dirRules {
+		if err := addRule(directoryRules, dir, rule); err != nil {
+			return err
+		}
 	}
-
-	if err := r.regenRules(r.GetMountPoint(topPath), directoryRules, dirs...); err != nil {
-		return err
-	}
-
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	r.directoryRules = directoryRules
 
 	return nil
-}
-func addRules(directoryRules map[string]*DirRules, dirRules []DirRule) ([]string, error) {
-	dirs := make([]string, 0, len(dirRules))
-
-	for _, rule := range dirRules {
-		if err := addRule(directoryRules, rule.Directory, rule.Rule); err != nil {
-			return nil, err
-		}
-
-		dirs = append(dirs, rule.Path)
-	}
-
-	return dirs, nil
 }
 
 // GetMountPoint will return the mountpoint for the directory given, it will
@@ -166,11 +141,11 @@ func (r *RootDir) GetMountPoint(dir string) string {
 // AddRule adds the given rule to the given directory and regenerates the rule
 // summaries.
 func (r *RootDir) AddRule(dir *db.Directory, rule *db.Rule) error {
-	return r.updateRule(dir, rule, addRule)
+	return updateRule(r, dir, rule, addRule)
 }
 
-func (r *RootDir) updateRule(dir *db.Directory, rule *db.Rule,
-	updateFn func(map[string]*DirRules, *db.Directory, *db.Rule) error) error {
+func updateRule[T any](r *RootDir, dir *db.Directory, rule T,
+	updateFn func(map[string]*DirRules, *db.Directory, T) error) error {
 	r.buildMu.Lock()
 	defer r.buildMu.Unlock()
 
@@ -236,7 +211,7 @@ func addRule(directoryRules map[string]*DirRules, dir *db.Directory, rule *db.Ru
 // RemoveRule remove the given rule from the given directory and regenerates the
 // rule summaries.
 func (r *RootDir) RemoveRule(dir *db.Directory, rule *db.Rule) error {
-	return r.updateRule(dir, rule, removeRule)
+	return updateRule(r, dir, rule, removeRule)
 }
 
 func removeRule(directoryRules map[string]*DirRules, dir *db.Directory, rule *db.Rule) error {

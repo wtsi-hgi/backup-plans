@@ -77,38 +77,48 @@ func (r *Rule) DirID() int64 {
 	return r.directoryID
 }
 
-// CreateDirectoryRule stores defines the given rule for the given directory.
-func (d *DB) CreateDirectoryRule(dir *Directory, rule *Rule) error {
+// CreateDirectoryRule stores defines the given rule(s) for the given directory.
+func (d *DB) CreateDirectoryRule(dir *Directory, rules ...*Rule) error { //nolint:funlen
 	tx, err := d.db.Begin() //nolint:noctx
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback() //nolint:errcheck
 
-	rule.Created = time.Now().Unix()
-	rule.Modified = rule.Created
+	now := time.Now().Unix()
 
-	res, err := tx.Exec( //nolint:noctx
-		createRule,
-		dir.id,
-		rule.BackupType,
-		rule.Metadata,
-		rule.Match,
-		rule.Override,
-		rule.Created,
-		rule.Modified,
-	)
-	if err != nil {
+	for _, rule := range rules {
+		rule.Created = now
+		rule.Modified = now
+
+		res, err := tx.Exec( //nolint:noctx
+			createRule,
+			dir.id,
+			rule.BackupType,
+			rule.Metadata,
+			rule.Match,
+			rule.Override,
+			rule.Created,
+			rule.Modified,
+		)
+		if err != nil {
+			return err
+		}
+
+		if rule.id, err = res.LastInsertId(); err != nil {
+			return err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
 		return err
 	}
 
-	if rule.id, err = res.LastInsertId(); err != nil {
-		return err
+	for _, rule := range rules {
+		rule.directoryID = dir.id
 	}
 
-	rule.directoryID = dir.id
-
-	return tx.Commit()
+	return nil
 }
 
 // ReadRules allows iteration over the Rules stored in the database.
@@ -135,18 +145,32 @@ func scanRule(scanner scanner) (*Rule, error) {
 	return rule, nil
 }
 
-// UpdateDirectory will update the data stored for the given Rule.
-func (d *DB) UpdateRule(rule *Rule) error {
-	rule.Modified = time.Now().Unix()
+// UpdateRule will update the data stored for the given Rule(s).
+func (d *DB) UpdateRule(rules ...*Rule) error {
+	tx, err := d.db.Begin() //nolint:noctx
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback() //nolint:errcheck
 
-	return d.exec(
-		updateRule,
-		rule.BackupType,
-		rule.Metadata,
-		rule.Match,
-		rule.Modified,
-		rule.id,
-	)
+	now := time.Now().Unix()
+
+	for _, rule := range rules {
+		rule.Modified = now
+
+		if _, err := tx.Exec( //nolint:noctx
+			updateRule,
+			rule.BackupType,
+			rule.Metadata,
+			rule.Match,
+			rule.Modified,
+			rule.id,
+		); err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
 }
 
 // RemoveRule will remove the given Rule from the database.

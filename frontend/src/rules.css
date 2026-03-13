@@ -40,8 +40,6 @@ button.actionButton svg {
 
 .summary-header:first-child {
 	list-style: none;
-	padding: 4px 6px;
-	user-select: none;
 	cursor: pointer;
 }
 
@@ -49,7 +47,8 @@ button.actionButton svg {
 	background-color: var(--tableHoverBG);
 }
 
-.summary-header {
+.summary-header,
+.summary-header:first-child {
 	padding: 4px 6px;
 	user-select: none;
 }
@@ -80,8 +79,7 @@ details[open]>summary.summary-header:before {
 
 .rule-badge {
 	color: var(--rule-badge-text);
-	margin-left: 6px;
-	margin-bottom: 4px;
+	margin: 0 0 4px 6px;
 	word-break: keep-all;
 	display: inline-block;
 }
@@ -173,22 +171,6 @@ select:disabled {
 	cursor: not-allowed !important;
 }
 
-.overwrite {
-	color: var(--overwritecolour);
-}
-
-.overwriteDirDetail {
-	color: var(--dirDetailscolour);
-}
-
-.claim {
-	color: var(--claimcolour);
-}
-
-.directory {
-	color: var(--directorycolour);
-}
-
 #addEdit,
 #confirm {
 	background: var(--background);
@@ -235,10 +217,6 @@ select:disabled {
 	padding-left: 1em;
 }
 
-.tooManyFiles {
-	color: var(--overwritecolour);
-}
-
 #fofnKey div {
 	text-align: right;
 }
@@ -253,20 +231,20 @@ select:disabled {
 	margin-bottom: -0.1em;
 }
 
-#fofnKey div:first-child:after {
-	background-color: var(--claimcolour);
+#fofnDetails h2,
+#fofnDetails h3 {
+	text-align: center;
 }
 
-#fofnKey div:nth-child(2):after {
-	background-color: var(--dirDetailscolour);
+#fofnDetails ul {
+	list-style: none;
+	padding: 0;
+	margin: 0;
 }
 
-#fofnKey div:nth-child(3):after {
-	background-color: var(--overwritecolour);
-}
-
-#fofnKey div:nth-child(4):after {
-	background-color: var(--directorycolour);
+#fofnDetails>ul,
+#fofnDetails table {
+	margin-bottom: 1em;
 }
 
 #fofnPaste {
@@ -298,10 +276,6 @@ select:not(:has(option:checked[value="backup"])):not(:has(option:checked[value="
 	width: 0.9em;
 	height: 0.9em;
 	padding-right: 1em;
-}
-
-#addEdit {
-	overflow: unset;
 }
 
 .tooltip[data-tooltip]:hover::after {
