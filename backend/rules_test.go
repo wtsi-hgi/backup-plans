@@ -311,7 +311,7 @@ func TestRules(t *testing.T) {
 
 			code, resp = getResponse(
 				s.CreateRule,
-				"/api/rules/create?dir=/some/path/MyDir/&action=backup&match=*.txt&match=*.jpg&frequency=7&review=100&remove=200",
+				"/api/rules/create?dir=/some/path/MyDir/&action=backup&match=*.txt&match=*.txt&match=*.jpg&frequency=7&review=100&remove=200",
 				nil,
 			)
 			So(code, ShouldEqual, http.StatusNoContent)
@@ -323,8 +323,8 @@ func TestRules(t *testing.T) {
 				nil,
 			)
 			So(code, ShouldEqual, http.StatusOK)
-			So(resp, ShouldContainSubstring, `{"1":{"BackupType":1,"Metadata":"","Match":"*.txt",`)
-			So(resp, ShouldContainSubstring, `,"2":{"BackupType":1,"Metadata":"","Match":"*.jpg",`)
+			So(resp, ShouldContainSubstring, `{"1":{"BackupType":1,"Metadata":"","Match":"*.jpg",`)
+			So(resp, ShouldContainSubstring, `,"2":{"BackupType":1,"Metadata":"","Match":"*.txt",`)
 		})
 
 		Convey("You can add rules of every type", func() {

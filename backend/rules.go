@@ -28,6 +28,7 @@ package backend
 import (
 	"encoding/json"
 	"errors"
+	"maps"
 	"net/http"
 	"slices"
 	"strconv"
@@ -578,17 +579,18 @@ func createMatchRules(rule db.Rule, matches []string) ([]*db.Rule, error) {
 		ms[match] = struct{}{}
 	}
 
-	rules := make([]*db.Rule, 0, len(ms))
+	rules := make([]*db.Rule, len(ms))
+	matches = slices.Collect(maps.Keys(ms))
 
-	for match := range ms {
-		r := &db.Rule{
+	slices.Sort(matches)
+
+	for n, match := range matches {
+		rules[n] = &db.Rule{
 			BackupType: rule.BackupType,
 			Metadata:   rule.Metadata,
 			Match:      match,
 			Override:   rule.Override,
 		}
-
-		rules = append(rules, r)
 	}
 
 	return rules, nil
