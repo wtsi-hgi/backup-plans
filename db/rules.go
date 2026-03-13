@@ -78,7 +78,7 @@ func (r *Rule) DirID() int64 {
 }
 
 // CreateDirectoryRule stores defines the given rule(s) for the given directory.
-func (d *DB) CreateDirectoryRule(dir *Directory, rules ...*Rule) error {
+func (d *DB) CreateDirectoryRule(dir *Directory, rules ...*Rule) error { //nolint:funlen
 	tx, err := d.db.Begin() //nolint:noctx
 	if err != nil {
 		return err
