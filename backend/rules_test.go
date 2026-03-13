@@ -311,7 +311,7 @@ func TestRules(t *testing.T) {
 
 			code, resp = getResponse(
 				s.CreateRule,
-				"/api/rules/create?dir=/some/path/MyDir/&action=backup&match=*.txt&match=*.txt&match=*.jpg&frequency=7&review=100&remove=200",
+				"/api/rules/create?dir=/some/path/MyDir/&action=backup&match=*.txt&match=*.txt&match=*.jpg&frequency=7&review=100&remove=200", //nolint:lll
 				nil,
 			)
 			So(code, ShouldEqual, http.StatusNoContent)
