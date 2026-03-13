@@ -40,8 +40,6 @@ button.actionButton svg {
 
 .summary-header:first-child {
 	list-style: none;
-	padding: 4px 6px;
-	user-select: none;
 	cursor: pointer;
 }
 
@@ -49,7 +47,8 @@ button.actionButton svg {
 	background-color: var(--tableHoverBG);
 }
 
-.summary-header {
+.summary-header,
+.summary-header:first-child {
 	padding: 4px 6px;
 	user-select: none;
 }
@@ -80,8 +79,7 @@ details[open]>summary.summary-header:before {
 
 .rule-badge {
 	color: var(--rule-badge-text);
-	margin-left: 6px;
-	margin-bottom: 4px;
+	margin: 0 0 4px 6px;
 	word-break: keep-all;
 	display: inline-block;
 }
