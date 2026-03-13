@@ -451,7 +451,7 @@ func (s *Server) CreateRule(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.createRule)
 }
 
-func (s *Server) createRule(w http.ResponseWriter, r *http.Request) error { //nolint:funlen
+func (s *Server) createRule(w http.ResponseWriter, r *http.Request) error { //nolint:funlen,gocyclo
 	dir, err := getDir(r)
 	if err != nil {
 		return err
@@ -586,7 +586,7 @@ func (s *Server) UpdateRule(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.updateRule)
 }
 
-func (s *Server) updateRule(w http.ResponseWriter, r *http.Request) error { //nolint:funlen
+func (s *Server) updateRule(w http.ResponseWriter, r *http.Request) error { //nolint:funlen,gocyclo
 	dir, err := getDir(r)
 	if err != nil {
 		return err
