@@ -681,6 +681,7 @@ func (s *Server) removeRule(w http.ResponseWriter, r *http.Request) error { //no
 
 	s.rulesMu.Lock()
 	delete(directory.Rules, rule.Match)
+	delete(s.rules, uint64(rule.ID()))
 	s.rulesMu.Unlock()
 
 	if err := s.updateDirSummaries(directory.Path); err != nil {
