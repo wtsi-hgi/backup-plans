@@ -113,11 +113,12 @@ func NewRoot(rules []DirRule) (*RootDir, error) {
 }
 
 // AddRules adds the given rules and regenerates the tree from the top path.
-func (r *RootDir) AddRules(dir *db.Directory, dirRules []*db.Rule) error {
-	return updateRule(r, dir, dirRules, addRules)
+func (r *RootDir) AddRules(dir *db.Directory, rules []*db.Rule) error {
+	return updateRule(r, dir, rules, addRules)
 }
-func addRules(directoryRules map[string]*DirRules, dir *db.Directory, dirRules []*db.Rule) error {
-	for _, rule := range dirRules {
+
+func addRules(directoryRules map[string]*DirRules, dir *db.Directory, rules []*db.Rule) error {
+	for _, rule := range rules {
 		if err := addRule(directoryRules, dir, rule); err != nil {
 			return err
 		}

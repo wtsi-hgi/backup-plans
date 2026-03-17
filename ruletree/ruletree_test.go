@@ -484,6 +484,30 @@ func TestRuletree(t *testing.T) {
 			So(ruleIDCount(t, root, "/lustre/scratch123/humgen/a/c/newdir/"), ShouldResemble, map[uint64]uint64{3: 2, 6: 1})
 			So(ruleIDCount(t, root, "/lustre/scratch123/humgen/a/d/"), ShouldResemble, map[uint64]uint64{0: 1})
 		})
+
+		Convey("When removing a rule, subdirectories are correctly recalculated", func() {
+			root, err := NewRoot(nil)
+			So(err, ShouldBeNil)
+
+			treeDB := buildTreeDB(t, []string{
+				"/path/dir/a/b/file.txt",
+			})
+
+			treeDBPath := createTree(t, treeDB)
+			_, err = root.AddTree(treeDBPath)
+			So(err, ShouldBeNil)
+
+			So(ruleIDCount(t, root, "/path/dir/a/"), ShouldResemble, map[uint64]uint64{0: 1})
+			So(ruleIDCount(t, root, "/path/dir/a/b/"), ShouldResemble, map[uint64]uint64{0: 1})
+
+			r1 := createRule(t, tdb, root, "/path/dir/a/", "*.txt")
+			So(ruleIDCount(t, root, "/path/dir/a/"), ShouldResemble, map[uint64]uint64{r1: 1})
+			So(ruleIDCount(t, root, "/path/dir/a/b/"), ShouldResemble, map[uint64]uint64{r1: 1})
+
+			RemoveRule(t, tdb, root, "/path/dir/a/", "*.txt")
+			So(ruleIDCount(t, root, "/path/dir/a/"), ShouldResemble, map[uint64]uint64{0: 1})
+			So(ruleIDCount(t, root, "/path/dir/a/b/"), ShouldResemble, map[uint64]uint64{0: 1})
+		})
 	})
 }
 
