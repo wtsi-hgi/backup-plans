@@ -42,10 +42,14 @@ export const setState = (key: string, value: string) => {
 
 	debounce(setURL);
 },
-	handleState = <T>(key: string, fn: (value: string) => T) => {
+	handleState = <T>(key: string, fn: (value: string) => T, def = "") => {
 		(handlers.get(key) ?? setAndReturn(handlers, key, [])).push(fn);
 
-		return fn(state.get(key) ?? "");
+		if (def) {
+			defaults.set(key, def);
+		}
+
+		return fn(state.get(key) ?? def);
 	},
 	tab = (params: Properties & { "name": string, "summary": string, "open"?: boolean }, children: Children) => {
 		let { name, summary: summaryText, open } = params;
