@@ -48,8 +48,6 @@ function createClaimStatsSection() {
                 }, dirStats.Path),]),
                 div([
                     div({ "class": "claiminfo" }, [
-                        p("Last successful backup: " + (dirStats.BackupStatus.LastSuccess === "0001-01-01T00:00:00Z" ? "Pending" : longAgoStr(dirStats.BackupStatus.LastSuccess))),
-                        dirStats.BackupStatus.LastSuccess === "0001-01-01T00:00:00Z" ? [] : p("Failures: " + dirStats.BackupStatus.Failures),
                         (filter.groupbom !== "" && filter.user === "") ? p("Claimed by: " + dirStats.ClaimedBy) : []
                     ]),
                     table({ "class": "summary" }, [
@@ -69,6 +67,20 @@ function createClaimStatsSection() {
                                 ])
                             ]) : tr(td({ "colspan": "4" }, "No rules or unplanned data."))
                         ])
+                    ]),
+                    table({ "class": "summary" }, [
+                        thead(tr([
+                            th("Backup Name"),
+                            th("Last Backup"),
+                            th("Failures")
+                        ])),
+                        tbody(dirStats.BackupStatus.map((sba) => [
+                            tr([
+                                td(sba.Name),
+                                td(sba.LastSuccess === "0001-01-01T00:00:00Z" ? "Pending" : longAgoStr(sba.LastSuccess)),
+                                td(String(sba.Failures))
+                            ])
+                        ]))
                     ])
                 ])
             ])

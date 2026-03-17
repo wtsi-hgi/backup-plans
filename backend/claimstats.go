@@ -46,7 +46,7 @@ type DirStats struct {
 	Path         string
 	ClaimedBy    string
 	Group        string
-	BackupStatus ibackup.SetBackupActivity
+	BackupStatus []*ibackup.SetBackupActivity
 	RuleStats    []ruleStats
 }
 
@@ -127,32 +127,15 @@ func createClaimstatsFilter(r *http.Request) filter {
 func (s *Server) generateDirStats(path string, dirSummary *ruletree.DirSummary) *DirStats {
 	rulestats := s.generateRuleStats(path, dirSummary)
 
-	sba := s.getSetBackupActivity(dirSummary)
+	sbas := s.gatherSBAs(dirSummary)
 
 	return &DirStats{
 		Path:         path,
 		ClaimedBy:    dirSummary.ClaimedBy,
 		Group:        dirSummary.Group,
-		BackupStatus: *sba,
+		BackupStatus: sbas,
 		RuleStats:    rulestats,
 	}
-}
-
-func (s *Server) getSetBackupActivity(dirSummary *ruletree.DirSummary) *ibackup.SetBackupActivity {
-	sbas := s.gatherSBAs(dirSummary)
-
-	if len(sbas) == 0 {
-		return &ibackup.SetBackupActivity{}
-	}
-
-	mostRecentSBA := sbas[0]
-	for _, sba := range sbas {
-		if sba.LastSuccess.After(mostRecentSBA.LastSuccess) {
-			mostRecentSBA = sba
-		}
-	}
-
-	return mostRecentSBA
 }
 
 func (s *Server) gatherSBAs(dirSummary *ruletree.DirSummary) []*ibackup.SetBackupActivity {
