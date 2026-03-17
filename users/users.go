@@ -65,7 +65,7 @@ var (
 
 // Username returns the username assigned to the given UID.
 //
-// Returns empty string if the UID doesn't exist.
+// Returns the id as a string if the username cannot be found.
 func Username(uid uint32) string {
 	if u, ok := userCache.Get(uid); ok {
 		return u
@@ -73,7 +73,7 @@ func Username(uid uint32) string {
 
 	u, err := user.LookupId(strconv.FormatUint(uint64(uid), 10))
 	if err != nil {
-		return ""
+		return strconv.FormatUint(uint64(uid), 10)
 	}
 
 	userCache.Set(uid, u.Username)
