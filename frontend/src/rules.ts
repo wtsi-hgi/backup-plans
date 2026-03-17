@@ -2,8 +2,8 @@ import type { dirDetails, DirectoryWithChildren, Rule, RuleStats } from "./types
 import { clearNode } from "./lib/dom.js";
 import { br, button, dialog, div, form, h2, h3, input, label, option, p, select, table, tbody, td, textarea, th, thead, tr, span, ul, li } from './lib/html.js';
 import { svg, title, use } from './lib/svg.js';
-import { action, confirm, formatBytes, secondsInDay, setAndReturn } from "./lib/utils.js";
-import { createRule, getTree, removeRule, setDirDetails, updateRule, setExists, user } from "./rpc.js";
+import { action, confirm, formatBytes, setAndReturn } from "./lib/utils.js";
+import { createRule, removeRule, setDirDetails, updateRule, setExists, user } from "./rpc.js";
 import { BackupType, helpText } from "./consts.js"
 import { load, registerLoader } from "./load.js";
 import { updateClaimStats } from "./claimstats.js";
@@ -21,6 +21,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 		backupSelect = select({
 			"id": "backupType", "change": () => {
 				const backupType = BackupType.from(backupSelect.value);
+
 				metadataLabel.textContent = backupType.metadataLabel();
 				metadataHelpIcon.setAttribute("data-tooltip", backupType.metadataToolTip());
 			}
@@ -116,7 +117,27 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 		fr.readAsText(file);
 	}),
 	parseFOFN = (base: string, contents: string) => Array.from(new Set(contents.split("\n").map(line => {
-		line = new URL(line.replace(/#.*/, "").trim(), "a://a").pathname.slice(+!line.startsWith("/"));
+		line = line.replace(/#.*/, "").trimEnd();
+
+		const parts: string[] = [];
+
+		for (const part of line.split("/")) {
+			switch (part) {
+				case ".":
+				case "":
+					break;
+				case "..":
+					if (parts.length && parts.at(-1) != "..") {
+						parts.pop();
+
+						break;
+					}
+				default:
+					parts.push(part);
+			}
+		}
+
+		line = (line.startsWith("/") ? "/" : "") + parts.join("/");
 
 		if (line.endsWith("/")) {
 			line += "*";
