@@ -56,7 +56,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 	editOverlay = (path: string, rule: Rule) => {
 		const [backupType, edit, cancel, metadata, metadataSection] = createStuff(rule.BackupType, rule.Metadata, "Update", () => overlay.close()),
 			match = input({ "id": "match", "type": "text", "value": rule.Match, "disabled": true }),
-			override = input({ "id": "override", "type": "checkbox", "checked": rule.Override, "disabled": !true }),
+			override = input({ "id": "override", "type": "checkbox", "checked": rule.Override, "disabled": true }),
 			disableInputs = () => {
 				override.toggleAttribute("disabled", true);
 				overlay.setAttribute("closedby", "none");
