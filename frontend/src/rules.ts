@@ -53,21 +53,21 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 
 		return Promise.resolve(true);
 	},
-	addEditOverlay = (path: string, rule: Rule) => {
-		const [backupType, set, cancel, metadata, metadataSection] = createStuff(rule.BackupType, rule.Metadata, rule.Match ? "Update" : "Add", () => overlay.close()),
-			match = input({ "id": "match", "type": "text", "value": rule.Match, "disabled": !!rule.Match }),
-			override = input({ "id": "override", "type": "checkbox", "checked": rule.Override, "disabled": !!rule.Match }),
+	editOverlay = (path: string, rule: Rule) => {
+		const [backupType, edit, cancel, metadata, metadataSection] = createStuff(rule.BackupType, rule.Metadata, "Update", () => overlay.close()),
+			match = input({ "id": "match", "type": "text", "value": rule.Match, "disabled": true }),
+			override = input({ "id": "override", "type": "checkbox", "checked": rule.Override, "disabled": !true }),
 			disableInputs = () => {
 				override.toggleAttribute("disabled", true);
 				overlay.setAttribute("closedby", "none");
-				set.toggleAttribute("disabled", true);
+				edit.toggleAttribute("disabled", true);
 				cancel.toggleAttribute("disabled", true);
 				backupType.toggleAttribute("disabled", true);
 			},
 			enableInputs = () => {
 				override.removeAttribute("disabled");
 				overlay.setAttribute("closedby", "any");
-				set.removeAttribute("disabled");
+				edit.removeAttribute("disabled");
 				cancel.removeAttribute("disabled");
 				backupType.removeAttribute("disabled");
 			},
@@ -86,7 +86,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 								return;
 							}
 
-							return (rule.Match ? updateRule : createRule)(path, backupType.value, [rule.Match || match.value || "*"], BackupType.from(backupType.value).isManual() ? metadata.value : "", override.checked)
+							return updateRule(path, backupType.value, rule.Match, BackupType.from(backupType.value).isManual() ? metadata.value : "")
 								.then(() => {
 									load(path);
 									overlay.remove();
@@ -103,7 +103,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 				label({ "for": "override" }, "Override Child Rules"), getHelpIcon(helpText.Override), override, br(),
 				label({ "for": "backupType" }, "Backup Type"), getHelpIcon(helpText.BackupType), backupType, br(),
 				metadataSection,
-				set,
+				edit,
 				cancel
 			])));
 
@@ -116,9 +116,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 
 		fr.readAsText(file);
 	}),
-	parseFOFN = (base: string, contents: string) => Array.from(new Set(contents.split("\n").map(line => {
-		line = line.replace(/#.*/, "").trimEnd();
-
+	processRules = (base: string, contents: string) => Array.from(new Set(contents.split("\n").filter(l => l && !l.startsWith("#")).map(line => {
 		const parts: string[] = [];
 
 		for (const part of line.split("/")) {
@@ -154,8 +152,9 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 		const valid: string[] = [],
 			invalid = new Map<string, string[]>();
 
-		for (const line of parseFOFN(base, contents)) {
-			if (line.includes("\x00")) {
+		for (const line of processRules(base, contents)) {
+			if (!line) {
+			} else if (line.includes("\x00")) {
 				setPathError(invalid, "Invalid char in match", line);
 			} else if (line.startsWith("/")) {
 				setPathError(invalid, "Outside of current dir", line);
@@ -170,11 +169,11 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 
 		return [valid, invalid] as const;
 	},
-	buildFOFNTable = (base: string, contents: string, existingRules: Set<string>, fofnSection: HTMLDivElement, validRules: string[]) => {
+	buildRulesTable = (base: string, contents: string, existingRules: Set<string>, fofnSection: HTMLDivElement, validRules: string[]) => {
 		const [valid, invalid] = validateFOFN(base, contents, existingRules);
 
 		clearNode(fofnSection, [
-			h2("Rules from FOFN"),
+			h2("Valid Rules"),
 			valid.length ? [
 				ul(valid.map(rule => li(rule)))
 			] : h3("No valid rules found"),
@@ -195,47 +194,41 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 
 		validRules.splice(0, validRules.length, ...valid);
 	},
-	addFofnOverlay = (path: string, existingRules: Set<string>) => {
+	addRulesOverlay = (path: string, existingRules: Set<string>) => {
 		const [backupType, set, cancel, metadata, metadataSection] = createStuff(BackupType.BackupIBackup, "", "Add", () => overlay.close()),
 			override = input({ "id": "override", "type": "checkbox" }),
-			validRules: string[] = [],
-			fofn = input({
-				"id": "fofn", "type": "file", "style": "display: none",
-				"change": () => loadFileContents(fofn.files![0])
-					.then(contents => buildFOFNTable(path, contents, existingRules, fofnSection, validRules))
+			validRules: string[] = ["*"],
+			rules = textarea({
+				"id": "ruleEntry",
+				"input": () => {
+					rules.style.height = "";
+					rules.style.height = rules.scrollHeight + "px";
+				},
+				"change": () => buildRulesTable(path, rules.value || "*", existingRules, rulesSection, validRules)
 			}),
-			fofnButton = button({ "type": "button", "click": () => fofn.click() }, "Upload file"),
-			fofnPaste = button({
-				"type": "button", "click": () => {
-					const contents = textarea(),
-						pasteOverlay = document.body.appendChild(dialog(
-							{ "closedby": "any", "id": "fofnPaste", "close": () => pasteOverlay.remove() },
-							[
-								contents,
-								br(),
-								button({
-									"type": "button", "click": () => {
-										buildFOFNTable(path, contents.value, existingRules, fofnSection, validRules);
-										pasteOverlay.close();
-									}
-								}, "Add"),
-								button({ "type": "button", "click": () => pasteOverlay.close() }, "Cancel")
-							]
-						));
-
-					pasteOverlay.showModal();
-				}
-			}, "Paste as plain text"),
-			fofnSection = div({ "id": "fofnDetails" }),
+			upload = input({
+				"id": "fofn", "type": "file", "style": "display: none",
+				"change": () => loadFileContents(upload.files![0])
+					.then(contents => {
+						rules.value = contents;
+						rules.dispatchEvent(new InputEvent("input"));
+						rules.dispatchEvent(new InputEvent("change"));
+					})
+			}),
+			uploadButton = button({ "id": "uploadButton", "type": "button", "click": () => upload.click() }, svg([
+				title("Upload Rules"),
+				use({ "href": "#uploadFile" })
+			])),
+			rulesSection = div({ "id": "rulesDetails" }),
 			disableInputs = () => {
 				overlay.setAttribute("closedby", "none");
 				override.toggleAttribute("disabled", true);
 				set.toggleAttribute("disabled", true);
 				cancel.toggleAttribute("disabled", true);
 				backupType.toggleAttribute("disabled", true);
-				fofnButton.toggleAttribute("disabled", true);
-				fofnPaste.toggleAttribute("disabled", true);
-				fofn.toggleAttribute("disabled", true);
+				uploadButton.toggleAttribute("disabled", true);
+				rules.toggleAttribute("disabled", true);
+				upload.toggleAttribute("disabled", true);
 			},
 			enableInputs = () => {
 				overlay.setAttribute("closedby", "any");
@@ -243,9 +236,9 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 				set.removeAttribute("disabled");
 				cancel.removeAttribute("disabled");
 				backupType.removeAttribute("disabled");
-				fofnButton.removeAttribute("disabled");
-				fofnPaste.removeAttribute("disabled");
-				fofn.removeAttribute("disabled");
+				uploadButton.removeAttribute("disabled");
+				rules.removeAttribute("disabled");
+				upload.removeAttribute("disabled");
 			},
 			overlay = document.body.appendChild(dialog({ "id": "addEdit", "closedby": "any", "close": () => overlay.remove() }, form({
 				"submit": (e: SubmitEvent) => {
@@ -259,7 +252,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 								return Promise.reject({ "message": "Set does not exist" });
 							}
 
-							return (validRules.length ? createRule(path, backupType.value, validRules, metadata.value, override.checked) : Promise.reject({ "message": "No FOFN selected" }))
+							return (validRules.length ? createRule(path, backupType.value, validRules, metadata.value, override.checked) : Promise.reject({ "message": "No Valid Rules" }))
 								.then(() => {
 									load(path);
 									overlay.remove();
@@ -271,18 +264,17 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 						});
 				}
 			}, [
-				div({ "id": "matchfofn" }, [
-					label({ "for": "fofn" }, "Add FOFN"),
-					getHelpIcon(helpText.FOFN),
-					fofnButton,
-					fofn,
-					" or ",
-					fofnPaste
+				div({ "id": "matchRules" }, [
+					label({ "for": "rules" }, "Add Rules"),
+					getHelpIcon(helpText.Rules),
+					rules,
+					uploadButton,
+					upload,
 				]),
 				label({ "for": "override" }, "Override Child Rules"), getHelpIcon(helpText.Override), override, br(),
 				label({ "for": "backupType" }, "Backup Type"), getHelpIcon(helpText.BackupType), backupType, br(),
 				metadataSection,
-				fofnSection,
+				rulesSection,
 				set,
 				cancel
 			])));
@@ -348,17 +340,9 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 
 		overlay.showModal();
 	},
-	addRule = (path: string) => button({
-		"click": () => addEditOverlay(path, {
-			"BackupType": BackupType.BackupIBackup,
-			"Metadata": "",
-			"Match": "",
-			"Override": false
-		}),
-	}, "Add Rule"),
-	addFOFN = (path: string, existingRules: RuleStats[]) => button({
-		"click": () => addFofnOverlay(path, new Set(existingRules.map(r => r.Match))),
-	}, "Add FOFN"),
+	addRules = (path: string, existingRules: RuleStats[]) => button({
+		"click": () => addRulesOverlay(path, new Set(existingRules.map(r => r.Match))),
+	}, "Add Rules"),
 	addDirDetails = (path: string, dirDetails: dirDetails) => button({
 		"click": () => dirDetailOverlay(path, dirDetails),
 	}, "Set Directory Details"),
@@ -369,9 +353,9 @@ export default base;
 registerLoader((path: string, data: DirectoryWithChildren) => {
 	clearNode(base, [
 		data.claimedBy ? h2("Rules on this directory") : [],
-		data.claimedBy && data.claimedBy == user && !data.rules[path]?.length ? [addRule(path), addFOFN(path, data.rules[path] ?? []), addDirDetails(path, data)] : [],
+		data.claimedBy && data.claimedBy == user && !data.rules[path]?.length ? [addRules(path, data.rules[path] ?? []), addDirDetails(path, data)] : [],
 		data.claimedBy && data.rules[path]?.length ? table({ "id": "rules", "class": "summary" }, [
-			thead(tr([th("Match"), th("Action"), th("Files"), th("Size"), data.claimedBy === user ? td([addRule(path), addFOFN(path, data.rules[path] ?? []), addDirDetails(path, data)]) : []])),
+			thead(tr([th("Match"), th("Action"), th("Files"), th("Size"), data.claimedBy === user ? td([addRules(path, data.rules[path] ?? []), addDirDetails(path, data)]) : []])),
 			tbody(Object.values(data.rules[path] ?? []).map(rule => tr([
 				td({ "data-override": rule.Override }, rule.Match),
 				td(action(rule.BackupType)),
@@ -380,7 +364,7 @@ registerLoader((path: string, data: DirectoryWithChildren) => {
 				data.claimedBy === user ? td([
 					button({
 						"class": "actionButton",
-						"click": () => addEditOverlay(path, rule)
+						"click": () => editOverlay(path, rule)
 					}, svg([
 						title("Edit Rule"),
 						use({ "href": "#edit" })
