@@ -74,13 +74,13 @@ function createClaimStatsSection() {
                             th("Last Backup"),
                             th("Failures")
                         ])),
-                        tbody(dirStats.BackupStatus.map((sba) => [
+                        tbody(dirStats.BackupStatus.length > 0 ? dirStats.BackupStatus.map((sba) => [
                             tr([
                                 td(sba.Name),
                                 td(sba.LastSuccess === "0001-01-01T00:00:00Z" ? "Pending" : longAgoStr(sba.LastSuccess)),
                                 td(String(sba.Failures))
                             ])
-                        ]))
+                        ]) : tr(td({ "colspan": "3" }, "No backup sets.")))
                     ])
                 ])
             ])
