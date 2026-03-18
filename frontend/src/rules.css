@@ -305,8 +305,7 @@ select:not(:has(option:checked[value="backup"])):not(:has(option:checked[value="
 
 button#uploadButton {
 	margin-left: 0.5em;
-	width: 1.6em;
-	background: none;
+	background: none !important;
 	border: 0;
 	color: var(--colour);
 	padding: 0;
@@ -315,6 +314,11 @@ button#uploadButton {
 #uploadButton>svg {
 	height: 2.4em;
 	width: 1.6em;
+	padding: 0;
+}
+
+#uploadButton:hover svg {
+	--fill: var(--subtleBorder);
 }
 
 #matchRules {

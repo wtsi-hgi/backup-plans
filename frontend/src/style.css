@@ -461,7 +461,7 @@ use {
 		--graph-backup: #76c893;
 	}
 
-	#addEdit svg {
+	#addEdit .tooltip svg {
 		filter: invert(1);
 	}
 }

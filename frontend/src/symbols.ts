@@ -81,8 +81,7 @@ export const symbols = svg({ "style": `width: 0; height: 0` }, [
 	symbol({ "id": "uploadFile", "viewBox": "0 0 16 24" }, [
 		path({
 			"d": "M15,6 h-3 s-2,0 -2,-2 v-3 l5,5 v15 s0,2 -2,2 h-10 s-2,0 -2,-2 v-18 s0,-2 2,-2 h7",
-			"style": "stroke: currentColor",
-			"fill": "none",
+			"style": "stroke: currentColor; fill: var(--fill, none)",
 			"stroke-linejoin": "round",
 		}),
 		path({
