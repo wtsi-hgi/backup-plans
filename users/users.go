@@ -65,7 +65,7 @@ var (
 
 // Username returns the username assigned to the given UID.
 //
-// Returns empty string if the UID doesn't exist.
+// Returns the id as a string if the username cannot be found.
 func Username(uid uint32) string {
 	if u, ok := userCache.Get(uid); ok {
 		return u
@@ -73,7 +73,7 @@ func Username(uid uint32) string {
 
 	u, err := user.LookupId(strconv.FormatUint(uint64(uid), 10))
 	if err != nil {
-		return ""
+		return strconv.FormatUint(uint64(uid), 10)
 	}
 
 	userCache.Set(uid, u.Username)
@@ -83,7 +83,7 @@ func Username(uid uint32) string {
 
 // Group returns the group name assigned to the given GID.
 //
-// Returns empty string if the GID doesn't exist.
+// Returns the gid as a string if the group cannot be found.
 func Group(gid uint32) string {
 	if g, ok := groupCache.Get(gid); ok {
 		return g
@@ -91,7 +91,7 @@ func Group(gid uint32) string {
 
 	g, err := user.LookupGroupId(strconv.FormatUint(uint64(gid), 10))
 	if err != nil {
-		return ""
+		return strconv.FormatUint(uint64(gid), 10)
 	}
 
 	groupCache.Set(gid, g.Name)
