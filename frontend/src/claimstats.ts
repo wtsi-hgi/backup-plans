@@ -78,7 +78,7 @@ function createClaimStatsSection() {
                             tr([
                                 td(sba.Name),
                                 td(sba.LastSuccess === "0001-01-01T00:00:00Z" ? "Pending" : longAgoStr(sba.LastSuccess)),
-                                td(String(sba.Failures))
+                                td(sba.Failures == -1 ? "N/A" : sba.Failures.toLocaleString())
                             ])
                         ]) : tr(td({ "colspan": "3" }, "No backup sets.")))
                     ])
