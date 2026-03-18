@@ -86,7 +86,7 @@ func (s *Server) collectDirStats(f filter) []DirStats {
 
 		dirSummary := dir.DirSummary
 		dirSummary.ClaimedBy = s.getClaimed(dir.Path)
-		claimstats = append(claimstats, *s.generateDirStats(dir.Path, dirSummary))
+		claimstats = append(claimstats, *s.generateDirStats(dir.ID(), dir.Path, dirSummary))
 	}
 
 	return claimstats
@@ -124,10 +124,10 @@ func createClaimstatsFilter(r *http.Request) filter {
 	return filter{user, group, filterUser, filterGroup}
 }
 
-func (s *Server) generateDirStats(path string, dirSummary *ruletree.DirSummary) *DirStats {
+func (s *Server) generateDirStats(dirID int64, path string, dirSummary *ruletree.DirSummary) *DirStats {
 	rulestats := s.generateRuleStats(path, dirSummary)
 
-	sbas := s.gatherSBAs(dirSummary)
+	sbas := s.gatherSBAs(dirID, dirSummary)
 
 	return &DirStats{
 		Path:         path,
@@ -138,14 +138,14 @@ func (s *Server) generateDirStats(path string, dirSummary *ruletree.DirSummary) 
 	}
 }
 
-func (s *Server) gatherSBAs(dirSummary *ruletree.DirSummary) []*ibackup.SetBackupActivity {
+func (s *Server) gatherSBAs(dirID int64, dirSummary *ruletree.DirSummary) []*ibackup.SetBackupActivity {
 	sbas := make([]*ibackup.SetBackupActivity, 0, len(dirSummary.RuleSummaries))
 
 	for _, ruleSummary := range dirSummary.RuleSummaries {
 		rule := s.rules[ruleSummary.ID]
 
-		dirID := rule.DirID()
-		if dirID <= 0 {
+		rdirID := rule.DirID()
+		if rdirID <= 0 || dirID != rdirID {
 			continue
 		}
 
