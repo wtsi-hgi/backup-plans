@@ -199,23 +199,31 @@ func (s *Server) getGitBackupStatus(repo, claimedBy string) *ibackup.SetBackupAc
 }
 
 func (s *Server) populateNFSStatus(paths map[string]string, dirSummary *summary) {
+	for path, claimedBy := range paths {
+		sba := s.getNFSStatus(path, claimedBy)
+
+		if sba != nil {
+			dirSummary.BackupStatus[path] = sba
+		}
+	}
+}
+
+func (s *Server) getNFSStatus(path, claimedBy string) *ibackup.SetBackupActivity {
 	client := s.config.GetWRStatClient()
 	if client == nil {
-		return
+		return nil
 	}
 
-	for path, claimedBy := range paths {
-		t, err := client.GetWRStatModTime(path)
-		if err != nil {
-			slog.Error("error querying wrstat status", "path", path, "err", err)
-		}
+	t, err := client.GetWRStatModTime(path)
+	if err != nil {
+		slog.Error("error querying wrstat status", "path", path, "err", err)
+	}
 
-		dirSummary.BackupStatus[path] = &ibackup.SetBackupActivity{
-			LastSuccess: t,
-			Name:        path,
-			Requester:   claimedBy,
-			Failures:    -1,
-		}
+	return &ibackup.SetBackupActivity{
+		LastSuccess: t,
+		Name:        path,
+		Requester:   claimedBy,
+		Failures:    -1,
 	}
 }
 

@@ -160,6 +160,8 @@ func (s *Server) gatherSBAs(dirSummary *ruletree.DirSummary) []*ibackup.SetBacku
 			sbas = append(sbas, s.getManualIBackupStatus(dirSet, requester))
 		case db.BackupManualGit:
 			sbas = append(sbas, s.getGitBackupStatus(rule.Metadata, requester))
+		case db.BackupManualNFS:
+			sbas = append(sbas, s.getNFSStatus(dirPath, requester))
 		}
 	}
 
