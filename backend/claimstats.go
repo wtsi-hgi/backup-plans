@@ -86,7 +86,7 @@ func (s *Server) collectDirStats(f filter) []DirStats {
 
 		dirSummary := dir.DirSummary
 		dirSummary.ClaimedBy = s.getClaimed(dir.Path)
-		claimstats = append(claimstats, *s.generateDirStats(dir.ID(), dir.Path, dirSummary))
+		claimstats = append(claimstats, *s.generateDirStats(dir, dirSummary))
 	}
 
 	return claimstats
@@ -124,13 +124,13 @@ func createClaimstatsFilter(r *http.Request) filter {
 	return filter{user, group, filterUser, filterGroup}
 }
 
-func (s *Server) generateDirStats(dirID int64, path string, dirSummary *ruletree.DirSummary) *DirStats {
-	rulestats := s.generateRuleStats(path, dirSummary)
+func (s *Server) generateDirStats(dir *Directory, dirSummary *ruletree.DirSummary) *DirStats {
+	rulestats := s.generateRuleStats(dir.Path, dirSummary)
 
-	sbas := s.gatherSBAs(dirID, dirSummary)
+	sbas := s.gatherSBAs(dir, dirSummary)
 
 	return &DirStats{
-		Path:         path,
+		Path:         dir.Path,
 		ClaimedBy:    dirSummary.ClaimedBy,
 		Group:        dirSummary.Group,
 		BackupStatus: sbas,
@@ -138,30 +138,29 @@ func (s *Server) generateDirStats(dirID int64, path string, dirSummary *ruletree
 	}
 }
 
-func (s *Server) gatherSBAs(dirID int64, dirSummary *ruletree.DirSummary) []*ibackup.SetBackupActivity {
+func (s *Server) gatherSBAs(dir *Directory, dirSummary *ruletree.DirSummary) []*ibackup.SetBackupActivity { //nolint:gocyclo,lll
 	sbas := make([]*ibackup.SetBackupActivity, 0, len(dirSummary.RuleSummaries))
 
 	for _, ruleSummary := range dirSummary.RuleSummaries {
 		rule := s.rules[ruleSummary.ID]
 
 		rdirID := rule.DirID()
-		if rdirID <= 0 || dirID != rdirID {
+		if rdirID <= 0 || dir.ID() != rdirID {
 			continue
 		}
 
-		dirPath := s.dirs[uint64(dirID)].Path
-		requester := s.directoryRules[dirPath].ClaimedBy
+		requester := dir.ClaimedBy
 
 		switch rule.BackupType { //nolint:exhaustive
 		case db.BackupIBackup:
 			sbas = append(sbas, s.getIBackupBackupStatus(setNamePrefix+dirPath, dirPath, requester))
 		case db.BackupManualIBackup:
-			dirSet := dirSet{dirPath, rule.Metadata}
+			dirSet := dirSet{dir.Path, rule.Metadata}
 			sbas = append(sbas, s.getManualIBackupStatus(dirSet, requester))
 		case db.BackupManualGit:
 			sbas = append(sbas, s.getGitBackupStatus(rule.Metadata, requester))
 		case db.BackupManualNFS:
-			sbas = append(sbas, s.getNFSStatus(dirPath, requester))
+			sbas = append(sbas, s.getNFSStatus(dir.Path, requester))
 		}
 	}
 

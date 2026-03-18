@@ -82,17 +82,11 @@ func TestClaimStats(t *testing.T) {
 					Path:      "/lustre/scratch123/humgen/a/b/",
 					ClaimedBy: "userA",
 					Group:     firstGroup.Name,
-<<<<<<< HEAD
-					BackupStatus: ibackup.SetBackupActivity{
-						Name:      setNamePrefix + "/lustre/scratch123/humgen/a/b/",
-						Requester: userA,
-=======
 					BackupStatus: []*ibackup.SetBackupActivity{
 						{
 							Name:      "plan::/lustre/scratch123/humgen/a/b/",
 							Requester: userA,
 						},
->>>>>>> 5788b81 (Add backup set name, status and failure count to claimstats page)
 					},
 					RuleStats: []ruleStats{
 						{
@@ -137,17 +131,11 @@ func TestClaimStats(t *testing.T) {
 					Path:      "/lustre/scratch123/humgen/a/b/",
 					ClaimedBy: "userA",
 					Group:     firstGroup.Name,
-<<<<<<< HEAD
-					BackupStatus: ibackup.SetBackupActivity{
-						Name:      setNamePrefix + "/lustre/scratch123/humgen/a/b/",
-						Requester: userA,
-=======
 					BackupStatus: []*ibackup.SetBackupActivity{
 						{
 							Name:      "plan::/lustre/scratch123/humgen/a/b/",
 							Requester: userA,
 						},
->>>>>>> 5788b81 (Add backup set name, status and failure count to claimstats page)
 					},
 					RuleStats: []ruleStats{
 						{
