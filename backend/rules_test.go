@@ -64,7 +64,11 @@ func TestClaimDir(t *testing.T) {
 		user, err := user.Current()
 		So(err, ShouldBeNil)
 
+<<<<<<< HEAD
 		s, err := New(testdb.CreateTestDatabase(t), u.getUser, iconfig.NewConfig(t, nil, nil, nil, 0))
+=======
+		s, err := New(testdb.CreateTestDatabase(t), u.getUser, config.NewConfig(t, nil, nil, nil, 0, nil))
+>>>>>>> 342e88c (Test that gatherSBAs does not gather child dir sets)
 		So(err, ShouldBeNil)
 
 		treeDBPath := createTestTree(t)
@@ -213,7 +217,11 @@ func TestRules(t *testing.T) {
 	Convey("With a configured backend", t, func() {
 		u := userHandler(root)
 
+<<<<<<< HEAD
 		s, err := New(testdb.CreateTestDatabase(t), u.getUser, iconfig.NewConfig(t, nil, nil, nil, 0))
+=======
+		s, err := New(testdb.CreateTestDatabase(t), u.getUser, config.NewConfig(t, nil, nil, nil, 0, nil))
+>>>>>>> 342e88c (Test that gatherSBAs does not gather child dir sets)
 		So(err, ShouldBeNil)
 
 		treeDBPath := createTestTree(t)

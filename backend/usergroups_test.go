@@ -55,7 +55,7 @@ func TestUserGroups(t *testing.T) {
 		So(tree.Serialise(f, tr), ShouldBeNil)
 		So(f.Close(), ShouldBeNil)
 
-		s, err := New(testDB, u.getUser, config.NewConfig(t, nil, nil, nil, 0))
+		s, err := New(testDB, u.getUser, config.NewConfig(t, nil, nil, nil, 0, nil))
 		So(err, ShouldBeNil)
 
 		So(s.AddTree(treeFile), ShouldBeNil)

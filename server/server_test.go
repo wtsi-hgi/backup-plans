@@ -71,7 +71,7 @@ func TestSeverDBUpdate(t *testing.T) {
 			tdb := testdb.CreateTestDatabase(t)
 			errCh := make(chan error)
 			dbCheckTime = time.Second
-			cfg := config.NewConfig(t, nil, nil, nil, 0)
+			cfg := config.NewConfig(t, nil, nil, nil, 0, nil)
 
 			go func() {
 				errCh <- start(l, tdb, func(*http.Request) string { return u.Username }, http.NotFoundHandler(), cfg, tmp)

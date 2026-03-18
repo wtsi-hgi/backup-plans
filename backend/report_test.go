@@ -60,7 +60,7 @@ func TestReport(t *testing.T) {
 			"/lustre/scratch123/humgen/a/[bc]/",
 		}
 
-		srv, err := New(testDB, func(_ *http.Request) string { return "test" }, config.NewConfig(t, nil, nil, roots, 0))
+		srv, err := New(testDB, func(_ *http.Request) string { return "test" }, config.NewConfig(t, nil, nil, roots, 0, nil))
 		So(err, ShouldBeNil)
 		err = srv.AddTree(path)
 		So(err, ShouldBeNil)

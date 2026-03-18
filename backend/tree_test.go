@@ -44,7 +44,7 @@ func TestTree(t *testing.T) {
 		user, err := user.Current()
 		So(err, ShouldBeNil)
 
-		s, err := New(testdb.CreateTestDatabase(t), u.getUser, config.NewConfig(t, nil, nil, nil, 0))
+		s, err := New(testdb.CreateTestDatabase(t), u.getUser, config.NewConfig(t, nil, nil, nil, 0, nil))
 		So(err, ShouldBeNil)
 
 		treeDBPath := createTestTree(t)

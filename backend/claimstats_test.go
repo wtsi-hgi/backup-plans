@@ -39,6 +39,7 @@ import (
 	"github.com/wtsi-hgi/backup-plans/ibackup"
 	"github.com/wtsi-hgi/backup-plans/internal/config"
 	"github.com/wtsi-hgi/backup-plans/internal/plandb"
+	"github.com/wtsi-hgi/backup-plans/internal/wrstat"
 	"vimagination.zapto.org/tree"
 )
 
@@ -59,7 +60,7 @@ func TestClaimStats(t *testing.T) {
 		So(tree.Serialise(f, tr), ShouldBeNil)
 		So(f.Close(), ShouldBeNil)
 
-		s, err := New(testDB, u.getUser, config.NewConfig(t, nil, nil, nil, 0))
+		s, err := New(testDB, u.getUser, config.NewConfig(t, nil, nil, nil, 0, nil))
 		So(err, ShouldBeNil)
 
 		So(s.AddTree(treeFile), ShouldBeNil)
@@ -183,5 +184,68 @@ func TestClaimStats(t *testing.T) {
 				},
 			})
 		})
+	})
+
+	Convey("With a configured backend with NFS rules", t, func() {
+		var u userHandler
+
+		testDB, _ := plandb.PopulateBigExamplePlanDB(t)
+		tr := plandb.ExampleTreeBig()
+
+		treeFile := filepath.Join(t.TempDir(), "tree.db")
+		f, err := os.Create(treeFile)
+		So(err, ShouldBeNil)
+
+		So(tree.Serialise(f, tr), ShouldBeNil)
+		So(f.Close(), ShouldBeNil)
+
+		wrsc, cleanup := wrstat.NewTestWRStatClient(t, tr)
+		defer cleanup()
+
+		s, err := New(testDB, u.getUser, config.NewConfig(t, nil, nil, nil, 0, wrsc))
+		So(err, ShouldBeNil)
+		So(s.config.GetWRStatClient(), ShouldNotBeNil)
+
+		So(s.AddTree(treeFile), ShouldBeNil)
+
+		u = root
+
+		code, resp := getResponse(s.ClaimDir, "/api/dir/claim?dir=/lustre/scratch123/humgen/a/", nil)
+		So(resp, ShouldEqual, "\""+root+"\"\n")
+		So(code, ShouldEqual, http.StatusOK)
+
+		code, resp = getResponse(s.ClaimDir, "/api/dir/claim?dir=/lustre/scratch123/humgen/a/d/", nil)
+		So(resp, ShouldEqual, "\""+root+"\"\n")
+		So(code, ShouldEqual, http.StatusOK)
+
+		code, resp = getResponse(
+			s.CreateRule,
+			"/test?action=manualnfs&&match=*&dir=/lustre/scratch123/humgen/a/&metadata=/lustre/scratch123/humgen/a/",
+			nil,
+		)
+		So(resp, ShouldEqual, "")
+		So(code, ShouldEqual, http.StatusNoContent)
+
+		Convey("Backup set information is specific to only that directory", func() {
+			u = root
+
+			code, resp = getResponse(s.ClaimStats, "/api/claimstats?user=root", nil)
+			So(code, ShouldEqual, http.StatusOK)
+
+			var claimstatsA []DirStats
+
+			err = json.NewDecoder(strings.NewReader(resp)).Decode(&claimstatsA)
+			So(err, ShouldBeNil)
+
+			So(claimstatsA[0].BackupStatus, ShouldResemble, []*ibackup.SetBackupActivity{
+				{
+					Name:      "/lustre/scratch123/humgen/a/",
+					Requester: "root",
+					Failures:  -1,
+				},
+			},
+			)
+		})
+
 	})
 }

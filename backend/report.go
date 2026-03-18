@@ -211,6 +211,7 @@ func (s *Server) populateNFSStatus(paths map[string]string, dirSummary *summary)
 func (s *Server) getNFSStatus(path, claimedBy string) *ibackup.SetBackupActivity {
 	client := s.config.GetWRStatClient()
 	if client == nil {
+
 		return nil
 	}
 
