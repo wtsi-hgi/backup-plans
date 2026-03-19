@@ -320,9 +320,9 @@ func TestAddFofnsToIBackup(t *testing.T) {
 		ft := make(frozenTest)
 
 		_, err = addFofnsToIBackup(clientWrapper{ibackupClient, ft}, map[*db.Directory][]string{
-			{ClaimedBy: "a", Path: "/lustre/a"}:                                              {},
-			{ClaimedBy: "a", Path: "/lustre/b", Frozen: true, Unfreeze: now.Add(time.Hour)}:  {},
-			{ClaimedBy: "a", Path: "/lustre/c", Frozen: true, Unfreeze: now.Add(-time.Hour)}: {},
+			{ClaimedBy: "a", Path: "/lustre/a"}:                                                 {},
+			{ClaimedBy: "a", Path: "/lustre/b", Frozen: true, Melt: now.Add(time.Hour).Unix()}:  {},
+			{ClaimedBy: "a", Path: "/lustre/c", Frozen: true, Melt: now.Add(-time.Hour).Unix()}: {},
 		})
 		So(err, ShouldBeNil)
 

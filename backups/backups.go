@@ -3,6 +3,7 @@ package backups
 import (
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/ibackup"
@@ -218,7 +219,7 @@ func addFofnsToIBackup(client backupClient, setFofns map[*db.Directory][]string)
 func getFrozenStatus(client backupClient, setInfo *db.Directory, backupSetName string) (bool, error) {
 	frozen := setInfo.Frozen
 
-	if !frozen || setInfo.Unfreeze.Unix() == 0 {
+	if !frozen || setInfo.Melt == 0 {
 		return frozen, nil
 	}
 
@@ -231,5 +232,5 @@ func getFrozenStatus(client backupClient, setInfo *db.Directory, backupSetName s
 		return true, err
 	}
 
-	return setInfo.Unfreeze.After(set.LastSuccess), nil
+	return time.Unix(setInfo.Melt, 0).After(set.LastSuccess), nil
 }
