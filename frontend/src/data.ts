@@ -64,6 +64,7 @@ export default (path: string) => getTree(path)
 			"CanClaim": false,
 			"Frequency": 0,
 			"Frozen": false,
+			"Melt": 0,
 			"ReviewDate": 0,
 			"RemoveDate": 0
 		} as Tree;
@@ -89,6 +90,7 @@ export default (path: string) => getTree(path)
 			"canClaim": data.CanClaim,
 			"Frequency": data.Frequency,
 			"Frozen": data.Frozen,
+			"Melt": data.Melt ?? 0,
 			"ReviewDate": data.ReviewDate,
 			"RemoveDate": data.RemoveDate,
 			"ruleSummaries": data.RuleSummaries

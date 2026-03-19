@@ -280,8 +280,10 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 		overlay.showModal();
 	},
 	dirDetailOverlay = (path: string, dirDetails: dirDetails) => {
+		console.log(dirDetails)
 		const frequency = input({ "id": "frequency", "type": "number", "min": "0", "value": dirDetails.Frequency + "" }),
 			frozen = input({ "id": "frozen", "type": "checkbox", "checked": dirDetails.Frozen }),
+			toggleThaw = input({ "id": "toggleThaw", "type": "checkbox" }),
 			review = input({ "id": "review", "type": "date", "value": new Date(dirDetails.ReviewDate * 1000).toISOString().substring(0, 10) }),
 			remove = input({ "id": "remove", "type": "date", "value": new Date(dirDetails.RemoveDate * 1000).toISOString().substring(0, 10) }),
 			set = button({ "value": "set" }, "Set"),
@@ -317,7 +319,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 					}
 					disableInputs();
 
-					setDirDetails(path, frequency.valueAsNumber, frozen.checked, + review.valueAsDate / 1000, + remove.valueAsDate / 1000)
+					setDirDetails(path, frequency.valueAsNumber, frozen.checked, toggleThaw.checked, +review.valueAsDate / 1000, + remove.valueAsDate / 1000)
 						.then(() => {
 							load(path);
 							overlay.remove();
@@ -330,6 +332,11 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 			}, [
 				label({ "for": "frequency" }, "Frequency"), getHelpIcon(helpText.Frequency), frequency, br(),
 				label({ "for": "frozen" }, "Frozen"), getHelpIcon(helpText.Frozen), frozen, br(),
+				dirDetails.Frozen ? div([
+					label({ "for": "toggleThaw" }, dirDetails.Melt ? "Refreeze" : "Melt"),
+					getHelpIcon(dirDetails.Melt ? helpText.Refreeze + new Date(dirDetails.Melt * 1000).toLocaleString() : helpText.Melt),
+					toggleThaw,
+				]) : [],
 				label({ "for": "review" }, "Review Date"), getHelpIcon(helpText.Review), review, br(),
 				label({ "for": "remove" }, "Remove Date"), getHelpIcon(helpText.Remove), remove, br(),
 				set,
