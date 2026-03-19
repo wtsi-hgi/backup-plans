@@ -131,7 +131,14 @@ export type SetBackupActivity = {
 	Name: string;
 	Requester: string;
 	Failures: number;
+	Uploaded: number;
+	Replaced: number;
+	Missing: number;
+	Orphaned: number;
+	Hardlinks: number;
+	Skipped: number;
 }
+
 
 export type DirStats = {
 	Path: string;

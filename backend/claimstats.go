@@ -149,54 +149,35 @@ func (s *Server) gatherSBAs(dir *Directory, dirSummary *ruletree.DirSummary) []i
 			continue
 		}
 
-		s.addToSBAs(&sbas, dir, rule)
+		sbas = s.addSBA(sbas, dir, rule)
 	}
 
 	return sbas
 }
 
-func (s *Server) addToSBAs(sbas *[]ibackup.SetBackupActivity, dir *Directory, rule *db.Rule) {
-	plansChecked := make(map[string]struct{})
+func (s *Server) addSBA(sbas []ibackup.SetBackupActivity, dir *Directory, rule *db.Rule) []ibackup.SetBackupActivity {
 	requester := dir.ClaimedBy
 
 	switch rule.BackupType { //nolint:exhaustive
 	case db.BackupIBackup:
 		backupName := "plan::" + dir.Path
-		s.addSBA(sbas, plansChecked, backupName, func() (ibackup.SetBackupActivity, bool) {
-			return s.getIBackupBackupStatus(backupName, dir.Path, requester), true
-		})
+		sbas = append(sbas, s.getIBackupBackupStatus(backupName, dir.Path, requester))
+
 	case db.BackupManualIBackup:
-		s.addSBA(sbas, plansChecked, rule.Metadata, func() (ibackup.SetBackupActivity, bool) {
-			dirSet := dirSet{dir.Path, rule.Metadata}
+		dirSet := dirSet{dir.Path, rule.Metadata}
+		sbas = append(sbas, s.getManualIBackupStatus(dirSet, requester))
 
-			return s.getManualIBackupStatus(dirSet, requester), true
-		})
 	case db.BackupManualGit:
-		s.addSBA(sbas, plansChecked, rule.Metadata, func() (ibackup.SetBackupActivity, bool) {
-			return s.getGitBackupStatus(rule.Metadata, requester), true
-		})
+		sbas = append(sbas, s.getGitBackupStatus(rule.Metadata, requester))
+
 	case db.BackupManualNFS:
-		s.addSBA(sbas, plansChecked, dir.Path, func() (ibackup.SetBackupActivity, bool) {
-			sba, err := s.getNFSStatus(dir.Path, requester)
-
-			return sba, err == nil
-		})
-	}
-}
-
-func (s *Server) addSBA(
-	sbas *[]ibackup.SetBackupActivity,
-	plansChecked map[string]struct{},
-	backupName string,
-	getStatus func() (ibackup.SetBackupActivity, bool)) {
-	if _, exists := plansChecked[backupName]; exists {
-		return
+		sba, err := s.getNFSStatus(dir.Path, requester)
+		if err == nil {
+			sbas = append(sbas, sba)
+		}
 	}
 
-	if sba, ok := getStatus(); ok {
-		*sbas = append(*sbas, sba)
-		plansChecked[backupName] = struct{}{}
-	}
+	return sbas
 }
 
 // generateRuleStats will create a []RuleStats slice for the given directory, containing a RuleStats object for every

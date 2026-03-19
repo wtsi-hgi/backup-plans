@@ -5,6 +5,7 @@ import { BackupType } from "./consts.js";
 import { load } from './load.js';
 import { amendNode, clearNode } from "./lib/dom.js";
 import { users, groups, bomSet } from './userGroups.js';
+import type { SetBackupActivity } from "./types.js";
 
 const base = div({ "class": "main-container" });
 const container = div();
@@ -23,6 +24,19 @@ export function updateClaimStats() {
 const filter = {
     "user": user,
     "groupbom": ""
+}
+
+function dedupeSBA(sba: SetBackupActivity[]) {
+    const seen = new Set();
+
+    return sba.filter((sba) => {
+        if (seen.has(sba.Name)) {
+            return false;
+        }
+
+        seen.add(sba.Name);
+        return true;
+    })
 }
 
 function createClaimStatsSection() {
@@ -74,7 +88,7 @@ function createClaimStatsSection() {
                             th("Last Backup"),
                             th("Failures")
                         ])),
-                        tbody(dirStats.BackupStatus.length > 0 ? dirStats.BackupStatus.map((sba) => [
+                        tbody(dirStats.BackupStatus.length > 0 ? dedupeSBA(dirStats.BackupStatus).map((sba) => [
                             tr([
                                 td(sba.Name),
                                 td(sba.LastSuccess === "0001-01-01T00:00:00Z" ? "Pending" : longAgoStr(sba.LastSuccess)),
