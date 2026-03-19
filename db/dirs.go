@@ -25,7 +25,9 @@
 
 package db
 
-import "time"
+import (
+	"time"
+)
 
 // Directory represents a claimed directory that may be given rules.
 type Directory struct {
@@ -36,6 +38,7 @@ type Directory struct {
 	RemoveDate int64
 	Frequency  uint
 	Frozen     bool
+	Unfreeze   time.Time
 
 	Created, Modified int64
 }
@@ -81,6 +84,8 @@ func (d *DBRO) ReadDirectories() *IterErr[*Directory] {
 func scanDirectory(scanner scanner) (*Directory, error) {
 	dir := new(Directory)
 
+	var unfreeze int64
+
 	if err := scanner.Scan(
 		&dir.id,
 		&dir.Path,
@@ -89,11 +94,14 @@ func scanDirectory(scanner scanner) (*Directory, error) {
 		&dir.Frozen,
 		&dir.ReviewDate,
 		&dir.RemoveDate,
+		&unfreeze,
 		&dir.Created,
 		&dir.Modified,
 	); err != nil {
 		return nil, err
 	}
+
+	dir.Unfreeze = time.Unix(unfreeze, 0)
 
 	return dir, nil
 }
@@ -109,4 +117,22 @@ func (d *DB) UpdateDirectory(dir *Directory) error {
 // RemoveDirectory will remove the given Directory from the database.
 func (d *DB) RemoveDirectory(dir *Directory) error {
 	return d.exec(deleteDirectory, dir.id)
+}
+
+func (d *DB) Thaw(dir *Directory) error {
+	return d.setDirFreezeTime(dir, time.Now().Truncate(time.Second))
+}
+
+func (d *DB) setDirFreezeTime(dir *Directory, t time.Time) error {
+	if err := d.exec(setDirectoryFreeze, t.Unix(), dir.id); err != nil {
+		return err
+	}
+
+	dir.Unfreeze = t
+
+	return nil
+}
+
+func (d *DB) Refreeze(dir *Directory) error {
+	return d.setDirFreezeTime(dir, time.Unix(0, 0))
 }
