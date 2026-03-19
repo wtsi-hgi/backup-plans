@@ -27,6 +27,7 @@ package backend
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"os/user"
@@ -83,7 +84,7 @@ func TestClaimStats(t *testing.T) {
 					Path:      "/lustre/scratch123/humgen/a/b/",
 					ClaimedBy: "userA",
 					Group:     firstGroup.Name,
-					BackupStatus: []*ibackup.SetBackupActivity{
+					BackupStatus: []ibackup.SetBackupActivity{
 						{
 							Name:      "plan::/lustre/scratch123/humgen/a/b/",
 							Requester: userA,
@@ -132,7 +133,7 @@ func TestClaimStats(t *testing.T) {
 					Path:      "/lustre/scratch123/humgen/a/b/",
 					ClaimedBy: "userA",
 					Group:     firstGroup.Name,
-					BackupStatus: []*ibackup.SetBackupActivity{
+					BackupStatus: []ibackup.SetBackupActivity{
 						{
 							Name:      "plan::/lustre/scratch123/humgen/a/b/",
 							Requester: userA,
@@ -166,7 +167,7 @@ func TestClaimStats(t *testing.T) {
 					Path:      "/lustre/scratch123/humgen/a/c/",
 					ClaimedBy: userB,
 					Group:     firstGroup.Name,
-					BackupStatus: []*ibackup.SetBackupActivity{
+					BackupStatus: []ibackup.SetBackupActivity{
 						{
 							Name:      "manualSetName",
 							Requester: userB,
@@ -186,7 +187,7 @@ func TestClaimStats(t *testing.T) {
 		})
 	})
 
-	Convey("With a configured backend with NFS rules", t, func() {
+	Convey("With a configured backend, a wrstat client and NFS rules", t, func() {
 		var u userHandler
 
 		testDB, _ := plandb.PopulateBigExamplePlanDB(t)
@@ -237,7 +238,11 @@ func TestClaimStats(t *testing.T) {
 			err = json.NewDecoder(strings.NewReader(resp)).Decode(&claimstatsA)
 			So(err, ShouldBeNil)
 
-			So(claimstatsA[0].BackupStatus, ShouldResemble, []*ibackup.SetBackupActivity{
+			for i, item := range claimstatsA {
+				fmt.Println(i, item.BackupStatus)
+			}
+
+			So(claimstatsA[0].BackupStatus, ShouldResemble, []ibackup.SetBackupActivity{
 				{
 					Name:      "/lustre/scratch123/humgen/a/",
 					Requester: "root",
@@ -246,6 +251,5 @@ func TestClaimStats(t *testing.T) {
 			},
 			)
 		})
-
 	})
 }

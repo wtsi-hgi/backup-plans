@@ -323,7 +323,7 @@ func TestReport(t *testing.T) {
 						"/lustre/scratch123/humgen/a/b/newdir/": {4, 5},
 						"/lustre/scratch123/humgen/a/c/":        {3, 6},
 					},
-					BackupStatus: map[string]*ibackup.SetBackupActivity{
+					BackupStatus: map[string]ibackup.SetBackupActivity{
 						"/lustre/scratch123/humgen/a/b/": {
 							Name:      setNamePrefix + "/lustre/scratch123/humgen/a/b/",
 							Requester: "userA",
@@ -362,7 +362,9 @@ func TestReport(t *testing.T) {
 				So(bs, ShouldNotBeNil)
 				So(bs.LastSuccess, ShouldHappenAfter, beforeTrigger)
 
-				gotSummary.BackupStatus["/lustre/scratch123/humgen/a/c/"].LastSuccess = time.Time{}
+				s := gotSummary.BackupStatus["/lustre/scratch123/humgen/a/c/"]
+				s.LastSuccess = time.Time{}
+				gotSummary.BackupStatus["/lustre/scratch123/humgen/a/c/"] = s
 
 				So(gotSummary, ShouldResemble, expectedSummary)
 			})

@@ -28,6 +28,7 @@ package backend
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"slices"
@@ -44,7 +45,7 @@ type summary struct {
 	Summaries             map[string]*ruletree.DirSummary
 	Rules                 map[uint64]*db.Rule
 	Directories           map[string][]uint64
-	BackupStatus          map[string]*ibackup.SetBackupActivity
+	BackupStatus          map[string]ibackup.SetBackupActivity
 	GroupBackupTypeTotals map[string]map[int]*SizeCount
 }
 
@@ -92,7 +93,7 @@ func (s *Server) summary(w http.ResponseWriter, _ *http.Request) error {
 		Summaries:             make(map[string]*ruletree.DirSummary, len(reportingRoots)),
 		Rules:                 make(map[uint64]*db.Rule),
 		Directories:           make(map[string][]uint64),
-		BackupStatus:          make(map[string]*ibackup.SetBackupActivity),
+		BackupStatus:          make(map[string]ibackup.SetBackupActivity),
 		GroupBackupTypeTotals: make(map[string]map[int]*SizeCount),
 	}
 
@@ -136,20 +137,20 @@ func (s *Server) populateIbackupStatus(dirClaims map[string]string, dirSummary *
 	}
 }
 
-func (s *Server) getIBackupBackupStatus(planName, dir, claimedBy string) *ibackup.SetBackupActivity {
-	sba, err := s.config.GetCachedIBackupClient().GetBackupActivity(dir, planName, claimedBy, false)
+func (s *Server) getIBackupBackupStatus(planName, dir, claimedBy string) ibackup.SetBackupActivity {
+	sbaPtr, err := s.config.GetCachedIBackupClient().GetBackupActivity(dir, planName, claimedBy, false)
 	if err != nil {
 		slog.Error("error querying ibackup status", "dir", dir, "err", err)
 	}
 
-	if sba == nil {
-		sba = &ibackup.SetBackupActivity{
-			Name:      planName,
-			Requester: claimedBy,
-		}
+	if sbaPtr != nil {
+		return *sbaPtr
 	}
 
-	return sba
+	return ibackup.SetBackupActivity{
+		Name:      planName,
+		Requester: claimedBy,
+	}
 }
 
 func (s *Server) populateManualIBackupStatus(manualIbackup map[string][]dirSet, dirSummary *summary) {
@@ -161,21 +162,21 @@ func (s *Server) populateManualIBackupStatus(manualIbackup map[string][]dirSet, 
 	}
 }
 
-func (s *Server) getManualIBackupStatus(dirSet dirSet, claimedBy string) *ibackup.SetBackupActivity {
-	sba, err := s.config.GetCachedIBackupClient().GetBackupActivity(dirSet.dir, dirSet.set, claimedBy, true)
+func (s *Server) getManualIBackupStatus(dirSet dirSet, claimedBy string) ibackup.SetBackupActivity {
+	sbaPtr, err := s.config.GetCachedIBackupClient().GetBackupActivity(dirSet.dir, dirSet.set, claimedBy, true)
 	if err != nil {
 		slog.Error("error querying manual ibackup status",
 			"dir", dirSet.dir, "claimedBy", claimedBy, "set", dirSet.set, "err", err)
 	}
 
-	if sba == nil {
-		sba = &ibackup.SetBackupActivity{
-			Name:      dirSet.set,
-			Requester: claimedBy,
-		}
+	if sbaPtr != nil {
+		return *sbaPtr
 	}
 
-	return sba
+	return ibackup.SetBackupActivity{
+		Name:      dirSet.set,
+		Requester: claimedBy,
+	}
 }
 
 func (s *Server) populateGitBackupStatus(repos map[string]string, dirSummary *summary) {
@@ -184,13 +185,13 @@ func (s *Server) populateGitBackupStatus(repos map[string]string, dirSummary *su
 	}
 }
 
-func (s *Server) getGitBackupStatus(repo, claimedBy string) *ibackup.SetBackupActivity {
+func (s *Server) getGitBackupStatus(repo, claimedBy string) ibackup.SetBackupActivity {
 	t, err := s.gitCache.GetLatestCommitDate(repo)
 	if err != nil {
 		slog.Error("error querying repo status", "repo", repo, "err", err)
 	}
 
-	return &ibackup.SetBackupActivity{
+	return ibackup.SetBackupActivity{
 		LastSuccess: t,
 		Name:        repo,
 		Requester:   claimedBy,
@@ -200,19 +201,20 @@ func (s *Server) getGitBackupStatus(repo, claimedBy string) *ibackup.SetBackupAc
 
 func (s *Server) populateNFSStatus(paths map[string]string, dirSummary *summary) {
 	for path, claimedBy := range paths {
-		sba := s.getNFSStatus(path, claimedBy)
-
-		if sba != nil {
-			dirSummary.BackupStatus[path] = sba
+		sba, err := s.getNFSStatus(path, claimedBy)
+		if err != nil {
+			continue
 		}
+
+		dirSummary.BackupStatus[path] = sba
 	}
 }
 
-func (s *Server) getNFSStatus(path, claimedBy string) *ibackup.SetBackupActivity {
+func (s *Server) getNFSStatus(path, claimedBy string) (ibackup.SetBackupActivity, error) {
 	client := s.config.GetWRStatClient()
 	if client == nil {
-
-		return nil
+		fmt.Println("client is nil :( ")
+		return ibackup.SetBackupActivity{}, errors.New("no wrstat client")
 	}
 
 	t, err := client.GetWRStatModTime(path)
@@ -220,12 +222,12 @@ func (s *Server) getNFSStatus(path, claimedBy string) *ibackup.SetBackupActivity
 		slog.Error("error querying wrstat status", "path", path, "err", err)
 	}
 
-	return &ibackup.SetBackupActivity{
+	return ibackup.SetBackupActivity{
 		LastSuccess: t,
 		Name:        path,
 		Requester:   claimedBy,
 		Failures:    -1,
-	}
+	}, nil
 }
 
 func (s *Server) collectBackupTotals(dirSummary *summary) error {

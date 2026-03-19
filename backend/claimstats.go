@@ -46,7 +46,7 @@ type DirStats struct {
 	Path         string
 	ClaimedBy    string
 	Group        string
-	BackupStatus []*ibackup.SetBackupActivity
+	BackupStatus []ibackup.SetBackupActivity
 	RuleStats    []ruleStats
 }
 
@@ -138,8 +138,8 @@ func (s *Server) generateDirStats(dir *Directory, dirSummary *ruletree.DirSummar
 	}
 }
 
-func (s *Server) gatherSBAs(dir *Directory, dirSummary *ruletree.DirSummary) []*ibackup.SetBackupActivity { //nolint:gocyclo,lll
-	sbas := make([]*ibackup.SetBackupActivity, 0, len(dirSummary.RuleSummaries))
+func (s *Server) gatherSBAs(dir *Directory, dirSummary *ruletree.DirSummary) []ibackup.SetBackupActivity { //nolint:gocyclo,lll
+	sbas := make([]ibackup.SetBackupActivity, 0, len(dirSummary.RuleSummaries))
 
 	for _, ruleSummary := range dirSummary.RuleSummaries {
 		rule := s.rules[ruleSummary.ID]
@@ -160,7 +160,10 @@ func (s *Server) gatherSBAs(dir *Directory, dirSummary *ruletree.DirSummary) []*
 		case db.BackupManualGit:
 			sbas = append(sbas, s.getGitBackupStatus(rule.Metadata, requester))
 		case db.BackupManualNFS:
-			sbas = append(sbas, s.getNFSStatus(dir.Path, requester))
+			sba, err := s.getNFSStatus(dir.Path, requester)
+			if err == nil {
+				sbas = append(sbas, sba)
+			}
 		}
 	}
 
