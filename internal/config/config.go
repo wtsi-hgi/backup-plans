@@ -1,6 +1,7 @@
 package config
 
 import (
+	"log/slog"
 	"sync"
 	"testing"
 	"unsafe"
@@ -43,7 +44,11 @@ func NewConfig(t *testing.T, boms, owners map[string][]string, rr []string, ag u
 	sc.rr = rr
 	sc.ag = ag
 
+	d := slog.Default()
+	slog.SetDefault(slog.New(slog.DiscardHandler))
+
 	Reset(func() {
+		slog.SetDefault(d)
 		mc.Stop()
 		sc.cc.Stop()
 	})
