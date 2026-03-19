@@ -237,7 +237,7 @@ func (s *Server) getMainProgrammes(w http.ResponseWriter, _ *http.Request) error
 	return json.NewEncoder(w).Encode(s.config.GetMainProgrammes())
 }
 
-func (s *Server) refreezer(ctx context.Context) { //nolint:gocognit,gocyclo
+func (s *Server) refreezer(ctx context.Context) {
 	for {
 		select {
 		case <-time.After(10 * time.Minute): //nolint:mnd
@@ -245,25 +245,27 @@ func (s *Server) refreezer(ctx context.Context) { //nolint:gocognit,gocyclo
 			return
 		}
 
-		client := s.config.GetCachedIBackupClient()
-
 		s.rulesMu.Lock()
+		s.refreezeUpdatedDirectories()
+		s.rulesMu.Unlock()
+	}
+}
 
-		for _, dir := range s.dirs {
-			if dir.Melt == 0 {
-				continue
-			}
+func (s *Server) refreezeUpdatedDirectories() {
+	client := s.config.GetCachedIBackupClient()
 
-			ba, err := client.GetBackupActivity(dir.Path, setNamePrefix+dir.Path, dir.ClaimedBy, false)
-			if err != nil || !ba.LastSuccess.After(time.Unix(dir.Melt, 0)) {
-				continue
-			}
-
-			if err := s.rulesDB.Refreeze(dir); err != nil {
-				slog.Error("error refreezing directory", "path", dir.Path, "err", err)
-			}
+	for _, dir := range s.dirs {
+		if dir.Melt == 0 {
+			continue
 		}
 
-		s.rulesMu.Unlock()
+		ba, err := client.GetBackupActivity(dir.Path, setNamePrefix+dir.Path, dir.ClaimedBy, false)
+		if err != nil || !ba.LastSuccess.After(time.Unix(dir.Melt, 0)) {
+			continue
+		}
+
+		if err := s.rulesDB.Refreeze(dir); err != nil {
+			slog.Error("error refreezing directory", "path", dir.Path, "err", err)
+		}
 	}
 }

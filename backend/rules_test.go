@@ -399,42 +399,44 @@ ibackupcacheduration: 3600`,
 
 			So(s.AddTree(treeFile), ShouldBeNil)
 
-			now := time.Now().Unix()
+			Convey("You can temporarily thaw a backup set to get it to overwrite existing files", func() {
+				now := time.Now().Unix()
 
-			So(s.directoryRules["/lustre/scratch123/humgen/a/b/"].Melt, ShouldEqual, 0)
+				So(s.directoryRules["/lustre/scratch123/humgen/a/b/"].Melt, ShouldEqual, 0)
 
-			code, resp := getResponse(s.SetDirDetails, "/api/setDetails", url.Values{"dir": {"/lustre/scratch123/humgen/a/b/"}, "frequency": {"1"}, "review": {strconv.FormatInt(now+1000, 10)}, "remove": {strconv.FormatInt(now+2000, 10)}, "frozen": {"true"}, "meltToggle": {"true"}}) //nolint:lll
-			So(resp, ShouldBeBlank)
-			So(code, ShouldEqual, http.StatusNoContent)
+				code, resp := getResponse(s.SetDirDetails, "/api/setDetails", url.Values{"dir": {"/lustre/scratch123/humgen/a/b/"}, "frequency": {"1"}, "review": {strconv.FormatInt(now+1000, 10)}, "remove": {strconv.FormatInt(now+2000, 10)}, "frozen": {"true"}, "meltToggle": {"true"}}) //nolint:lll
+				So(resp, ShouldBeBlank)
+				So(code, ShouldEqual, http.StatusNoContent)
 
-			So(s.directoryRules["/lustre/scratch123/humgen/a/b/"].Melt, ShouldBeGreaterThanOrEqualTo, now)
+				So(s.directoryRules["/lustre/scratch123/humgen/a/b/"].Melt, ShouldBeGreaterThanOrEqualTo, now)
 
-			ns, err := New(testDB, u.getUser, c)
-			So(err, ShouldBeNil)
-			So(ns.directoryRules["/lustre/scratch123/humgen/a/b/"].Melt, ShouldBeGreaterThanOrEqualTo, now)
+				ns, err := New(testDB, u.getUser, c)
+				So(err, ShouldBeNil)
+				So(ns.directoryRules["/lustre/scratch123/humgen/a/b/"].Melt, ShouldBeGreaterThanOrEqualTo, now)
 
-			ns.stop()
+				ns.stop()
 
-			fofnPath := filepath.Join(fofnDir, (&set.Set{Requester: "userA", Name: setNamePrefix + "/lustre/scratch123/humgen/a/b/"}).ID()) //nolint:lll
+				fofnPath := filepath.Join(fofnDir, (&set.Set{Requester: "userA", Name: setNamePrefix + "/lustre/scratch123/humgen/a/b/"}).ID()) //nolint:lll
 
-			So(os.MkdirAll(fofnPath, 0700), ShouldBeNil)
-			So(fofn.WriteConfig(fofnPath, fofn.SubDirConfig{
-				Transformer: "prefix=/:/",
-				Freeze:      true,
-				Requester:   "userA",
-				Name:        setNamePrefix + "/lustre/scratch123/humgen/a/b/",
-			}), ShouldBeNil)
-			So(os.WriteFile(filepath.Join(fofnPath, "status"), nil, 0600), ShouldBeNil)
+				So(os.MkdirAll(fofnPath, 0700), ShouldBeNil)
+				So(fofn.WriteConfig(fofnPath, fofn.SubDirConfig{
+					Transformer: "prefix=/:/",
+					Freeze:      true,
+					Requester:   "userA",
+					Name:        setNamePrefix + "/lustre/scratch123/humgen/a/b/",
+				}), ShouldBeNil)
+				So(os.WriteFile(filepath.Join(fofnPath, "status"), nil, 0600), ShouldBeNil)
 
-			time.Sleep(61 * time.Minute)
+				time.Sleep(61 * time.Minute)
 
-			So(s.directoryRules["/lustre/scratch123/humgen/a/b/"].Melt, ShouldEqual, 0)
+				So(s.directoryRules["/lustre/scratch123/humgen/a/b/"].Melt, ShouldEqual, 0)
 
-			ns, err = New(testDB, u.getUser, c)
-			So(err, ShouldBeNil)
-			So(ns.directoryRules["/lustre/scratch123/humgen/a/b/"].Melt, ShouldEqual, 0)
+				ns, err = New(testDB, u.getUser, c)
+				So(err, ShouldBeNil)
+				So(ns.directoryRules["/lustre/scratch123/humgen/a/b/"].Melt, ShouldEqual, 0)
 
-			ns.stop()
+				ns.stop()
+			})
 		})
 	})
 }
