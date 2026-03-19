@@ -86,6 +86,11 @@
     margin: 40px auto;
 }
 
+.tooltip svg {
+    width: 1.5em;
+    height: 1.5em;
+}
+
 @keyframes spin {
     to {
         transform: rotate(360deg);

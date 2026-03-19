@@ -134,7 +134,7 @@ class ParentSummary extends Summary {
 					th("Claimed By"),
 					th("Backup Name"),
 					th("Last Backup"),
-					th("Failures")
+					th("Status")
 				])),
 				tbody(this.backups.size ? [
 					Array.from(this.backups).map(([path, backups]) => Array.from(backups).map(backup => tr([
@@ -220,15 +220,6 @@ class ChildSummary extends Summary {
 }
 
 const groupList = datalist({ "id": "groupList" }),
-	// ibackupStatusColumns = [
-	// 	"Uploaded",
-	// 	"Replaced",
-	// 	"Missing",
-	// 	"Failures",
-	// 	"Orphaned",
-	// 	"Hardlinks",
-	// 	"Skipped"
-	// ] as const,
 	base = div({ "id": "report" }, groupList),
 	initFilterSort = (container: HTMLDivElement, children: HTMLFieldSetElement[], [filterProject, filterAll, filterR, filterA, filterG, filterB, sortName, sortWarnSize, sortNoBackupSize, sortBackupSize]: [HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement]) => {
 		const projects = children.map(child => ({
