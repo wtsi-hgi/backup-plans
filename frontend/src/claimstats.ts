@@ -1,7 +1,7 @@
 import { div, h2, p, button, table, thead, tbody, th, td, tr, fieldset, legend, input, datalist, option } from "./lib/html.js";
 import { getClaimStats, user } from "./rpc.js";
 import { formatBytes, longAgoStr, createSpinner } from "./lib/utils.js";
-import { BackupType } from "./consts.js";
+import { BackupType, ibackupStatusColumns } from "./consts.js";
 import { load } from './load.js';
 import { amendNode, clearNode } from "./lib/dom.js";
 import { users, groups, bomSet } from './userGroups.js';
@@ -92,7 +92,8 @@ function createClaimStatsSection() {
                             tr([
                                 td(sba.Name),
                                 td(sba.LastSuccess === "0001-01-01T00:00:00Z" ? "Pending" : longAgoStr(sba.LastSuccess)),
-                                td(sba.Failures === -1 ? "N/A" : sba.Failures.toLocaleString())
+                                // td(sba.Failures === -1 ? "N/A" : sba.Failures.toLocaleString())
+                                td({ "class": "tooltip", "data-tooltip": ibackupStatusColumns.filter(c => sba[c]).map(c => `${c}: ${sba[c].toLocaleString()}`).join("\n") || false }, sba.Failures.toLocaleString())
                             ])
                         ]) : tr(td({ "colspan": "3" }, "No backup sets.")))
                     ])

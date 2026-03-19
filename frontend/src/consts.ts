@@ -108,3 +108,13 @@ export class BackupType extends Number {
 }
 
 export const MainProgrammes = ["All"].concat(await getMainProgrammes());
+
+export const ibackupStatusColumns = [
+    "Uploaded",
+    "Replaced",
+    "Missing",
+    "Failures",
+    "Orphaned",
+    "Hardlinks",
+    "Skipped"
+] as const;

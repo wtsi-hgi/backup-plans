@@ -5,7 +5,7 @@ import { a, br, button, datalist, details, div, fieldset, h1, h2, input, label, 
 import { svg, title, use } from "./lib/svg.js";
 import { action, formatBytes, longAgo, secondsInWeek, setAndReturn, splitLongPath, stringSort, createSpinner } from "./lib/utils.js";
 import { getReportSummary } from "./rpc.js";
-import { BackupType, MainProgrammes } from "./consts.js";
+import { BackupType, MainProgrammes, ibackupStatusColumns } from "./consts.js";
 import { render } from "./disktree.js";
 import { load } from './load.js';
 import ODS from './odf.js';
@@ -220,15 +220,15 @@ class ChildSummary extends Summary {
 }
 
 const groupList = datalist({ "id": "groupList" }),
-	ibackupStatusColumns = [
-		"Uploaded",
-		"Replaced",
-		"Missing",
-		"Failures",
-		"Orphaned",
-		"Hardlinks",
-		"Skipped"
-	] as const,
+	// ibackupStatusColumns = [
+	// 	"Uploaded",
+	// 	"Replaced",
+	// 	"Missing",
+	// 	"Failures",
+	// 	"Orphaned",
+	// 	"Hardlinks",
+	// 	"Skipped"
+	// ] as const,
 	base = div({ "id": "report" }, groupList),
 	initFilterSort = (container: HTMLDivElement, children: HTMLFieldSetElement[], [filterProject, filterAll, filterR, filterA, filterG, filterB, sortName, sortWarnSize, sortNoBackupSize, sortBackupSize]: [HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement]) => {
 		const projects = children.map(child => ({
