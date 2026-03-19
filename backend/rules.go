@@ -345,7 +345,7 @@ func (s *Server) SetDirDetails(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.setDirDetails)
 }
 
-func (s *Server) setDirDetails(_ http.ResponseWriter, r *http.Request) error { //nolint:funlen
+func (s *Server) setDirDetails(_ http.ResponseWriter, r *http.Request) error { //nolint:funlen,gocognit,gocyclo
 	dir, err := getDir(r)
 	if err != nil {
 		return err
@@ -379,7 +379,7 @@ func (s *Server) setDirDetails(_ http.ResponseWriter, r *http.Request) error { /
 	directory.RemoveDate = dDetails.RemoveDate
 	directory.Frozen = dDetails.Frozen
 
-	if dDetails.ToggleMelt {
+	if dDetails.ToggleMelt { //nolint:nestif
 		if directory.Melt == 0 {
 			directory.Melt = time.Now().Unix()
 		} else {
@@ -420,7 +420,7 @@ type dirDetails struct {
 	ToggleMelt bool  `json:",omitzero"`
 }
 
-func getDirDetails(r *http.Request) (dirDetails, error) {
+func getDirDetails(r *http.Request) (dirDetails, error) { //nolint:gocyclo,funlen
 	frequencyStr := r.FormValue("frequency")
 	reviewStr := r.FormValue("review")
 	removeStr := r.FormValue("remove")

@@ -237,10 +237,10 @@ func (s *Server) getMainProgrammes(w http.ResponseWriter, _ *http.Request) error
 	return json.NewEncoder(w).Encode(s.config.GetMainProgrammes())
 }
 
-func (s *Server) refreezer(ctx context.Context) {
+func (s *Server) refreezer(ctx context.Context) { //nolint:gocognit,gocyclo
 	for {
 		select {
-		case <-time.After(10 * time.Minute):
+		case <-time.After(10 * time.Minute): //nolint:mnd
 		case <-ctx.Done():
 			return
 		}
@@ -255,11 +255,7 @@ func (s *Server) refreezer(ctx context.Context) {
 			}
 
 			ba, err := client.GetBackupActivity(dir.Path, setNamePrefix+dir.Path, dir.ClaimedBy, false)
-			if err != nil {
-				continue
-			}
-
-			if !ba.LastSuccess.After(time.Unix(dir.Melt, 0)) {
+			if err != nil || !ba.LastSuccess.After(time.Unix(dir.Melt, 0)) {
 				continue
 			}
 

@@ -345,7 +345,7 @@ type clientWrapper struct {
 
 type frozenTest map[string]bool
 
-func (f frozenTest) Backup(path, _, _ string, _ []string, _ int, frozen bool, _, _ int64) error {
+func (f frozenTest) Backup(path, _, _ string, _ []string, _ int, frozen bool, _, _ int64) error { //nolint:unparam
 	f[path] = frozen
 
 	return nil

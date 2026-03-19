@@ -186,6 +186,7 @@ type backupClient interface {
 
 func addFofnsToIBackup(client backupClient, setFofns map[*db.Directory][]string) ([]SetInfo, error) {
 	backupSetInfos := make([]SetInfo, 0, len(setFofns))
+
 	var errs error
 
 	for setInfo, fofns := range setFofns {

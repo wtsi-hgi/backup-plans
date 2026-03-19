@@ -284,7 +284,6 @@ func TestRules(t *testing.T) {
 					nil,
 				)
 				checkErrorResponse(t, code, resp, ErrNoRule)
-
 			})
 		})
 
@@ -404,7 +403,7 @@ ibackupcacheduration: 3600`,
 
 			So(s.directoryRules["/lustre/scratch123/humgen/a/b/"].Melt, ShouldEqual, 0)
 
-			code, resp := getResponse(s.SetDirDetails, "/api/setDetails", url.Values{"dir": {"/lustre/scratch123/humgen/a/b/"}, "frequency": {"1"}, "review": {strconv.FormatInt(now+1000, 10)}, "remove": {strconv.FormatInt(now+2000, 10)}, "frozen": {"true"}, "meltToggle": {"true"}})
+			code, resp := getResponse(s.SetDirDetails, "/api/setDetails", url.Values{"dir": {"/lustre/scratch123/humgen/a/b/"}, "frequency": {"1"}, "review": {strconv.FormatInt(now+1000, 10)}, "remove": {strconv.FormatInt(now+2000, 10)}, "frozen": {"true"}, "meltToggle": {"true"}}) //nolint:lll
 			So(resp, ShouldBeBlank)
 			So(code, ShouldEqual, http.StatusNoContent)
 
@@ -416,7 +415,7 @@ ibackupcacheduration: 3600`,
 
 			ns.stop()
 
-			fofnPath := filepath.Join(fofnDir, (&set.Set{Requester: "userA", Name: setNamePrefix + "/lustre/scratch123/humgen/a/b/"}).ID())
+			fofnPath := filepath.Join(fofnDir, (&set.Set{Requester: "userA", Name: setNamePrefix + "/lustre/scratch123/humgen/a/b/"}).ID()) //nolint:lll
 
 			So(os.MkdirAll(fofnPath, 0700), ShouldBeNil)
 			So(fofn.WriteConfig(fofnPath, fofn.SubDirConfig{
