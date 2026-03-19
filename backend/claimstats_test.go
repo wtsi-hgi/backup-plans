@@ -27,7 +27,6 @@ package backend
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"os"
 	"os/user"
@@ -237,10 +236,6 @@ func TestClaimStats(t *testing.T) {
 
 			err = json.NewDecoder(strings.NewReader(resp)).Decode(&claimstatsA)
 			So(err, ShouldBeNil)
-
-			for i, item := range claimstatsA {
-				fmt.Println(i, item.BackupStatus)
-			}
 
 			So(claimstatsA[0].BackupStatus, ShouldResemble, []ibackup.SetBackupActivity{
 				{

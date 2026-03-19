@@ -28,7 +28,6 @@ package backend
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"slices"
@@ -40,6 +39,8 @@ import (
 	"github.com/wtsi-hgi/backup-plans/users"
 	"vimagination.zapto.org/tree"
 )
+
+var ErrNoClient = errors.New("no wrstat client found")
 
 type summary struct {
 	Summaries             map[string]*ruletree.DirSummary
@@ -213,8 +214,7 @@ func (s *Server) populateNFSStatus(paths map[string]string, dirSummary *summary)
 func (s *Server) getNFSStatus(path, claimedBy string) (ibackup.SetBackupActivity, error) {
 	client := s.config.GetWRStatClient()
 	if client == nil {
-		fmt.Println("client is nil :( ")
-		return ibackup.SetBackupActivity{}, errors.New("no wrstat client")
+		return ibackup.SetBackupActivity{}, ErrNoClient
 	}
 
 	t, err := client.GetWRStatModTime(path)
