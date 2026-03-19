@@ -280,7 +280,6 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 		overlay.showModal();
 	},
 	dirDetailOverlay = (path: string, dirDetails: dirDetails) => {
-		console.log(dirDetails)
 		const frequency = input({ "id": "frequency", "type": "number", "min": "0", "value": dirDetails.Frequency + "" }),
 			frozen = input({ "id": "frozen", "type": "checkbox", "checked": dirDetails.Frozen }),
 			toggleThaw = input({ "id": "toggleThaw", "type": "checkbox" }),
