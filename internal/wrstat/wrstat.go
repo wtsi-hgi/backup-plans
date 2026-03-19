@@ -7,7 +7,9 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/smartystreets/goconvey/convey"
 	"github.com/wtsi-hgi/backup-plans/internal/directories"
+	"github.com/wtsi-hgi/backup-plans/internal/plandb"
 	wr "github.com/wtsi-hgi/backup-plans/wrstat"
 	gas "github.com/wtsi-hgi/go-authserver"
 	"github.com/wtsi-hgi/wrstat-ui/basedirs"
@@ -26,10 +28,10 @@ const (
 	dgutaPath           = "dguta.dbs"
 )
 
-func NewTestWRStatClient(t *testing.T, tree *directories.Root) (*wr.Client, func()) { //nolint:gocognit,gocyclop,gocyclo,cyclop,funlen,lll
+func NewTestWRStatClient(t *testing.T, tree *directories.Root) *wr.Client {
 	t.Helper()
 
-	s := summary.NewSummariser(stats.NewStatsParser(tree.AsReader()))
+	s := summary.NewSummariser(stats.NewStatsParser(plandb.ExampleTree().AsReader()))
 
 	tmp := t.TempDir()
 	run := filepath.Join(tmp, "20251225-000000_root")
@@ -38,77 +40,45 @@ func NewTestWRStatClient(t *testing.T, tree *directories.Root) (*wr.Client, func
 
 	t.Setenv("XDG_STATE_HOME", tmp)
 
-	if err := os.MkdirAll(dguta, 0700); err != nil { //nolint:mnd
-		t.Fatal(err)
-	}
-
-	if err := os.WriteFile(owners, nil, 0600); err != nil { //nolint:mnd
-		t.Fatal(err)
-	}
+	So(os.MkdirAll(dguta, 0700), ShouldBeNil)
+	So(os.WriteFile(owners, nil, 0600), ShouldBeNil)
 
 	db := db.NewDB(dguta)
-	if err := db.CreateDB(); err != nil {
-		t.Fatal(err)
-	}
 
-	db.SetBatchSize(100) //nolint:mnd
+	So(db.CreateDB(), ShouldBeNil)
+
+	db.SetBatchSize(100)
 	s.AddDirectoryOperation(dirguta.NewDirGroupUserTypeAge(db))
 
 	bd, err := basedirs.NewCreator(filepath.Join(run, basedirsPath), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	So(err, ShouldBeNil)
 
 	bd.SetMountPoints([]string{"/"})
 	bd.SetModTime(time.Now())
 
-	s.AddDirectoryOperation(
-		sbasedirs.NewBaseDirs(func(*summary.DirectoryPath) bool { return false }, bd),
-	)
+	s.AddDirectoryOperation(sbasedirs.NewBaseDirs(func(*summary.DirectoryPath) bool { return false }, bd))
 
-	if err := s.Summarise(); err != nil { //nolint:govet
-		t.Fatal(err)
-	}
-
-	if err := db.Close(); err != nil { //nolint:govet
-		t.Fatal(err)
-	}
+	So(s.Summarise(), ShouldBeNil)
+	So(db.Close(), ShouldBeNil)
 
 	cert, key, err := gas.CreateTestCert(t)
-	if err != nil {
-		t.Fatal(err)
-	}
+	So(err, ShouldBeNil)
 
 	srv := server.New(io.Discard)
 	srv.WhiteListGroups(func(_ string) bool { return true })
-
-	if err := srv.EnableAuth(cert, key, func(_, _ string) (bool, string) { //nolint:govet
-		return true, "0"
-	}); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := srv.LoadDBs([]string{run}, dgutaPath, basedirsPath, owners, "/"); err != nil { //nolint:govet
-		t.Fatal(err)
-	}
+	So(srv.EnableAuth(cert, key, func(_, _ string) (bool, string) { return true, "0" }), ShouldBeNil)
+	So(srv.LoadDBs([]string{run}, dgutaPath, basedirsPath, owners, "/"), ShouldBeNil)
 
 	addr, dfunc, err := gas.StartTestServer(srv, cert, key)
-	if err != nil {
-		t.Fatal(err)
-	}
+	So(err, ShouldBeNil)
 
 	c, err := gas.NewClientCLI(jwtBasename, serverTokenBasename, addr, cert, false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	So(err, ShouldBeNil)
+	So(c.Login("user", "password"), ShouldBeNil)
 
-	if err := c.Login("user", "password"); err != nil {
-		t.Fatal(err)
-	}
-
-	cleanup := func() {
-		dfunc() //nolint:errcheck
-	}
+	Reset(func() {
+		So(dfunc(), ShouldBeNil)
+	})
 
 	cfg := wr.Config{
 		JWTBasename:         jwtBasename,
@@ -117,7 +87,10 @@ func NewTestWRStatClient(t *testing.T, tree *directories.Root) (*wr.Client, func
 		ServerCert:          cert,
 	}
 
-	client, _ := wr.New(time.Hour, cfg) //nolint:errcheck
+	client, err := wr.New(time.Hour, cfg)
+	So(err, ShouldBeNil)
 
-	return client, cleanup
+	Reset(client.Stop)
+
+	return client
 }

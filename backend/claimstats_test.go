@@ -199,8 +199,7 @@ func TestClaimStats(t *testing.T) {
 		So(tree.Serialise(f, tr), ShouldBeNil)
 		So(f.Close(), ShouldBeNil)
 
-		wrsc, cleanup := wrstat.NewTestWRStatClient(t, tr)
-		defer cleanup()
+		wrsc := wrstat.NewTestWRStatClient(t, tr)
 
 		s, err := New(testDB, u.getUser, config.NewConfig(t, nil, nil, nil, 0, wrsc))
 		So(err, ShouldBeNil)

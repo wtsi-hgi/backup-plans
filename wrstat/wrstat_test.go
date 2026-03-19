@@ -23,111 +23,32 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  ******************************************************************************/
 
-package wrstat
+package wrstat_test
 
 import (
-	"io"
-	"os"
-	"path/filepath"
 	"testing"
-	"time"
 
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/wtsi-hgi/backup-plans/internal/plandb"
-	gas "github.com/wtsi-hgi/go-authserver"
-	"github.com/wtsi-hgi/wrstat-ui/basedirs"
-	"github.com/wtsi-hgi/wrstat-ui/db"
-	"github.com/wtsi-hgi/wrstat-ui/server"
-	"github.com/wtsi-hgi/wrstat-ui/stats"
-	"github.com/wtsi-hgi/wrstat-ui/summary"
-	sbasedirs "github.com/wtsi-hgi/wrstat-ui/summary/basedirs"
-	"github.com/wtsi-hgi/wrstat-ui/summary/dirguta"
-)
-
-const (
-	jwtBasename         = "jwt"
-	serverTokenBasename = "st"
-	basedirsPath        = "basedirs.db"
-	dgutaPath           = "dguta.dbs"
+	"github.com/wtsi-hgi/backup-plans/internal/wrstat"
 )
 
 func TestWRStat(t *testing.T) {
-	Convey("With a wrstat database and server", t, func() {
-		s := summary.NewSummariser(stats.NewStatsParser(plandb.ExampleTree().AsReader()))
+	Convey("With a wrstat database and server and a configured WRStat client", t, func() {
+		client := wrstat.NewTestWRStatClient(t, plandb.ExampleTree())
 
-		tmp := t.TempDir()
-		run := filepath.Join(tmp, "20251225-000000_root")
-		dguta := filepath.Join(run, dgutaPath)
-		owners := filepath.Join(tmp, "owners")
-
-		t.Setenv("XDG_STATE_HOME", tmp)
-
-		So(os.MkdirAll(dguta, 0700), ShouldBeNil)
-		So(os.WriteFile(owners, nil, 0600), ShouldBeNil)
-
-		db := db.NewDB(dguta)
-
-		So(db.CreateDB(), ShouldBeNil)
-
-		db.SetBatchSize(100)
-		s.AddDirectoryOperation(dirguta.NewDirGroupUserTypeAge(db))
-
-		bd, err := basedirs.NewCreator(filepath.Join(run, basedirsPath), nil)
-		So(err, ShouldBeNil)
-
-		bd.SetMountPoints([]string{"/"})
-		bd.SetModTime(time.Now())
-
-		s.AddDirectoryOperation(sbasedirs.NewBaseDirs(func(*summary.DirectoryPath) bool { return false }, bd))
-
-		So(s.Summarise(), ShouldBeNil)
-		So(db.Close(), ShouldBeNil)
-
-		cert, key, err := gas.CreateTestCert(t)
-		So(err, ShouldBeNil)
-
-		srv := server.New(io.Discard)
-		srv.WhiteListGroups(func(_ string) bool { return true })
-		So(srv.EnableAuth(cert, key, func(_, _ string) (bool, string) { return true, "0" }), ShouldBeNil)
-		So(srv.LoadDBs([]string{run}, dgutaPath, basedirsPath, owners, "/"), ShouldBeNil)
-
-		addr, dfunc, err := gas.StartTestServer(srv, cert, key)
-		So(err, ShouldBeNil)
-
-		c, err := gas.NewClientCLI(jwtBasename, serverTokenBasename, addr, cert, false)
-		So(err, ShouldBeNil)
-		So(c.Login("user", "password"), ShouldBeNil)
-
-		Reset(func() {
-			So(dfunc(), ShouldBeNil)
-		})
-
-		Convey("With a configured WRStat client", func() {
-			cfg := Config{
-				JWTBasename:         jwtBasename,
-				ServerTokenBasename: serverTokenBasename,
-				ServerURL:           addr,
-				ServerCert:          cert,
-			}
-
-			client, err := New(time.Hour, cfg)
+		Convey("You can request mtimes", func() {
+			ts, err := client.GetWRStatModTime("/lustre/scratch123/humgen/a/b/")
 			So(err, ShouldBeNil)
+			So(ts.Unix(), ShouldEqual, 98767)
 
-			Reset(client.Stop)
+			ts, err = client.GetWRStatModTime("/lustre/scratch123/humgen//a/b")
+			So(err, ShouldBeNil)
+			So(ts.Unix(), ShouldEqual, 98767)
 
-			Convey("You can request mtimes", func() {
-				ts, err := client.GetWRStatModTime("/lustre/scratch123/humgen/a/b/")
-				So(err, ShouldBeNil)
-				So(ts.Unix(), ShouldEqual, 98767)
-
-				ts, err = client.GetWRStatModTime("/lustre/scratch123/humgen//a/b")
-				So(err, ShouldBeNil)
-				So(ts.Unix(), ShouldEqual, 98767)
-
-				ts, err = client.GetWRStatModTime("/not/a/path/")
-				So(err, ShouldNotBeNil)
-				So(ts, ShouldBeZeroValue)
-			})
+			ts, err = client.GetWRStatModTime("/not/a/path/")
+			So(err, ShouldNotBeNil)
+			So(ts, ShouldBeZeroValue)
 		})
 	})
 }
