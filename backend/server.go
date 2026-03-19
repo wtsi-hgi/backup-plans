@@ -237,84 +237,6 @@ func (s *Server) getMainProgrammes(w http.ResponseWriter, _ *http.Request) error
 	return json.NewEncoder(w).Encode(s.config.GetMainProgrammes())
 }
 
-// Thaw sets the 'Unfreeze' field on the requested directory to the current
-// time, allowing the next backup to update files despite a frozen status.
-func (s *Server) Thaw(w http.ResponseWriter, r *http.Request) {
-	handle(w, r, s.thaw)
-}
-
-func (s *Server) thaw(w http.ResponseWriter, r *http.Request) error {
-	user := s.getUser(r)
-
-	dir, err := getDir(r)
-	if err != nil {
-		return err
-	}
-
-	s.rulesMu.Lock()
-	defer s.rulesMu.Unlock()
-
-	directory, ok := s.directoryRules[dir]
-	if !ok {
-		return ErrDirectoryNotClaimed
-	}
-
-	if directory.ClaimedBy != user {
-		return ErrInvalidUser
-	}
-
-	if !directory.Frozen {
-		return ErrDirectoryNotFrozen
-	}
-
-	if err := s.rulesDB.Thaw(directory.Directory); err != nil {
-		return err
-	}
-
-	w.WriteHeader(http.StatusNoContent)
-
-	return nil
-}
-
-// Refreeze unsets the 'Unfreeze' field on the requested directory, restoring
-// the normal frozen status.
-func (s *Server) Refreeze(w http.ResponseWriter, r *http.Request) {
-	handle(w, r, s.refreeze)
-}
-
-func (s *Server) refreeze(w http.ResponseWriter, r *http.Request) error {
-	user := s.getUser(r)
-
-	dir, err := getDir(r)
-	if err != nil {
-		return err
-	}
-
-	s.rulesMu.Lock()
-	defer s.rulesMu.Unlock()
-
-	directory, ok := s.directoryRules[dir]
-	if !ok {
-		return ErrDirectoryNotClaimed
-	}
-
-	if directory.ClaimedBy != user {
-		return ErrInvalidUser
-	}
-
-	if directory.Unfreeze.Unix() == 0 {
-		return ErrAlreadyFrozen
-	}
-
-	if err := s.rulesDB.Refreeze(directory.Directory); err != nil {
-		return err
-	}
-
-	w.WriteHeader(http.StatusNoContent)
-
-	return nil
-}
-
 func (s *Server) refreezer(ctx context.Context) {
 	for {
 		select {
@@ -328,7 +250,7 @@ func (s *Server) refreezer(ctx context.Context) {
 		s.rulesMu.Lock()
 
 		for _, dir := range s.dirs {
-			if dir.Unfreeze.IsZero() {
+			if dir.Melt == 0 {
 				continue
 			}
 
@@ -337,7 +259,7 @@ func (s *Server) refreezer(ctx context.Context) {
 				continue
 			}
 
-			if !ba.LastSuccess.After(dir.Unfreeze) {
+			if !ba.LastSuccess.After(time.Unix(dir.Melt, 0)) {
 				continue
 			}
 

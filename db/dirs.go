@@ -38,7 +38,7 @@ type Directory struct {
 	RemoveDate int64
 	Frequency  uint
 	Frozen     bool
-	Unfreeze   time.Time
+	Melt       int64
 
 	Created, Modified int64
 }
@@ -84,8 +84,6 @@ func (d *DBRO) ReadDirectories() *IterErr[*Directory] {
 func scanDirectory(scanner scanner) (*Directory, error) {
 	dir := new(Directory)
 
-	var unfreeze int64
-
 	if err := scanner.Scan(
 		&dir.id,
 		&dir.Path,
@@ -94,14 +92,12 @@ func scanDirectory(scanner scanner) (*Directory, error) {
 		&dir.Frozen,
 		&dir.ReviewDate,
 		&dir.RemoveDate,
-		&unfreeze,
+		&dir.Melt,
 		&dir.Created,
 		&dir.Modified,
 	); err != nil {
 		return nil, err
 	}
-
-	dir.Unfreeze = time.Unix(unfreeze, 0)
 
 	return dir, nil
 }
@@ -111,7 +107,7 @@ func (d *DB) UpdateDirectory(dir *Directory) error {
 	dir.Modified = time.Now().Unix()
 
 	return d.exec(updateDirectory, dir.ClaimedBy, dir.Modified, dir.Frequency,
-		dir.Frozen, dir.ReviewDate, dir.RemoveDate, dir.id)
+		dir.Frozen, dir.Melt, dir.ReviewDate, dir.RemoveDate, dir.id)
 }
 
 // RemoveDirectory will remove the given Directory from the database.
@@ -119,20 +115,14 @@ func (d *DB) RemoveDirectory(dir *Directory) error {
 	return d.exec(deleteDirectory, dir.id)
 }
 
-func (d *DB) Thaw(dir *Directory) error {
-	return d.setDirFreezeTime(dir, time.Now().Truncate(time.Second))
-}
-
-func (d *DB) setDirFreezeTime(dir *Directory, t time.Time) error {
-	if err := d.exec(setDirectoryFreeze, t.Unix(), dir.id); err != nil {
+// Refreeze resets the 'thaw' column to after a successful backup has been
+// detected.
+func (d *DB) Refreeze(dir *Directory) error {
+	if err := d.exec(refreezeDirectory, dir.id); err != nil {
 		return err
 	}
 
-	dir.Unfreeze = t
+	dir.Melt = 0
 
 	return nil
-}
-
-func (d *DB) Refreeze(dir *Directory) error {
-	return d.setDirFreezeTime(dir, time.Unix(0, 0))
 }

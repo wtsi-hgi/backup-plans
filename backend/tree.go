@@ -155,6 +155,7 @@ func (s *Server) tree(w http.ResponseWriter, r *http.Request) error { //nolint:f
 			Frozen:     dirRules.Frozen,
 			ReviewDate: dirRules.ReviewDate,
 			RemoveDate: dirRules.RemoveDate,
+			Melt:       dirRules.Melt,
 		}
 
 		for _, rule := range dirRules.Rules {

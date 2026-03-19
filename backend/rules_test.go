@@ -27,18 +27,25 @@ package backend
 
 import (
 	"net/http"
+	"net/url"
 	"os"
 	"os/user"
 	"path/filepath"
 	"strconv"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	. "github.com/smartystreets/goconvey/convey"
-	"github.com/wtsi-hgi/backup-plans/internal/config"
+	"github.com/wtsi-hgi/backup-plans/config"
+	iconfig "github.com/wtsi-hgi/backup-plans/internal/config"
 	"github.com/wtsi-hgi/backup-plans/internal/directories"
+	"github.com/wtsi-hgi/backup-plans/internal/plandb"
 	"github.com/wtsi-hgi/backup-plans/internal/testdb"
+	"github.com/wtsi-hgi/backup-plans/internal/testirods"
 	"github.com/wtsi-hgi/backup-plans/users"
+	"github.com/wtsi-hgi/ibackup/fofn"
+	"github.com/wtsi-hgi/ibackup/set"
 	"vimagination.zapto.org/tree"
 )
 
@@ -57,7 +64,7 @@ func TestClaimDir(t *testing.T) {
 		user, err := user.Current()
 		So(err, ShouldBeNil)
 
-		s, err := New(testdb.CreateTestDatabase(t), u.getUser, config.NewConfig(t, nil, nil, nil, 0))
+		s, err := New(testdb.CreateTestDatabase(t), u.getUser, iconfig.NewConfig(t, nil, nil, nil, 0))
 		So(err, ShouldBeNil)
 
 		treeDBPath := createTestTree(t)
@@ -206,7 +213,7 @@ func TestRules(t *testing.T) {
 	Convey("With a configured backend", t, func() {
 		u := userHandler(root)
 
-		s, err := New(testdb.CreateTestDatabase(t), u.getUser, config.NewConfig(t, nil, nil, nil, 0))
+		s, err := New(testdb.CreateTestDatabase(t), u.getUser, iconfig.NewConfig(t, nil, nil, nil, 0))
 		So(err, ShouldBeNil)
 
 		treeDBPath := createTestTree(t)
@@ -345,6 +352,90 @@ func TestRules(t *testing.T) {
 					So(resp, ShouldStartWith, `{"Group":"root","RuleSummaries":[{"ID":1,"Users":[{"Name":"`+currUser.Username+`","MTime":36,"Files":1,"Size":35}],"Groups":[{"Name":"`+secondGroup.Name+`","MTime":36,"Files":1,"Size":35}]}],"Children":{},"ClaimedBy":"root","Rules":{"/some/path/ChildDir/Child/":{"1":{"BackupType":`+strconv.Itoa(n)+`,"Metadata":"","Match":"*","Override":false,"Created":`) //nolint:lll
 				})
 			}
+		})
+	})
+}
+
+func TestMelt(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		Convey("Given a configured server with an ibackup server", t, func() {
+			So(testirods.AddPseudoIRODsToolsToPathIfRequired(t), ShouldBeNil)
+
+			u := userHandler("userA")
+
+			testDB, _ := plandb.PopulateExamplePlanDB(t)
+			tr := plandb.ExampleTree()
+
+			treeFile := filepath.Join(t.TempDir(), "tree.db")
+			f, err := os.Create(treeFile)
+			So(err, ShouldBeNil)
+
+			So(tree.Serialise(f, tr), ShouldBeNil)
+			So(f.Close(), ShouldBeNil)
+
+			cfg := filepath.Join(t.TempDir(), "config.yaml")
+			fofnDir := t.TempDir()
+
+			So(os.WriteFile(cfg, []byte(""+
+				`ibackup:
+  servers:
+    "server":
+      fofndir: `+fofnDir+`
+  pathtoserver:
+    ^/:
+      servername: server
+      transformer: prefix=/:/
+ibackupcacheduration: 3600`,
+			), 0600), ShouldBeNil)
+
+			c, err := config.Parse(cfg)
+			So(err, ShouldBeNil)
+
+			s, err := New(testDB, u.getUser, c)
+			So(err, ShouldBeNil)
+
+			Reset(s.stop)
+			Reset(s.config.GetCachedIBackupClient().Stop)
+			Reset(s.config.GetIBackupClient().Stop)
+
+			So(s.AddTree(treeFile), ShouldBeNil)
+
+			now := time.Now().Unix()
+
+			So(s.directoryRules["/lustre/scratch123/humgen/a/b/"].Melt, ShouldEqual, 0)
+
+			code, resp := getResponse(s.SetDirDetails, "/api/setDetails", url.Values{"dir": {"/lustre/scratch123/humgen/a/b/"}, "frequency": {"1"}, "review": {strconv.FormatInt(now+1000, 10)}, "remove": {strconv.FormatInt(now+2000, 10)}, "frozen": {"true"}, "meltToggle": {"true"}})
+			So(resp, ShouldBeBlank)
+			So(code, ShouldEqual, http.StatusNoContent)
+
+			So(s.directoryRules["/lustre/scratch123/humgen/a/b/"].Melt, ShouldBeGreaterThanOrEqualTo, now)
+
+			ns, err := New(testDB, u.getUser, c)
+			So(err, ShouldBeNil)
+			So(ns.directoryRules["/lustre/scratch123/humgen/a/b/"].Melt, ShouldBeGreaterThanOrEqualTo, now)
+
+			ns.stop()
+
+			fofnPath := filepath.Join(fofnDir, (&set.Set{Requester: "userA", Name: setNamePrefix + "/lustre/scratch123/humgen/a/b/"}).ID())
+
+			So(os.MkdirAll(fofnPath, 0700), ShouldBeNil)
+			So(fofn.WriteConfig(fofnPath, fofn.SubDirConfig{
+				Transformer: "prefix=/:/",
+				Freeze:      true,
+				Requester:   "userA",
+				Name:        setNamePrefix + "/lustre/scratch123/humgen/a/b/",
+			}), ShouldBeNil)
+			So(os.WriteFile(filepath.Join(fofnPath, "status"), nil, 0600), ShouldBeNil)
+
+			time.Sleep(61 * time.Minute)
+
+			So(s.directoryRules["/lustre/scratch123/humgen/a/b/"].Melt, ShouldEqual, 0)
+
+			ns, err = New(testDB, u.getUser, c)
+			So(err, ShouldBeNil)
+			So(ns.directoryRules["/lustre/scratch123/humgen/a/b/"].Melt, ShouldEqual, 0)
+
+			ns.stop()
 		})
 	})
 }

@@ -27,7 +27,6 @@ package db
 
 import (
 	"testing"
-	"time"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
@@ -44,17 +43,14 @@ func TestDirs(t *testing.T) {
 				ReviewDate: 1,
 				RemoveDate: 2,
 				Frozen:     true,
-				Unfreeze:   time.Unix(0, 0),
 			}
 			dirB := &Directory{
 				Path:      "/some/other/path/",
 				ClaimedBy: "someone",
-				Unfreeze:  time.Unix(0, 0),
 			}
 			dirC := &Directory{
 				Path:      "/some/path/",
 				ClaimedBy: "exists",
-				Unfreeze:  time.Unix(0, 0),
 			}
 
 			So(db.CreateDirectory(dirA), ShouldBeNil)
@@ -78,20 +74,6 @@ func TestDirs(t *testing.T) {
 			Convey("…and remove them", func() {
 				So(db.RemoveDirectory(dirA), ShouldBeNil)
 				So(collectIter(t, db.ReadDirectories()), ShouldResemble, []*Directory{dirB})
-			})
-
-			Convey("You can thaw and refreeze a directory", func() {
-				So(db.RemoveDirectory(dirB), ShouldBeNil)
-
-				now := time.Now().Truncate(time.Second)
-
-				So(dirA.Unfreeze.Unix(), ShouldBeZeroValue)
-				So(db.Thaw(dirA), ShouldBeNil)
-				So(collectIter(t, db.ReadDirectories()), ShouldResemble, []*Directory{dirA})
-				So(dirA.Unfreeze, ShouldHappenOnOrAfter, now)
-				So(db.Refreeze(dirA), ShouldBeNil)
-				So(collectIter(t, db.ReadDirectories()), ShouldResemble, []*Directory{dirA})
-				So(dirA.Unfreeze.Unix(), ShouldBeZeroValue)
 			})
 		})
 	})
