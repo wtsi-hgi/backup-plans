@@ -48,7 +48,10 @@ type summary struct {
 	GroupBackupTypeTotals map[string]map[int]*SizeCount
 }
 
-const unplanned = -1
+const (
+	unplanned     = -1
+	setNamePrefix = "plan::"
+)
 
 type SizeCount struct {
 	Count uint64 `json:"count"`
@@ -128,7 +131,7 @@ func (s *Server) populateBackupStatus(dirClaims, repos, nfs map[string]string,
 
 func (s *Server) populateIbackupStatus(dirClaims map[string]string, dirSummary *summary) {
 	for dir, claimedBy := range dirClaims {
-		planName := "plan::" + dir
+		planName := setNamePrefix + dir
 		dirSummary.BackupStatus[dir] = s.getIBackupBackupStatus(planName, dir, claimedBy)
 	}
 }

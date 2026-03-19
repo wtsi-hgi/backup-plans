@@ -87,6 +87,14 @@ var (
 		Code: http.StatusBadRequest,
 		Err:  errors.New("no matching rule"), //nolint:err113
 	}
+	ErrDirectoryNotFrozen = Error{
+		Code: http.StatusBadRequest,
+		Err:  errors.New("directory not frozen"), //nolint:err113
+	}
+	ErrAlreadyFrozen = Error{
+		Code: http.StatusBadRequest,
+		Err:  errors.New("directory already frozen"), //nolint:err113
+	}
 )
 
 const (

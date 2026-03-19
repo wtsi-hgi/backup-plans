@@ -83,7 +83,7 @@ func TestClaimStats(t *testing.T) {
 					ClaimedBy: "userA",
 					Group:     firstGroup.Name,
 					BackupStatus: ibackup.SetBackupActivity{
-						Name:      "plan::/lustre/scratch123/humgen/a/b/",
+						Name:      setNamePrefix + "/lustre/scratch123/humgen/a/b/",
 						Requester: userA,
 					},
 					RuleStats: []ruleStats{
@@ -130,7 +130,7 @@ func TestClaimStats(t *testing.T) {
 					ClaimedBy: "userA",
 					Group:     firstGroup.Name,
 					BackupStatus: ibackup.SetBackupActivity{
-						Name:      "plan::/lustre/scratch123/humgen/a/b/",
+						Name:      setNamePrefix + "/lustre/scratch123/humgen/a/b/",
 						Requester: userA,
 					},
 					RuleStats: []ruleStats{

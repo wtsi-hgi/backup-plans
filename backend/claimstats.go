@@ -171,7 +171,7 @@ func (s *Server) gatherSBAs(dirSummary *ruletree.DirSummary) []*ibackup.SetBacku
 
 		switch rule.BackupType { //nolint:exhaustive
 		case db.BackupIBackup:
-			sbas = append(sbas, s.getIBackupBackupStatus("plan::"+dirPath, dirPath, requester))
+			sbas = append(sbas, s.getIBackupBackupStatus(setNamePrefix+dirPath, dirPath, requester))
 		case db.BackupManualIBackup:
 			dirSet := dirSet{dirPath, rule.Metadata}
 			sbas = append(sbas, s.getManualIBackupStatus(dirSet, requester))
