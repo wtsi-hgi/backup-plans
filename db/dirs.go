@@ -25,9 +25,7 @@
 
 package db
 
-import (
-	"time"
-)
+import "time"
 
 // Directory represents a claimed directory that may be given rules.
 type Directory struct {
