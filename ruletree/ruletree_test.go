@@ -368,12 +368,15 @@ func TestRuletree(t *testing.T) {
 
 			r1 := createRule(t, tdb, root, "/path/dir/", "*.txt")
 			So(ruleIDCount(t, root, "/path/dir/"), ShouldResemble, map[uint64]uint64{0: 2, r1: 2})
+			So(ruleIDCount(t, root, "/path/dir/subdir/"), ShouldResemble, map[uint64]uint64{0: 1, r1: 1})
 
 			r2 := createRule(t, tdb, root, "/path/dir/subdir/", "*")
 			So(ruleIDCount(t, root, "/path/dir/"), ShouldResemble, map[uint64]uint64{0: 1, r1: 1, r2: 2})
+			So(ruleIDCount(t, root, "/path/dir/subdir/"), ShouldResemble, map[uint64]uint64{r2: 2})
 
 			RemoveRule(t, tdb, root, "/path/dir/subdir/", "*")
 			So(ruleIDCount(t, root, "/path/dir/"), ShouldResemble, map[uint64]uint64{0: 2, r1: 2})
+			So(ruleIDCount(t, root, "/path/dir/subdir/"), ShouldResemble, map[uint64]uint64{0: 1, r1: 1})
 		})
 
 		Convey("Override wildcard rules are correctly handled in a summary", func() {
@@ -483,6 +486,81 @@ func TestRuletree(t *testing.T) {
 			So(ruleIDCount(t, root, "/lustre/scratch123/humgen/a/c/"), ShouldResemble, map[uint64]uint64{3: 3, 6: 2})
 			So(ruleIDCount(t, root, "/lustre/scratch123/humgen/a/c/newdir/"), ShouldResemble, map[uint64]uint64{3: 2, 6: 1})
 			So(ruleIDCount(t, root, "/lustre/scratch123/humgen/a/d/"), ShouldResemble, map[uint64]uint64{0: 1})
+		})
+
+		Convey("When removing a rule, subdirectories are correctly recalculated", func() {
+			root, err := NewRoot(nil)
+			So(err, ShouldBeNil)
+
+			treeDB := buildTreeDB(t, []string{
+				"/path/dir/a/b/file.txt",
+			})
+
+			treeDBPath := createTree(t, treeDB)
+			_, err = root.AddTree(treeDBPath)
+			So(err, ShouldBeNil)
+
+			So(ruleIDCount(t, root, "/path/dir/a/"), ShouldResemble, map[uint64]uint64{0: 1})
+			So(ruleIDCount(t, root, "/path/dir/a/b/"), ShouldResemble, map[uint64]uint64{0: 1})
+
+			r1 := createRule(t, tdb, root, "/path/dir/a/", "*.txt")
+			So(ruleIDCount(t, root, "/path/dir/a/"), ShouldResemble, map[uint64]uint64{r1: 1})
+			So(ruleIDCount(t, root, "/path/dir/a/b/"), ShouldResemble, map[uint64]uint64{r1: 1})
+
+			RemoveRule(t, tdb, root, "/path/dir/a/", "*.txt")
+			So(ruleIDCount(t, root, "/path/dir/a/"), ShouldResemble, map[uint64]uint64{0: 1})
+			So(ruleIDCount(t, root, "/path/dir/a/b/"), ShouldResemble, map[uint64]uint64{0: 1})
+		})
+
+		Convey("When removing the last rule from a directory, that directory is correctly recalculated", func() {
+			root, err := NewRoot(nil)
+			So(err, ShouldBeNil)
+
+			treeDB := plandb.ExampleTreeBig()
+
+			treeDBPath := createTree(t, treeDB)
+			_, err = root.AddTree(treeDBPath)
+			So(err, ShouldBeNil)
+
+			r1 := createRule(t, tdb, root, "/lustre/scratch123/humgen/a/b/", "*.jpg")
+			r2 := createRule(t, tdb, root, "/lustre/scratch123/humgen/a/b/", "temp.jpg")
+
+			So(ruleIDCount(t, root, "/lustre/scratch123/humgen/a/"), ShouldResemble, map[uint64]uint64{0: 12, r1: 2, r2: 1})
+			So(ruleIDCount(t, root, "/lustre/scratch123/humgen/a/d/"), ShouldResemble, map[uint64]uint64{0: 1})
+
+			r9 := createRule(t, tdb, root, "/lustre/scratch123/humgen/a/d/", "*.txt")
+			So(ruleIDCount(t, root, "/lustre/scratch123/humgen/a/"), ShouldResemble, map[uint64]uint64{0: 11, r1: 2, r2: 1, r9: 1}) //nolint:lll
+			So(ruleIDCount(t, root, "/lustre/scratch123/humgen/a/d/"), ShouldResemble, map[uint64]uint64{r9: 1})
+
+			RemoveRule(t, tdb, root, "/lustre/scratch123/humgen/a/d/", "*.txt")
+			So(ruleIDCount(t, root, "/lustre/scratch123/humgen/a/"), ShouldResemble, map[uint64]uint64{0: 12, r1: 2, r2: 1})
+			So(ruleIDCount(t, root, "/lustre/scratch123/humgen/a/d/"), ShouldResemble, map[uint64]uint64{0: 1})
+		})
+
+		Convey("When removing the last rule from a directory, its ruleless children are recalculated correctly", func() {
+			root, err := NewRoot(nil)
+			So(err, ShouldBeNil)
+
+			treeDB := buildTreeDB(t, []string{
+				"/path/dir/a/this/c/file.txt",
+				"/path/dir/a/another1/d/file.csv",
+			})
+
+			treeDBPath := createTree(t, treeDB)
+			_, err = root.AddTree(treeDBPath)
+			So(err, ShouldBeNil)
+
+			So(ruleIDCount(t, root, "/path/dir/a/"), ShouldResemble, map[uint64]uint64{0: 2})
+			So(ruleIDCount(t, root, "/path/dir/a/this/"), ShouldResemble, map[uint64]uint64{0: 1})
+
+			r1 := createRule(t, tdb, root, "/path/dir/a/this/", "*.txt")
+			r2 := createRule(t, tdb, root, "/path/dir/a/another1/", "*.csv")
+			So(ruleIDCount(t, root, "/path/dir/a/"), ShouldResemble, map[uint64]uint64{r1: 1, r2: 1})
+			So(ruleIDCount(t, root, "/path/dir/a/this/"), ShouldResemble, map[uint64]uint64{r1: 1})
+
+			RemoveRule(t, tdb, root, "/path/dir/a/this/", "*.txt")
+			So(ruleIDCount(t, root, "/path/dir/a/"), ShouldResemble, map[uint64]uint64{0: 1, r2: 1})
+			So(ruleIDCount(t, root, "/path/dir/a/this/"), ShouldResemble, map[uint64]uint64{0: 1})
 		})
 	})
 }

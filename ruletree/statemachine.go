@@ -244,8 +244,6 @@ func (r *RuleTree) Set(path string, rules map[string]*db.Rule, changed bool) { /
 		if !ok { //nolint:nestif
 			if changed && len(rules) == 0 {
 				curr.Dir |= RulesChanged
-
-				return
 			}
 
 			var newDT dirTreeRule
@@ -258,10 +256,12 @@ func (r *RuleTree) Set(path string, rules map[string]*db.Rule, changed bool) { /
 			curr.children[part] = next
 		}
 
-		curr.Dir |= HasChildWithRules
+		if len(rules) > 0 {
+			curr.Dir |= HasChildWithRules
 
-		if changed {
-			curr.Dir |= HasChildWithChangedRules
+			if changed {
+				curr.Dir |= HasChildWithChangedRules
+			}
 		}
 
 		curr = next
@@ -652,8 +652,7 @@ func addRuleToList(rules Rules, path string, rule int64) Rules {
 	})
 }
 
-func addNoRuleRules(rules Rules, path string, dirState dirState,
-	wildcard int64) Rules {
+func addNoRuleRules(rules Rules, path string, dirState dirState, wildcard int64) Rules {
 	process := processRules
 
 	if dirState&RulesChanged != 0 && dirState&HasChildWithRules == 0 && dirState&ParentRulesChanged == 0 {
@@ -672,10 +671,10 @@ func addSimpleWildcardRules(rules Rules, path string, dirState dirState,
 
 		return addRuleToList(rules, path, wildcard)
 	} else if dirState&HasChildWithChangedRules != 0 {
-		return addRuleToList(addRuleToList(rules, path, processRules), path+"*/", -wildcard)
+		return addRuleToList(addRuleToList(rules, path, processRules), path+"*/", -wildcard-1)
 	}
 
-	return addRuleToList(rules, path, -wildcard)
+	return addRuleToList(rules, path, -wildcard-1)
 }
 
 func addSimpleRules(rules Rules, path string, dirState dirState,
@@ -683,10 +682,10 @@ func addSimpleRules(rules Rules, path string, dirState dirState,
 	if dirState&RulesChanged != 0 {
 		return addRuleToList(addRuleToList(rules, path, processRules), path+"*/", wildcard)
 	} else if dirState&HasChildWithChangedRules != 0 {
-		return addRuleToList(addRuleToList(rules, path, processRules), path+"*/", -wildcard)
+		return addRuleToList(addRuleToList(rules, path, processRules), path+"*/", -wildcard-1)
 	}
 
-	return addRuleToList(rules, path, -wildcard)
+	return addRuleToList(rules, path, -wildcard-1)
 }
 
 func addComplexRules(rules Rules, path string, dirState dirState,
@@ -694,7 +693,7 @@ func addComplexRules(rules Rules, path string, dirState dirState,
 	rules = addRuleToList(rules, path, processRules)
 
 	if dirState&RulesChanged == 0 && dirState&ParentRulesChanged == 0 {
-		return addRuleToList(rules, path+"*/", -wildcard)
+		return addRuleToList(rules, path+"*/", -wildcard-1)
 	}
 
 	return addComplexChildRules(rules, path, ruleState, wildcard, rs)
@@ -705,7 +704,7 @@ func addComplexChildRules(rules Rules, path string, ruleState ruleState, //nolin
 	if ruleState&ComplexWildcardWithSuffix != 0 {
 		return addRuleToList(rules, path+"*/", processRules)
 	} else if ruleState&SimpleWildcard != 0 {
-		rules = addRuleToList(rules, path+"*/", -wildcard)
+		rules = addRuleToList(rules, path+"*/", -wildcard-1)
 	}
 
 	todo := map[string]int64{}
@@ -733,10 +732,10 @@ func addComplexWithWildcardRules(rules Rules, path string, dirState dirState,
 	ruleState ruleState, wildcard int64, rs map[string]*db.Rule) Rules {
 	if dirState&RulesChanged == 0 {
 		if dirState&HasChildWithChangedRules != 0 {
-			return addRuleToList(addRuleToList(rules, path, processRules), path+"*/", -wildcard)
+			return addRuleToList(addRuleToList(rules, path, processRules), path+"*/", -wildcard-1)
 		}
 
-		return addRuleToList(rules, path, -wildcard)
+		return addRuleToList(rules, path, -wildcard-1)
 	}
 
 	rules = addRuleToList(rules, path, processRules)

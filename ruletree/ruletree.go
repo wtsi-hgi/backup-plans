@@ -137,13 +137,13 @@ func (f *file) readFrom(lr byteio.MemLittleEndian) {
 //		sub-directory,  passing each file path through the statemachine to
 //		determine the rule matched against.
 //
-//	ID > 0: Read the tree DB summary for a sub-directory and add its summary to
+//	ID >= 0: Read the tree DB summary for a sub-directory and add its summary to
 //		the current directory summary, swapping out the rule number with the ID
 //		on the directory.
 //
-//	ID <= 0: Copy the overlay DB summary for a sub-directory, if it exists, or
+//	ID < 0: Copy the overlay DB summary for a sub-directory, if it exists, or
 //		fall back to the previous category if it does not, negating the
-//		directory ID to get the wildcard ID.
+//		directory ID, and subtracting 1, to get the wildcard ID.
 type ruleProcessor struct {
 	UID, GID uint32
 	Rules    []Rule
@@ -174,8 +174,8 @@ func (r *ruleProcessor) process(lowerNode, upperNode *tree.MemTree, sm State, pw
 
 		if ruleID := *state.GetGroup(); ruleID == processRules { //nolint:nestif
 			r.processDir(name, state, lowerChild, upperChild, &wg)
-		} else if ruleID <= 0 {
-			r.copyUpperOrAddLower(name, -ruleID, lowerChild, upperChild)
+		} else if ruleID < 0 {
+			r.copyUpperOrAddLower(name, -ruleID-1, lowerChild, upperChild)
 		} else {
 			r.addLower(ruleID, lowerChild)
 		}
@@ -253,10 +253,10 @@ func (r *ruleProcessor) mergeChild(child *ruleProcessor) {
 	}
 }
 
-func (r *ruleProcessor) copyUpperOrAddLower(name string, ruleID int64,
+func (r *ruleProcessor) copyUpperOrAddLower(name string, wildcard int64,
 	lowerChild, upperChild *tree.MemTree) {
 	if upperChild == nil {
-		r.addLower(ruleID, lowerChild)
+		r.addLower(wildcard, lowerChild)
 
 		return
 	}

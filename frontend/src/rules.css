@@ -40,8 +40,6 @@ button.actionButton svg {
 
 .summary-header:first-child {
 	list-style: none;
-	padding: 4px 6px;
-	user-select: none;
 	cursor: pointer;
 }
 
@@ -49,7 +47,8 @@ button.actionButton svg {
 	background-color: var(--tableHoverBG);
 }
 
-.summary-header {
+.summary-header,
+.summary-header:first-child {
 	padding: 4px 6px;
 	user-select: none;
 }
@@ -80,8 +79,7 @@ details[open]>summary.summary-header:before {
 
 .rule-badge {
 	color: var(--rule-badge-text);
-	margin-left: 6px;
-	margin-bottom: 4px;
+	margin: 0 0 4px 6px;
 	word-break: keep-all;
 	display: inline-block;
 }
@@ -173,22 +171,6 @@ select:disabled {
 	cursor: not-allowed !important;
 }
 
-.overwrite {
-	color: var(--overwritecolour);
-}
-
-.overwriteDirDetail {
-	color: var(--dirDetailscolour);
-}
-
-.claim {
-	color: var(--claimcolour);
-}
-
-.directory {
-	color: var(--directorycolour);
-}
-
 #addEdit,
 #confirm {
 	background: var(--background);
@@ -235,10 +217,6 @@ select:disabled {
 	padding-left: 1em;
 }
 
-.tooManyFiles {
-	color: var(--overwritecolour);
-}
-
 #fofnKey div {
 	text-align: right;
 }
@@ -253,20 +231,20 @@ select:disabled {
 	margin-bottom: -0.1em;
 }
 
-#fofnKey div:first-child:after {
-	background-color: var(--claimcolour);
+#rulesDetails h2,
+#rulesDetails h3 {
+	text-align: center;
 }
 
-#fofnKey div:nth-child(2):after {
-	background-color: var(--dirDetailscolour);
+#rulesDetails ul {
+	list-style: none;
+	padding: 0;
+	margin: 0;
 }
 
-#fofnKey div:nth-child(3):after {
-	background-color: var(--overwritecolour);
-}
-
-#fofnKey div:nth-child(4):after {
-	background-color: var(--directorycolour);
+#rulesDetails>ul,
+#rulesDetails table {
+	margin-bottom: 1em;
 }
 
 #fofnPaste {
@@ -300,10 +278,6 @@ select:not(:has(option:checked[value="backup"])):not(:has(option:checked[value="
 	padding-right: 1em;
 }
 
-#addEdit {
-	overflow: unset;
-}
-
 .tooltip[data-tooltip]:hover::after {
 	content: attr(data-tooltip);
 	background-color: var(--background);
@@ -323,4 +297,32 @@ select:not(:has(option:checked[value="backup"])):not(:has(option:checked[value="
 	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3,4 h5 l2,3 h11 v13 h-18 z' fill='%23f4b400'/%3E%3C/svg%3E");
 	background-size: 16px 16px;
 	background-repeat: no-repeat;
+}
+
+#ruleEntry {
+	max-height: 10em;
+}
+
+button#uploadButton {
+	margin-left: 0.5em;
+	background: none !important;
+	border: 0;
+	color: var(--colour);
+	padding: 0;
+}
+
+#uploadButton>svg {
+	height: 2.4em;
+	width: 1.6em;
+	padding: 0;
+}
+
+#uploadButton:hover svg {
+	--fill: var(--subtleBorder);
+}
+
+#matchRules {
+	display: flex;
+	align-items: center;
+	width: 100%;
 }

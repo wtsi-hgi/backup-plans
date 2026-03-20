@@ -12,13 +12,13 @@ const debounce = debouncer<void>(),
 
 export const registerLoader = (fn: LoadHandler) => handlers.push(fn),
 	load = (path = lastPath) => {
-		lastPath = path;
-
 		return debounce(() => (setState("path", path), Load(path)).then(data => {
+			lastPath = path;
+
 			for (const fn of handlers) {
 				fn(path, data);
 			}
 		}))
 	};
 
-handleState("path", path => load(path || lastPath));
+handleState("path", path => load(path || lastPath), "/");

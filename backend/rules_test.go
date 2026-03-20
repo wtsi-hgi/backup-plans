@@ -300,6 +300,33 @@ func TestRules(t *testing.T) {
 			})
 		})
 
+		Convey("You can add multiple rules at once", func() {
+			code, resp := getResponse(
+				s.ClaimDir,
+				"/api/dir/claim?dir=/some/path/MyDir/",
+				nil,
+			)
+			So(code, ShouldEqual, http.StatusOK)
+			So(resp, ShouldEqual, "\""+root+"\"\n")
+
+			code, resp = getResponse(
+				s.CreateRule,
+				"/api/rules/create?dir=/some/path/MyDir/&action=backup&match=*.txt&match=*.txt&match=*.jpg&frequency=7&review=100&remove=200", //nolint:lll
+				nil,
+			)
+			So(code, ShouldEqual, http.StatusNoContent)
+			So(resp, ShouldEqual, "")
+
+			code, resp = getResponse(
+				s.Tree,
+				"/api/tree?dir=/some/path/MyDir/",
+				nil,
+			)
+			So(code, ShouldEqual, http.StatusOK)
+			So(resp, ShouldContainSubstring, `{"1":{"BackupType":1,"Metadata":"","Match":"*.jpg",`)
+			So(resp, ShouldContainSubstring, `,"2":{"BackupType":1,"Metadata":"","Match":"*.txt",`)
+		})
+
 		Convey("You can add rules of every type", func() {
 			currUser, err := user.Current()
 			So(err, ShouldBeNil)

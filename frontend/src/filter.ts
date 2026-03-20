@@ -94,7 +94,7 @@ handleState("filterType", v => {
 	filter["type"] = v;
 
 	debounce(loadFiltered);
-});
+}, "none");
 
 handleState("filterNames", v => {
 	if (JSON.stringify(filter["names"]) === v) {
@@ -104,7 +104,7 @@ handleState("filterNames", v => {
 	filter["names"] = JSON.parse(v || "[]");
 
 	debounce(loadFiltered);
-});
+}, "[]");
 
 const users = userGroups.Users.filter(u => u.trim()),
 	groups = userGroups.Groups.filter(g => g.trim());

@@ -1,9 +1,9 @@
-import type { dirDetails, DirectoryWithChildren, Rule } from "./types.js"
+import type { dirDetails, DirectoryWithChildren, Rule, RuleStats } from "./types.js"
 import { clearNode } from "./lib/dom.js";
-import { br, button, dialog, div, form, h2, h3, input, label, option, p, select, table, tbody, td, textarea, th, thead, tr, span } from './lib/html.js';
+import { br, button, dialog, div, form, h2, h3, input, label, option, p, select, table, tbody, td, textarea, th, thead, tr, span, ul, li } from './lib/html.js';
 import { svg, title, use } from './lib/svg.js';
-import { action, confirm, formatBytes, secondsInDay, setAndReturn } from "./lib/utils.js";
-import { createRule, getTree, removeRule, setDirDetails, updateRule, uploadFOFN, setExists, user, getDirectories } from "./rpc.js";
+import { action, confirm, formatBytes, setAndReturn } from "./lib/utils.js";
+import { createRule, removeRule, setDirDetails, updateRule, setExists, user } from "./rpc.js";
 import { BackupType, helpText } from "./consts.js"
 import { load, registerLoader } from "./load.js";
 import { updateClaimStats } from "./claimstats.js";
@@ -21,6 +21,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 		backupSelect = select({
 			"id": "backupType", "change": () => {
 				const backupType = BackupType.from(backupSelect.value);
+
 				metadataLabel.textContent = backupType.metadataLabel();
 				metadataHelpIcon.setAttribute("data-tooltip", backupType.metadataToolTip());
 			}
@@ -37,29 +38,34 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 	] as const;
 },
 	getHelpIcon = (str: string) => span({ "class": "tooltip", "data-tooltip": str }, svg(use({ "href": "#helpIcon" }))),
-	addEditOverlay = (path: string, rule: Rule) => {
-		const [backupType, set, cancel, metadata, metadataSection] = createStuff(rule.BackupType, rule.Metadata, rule.Match ? "Update" : "Add", () => overlay.close()),
-			match = input({ "id": "match", "type": "text", "value": rule.Match, "disabled": !!rule.Match }),
-			override = input({ "id": "override", "type": "checkbox", "checked": rule.Override, "disabled": !!rule.Match }),
-			disableInputs = () => {
-				if (!rule.Match) {
-					set.toggleAttribute("disabled", true);
-					override.toggleAttribute("disabled", true);
-				}
+	verifyMetadata = (dir: string, backupType: string, metadata: string) => {
+		if (!BackupType.from(backupType).isManual()) {
+			return Promise.resolve(true);
+		}
 
+		if (metadata === "") {
+			return Promise.reject({ "message": "Metadata cannot be empty" });
+		}
+
+		if (backupType === "manualibackup") {
+			return setExists(dir, metadata);
+		}
+
+		return Promise.resolve(true);
+	},
+	editOverlay = (path: string, rule: Rule) => {
+		const [backupType, edit, cancel, metadata, metadataSection] = createStuff(rule.BackupType, rule.Metadata, "Update", () => overlay.close()),
+			match = input({ "id": "match", "type": "text", "value": rule.Match, "disabled": true }),
+			override = input({ "id": "override", "type": "checkbox", "checked": rule.Override, "disabled": true }),
+			disableInputs = () => {
 				overlay.setAttribute("closedby", "none");
-				set.toggleAttribute("disabled", true);
+				edit.toggleAttribute("disabled", true);
 				cancel.toggleAttribute("disabled", true);
 				backupType.toggleAttribute("disabled", true);
 			},
 			enableInputs = () => {
-				if (!rule.Match) {
-					set.removeAttribute("disabled");
-					override.removeAttribute("disabled");
-				}
-
 				overlay.setAttribute("closedby", "any");
-				set.removeAttribute("disabled");
+				edit.removeAttribute("disabled");
 				cancel.removeAttribute("disabled");
 				backupType.removeAttribute("disabled");
 			},
@@ -78,7 +84,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 								return;
 							}
 
-							return (rule.Match ? updateRule : createRule)(path, backupType.value, rule.Match || match.value || "*", BackupType.from(backupType.value).isManual() ? metadata.value : "", override.checked)
+							return updateRule(path, backupType.value, rule.Match, BackupType.from(backupType.value).isManual() ? metadata.value : "")
 								.then(() => {
 									load(path);
 									overlay.remove();
@@ -95,74 +101,142 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 				label({ "for": "override" }, "Override Child Rules"), getHelpIcon(helpText.Override), override, br(),
 				label({ "for": "backupType" }, "Backup Type"), getHelpIcon(helpText.BackupType), backupType, br(),
 				metadataSection,
-				set,
+				edit,
 				cancel
 			])));
 
 		overlay.showModal();
 	},
-	addFofnOverlay = (path: string, dirDetails: dirDetails) => {
-		let validTable: FofnTable | null = null;
+	loadFileContents = (file: File) => new Promise<string>(resolve => {
+		const fr = new FileReader();
 
+		fr.onload = () => resolve(fr.result as string);
+
+		fr.readAsText(file);
+	}),
+	processRules = (base: string, contents: string) => Array.from(new Set(contents.split(/\r?\n/).filter(l => l && !l.startsWith("#")).map(line => {
+		const parts: string[] = [];
+
+		for (const part of line.split("/")) {
+			switch (part) {
+				case ".":
+				case "":
+					break;
+				case "..":
+					if (parts.length && parts.at(-1) != "..") {
+						parts.pop();
+
+						break;
+					}
+				default:
+					parts.push(part);
+			}
+		}
+
+		line = (line.startsWith("/") ? "/" : "") + parts.join("/");
+
+		if (line.endsWith("/")) {
+			line += "*";
+		}
+
+		if (line.startsWith(base)) {
+			line = line.slice(base.length)
+		}
+
+		return line;
+	}).filter(line => line))),
+	setPathError = (m: Map<string, string[]>, err: string, path: string) => (m.get(err) ?? setAndReturn(m, err, [])).push(path),
+	validateMatches = (base: string, contents: string, existingRules: Set<string>) => {
+		const valid: string[] = [],
+			invalid = new Map<string, string[]>();
+
+		for (const line of processRules(base, contents)) {
+			if (!line) {
+			} else if (line.includes("\x00")) {
+				setPathError(invalid, "Invalid char in match", line);
+			} else if (line.startsWith("/")) {
+				setPathError(invalid, "Outside of current dir", line);
+			} else if (line.startsWith("../") || line.includes("/../") || line.endsWith("/..")) {
+				setPathError(invalid, "Cannot use relative paths to reference parent directories", line);
+			} else if (existingRules.has(line)) {
+				setPathError(invalid, "Duplicate", line);
+			} else {
+				valid.push(line);
+			}
+		}
+
+		return [valid, invalid] as const;
+	},
+	buildRulesTable = (base: string, contents: string, existingRules: Set<string>, matchesSection: HTMLDivElement, validRules: string[]) => {
+		const [valid, invalid] = validateMatches(base, contents, existingRules);
+
+		clearNode(matchesSection, [
+			h2("Valid Rules"),
+			valid.length ? [
+				ul(valid.map(rule => li(rule)))
+			] : h3("No valid rules found"),
+			invalid.size ? [
+				h2("Invalid Filepaths"),
+				table([
+					thead(tr([
+						th("Error"),
+						th("Rule(s)"),
+					])),
+					tbody(Array.from(invalid.entries()).map(([error, rules]) => tr([
+						td(error),
+						td(ul(rules.map(rule => li(rule))))
+					])))
+				])
+			] : []
+		]);
+
+		validRules.splice(0, validRules.length, ...valid);
+	},
+	addRulesOverlay = (path: string, existingRules: Set<string>) => {
 		const [backupType, set, cancel, metadata, metadataSection] = createStuff(BackupType.BackupIBackup, "", "Add", () => overlay.close()),
-			fofn = input({
-				"id": "fofn", "type": "file", "style": "display: none", "change": () => {
-					const fr = new FileReader();
-
-					evalFOFN(fr, fofnSection, dirDetails, path).then(vt => validTable = vt);
-
-					fr.readAsText(fofn.files![0]);
-				}
+			override = input({ "id": "override", "type": "checkbox" }),
+			validRules: string[] = ["*"],
+			rules = textarea({
+				"id": "ruleEntry",
+				"input": () => {
+					rules.style.height = "";
+					rules.style.height = rules.scrollHeight + "px";
+				},
+				"change": () => buildRulesTable(path, rules.value || "*", existingRules, rulesSection, validRules)
 			}),
-			fofnButton = button({ "type": "button", "click": () => fofn.click() }, "Upload file"),
-			fofnPaste = button({
-				"type": "button", "click": () => {
-					const contents = textarea(),
-						pasteOverlay = document.body.appendChild(dialog(
-							{ "closedby": "any", "id": "fofnPaste", "close": () => pasteOverlay.remove() },
-							[
-								contents,
-								br(),
-								button({
-									"type": "button", "click": () => {
-										new Promise<FofnTable>((resolve, reject) => parseFofn(contents.value, path, dirDetails, fofnSection, resolve, reject))
-											.then(vt => validTable = vt)
-											.finally(() => pasteOverlay.close())
-									}
-								}, "Add"),
-								button({ "type": "button", "click": () => pasteOverlay.close() }, "Cancel")
-							]
-						));
-
-					pasteOverlay.showModal();
-				}
-			}, "Paste as plain text"),
-			matchFofnSection = div({ "id": "matchfofn" }, [
-				label({ "for": "fofn" }, "Add FOFN"),
-				getHelpIcon(helpText.FOFN),
-				fofnButton,
-				fofn,
-				" or ",
-				fofnPaste
-			]),
-			fofnSection = div(),
+			upload = input({
+				"id": "fofn", "type": "file", "style": "display: none",
+				"change": () => loadFileContents(upload.files![0])
+					.then(contents => {
+						rules.value = contents;
+						rules.dispatchEvent(new InputEvent("input"));
+						rules.dispatchEvent(new InputEvent("change"));
+					})
+			}),
+			uploadButton = button({ "id": "uploadButton", "type": "button", "click": () => upload.click() }, svg([
+				title("Upload Rules"),
+				use({ "href": "#uploadFile" })
+			])),
+			rulesSection = div({ "id": "rulesDetails" }),
 			disableInputs = () => {
 				overlay.setAttribute("closedby", "none");
+				override.toggleAttribute("disabled", true);
 				set.toggleAttribute("disabled", true);
 				cancel.toggleAttribute("disabled", true);
 				backupType.toggleAttribute("disabled", true);
-				fofnButton.toggleAttribute("disabled", true);
-				fofnPaste.toggleAttribute("disabled", true);
-				fofn.toggleAttribute("disabled", true);
+				uploadButton.toggleAttribute("disabled", true);
+				rules.toggleAttribute("disabled", true);
+				upload.toggleAttribute("disabled", true);
 			},
 			enableInputs = () => {
 				overlay.setAttribute("closedby", "any");
+				override.removeAttribute("disabled");
 				set.removeAttribute("disabled");
 				cancel.removeAttribute("disabled");
 				backupType.removeAttribute("disabled");
-				fofnButton.removeAttribute("disabled");
-				fofnPaste.removeAttribute("disabled");
-				fofn.removeAttribute("disabled");
+				uploadButton.removeAttribute("disabled");
+				rules.removeAttribute("disabled");
+				upload.removeAttribute("disabled");
 			},
 			overlay = document.body.appendChild(dialog({ "id": "addEdit", "closedby": "any", "close": () => overlay.remove() }, form({
 				"submit": (e: SubmitEvent) => {
@@ -173,24 +247,32 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 					verifyMetadata(path, backupType.value, metadata.value)
 						.then(valid => {
 							if (!valid) {
-								alert("Set does not exist");
-								enableInputs();
-
-								return;
+								return Promise.reject({ "message": "Set does not exist" });
 							}
 
-							return (validTable ? uploadFOFN(path, backupType.value, metadata.value, validTable.files) : Promise.reject({ "message": "No FOFN selected" }))
+							return (validRules.length ? createRule(path, backupType.value, validRules, metadata.value, override.checked) : Promise.reject({ "message": "No Valid Rules" }))
 								.then(() => {
 									load(path);
 									overlay.remove();
 								});
 						})
+						.catch(e => {
+							alert(e.message);
+							enableInputs();
+						});
 				}
 			}, [
-				matchFofnSection,
+				div({ "id": "matchRules" }, [
+					label({ "for": "ruleEntry" }, "Add Rules"),
+					getHelpIcon(helpText.Rules),
+					rules,
+					uploadButton,
+					upload,
+				]),
+				label({ "for": "override" }, "Override Child Rules"), getHelpIcon(helpText.Override), override, br(),
 				label({ "for": "backupType" }, "Backup Type"), getHelpIcon(helpText.BackupType), backupType, br(),
 				metadataSection,
-				fofnSection,
+				rulesSection,
 				set,
 				cancel
 			])));
@@ -256,17 +338,9 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 
 		overlay.showModal();
 	},
-	addRule = (path: string) => button({
-		"click": () => addEditOverlay(path, {
-			"BackupType": BackupType.BackupIBackup,
-			"Metadata": "",
-			"Match": "",
-			"Override": false
-		}),
-	}, "Add Rule"),
-	addFOFN = (path: string, dirDetails: dirDetails) => button({
-		"click": () => addFofnOverlay(path, dirDetails),
-	}, "Add FOFN"),
+	addRules = (path: string, existingRules: RuleStats[]) => button({
+		"click": () => addRulesOverlay(path, new Set(existingRules.map(r => r.Match))),
+	}, "Add Rules"),
 	addDirDetails = (path: string, dirDetails: dirDetails) => button({
 		"click": () => dirDetailOverlay(path, dirDetails),
 	}, "Set Directory Details"),
@@ -277,9 +351,9 @@ export default base;
 registerLoader((path: string, data: DirectoryWithChildren) => {
 	clearNode(base, [
 		data.claimedBy ? h2("Rules on this directory") : [],
-		data.claimedBy && data.claimedBy == user && !data.rules[path]?.length ? [addRule(path), addFOFN(path, data), addDirDetails(path, data)] : [],
+		data.claimedBy && data.claimedBy == user && !data.rules[path]?.length ? [addRules(path, data.rules[path] ?? []), addDirDetails(path, data)] : [],
 		data.claimedBy && data.rules[path]?.length ? table({ "id": "rules", "class": "summary" }, [
-			thead(tr([th("Match"), th("Action"), th("Files"), th("Size"), data.claimedBy === user ? td([addRule(path), addFOFN(path, data), addDirDetails(path, data)]) : []])),
+			thead(tr([th("Match"), th("Action"), th("Files"), th("Size"), data.claimedBy === user ? td([addRules(path, data.rules[path] ?? []), addDirDetails(path, data)]) : []])),
 			tbody(Object.values(data.rules[path] ?? []).map(rule => tr([
 				td({ "data-override": rule.Override }, rule.Match),
 				td(action(rule.BackupType)),
@@ -288,7 +362,7 @@ registerLoader((path: string, data: DirectoryWithChildren) => {
 				data.claimedBy === user ? td([
 					button({
 						"class": "actionButton",
-						"click": () => addEditOverlay(path, rule)
+						"click": () => editOverlay(path, rule)
 					}, svg([
 						title("Edit Rule"),
 						use({ "href": "#edit" })
@@ -305,274 +379,3 @@ registerLoader((path: string, data: DirectoryWithChildren) => {
 		]) : []
 	]);
 });
-
-// verifyMetadata will return true if the metadata setName is valid and exists
-function verifyMetadata(dir: string, backupType: string, metadata: string): Promise<Boolean> {
-	if (!BackupType.from(backupType).isManual()) {
-		return Promise.resolve(true);
-	}
-
-	if (metadata === "") {
-		return Promise.reject({ "message": "Metadata cannot be empty" });
-	}
-
-	if (backupType === "manualibackup") {
-		return setExists(dir, metadata);
-	}
-
-	return Promise.resolve(true);
-}
-
-function evalFOFN(fr: FileReader, fofnSection: HTMLElement, parentDirDetails: dirDetails, dir: string): Promise<FofnTable> {
-	return new Promise((resolve, reject) => {
-		fr.onload = () => {
-			if (fr.result === null) {
-				reject(new Error("FOFN file is empty"));
-
-				return;
-			}
-
-			return parseFofn(fr.result as string, dir, parentDirDetails, fofnSection, resolve, reject)
-		}
-	});
-}
-
-function parseFofn(result: string, dir: string, parentDirDetails: dirDetails, fofnSection: HTMLElement, resolve: (v: FofnTable) => void, reject: () => void) {
-	const validTable = new FofnTable();
-	const invalidTable = new FofnTable();
-
-	// Parse lines
-	const lines = result.trim().split('\n');
-
-	const seen = new Set<string>(); // Track duplicates
-
-	const fofn = new Map<string, string[]>();
-
-	for (let line of lines) {
-		if (line.endsWith("/")) {
-			line += "*";
-		}
-
-		// Filter out comments
-		if (line.includes('#')) {
-			const index = line.indexOf('#');
-
-			line = line.substring(0, index).trim();
-		}
-
-		// Filter empty lines
-		if (line === "") {
-			continue;
-		}
-
-		// Check errors
-		if (seen.has(line)) {
-			invalidTable.addLine("Duplicate ", line);
-
-			continue;
-		}
-
-		// Check for invalid char 
-		if (line.includes("\0")) {
-			invalidTable.addLine("Invalid char in match ", line);
-
-			continue;
-		}
-
-		// Allow relative paths
-		if (!line.startsWith("/")) {
-			let originalInput = line;
-			// Allow paths relative to the current dir
-			if (line.startsWith("./")) {
-				line = line.slice(2);
-			}
-
-			// Disallow paths relative to parents
-			if (line.startsWith("../")) {
-				invalidTable.addLine("Outside of current dir ", line);
-
-				continue;
-			}
-
-			if (line.includes("/../") || line.endsWith("/..")) {
-				invalidTable.addLine("Cannot use relative paths to reference parent directories ", line);
-
-				continue;
-			}
-
-			if (seen.has(dir + line)) {
-				invalidTable.addLine("Duplicate ", originalInput);
-
-				continue;
-			}
-			line = dir + line;
-		}
-
-		seen.add(line);
-
-		// Check dir exists within current dir
-		if (!line.startsWith(dir)) {
-			invalidTable.addLine("Outside of current dir ", line);
-
-			continue;
-		}
-
-		const wci = line.indexOf("*"),
-			si = line.substring(0, wci < 0 ? line.length : wci).lastIndexOf("/") + 1,
-			dirToClaim = line.substring(0, si);
-
-		(fofn.get(dirToClaim) ?? setAndReturn(fofn, dirToClaim, [])).push(line.substring(si));
-	}
-
-	const ps: Promise<void>[] = [];
-
-	for (const [dir, rules] of fofn.entries()) {
-		ps.push(getTree(dir).then(data => {
-			let toClaim = false;
-			if (data.ClaimedBy !== user) {
-				if (data.CanClaim) {
-					toClaim = true;
-				} else {
-					invalidTable.addLine("Cannot claim directory ", dir);
-
-					return
-				}
-			}
-
-			const s = new Set<string>(Array.from(Object.values(data.Rules[dir] ?? [])).map(r => r.Match));
-
-			for (const filename of rules) {
-				const diffs: string[] = [];
-
-				if (parentDirDetails.Frequency !== data.Frequency) {
-					diffs.push(`Frequency: \n Old: ${data.Frequency} \n New: ${parentDirDetails.Frequency} \n`);
-				}
-				if (roundDate(parentDirDetails.ReviewDate) !== roundDate(data.ReviewDate)) {
-					diffs.push(`Review Date: \n Old: ${new Date(data.ReviewDate * 1000).toLocaleDateString()} \n New: ${new Date(parentDirDetails.ReviewDate * 1000).toLocaleDateString()} \n`);
-				}
-				if (roundDate(parentDirDetails.RemoveDate) !== roundDate(data.RemoveDate)) {
-					diffs.push(`Remove Date: \n Old: ${new Date(data.RemoveDate * 1000).toLocaleDateString()} \n New: ${new Date(parentDirDetails.RemoveDate * 1000).toLocaleDateString()} \n`);
-				}
-
-				const overwriteDirDetails = diffs.length > 0;
-				const dirDetailText = diffs.join("");
-
-				validTable.addLine(dir, filename, toClaim, s.has(filename), overwriteDirDetails, dirDetailText);
-			}
-		}).catch(() => {
-			for (const filename of rules) {
-				invalidTable.addLine("Unable to access directory ", dir + filename);
-			}
-		}))
-	}
-
-	Promise.all(ps).then(() => {
-		if (validTable.files.length > 100) {
-			clearNode(fofnSection, div({ "class": "tooManyFiles" }, 'Number of files cannot exceed 100.'));
-
-			reject();
-
-			return;
-		}
-
-		getDirectories(validTable.files).then(dirs => {
-			const dirSet = new Set(validTable.files.filter((_, i) => dirs[i]));
-
-			for (const [dir, rowdata] of validTable.rows.entries()) {
-				for (const value of rowdata.values) {
-					var path = dir.concat(value.value);
-					if (dirSet.has(path)) {
-						value.isDirectory = true;
-					}
-				}
-			}
-
-			const title = h2({ "style": "float: left" }, 'Rules from FOFN:');
-			const invalidHeader = h3('Invalid filepaths:');
-
-			const key = div({ "id": "fofnKey" }, [
-				div("Will claim directory"),
-				div("Will overwrite directory detail(s)"),
-				div("Will overwrite rule"),
-				div("Match is a directory")
-			]);
-
-			clearNode(
-				fofnSection,
-				[
-					title,
-					validTable.files.length > 0 ? [key, validTable.createTable("Directory", "Match")] : p("No valid filepaths found."),
-					invalidTable.files.length > 0 ? [invalidHeader, invalidTable.createTable("Reason", "Line")] : []
-				]
-			);
-			resolve(validTable);
-		});
-	}).catch(() => {
-		reject();
-	});
-}
-
-function roundDate(date: number) {
-	return Math.floor(date / secondsInDay);
-}
-
-type value = {
-	value: string;
-	overwrite: boolean;
-	isDirectory: boolean;
-}
-
-type rowData = {
-	values: value[];
-	claim: boolean;
-	overwriteDirDetail: boolean;
-	dirDetailText: string;
-}
-
-class FofnTable {
-	files: string[] = [];
-	rows = new Map<string, rowData>();
-
-	createTable(keyHeader: string, valueHeader: string): HTMLTableElement {
-		const rows: HTMLElement[] = [];
-
-		for (const [key, z] of this.rows.entries()) {
-			const keyAttributes: Record<string, string> = {};
-			const classes: string[] = [];
-
-			if (z.claim) classes.push("claim");
-			if (z.overwriteDirDetail) {
-				classes.push("overwriteDirDetail")
-				keyAttributes["title"] = z.dirDetailText;
-			}
-
-			keyAttributes["class"] = classes.join(" ");
-
-			rows.push(tr([
-				td(keyAttributes, key),
-				td(z.values.map(v => div({
-					"class":
-						(v.overwrite ? "overwrite" : "") + " " +
-						(v.isDirectory ? "directory" : "")
-				}, v.value)))
-			]));
-		}
-		return table({}, [
-			thead(tr([
-				th(keyHeader),
-				th(valueHeader)
-			])),
-			tbody(rows)
-		])
-	}
-
-	addLine(key: string, value: string, claim: boolean = false, overwrite: boolean = false, overwriteDirDetail: boolean = false, dirDetailText: string = "") {
-		const row = this.rows.get(key) ?? setAndReturn(this.rows, key, { values: [], claim: false, overwriteDirDetail: false, dirDetailText });
-
-		row.values.push({ value, overwrite, isDirectory: false });
-		row.claim ||= claim;
-		row.overwriteDirDetail ||= overwriteDirDetail;
-
-		this.files.push(key + value);
-	}
-}
