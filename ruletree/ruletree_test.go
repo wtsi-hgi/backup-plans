@@ -526,7 +526,7 @@ func TestRuletree(t *testing.T) {
 			So(ruleIDCount(t, root, "/lustre/scratch123/humgen/a/d/"), ShouldResemble, map[uint64]uint64{0: 1})
 
 			r9 := createRule(t, tdb, root, "/lustre/scratch123/humgen/a/d/", "*.txt")
-			So(ruleIDCount(t, root, "/lustre/scratch123/humgen/a/"), ShouldResemble, map[uint64]uint64{0: 11, r1: 2, r2: 1, r9: 1})
+			So(ruleIDCount(t, root, "/lustre/scratch123/humgen/a/"), ShouldResemble, map[uint64]uint64{0: 11, r1: 2, r2: 1, r9: 1}) //nolint:lll
 			So(ruleIDCount(t, root, "/lustre/scratch123/humgen/a/d/"), ShouldResemble, map[uint64]uint64{r9: 1})
 
 			RemoveRule(t, tdb, root, "/lustre/scratch123/humgen/a/d/", "*.txt")
