@@ -97,9 +97,18 @@ function createClaimStatsSection() {
                                     "class": "tooltip",
                                     "data-tooltip": ibackupStatusColumns
                                         .filter(c => sba[c])
-                                        .map(c => `${c}: ${sba[c].toLocaleString()}`)
+                                        .map(c => {
+                                            const v = sba[c];
+
+                                            if (c === "Failures" && v === -1) {
+                                                return `${c}: N/A`;
+                                            }
+
+                                            return `${c}: ${sba[c].toLocaleString()}`
+                                        })
                                         .join("\n") || false
-                                }, sba.Failures === 0 ? svg(use({ "href": "#tickIcon" })) : svg(use({ "href": "#crossIcon" })))
+                                }, sba.Failures === -1 ? "-"
+                                    : sba.Failures === 0 ? svg(use({ "href": "#tickIcon" })) : svg(use({ "href": "#crossIcon" })))
                             ])
                         ]) : tr(td({ "colspan": "3" }, "No backup sets.")))
                     ])

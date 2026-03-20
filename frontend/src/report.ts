@@ -149,15 +149,23 @@ class ParentSummary extends Summary {
 									: new Date(backup.LastSuccess).toLocaleString()
 								: "-"
 						),
-						backup.Failures === -1 ?
-							td("-")
-							: td({
-								"class": "tooltip",
-								"data-tooltip": ibackupStatusColumns
-									.filter(c => backup[c])
-									.map(c => `${c}: ${backup[c].toLocaleString()}`)
-									.join("\n") || false
-							}, backup.Failures === 0 ? svg(use({ "href": "#tickIcon" })) : svg(use({ "href": "#crossIcon" })))
+						// backup.Failures === -1 ? backup.Failures = 0 : null,
+						td({
+							"class": "tooltip",
+							"data-tooltip": ibackupStatusColumns
+								.filter(c => backup[c])
+								.map(c => {
+									const v = backup[c];
+
+									if (c === "Failures" && v === -1) {
+										return `${c}: N/A`;
+									}
+
+									return `${c}: ${backup[c].toLocaleString()}`
+								})
+								.join("\n") || false
+						}, backup.Failures === -1 ? "-"
+							: backup.Failures === 0 ? svg(use({ "href": "#tickIcon" })) : svg(use({ "href": "#crossIcon" })))
 					])))
 				] : tr(td({ "colspan": "5" }, "No Backups")))
 			]),

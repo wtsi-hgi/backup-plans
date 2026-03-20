@@ -171,7 +171,7 @@ func (s *Server) addSBA(sbas []ibackup.SetBackupActivity, dir *Directory, rule *
 		sbas = append(sbas, s.getGitBackupStatus(rule.Metadata, requester))
 
 	case db.BackupManualNFS:
-		sba, err := s.getNFSStatus(dir.Path, requester)
+		sba, err := s.getNFSStatus(rule.Metadata, requester)
 		if err == nil {
 			sbas = append(sbas, sba)
 		}
