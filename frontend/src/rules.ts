@@ -114,7 +114,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 
 		fr.readAsText(file);
 	}),
-	processRules = (base: string, contents: string) => Array.from(new Set(contents.split("\n").filter(l => l && !l.startsWith("#")).map(line => {
+	processRules = (base: string, contents: string) => Array.from(new Set(contents.split(/\r?\n/).filter(l => l && !l.startsWith("#")).map(line => {
 		const parts: string[] = [];
 
 		for (const part of line.split("/")) {
@@ -146,7 +146,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 		return line;
 	}).filter(line => line))),
 	setPathError = (m: Map<string, string[]>, err: string, path: string) => (m.get(err) ?? setAndReturn(m, err, [])).push(path),
-	validateFOFN = (base: string, contents: string, existingRules: Set<string>) => {
+	validateMatches = (base: string, contents: string, existingRules: Set<string>) => {
 		const valid: string[] = [],
 			invalid = new Map<string, string[]>();
 
@@ -167,10 +167,10 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 
 		return [valid, invalid] as const;
 	},
-	buildRulesTable = (base: string, contents: string, existingRules: Set<string>, fofnSection: HTMLDivElement, validRules: string[]) => {
-		const [valid, invalid] = validateFOFN(base, contents, existingRules);
+	buildRulesTable = (base: string, contents: string, existingRules: Set<string>, matchesSection: HTMLDivElement, validRules: string[]) => {
+		const [valid, invalid] = validateMatches(base, contents, existingRules);
 
-		clearNode(fofnSection, [
+		clearNode(matchesSection, [
 			h2("Valid Rules"),
 			valid.length ? [
 				ul(valid.map(rule => li(rule)))

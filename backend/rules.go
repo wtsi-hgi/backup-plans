@@ -87,10 +87,6 @@ var (
 		Code: http.StatusBadRequest,
 		Err:  errors.New("no matching rule"), //nolint:err113
 	}
-	ErrNoMatches = Error{
-		Code: http.StatusBadRequest,
-		Err:  errors.New("no matches"), //nolint:err113
-	}
 )
 
 const (
@@ -558,7 +554,8 @@ func getRuleDetails(r *http.Request) ([]*db.Rule, error) { //nolint:cyclop,gocyc
 	if err != nil {
 		return nil, err
 	} else if len(rules) == 0 {
-		return nil, ErrNoMatches
+		rule.Match = "*"
+		rules = []*db.Rule{&rule}
 	}
 
 	return rules, nil
