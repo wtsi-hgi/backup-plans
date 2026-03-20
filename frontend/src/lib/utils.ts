@@ -93,18 +93,6 @@ export const formatBytes = (size: bigint) => {
 
 			return promise;
 		}
-	},
-	tickSVG = () => {
-		return svg({ xmlns: "http://www.w3.org/2000/svg", viewBox: "0 0 12 10" }, [
-			path({
-				d: "M1,6 l3,3 7,-8",
-				stroke: "#0f0",
-				"stroke-linecap": "round",
-				"stroke-linejoin": "round",
-				fill: "none",
-				"stroke-width": "2"
-			})
-		])
 	};
 
 export function createSpinner(): HTMLElement {
