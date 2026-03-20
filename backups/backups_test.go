@@ -304,6 +304,7 @@ func TestAddFofnsToIBackup(t *testing.T) {
 			"/lustre/a",
 			"/lustre/b",
 			"/lustre/c",
+			"/lustre/d",
 		} {
 			setDir := filepath.Join(fofnDir, (&set.Set{Requester: "a", Name: setNamePrefix + path}).ID())
 			statusFile := filepath.Join(setDir, "status")
@@ -321,15 +322,17 @@ func TestAddFofnsToIBackup(t *testing.T) {
 
 		_, err = addFofnsToIBackup(clientWrapper{ibackupClient, ft}, map[*db.Directory][]string{
 			{ClaimedBy: "a", Path: "/lustre/a"}:                                                 {},
-			{ClaimedBy: "a", Path: "/lustre/b", Frozen: true, Melt: now.Add(time.Hour).Unix()}:  {},
-			{ClaimedBy: "a", Path: "/lustre/c", Frozen: true, Melt: now.Add(-time.Hour).Unix()}: {},
+			{ClaimedBy: "a", Path: "/lustre/b", Melt: now.Add(time.Hour).Unix()}:                {},
+			{ClaimedBy: "a", Path: "/lustre/c", Frozen: true, Melt: now.Add(time.Hour).Unix()}:  {},
+			{ClaimedBy: "a", Path: "/lustre/d", Frozen: true, Melt: now.Add(-time.Hour).Unix()}: {},
 		})
 		So(err, ShouldBeNil)
 
 		So(ft, ShouldResemble, frozenTest{
 			"/lustre/a": false,
-			"/lustre/b": true,
-			"/lustre/c": false,
+			"/lustre/b": false,
+			"/lustre/c": true,
+			"/lustre/d": false,
 		})
 	})
 }
