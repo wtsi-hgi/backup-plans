@@ -1,7 +1,6 @@
 import { BackupType } from "../consts.js";
 import type { Children } from "./dom.js";
 import { button, dialog, div, wbr } from "./html.js";
-import { svg, path } from "./svg.js"
 
 const byteSizes = ["B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB", "RiB", "QiB"],
 	actions = BackupType.selectable.map(t => t.optionLabel());
