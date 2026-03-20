@@ -6,7 +6,7 @@ import { load } from './load.js';
 import { amendNode, clearNode } from "./lib/dom.js";
 import { users, groups, bomSet } from './userGroups.js';
 import type { SetBackupActivity } from "./types.js";
-import { svg, use } from './lib/svg.js'
+import { svg, use } from './lib/svg.js';
 
 const base = div({ "class": "main-container" });
 const container = div();
