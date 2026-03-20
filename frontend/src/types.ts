@@ -137,6 +137,7 @@ export type SetBackupActivity = {
 	Orphaned: number;
 	Hardlinks: number;
 	Skipped: number;
+	LastMod: string;
 }
 
 

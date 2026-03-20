@@ -104,6 +104,13 @@ type Config struct {
 //	            ServerName, Transformer string
 //	        }
 //	    }
+//
+//		wrstat {
+//			jwtbasename, servertokenbasename, ServerURL, Username string
+//			OktaMode bool
+//		}
+//
+//		wrstatcacheduration: uint64
 //	    IBackupCacheDuration uint64
 //	    BOMFile              string
 //	    OwnersFile           string

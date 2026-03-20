@@ -40,12 +40,35 @@ function dedupeSBA(sba: SetBackupActivity[]) {
     })
 }
 
+function getStatusTd(sba: SetBackupActivity) {
+    return [
+        sba.LastSuccess === "0001-01-01T00:00:00Z" ?
+            [
+                td("Pending"),
+                td("-")
+            ] : [
+                td(longAgoStr(sba.LastSuccess)),
+                sba.Failures === -1 ? td({},
+                    new Date(sba.LastMod) > new Date(sba.LastSuccess) ? svg(use({ "href": "#crossIcon" })) : svg(use({ "href": "#tickIcon" }))
+                ) : td({
+                    "class": "tooltip",
+                    "data-tooltip": ibackupStatusColumns
+                        .filter(c => sba[c])
+                        .map(c => `${c}: ${sba[c].toLocaleString()}`)
+                        .join("\n") || false
+                }, sba.Failures < 0 ? svg(use({ "href": "#crossIcon" })) : svg(use({ "href": "#tickIcon" }))
+                )
+            ]
+    ]
+}
+
 function createClaimStatsSection() {
     const page = div({ "class": "claimstats-container" });
     const spinner = createSpinner();
     page.appendChild(spinner);
 
     getClaimStats(filter.user, filter.groupbom).then(claimstats => {
+        console.log(claimstats);
         page.replaceChildren(...claimstats.length > 0 ? claimstats.map((dirStats) => {
             if (!users.has(dirStats.ClaimedBy)) {
                 users.add(dirStats.ClaimedBy);
@@ -92,23 +115,7 @@ function createClaimStatsSection() {
                         tbody(dirStats.BackupStatus.length > 0 ? dedupeSBA(dirStats.BackupStatus).map((sba) => [
                             tr([
                                 td(sba.Name),
-                                td(sba.LastSuccess === "0001-01-01T00:00:00Z" ? "Pending" : longAgoStr(sba.LastSuccess)),
-                                td({
-                                    "class": "tooltip",
-                                    "data-tooltip": ibackupStatusColumns
-                                        .filter(c => sba[c])
-                                        .map(c => {
-                                            const v = sba[c];
-
-                                            if (c === "Failures" && v === -1) {
-                                                return `${c}: N/A`;
-                                            }
-
-                                            return `${c}: ${sba[c].toLocaleString()}`
-                                        })
-                                        .join("\n") || false
-                                }, sba.Failures === -1 ? "-"
-                                    : sba.Failures === 0 ? svg(use({ "href": "#tickIcon" })) : svg(use({ "href": "#crossIcon" })))
+                                getStatusTd(sba),
                             ])
                         ]) : tr(td({ "colspan": "3" }, "No backup sets.")))
                     ])

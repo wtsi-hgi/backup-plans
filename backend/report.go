@@ -37,6 +37,7 @@ import (
 	"github.com/wtsi-hgi/backup-plans/ibackup"
 	"github.com/wtsi-hgi/backup-plans/ruletree"
 	"github.com/wtsi-hgi/backup-plans/users"
+	"github.com/wtsi-hgi/backup-plans/wrstat"
 	"vimagination.zapto.org/tree"
 )
 
@@ -62,6 +63,10 @@ type SizeCount struct {
 
 type dirSet struct {
 	dir, set string
+}
+
+type claimPath struct {
+	claimedBy, dirPath string
 }
 
 func (s *Server) addTotals(backupType int, group ruletree.Stats, summary *summary) {
@@ -122,7 +127,7 @@ func (s *Server) getClaimed(root string) string {
 	return ""
 }
 
-func (s *Server) populateBackupStatus(dirClaims, repos, nfs map[string]string,
+func (s *Server) populateBackupStatus(dirClaims map[string]string, repos, nfs map[string]claimPath,
 	manualIbackup map[string][]dirSet, dirSummary *summary,
 ) {
 	s.populateIbackupStatus(dirClaims, dirSummary)
@@ -180,54 +185,89 @@ func (s *Server) getManualIBackupStatus(dirSet dirSet, claimedBy string) ibackup
 	}
 }
 
-func (s *Server) populateGitBackupStatus(repos map[string]string, dirSummary *summary) {
-	for repo, claimedBy := range repos {
-		dirSummary.BackupStatus[repo] = s.getGitBackupStatus(repo, claimedBy)
+func (s *Server) populateGitBackupStatus(repos map[string]claimPath, dirSummary *summary) {
+	for repo, claimPath := range repos {
+		dirSummary.BackupStatus[repo] = s.getGitBackupStatus(claimPath.dirPath, repo, claimPath.claimedBy)
 	}
 }
 
-func (s *Server) getGitBackupStatus(repo, claimedBy string) ibackup.SetBackupActivity {
+func (s *Server) getGitBackupStatus(dirPath, repo, claimedBy string) ibackup.SetBackupActivity {
 	t, err := s.gitCache.GetLatestCommitDate(repo)
 	if err != nil {
 		slog.Error("error querying repo status", "repo", repo, "err", err)
 	}
 
-	return ibackup.SetBackupActivity{
+	sba := ibackup.SetBackupActivity{
 		LastSuccess: t,
 		Name:        repo,
 		Requester:   claimedBy,
 		Failures:    -1,
 	}
+
+	err = s.populateLastMod(&sba, dirPath, nil)
+	if err != nil {
+		slog.Error("error populating lastmod", "dirPath", dirPath, "err", err)
+	}
+
+	return sba
 }
 
-func (s *Server) populateNFSStatus(paths map[string]string, dirSummary *summary) {
-	for path, claimedBy := range paths {
-		sba, err := s.getNFSStatus(path, claimedBy)
+func (s *Server) populateNFSStatus(backupPaths map[string]claimPath, dirSummary *summary) {
+	for backupPath, claimPath := range backupPaths {
+		sba, err := s.getNFSStatus(claimPath.dirPath, backupPath, claimPath.claimedBy)
 		if err != nil {
 			continue
 		}
 
-		dirSummary.BackupStatus[path] = sba
+		dirSummary.BackupStatus[backupPath] = sba
 	}
 }
 
-func (s *Server) getNFSStatus(path, claimedBy string) (ibackup.SetBackupActivity, error) {
+func (s *Server) getNFSStatus(dirPath, backupPath, claimedBy string) (ibackup.SetBackupActivity, error) {
+	sba := ibackup.SetBackupActivity{
+		Name:      backupPath,
+		Requester: claimedBy,
+		Failures:  -1,
+	}
+
 	client := s.config.GetWRStatClient()
 	if client == nil {
 		return ibackup.SetBackupActivity{}, ErrNoClient
 	}
 
-	t, err := client.GetWRStatModTime(path)
+	t, err := client.GetWRStatModTime(backupPath)
 	if err != nil {
-		slog.Error("error querying wrstat status", "path", path, "err", err)
+		slog.Error("error querying wrstat status", "path", backupPath, "err", err)
 	}
 
-	return ibackup.SetBackupActivity{
-		LastSuccess: t,
-		Name:        path,
-		Requester:   claimedBy,
-		Failures:    -1,
-	}, nil
+	sba.LastSuccess = t
+
+	err = s.populateLastMod(&sba, dirPath, client)
+	if err != nil {
+		return sba, err
+	}
+
+	return sba, nil
+}
+
+func (s *Server) populateLastMod(sba *ibackup.SetBackupActivity, path string, client *wrstat.Client) error {
+	if client == nil {
+		client = s.config.GetWRStatClient()
+		if client == nil {
+			return ErrNoClient
+		}
+	}
+
+	if path != "" {
+		m, err := client.GetWRStatModTime(path)
+		if err != nil {
+			slog.Error("error querying wrstat status", "path", path, "err", err)
+		}
+
+		sba.LastMod = m
+	}
+
+	return nil
 }
 
 func (s *Server) collectBackupTotals(dirSummary *summary) error {
@@ -256,8 +296,8 @@ func (s *Server) getBackupTypeForTotals(id uint64) int {
 
 func (s *Server) buildRootDirSummary(reportingRoots []string, dirSummary *summary) {
 	dirClaims := make(map[string]string)
-	repos := make(map[string]string)
-	nfs := make(map[string]string)
+	repos := make(map[string]claimPath)
+	nfs := make(map[string]claimPath)
 	manualIbackup := make(map[string][]dirSet)
 
 	for _, root := range reportingRoots {
@@ -327,7 +367,7 @@ func (s *Server) collectChildDirSummaries(ds *ruletree.DirSummary, root string) 
 }
 
 func (s *Server) collectRuleMetadata(ds *ruletree.DirSummary, dirSummary *summary, //nolint:gocyclo
-	dirClaims, repos, nfs map[string]string, manualIbackup map[string][]dirSet,
+	dirClaims map[string]string, repos, nfs map[string]claimPath, manualIbackup map[string][]dirSet,
 ) {
 	for _, ruleSummary := range ds.RuleSummaries {
 		rule := s.rules[ruleSummary.ID]
@@ -346,9 +386,9 @@ func (s *Server) collectRuleMetadata(ds *ruletree.DirSummary, dirSummary *summar
 		case db.BackupManualIBackup:
 			manualIbackup[dir.ClaimedBy] = append(manualIbackup[dir.ClaimedBy], dirSet{dir.Path, rule.Metadata})
 		case db.BackupManualGit:
-			repos[rule.Metadata] = dir.ClaimedBy
+			repos[rule.Metadata] = claimPath{dir.ClaimedBy, dir.Path}
 		case db.BackupManualNFS:
-			nfs[rule.Metadata] = dir.ClaimedBy
+			nfs[rule.Metadata] = claimPath{dir.ClaimedBy, dir.Path}
 		}
 
 		if _, ok := dirSummary.Directories[dirPath]; ok {
