@@ -102,7 +102,7 @@ export const symbols = svg({ "style": `width: 0; height: 0` }, [
 			path({ "d": "M27,33 v-2 a1,1 0,0,1 30,0 c0,10 -15,10 -15,20 v7", "stroke": "#000", "fill": "none", "stroke-width": "10" }),
 			rect({ "x": "37", "y": "60", "width": "10", "height": "10", "fill": "#000", "stroke-width": "2" })
 		]),
-	symbol({ "id": "tickIcon", xmlns: "http://www.w3.org/2000/svg", viewBox: "0 0 16 10" },
+	symbol({ "id": "tickIcon", viewBox: "0 0 16 10" },
 		path({
 			d: "M1,6 l3,3 7,-8",
 			stroke: "#0f0",
@@ -111,7 +111,7 @@ export const symbols = svg({ "style": `width: 0; height: 0` }, [
 			fill: "none",
 			"stroke-width": "2"
 		})),
-	symbol({ "id": "crossIcon", xmlns: "http://www.w3.org/2000/svg", viewBox: "0 0 12 10" },
+	symbol({ "id": "crossIcon", viewBox: "0 0 12 10" },
 		path({
 			d: "M2,1 q5,6 8,8 M2,9 q5,-3 8,-8",
 			stroke: "#f00",
