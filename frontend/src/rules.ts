@@ -58,14 +58,12 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 			match = input({ "id": "match", "type": "text", "value": rule.Match, "disabled": true }),
 			override = input({ "id": "override", "type": "checkbox", "checked": rule.Override, "disabled": true }),
 			disableInputs = () => {
-				override.toggleAttribute("disabled", true);
 				overlay.setAttribute("closedby", "none");
 				edit.toggleAttribute("disabled", true);
 				cancel.toggleAttribute("disabled", true);
 				backupType.toggleAttribute("disabled", true);
 			},
 			enableInputs = () => {
-				override.removeAttribute("disabled");
 				overlay.setAttribute("closedby", "any");
 				edit.removeAttribute("disabled");
 				cancel.removeAttribute("disabled");
@@ -265,7 +263,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 				}
 			}, [
 				div({ "id": "matchRules" }, [
-					label({ "for": "rules" }, "Add Rules"),
+					label({ "for": "ruleEntry" }, "Add Rules"),
 					getHelpIcon(helpText.Rules),
 					rules,
 					uploadButton,
