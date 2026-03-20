@@ -256,10 +256,12 @@ func (r *RuleTree) Set(path string, rules map[string]*db.Rule, changed bool) { /
 			curr.children[part] = next
 		}
 
-		curr.Dir |= HasChildWithRules
+		if len(rules) > 0 {
+			curr.Dir |= HasChildWithRules
 
-		if changed {
-			curr.Dir |= HasChildWithChangedRules
+			if changed {
+				curr.Dir |= HasChildWithChangedRules
+			}
 		}
 
 		curr = next
@@ -650,8 +652,7 @@ func addRuleToList(rules Rules, path string, rule int64) Rules {
 	})
 }
 
-func addNoRuleRules(rules Rules, path string, dirState dirState,
-	wildcard int64) Rules {
+func addNoRuleRules(rules Rules, path string, dirState dirState, wildcard int64) Rules {
 	process := processRules
 
 	if dirState&RulesChanged != 0 && dirState&HasChildWithRules == 0 && dirState&ParentRulesChanged == 0 {
