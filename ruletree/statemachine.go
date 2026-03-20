@@ -244,8 +244,6 @@ func (r *RuleTree) Set(path string, rules map[string]*db.Rule, changed bool) { /
 		if !ok { //nolint:nestif
 			if changed && len(rules) == 0 {
 				curr.Dir |= RulesChanged
-
-				return
 			}
 
 			var newDT dirTreeRule
