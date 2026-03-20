@@ -3,7 +3,7 @@ import type { Children } from "./lib/dom.js";
 import { amendNode } from "./lib/dom.js";
 import { a, br, button, datalist, details, div, fieldset, h1, h2, input, label, legend, li, option, span, summary, table, tbody, td, th, thead, tr, ul } from "./lib/html.js";
 import { svg, title, use } from "./lib/svg.js";
-import { action, formatBytes, longAgo, secondsInWeek, setAndReturn, splitLongPath, stringSort, createSpinner } from "./lib/utils.js";
+import { action, formatBytes, longAgo, secondsInWeek, setAndReturn, splitLongPath, stringSort, createSpinner, tickSVG, crossSVG } from "./lib/utils.js";
 import { getReportSummary } from "./rpc.js";
 import { BackupType, MainProgrammes, ibackupStatusColumns } from "./consts.js";
 import { render } from "./disktree.js";
@@ -149,7 +149,15 @@ class ParentSummary extends Summary {
 									: new Date(backup.LastSuccess).toLocaleString()
 								: "-"
 						),
-						backup.Failures === -1 ? td("-") : td({ "class": "tooltip", "data-tooltip": ibackupStatusColumns.filter(c => backup[c]).map(c => `${c}: ${backup[c].toLocaleString()}`).join("\n") || false }, backup.Failures.toLocaleString())
+						backup.Failures === -1 ?
+							td("-")
+							: td({
+								"class": "tooltip",
+								"data-tooltip": ibackupStatusColumns
+									.filter(c => backup[c])
+									.map(c => `${c}: ${backup[c].toLocaleString()}`)
+									.join("\n") || false
+							}, backup.Failures === 0 ? tickSVG() : crossSVG())
 					])))
 				] : tr(td({ "colspan": "5" }, "No Backups")))
 			]),
