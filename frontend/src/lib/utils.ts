@@ -112,37 +112,3 @@ export function createSpinner(): HTMLElement {
 	spinner.className = "spinner";
 	return spinner;
 };
-
-export function tickSV(): SVGElement {
-	return svg(
-		{
-			xmlns: "http://www.w3.org/2000/svg",
-			viewBox: "0 0 16 10",
-		}, [
-		path({
-			d: "M1,6 l3,3 7,-8",
-			stroke: "#0f0",
-			"stroke-linecap": "round",
-			"stroke-linejoin": "round",
-			fill: "none",
-			"stroke-width": "2"
-		})
-	])
-};
-
-export function crossSVG(): SVGElement {
-	return svg(
-		{
-			xmlns: "http://www.w3.org/2000/svg",
-			viewBox: "0 0 12 10",
-		}, [
-		path({
-			d: "M2,1 q5,6 8,8 M2,9 q5,-3 8,-8",
-			stroke: "#f00",
-			"stroke-linecap": "round",
-			"stroke-linejoin": "round",
-			fill: "none",
-			"stroke-width": "2"
-		})
-	])
-};

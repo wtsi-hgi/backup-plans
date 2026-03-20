@@ -1,11 +1,12 @@
 import { div, h2, p, button, table, thead, tbody, th, td, tr, fieldset, legend, input, datalist, option } from "./lib/html.js";
 import { getClaimStats, user } from "./rpc.js";
-import { formatBytes, longAgoStr, createSpinner, tickSVG, crossSVG } from "./lib/utils.js";
+import { formatBytes, longAgoStr, createSpinner } from "./lib/utils.js";
 import { BackupType, ibackupStatusColumns } from "./consts.js";
 import { load } from './load.js';
 import { amendNode, clearNode } from "./lib/dom.js";
 import { users, groups, bomSet } from './userGroups.js';
 import type { SetBackupActivity } from "./types.js";
+import { svg, use } from './lib/svg.js'
 
 const base = div({ "class": "main-container" });
 const container = div();
@@ -98,7 +99,7 @@ function createClaimStatsSection() {
                                         .filter(c => sba[c])
                                         .map(c => `${c}: ${sba[c].toLocaleString()}`)
                                         .join("\n") || false
-                                }, sba.Failures === 0 ? tickSVG() : crossSVG())
+                                }, sba.Failures === 0 ? svg(use({ "href": "#tickIcon" })) : svg(use({ "href": "#crossIcon" })))
                             ])
                         ]) : tr(td({ "colspan": "3" }, "No backup sets.")))
                     ])

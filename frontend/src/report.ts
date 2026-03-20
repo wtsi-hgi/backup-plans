@@ -3,7 +3,7 @@ import type { Children } from "./lib/dom.js";
 import { amendNode } from "./lib/dom.js";
 import { a, br, button, datalist, details, div, fieldset, h1, h2, input, label, legend, li, option, span, summary, table, tbody, td, th, thead, tr, ul } from "./lib/html.js";
 import { svg, title, use } from "./lib/svg.js";
-import { action, formatBytes, longAgo, secondsInWeek, setAndReturn, splitLongPath, stringSort, createSpinner, tickSVG, crossSVG } from "./lib/utils.js";
+import { action, formatBytes, longAgo, secondsInWeek, setAndReturn, splitLongPath, stringSort, createSpinner } from "./lib/utils.js";
 import { getReportSummary } from "./rpc.js";
 import { BackupType, MainProgrammes, ibackupStatusColumns } from "./consts.js";
 import { render } from "./disktree.js";
@@ -157,7 +157,7 @@ class ParentSummary extends Summary {
 									.filter(c => backup[c])
 									.map(c => `${c}: ${backup[c].toLocaleString()}`)
 									.join("\n") || false
-							}, backup.Failures === 0 ? tickSVG() : crossSVG())
+							}, backup.Failures === 0 ? svg(use({ "href": "#tickIcon" })) : svg(use({ "href": "#crossIcon" })))
 					])))
 				] : tr(td({ "colspan": "5" }, "No Backups")))
 			]),
