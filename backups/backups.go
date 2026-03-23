@@ -3,10 +3,12 @@ package backups
 import (
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/ibackup"
 	"github.com/wtsi-hgi/backup-plans/ruletree"
+	"github.com/wtsi-hgi/ibackup/server"
 	"github.com/wtsi-hgi/wrstat-ui/summary"
 	"github.com/wtsi-hgi/wrstat-ui/summary/group"
 	"vimagination.zapto.org/tree"
@@ -176,7 +178,13 @@ func figureOutFOFNs(node tree.Node, sm ruletree.State, path *summary.DirectoryPa
 	}
 }
 
-func addFofnsToIBackup(client *ibackup.MultiClient, setFofns map[*db.Directory][]string) ([]SetInfo, error) {
+type backupClient interface {
+	Backup(path string, setName, requester string, files []string,
+		frequency int, frozen bool, review, remove int64) error
+	GetBackupActivity(path, setName, requester string, manual bool) (*ibackup.SetBackupActivity, error)
+}
+
+func addFofnsToIBackup(client backupClient, setFofns map[*db.Directory][]string) ([]SetInfo, error) {
 	backupSetInfos := make([]SetInfo, 0, len(setFofns))
 
 	var errs error
@@ -184,8 +192,15 @@ func addFofnsToIBackup(client *ibackup.MultiClient, setFofns map[*db.Directory][
 	for setInfo, fofns := range setFofns {
 		backupSetName := setNamePrefix + setInfo.Path
 
-		err := client.Backup(setInfo.Path, backupSetName, setInfo.ClaimedBy, fofns,
-			int(setInfo.Frequency), setInfo.Frozen, setInfo.ReviewDate, setInfo.RemoveDate) //nolint:gosec
+		frozen, err := getFrozenStatus(client, setInfo, backupSetName)
+		if err != nil {
+			errs = errors.Join(errs, err)
+
+			continue
+		}
+
+		err = client.Backup(setInfo.Path, backupSetName, setInfo.ClaimedBy, fofns,
+			int(setInfo.Frequency), frozen, setInfo.ReviewDate, setInfo.RemoveDate) //nolint:gosec
 		if err != nil {
 			errs = errors.Join(errs, err)
 
@@ -199,5 +214,24 @@ func addFofnsToIBackup(client *ibackup.MultiClient, setFofns map[*db.Directory][
 		})
 	}
 
-	return backupSetInfos, nil
+	return backupSetInfos, errs
+}
+
+func getFrozenStatus(client backupClient, setInfo *db.Directory, backupSetName string) (bool, error) {
+	frozen := setInfo.Frozen
+
+	if !frozen || setInfo.Melt == 0 {
+		return frozen, nil
+	}
+
+	set, err := client.GetBackupActivity(setInfo.Path, backupSetName, setInfo.ClaimedBy, false)
+	if err != nil {
+		if errors.Is(err, server.ErrBadSet) {
+			return true, nil
+		}
+
+		return true, err
+	}
+
+	return time.Unix(setInfo.Melt, 0).After(set.LastSuccess), nil
 }

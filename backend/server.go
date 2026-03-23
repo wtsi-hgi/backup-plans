@@ -27,8 +27,10 @@
 package backend
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strings"
 	"sync"
@@ -65,6 +67,8 @@ type Server struct {
 	gitCache *git.Cache
 
 	rootDir *ruletree.RootDir
+
+	exit func()
 }
 
 // Directory holds a claimed directory's rule and summary info.
@@ -94,6 +98,12 @@ func New(db *db.DB, getUser func(r *http.Request) string, c *config.Config) (*Se
 	}
 
 	s.gitCache = git.NewCache(time.Hour)
+
+	ctx, done := context.WithCancel(context.Background())
+
+	go s.refreezer(ctx)
+
+	s.exit = done
 
 	return s, nil
 }
@@ -225,4 +235,37 @@ func (s *Server) getMainProgrammes(w http.ResponseWriter, _ *http.Request) error
 	w.Header().Set("Content-type", "application/json")
 
 	return json.NewEncoder(w).Encode(s.config.GetMainProgrammes())
+}
+
+func (s *Server) refreezer(ctx context.Context) {
+	for {
+		select {
+		case <-time.After(10 * time.Minute): //nolint:mnd
+		case <-ctx.Done():
+			return
+		}
+
+		s.rulesMu.Lock()
+		s.refreezeUpdatedDirectories()
+		s.rulesMu.Unlock()
+	}
+}
+
+func (s *Server) refreezeUpdatedDirectories() {
+	client := s.config.GetCachedIBackupClient()
+
+	for _, dir := range s.dirs {
+		if dir.Melt == 0 {
+			continue
+		}
+
+		ba, err := client.GetBackupActivity(dir.Path, setNamePrefix+dir.Path, dir.ClaimedBy, false)
+		if err != nil || !ba.LastSuccess.After(time.Unix(dir.Melt, 0)) {
+			continue
+		}
+
+		if err := s.rulesDB.Refreeze(dir); err != nil {
+			slog.Error("error refreezing directory", "path", dir.Path, "err", err)
+		}
+	}
 }

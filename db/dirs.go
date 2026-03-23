@@ -36,6 +36,7 @@ type Directory struct {
 	RemoveDate int64
 	Frequency  uint
 	Frozen     bool
+	Melt       int64
 
 	Created, Modified int64
 }
@@ -89,6 +90,7 @@ func scanDirectory(scanner scanner) (*Directory, error) {
 		&dir.Frozen,
 		&dir.ReviewDate,
 		&dir.RemoveDate,
+		&dir.Melt,
 		&dir.Created,
 		&dir.Modified,
 	); err != nil {
@@ -103,10 +105,22 @@ func (d *DB) UpdateDirectory(dir *Directory) error {
 	dir.Modified = time.Now().Unix()
 
 	return d.exec(updateDirectory, dir.ClaimedBy, dir.Modified, dir.Frequency,
-		dir.Frozen, dir.ReviewDate, dir.RemoveDate, dir.id)
+		dir.Frozen, dir.Melt, dir.ReviewDate, dir.RemoveDate, dir.id)
 }
 
 // RemoveDirectory will remove the given Directory from the database.
 func (d *DB) RemoveDirectory(dir *Directory) error {
 	return d.exec(deleteDirectory, dir.id)
+}
+
+// Refreeze resets the 'thaw' column to after a successful backup has been
+// detected.
+func (d *DB) Refreeze(dir *Directory) error {
+	if err := d.exec(refreezeDirectory, dir.id); err != nil {
+		return err
+	}
+
+	dir.Melt = 0
+
+	return nil
 }

@@ -2,19 +2,21 @@ package backups
 
 import (
 	"bytes"
-	"os/user"
+	"os"
 	"path/filepath"
 	"slices"
 	"testing"
+	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/ibackup"
 	"github.com/wtsi-hgi/backup-plans/internal/directories"
-	internal "github.com/wtsi-hgi/backup-plans/internal/ibackup"
 	"github.com/wtsi-hgi/backup-plans/internal/plandb"
 	"github.com/wtsi-hgi/backup-plans/ruletree"
+	"github.com/wtsi-hgi/ibackup/fofn"
+	"github.com/wtsi-hgi/ibackup/set"
 	"github.com/wtsi-hgi/wrstat-ui/summary"
 	"github.com/wtsi-hgi/wrstat-ui/summary/group"
 	_ "modernc.org/sqlite"
@@ -194,20 +196,12 @@ func ptr[T any](n T) *T {
 
 func TestBackups(t *testing.T) {
 	Convey("Given a plan database, a tree of wrstat info and an ibackup server", t, func() {
-		s, addr, certPath, dfn, err := internal.NewTestIbackupServer(t)
-		So(err, ShouldBeNil)
-
-		Reset(func() { So(dfn(), ShouldBeNil) })
-
-		u, err := user.Current()
-		So(err, ShouldBeNil)
+		fofnDir := t.TempDir()
 
 		ibackupClient, err := ibackup.New(ibackup.Config{
 			Servers: map[string]ibackup.ServerDetails{
 				"server": {
-					Addr:  addr,
-					Cert:  certPath,
-					Token: filepath.Join(filepath.Dir(certPath), ".ibackup.token"),
+					FOFNDir: fofnDir,
 				},
 			},
 			PathToServer: map[string]ibackup.ServerTransformer{
@@ -218,9 +212,6 @@ func TestBackups(t *testing.T) {
 			},
 		})
 		So(err, ShouldBeNil)
-
-		So(s, ShouldNotBeNil)
-		So(u, ShouldNotBeNil)
 		So(ibackupClient, ShouldNotBeNil)
 
 		testDB, _ := plandb.PopulateExamplePlanDB(t)
@@ -285,4 +276,80 @@ func TestBackups(t *testing.T) {
 			So(setInfos[0].FileCount, ShouldEqual, 1)
 		})
 	})
+}
+
+func TestAddFofnsToIBackup(t *testing.T) {
+	Convey("A set with Frozen=true can temporarily disable the frozen status when Unfreeze is set", t, func() {
+		fofnDir := t.TempDir()
+
+		ibackupClient, err := ibackup.New(ibackup.Config{
+			Servers: map[string]ibackup.ServerDetails{
+				"server": {
+					FOFNDir: fofnDir,
+				},
+			},
+			PathToServer: map[string]ibackup.ServerTransformer{
+				"^/lustre/": {
+					ServerName:  "server",
+					Transformer: "prefix=/lustre/:/remote/",
+				},
+			},
+		})
+		So(err, ShouldBeNil)
+		So(ibackupClient, ShouldNotBeNil)
+
+		now := time.Now().Truncate(time.Second)
+
+		for _, path := range [...]string{
+			"/lustre/a",
+			"/lustre/b",
+			"/lustre/c",
+			"/lustre/d",
+		} {
+			setDir := filepath.Join(fofnDir, (&set.Set{Requester: "a", Name: setNamePrefix + path}).ID())
+			statusFile := filepath.Join(setDir, "status")
+
+			So(os.MkdirAll(setDir, 0700), ShouldBeNil)
+			So(fofn.WriteConfig(setDir, fofn.SubDirConfig{
+				Transformer: "prefix=/lustre/:/remote/",
+				Requester:   "a",
+				Name:        setNamePrefix + path,
+			}), ShouldBeNil)
+			So(os.WriteFile(statusFile, nil, 0600), ShouldBeNil)
+		}
+
+		ft := make(frozenTest)
+
+		_, err = addFofnsToIBackup(clientWrapper{ibackupClient, ft}, map[*db.Directory][]string{
+			{ClaimedBy: "a", Path: "/lustre/a"}:                                                 {},
+			{ClaimedBy: "a", Path: "/lustre/b", Melt: now.Add(time.Hour).Unix()}:                {},
+			{ClaimedBy: "a", Path: "/lustre/c", Frozen: true, Melt: now.Add(time.Hour).Unix()}:  {},
+			{ClaimedBy: "a", Path: "/lustre/d", Frozen: true, Melt: now.Add(-time.Hour).Unix()}: {},
+		})
+		So(err, ShouldBeNil)
+
+		So(ft, ShouldResemble, frozenTest{
+			"/lustre/a": false,
+			"/lustre/b": false,
+			"/lustre/c": true,
+			"/lustre/d": false,
+		})
+	})
+}
+
+type justGet interface {
+	GetBackupActivity(path, setName, requester string, manual bool) (*ibackup.SetBackupActivity, error)
+}
+
+type clientWrapper struct {
+	justGet
+	frozenTest
+}
+
+type frozenTest map[string]bool
+
+func (f frozenTest) Backup(path, _, _ string, _ []string, _ int, frozen bool, _, _ int64) error { //nolint:unparam
+	f[path] = frozen
+
+	return nil
 }

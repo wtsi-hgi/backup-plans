@@ -36,6 +36,7 @@ var tables = [...]string{
 		"`frozen` BOOLEAN DEFAULT FALSE, " +
 		"`reviewDate` BIGINT NOT NULL, " +
 		"`removeDate` BIGINT NOT NULL, " +
+		"`melt` BIGINT NOT NULL DEFAULT 0, " +
 		"`created` BIGINT NOT NULL, " +
 		"`modified` BIGINT NOT NULL, " +
 		"UNIQUE(`directoryHash`)" +
@@ -94,6 +95,7 @@ const (
 		"`frozen`, " +
 		"`reviewDate`, " +
 		"`removeDate`, " +
+		"`melt`, " +
 		"`created`, " +
 		"`modified` " +
 		"FROM `directories`;"
@@ -113,6 +115,7 @@ const (
 		"`modified` = ?, " +
 		"`frequency` = ?, " +
 		"`frozen` = ?, " +
+		"`melt` = ?, " +
 		"`reviewDate` = ?, " +
 		"`removeDate` = ? " +
 		"WHERE `id` = ?;"
@@ -122,6 +125,7 @@ const (
 		"`match` = ?, " +
 		"`modified` = ? " +
 		"WHERE `id` = ?;"
+	refreezeDirectory = "UPDATE `directories` SET `melt` = 0 WHERE `id` = ?;"
 
 	deleteDirectory = "DELETE FROM `directories` WHERE `id` = ?;"
 	deleteRule      = "DELETE FROM `rules` WHERE `id` = ?;"

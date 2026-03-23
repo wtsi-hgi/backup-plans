@@ -50,6 +50,7 @@ export type Rule = {
 export type dirDetails = {
 	Frequency: number;
 	Frozen: boolean;
+	Melt?: number;
 	ReviewDate: number;
 	RemoveDate: number;
 };

@@ -87,6 +87,14 @@ var (
 		Code: http.StatusBadRequest,
 		Err:  errors.New("no matching rule"), //nolint:err113
 	}
+	ErrDirectoryNotFrozen = Error{
+		Code: http.StatusBadRequest,
+		Err:  errors.New("directory not frozen"), //nolint:err113
+	}
+	ErrAlreadyFrozen = Error{
+		Code: http.StatusBadRequest,
+		Err:  errors.New("directory already frozen"), //nolint:err113
+	}
 )
 
 const (
@@ -337,7 +345,7 @@ func (s *Server) SetDirDetails(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.setDirDetails)
 }
 
-func (s *Server) setDirDetails(_ http.ResponseWriter, r *http.Request) error { //nolint:funlen
+func (s *Server) setDirDetails(_ http.ResponseWriter, r *http.Request) error { //nolint:funlen,gocognit,gocyclo
 	dir, err := getDir(r)
 	if err != nil {
 		return err
@@ -371,6 +379,16 @@ func (s *Server) setDirDetails(_ http.ResponseWriter, r *http.Request) error { /
 	directory.RemoveDate = dDetails.RemoveDate
 	directory.Frozen = dDetails.Frozen
 
+	if dDetails.ToggleMelt { //nolint:nestif
+		if directory.Melt == 0 {
+			directory.Melt = time.Now().Unix()
+		} else {
+			directory.Melt = 0
+		}
+	} else if !dDetails.Frozen {
+		directory.Melt = 0
+	}
+
 	return s.rulesDB.UpdateDirectory(directory.Directory)
 }
 
@@ -398,13 +416,16 @@ type dirDetails struct {
 	Frozen     bool
 	ReviewDate int64
 	RemoveDate int64
+	Melt       int64 `json:",omitzero"`
+	ToggleMelt bool  `json:",omitzero"`
 }
 
-func getDirDetails(r *http.Request) (dirDetails, error) {
+func getDirDetails(r *http.Request) (dirDetails, error) { //nolint:gocyclo,funlen
 	frequencyStr := r.FormValue("frequency")
 	reviewStr := r.FormValue("review")
 	removeStr := r.FormValue("remove")
 	frozenStr := r.FormValue("frozen")
+	toggleMeltStr := r.FormValue("meltToggle")
 
 	frequency, err := strconv.ParseUint(frequencyStr, 10, 64)
 	if err != nil {
@@ -420,6 +441,15 @@ func getDirDetails(r *http.Request) (dirDetails, error) {
 		return dirDetails{}, Error{Err: err, Code: http.StatusBadRequest}
 	}
 
+	var toggleMelt bool
+
+	if frozen {
+		toggleMelt, err = strconv.ParseBool(toggleMeltStr)
+		if err != nil {
+			return dirDetails{}, Error{Err: err, Code: http.StatusBadRequest}
+		}
+	}
+
 	review, err := strconv.ParseInt(reviewStr, 10, 64)
 	if err != nil {
 		return dirDetails{}, Error{Err: err, Code: http.StatusBadRequest}
@@ -430,7 +460,10 @@ func getDirDetails(r *http.Request) (dirDetails, error) {
 		return dirDetails{}, Error{Err: err, Code: http.StatusBadRequest}
 	}
 
-	return dirDetails{Frequency: uint(frequency), Frozen: frozen, ReviewDate: review, RemoveDate: remove}, nil
+	return dirDetails{
+		Frequency: uint(frequency), Frozen: frozen, ToggleMelt: toggleMelt,
+		ReviewDate: review, RemoveDate: remove,
+	}, nil
 }
 
 // CreateRule allows the claimant of a directory to add a rule to that

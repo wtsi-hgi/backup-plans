@@ -66,7 +66,7 @@ func TestReport(t *testing.T) {
 		So(err, ShouldBeNil)
 
 		exampleSet := &set.Set{
-			Name:        "plan::/lustre/scratch123/humgen/a/c/",
+			Name:        setNamePrefix + "/lustre/scratch123/humgen/a/c/",
 			Requester:   "userB",
 			Transformer: "prefix=/:/remote/",
 		}
@@ -325,15 +325,15 @@ func TestReport(t *testing.T) {
 					},
 					BackupStatus: map[string]*ibackup.SetBackupActivity{
 						"/lustre/scratch123/humgen/a/b/": {
-							Name:      "plan::/lustre/scratch123/humgen/a/b/",
+							Name:      setNamePrefix + "/lustre/scratch123/humgen/a/b/",
 							Requester: "userA",
 						},
 						"/lustre/scratch123/humgen/a/b/newdir/": {
-							Name:      "plan::/lustre/scratch123/humgen/a/b/newdir/",
+							Name:      setNamePrefix + "/lustre/scratch123/humgen/a/b/newdir/",
 							Requester: "userC",
 						},
 						"/lustre/scratch123/humgen/a/c/": {
-							Name:      "plan::/lustre/scratch123/humgen/a/c/",
+							Name:      setNamePrefix + "/lustre/scratch123/humgen/a/c/",
 							Requester: "userB",
 						},
 						"userB:manualSetName": {

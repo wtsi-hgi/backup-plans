@@ -57,8 +57,7 @@ func TestTree(t *testing.T) {
 				"/api/tree?dir=/some/path/MyDir/",
 				nil,
 			)
-			So(code, ShouldEqual, http.StatusUnauthorized)
-			So(resp, ShouldEqual, "not authorised to see this directory\n")
+			checkErrorResponse(t, code, resp, ErrNotAuthorised)
 
 			u = root
 

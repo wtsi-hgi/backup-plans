@@ -14,6 +14,8 @@ directories, regardless of their rules (unless their rules are more specific).`,
     "Rules": `Enter a single match rule per line, or upload a file containing the rules. Paths can be full or relative, and an asterisk (*) will match any number of any character.`,
     "Frequency": `How often all files in this directory, matched with an iBackup rule, will be backed up. Measured in days. A zero will mean a backup set will be created, but never updated.`,
     "Frozen": `A frozen set is one in which files are only ever backed-up a single time; updates will be ignored, but new files will be backed-up when discovered.`,
+    "Refreeze": `Restore the normal frozen behaviour, cancelling the update of the files within.\n\nThe melt was selected on: `,
+    "Melt": `Melting a frozen set will update the files contained within upon the next backup, after which it will refreeze.`,
     "Review": `Date at which a reminder will be issued to check if the plan is still up to date.`,
     "Remove": `Date at which the backup data will be automatically removed.`
 }

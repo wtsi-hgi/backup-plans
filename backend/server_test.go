@@ -29,13 +29,15 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/wtsi-hgi/backup-plans/backups"
-	"github.com/wtsi-hgi/backup-plans/internal/config"
+	iconfig "github.com/wtsi-hgi/backup-plans/internal/config"
 	"github.com/wtsi-hgi/backup-plans/internal/plandb"
 	"github.com/wtsi-hgi/backup-plans/internal/testdb"
 	"github.com/wtsi-hgi/backup-plans/internal/testirods"
@@ -58,7 +60,7 @@ func TestEndpoints(t *testing.T) {
 		So(tree.Serialise(f, tr), ShouldBeNil)
 		So(f.Close(), ShouldBeNil)
 
-		s, err := New(testdb.CreateTestDatabase(t), u.getUser, config.NewConfig(t, nil, nil, nil, 0))
+		s, err := New(testdb.CreateTestDatabase(t), u.getUser, iconfig.NewConfig(t, nil, nil, nil, 0))
 		So(err, ShouldBeNil)
 
 		So(s.AddTree(treeFile), ShouldBeNil)
@@ -71,7 +73,7 @@ func TestEndpoints(t *testing.T) {
 			u = userA
 			code, resp := getResponse(
 				s.SetExists,
-				"/api/setExists?dir=/lustre/&metadata=plan::/lustre/scratch123/humgen/a/b/",
+				"/api/setExists?dir=/lustre/&metadata="+setNamePrefix+"/lustre/scratch123/humgen/a/b/",
 				nil,
 			)
 
@@ -81,7 +83,7 @@ func TestEndpoints(t *testing.T) {
 			u = "userB"
 			code, resp = getResponse(
 				s.SetExists,
-				"/api/setExists?dir=/lustre/&metadata=plan::/lustre/scratch123/humgen/a/b/",
+				"/api/setExists?dir=/lustre/&metadata="+setNamePrefix+"/lustre/scratch123/humgen/a/b/",
 				nil,
 			)
 
@@ -91,10 +93,34 @@ func TestEndpoints(t *testing.T) {
 	})
 }
 
-func getResponse(fn http.HandlerFunc, url string, body io.Reader) (int, string) { //nolint:unparam
+func getResponse(fn http.HandlerFunc, u string, body any) (int, string) {
 	w := httptest.NewRecorder()
 
-	fn(w, httptest.NewRequest(http.MethodGet, url, body))
+	var req *http.Request
+
+	switch body := body.(type) {
+	case url.Values:
+		req = httptest.NewRequest(http.MethodPost, u, strings.NewReader(body.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	case io.Reader:
+		req = httptest.NewRequest(http.MethodPost, u, body)
+	default:
+		req = httptest.NewRequest(http.MethodGet, u, nil)
+	}
+
+	fn(w, req)
 
 	return w.Code, w.Body.String()
+}
+
+func checkErrorResponse(t *testing.T, code int, resp string, err Error) {
+	t.Helper()
+
+	So(resp, ShouldEqual, err.Error()+"\n")
+	So(code, ShouldEqual, err.Code)
+}
+
+func (s *Server) stop() {
+	s.exit()
+	s.gitCache.Stop()
 }

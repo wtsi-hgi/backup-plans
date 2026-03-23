@@ -326,3 +326,7 @@ button#uploadButton {
 	align-items: center;
 	width: 100%;
 }
+
+#frozen:not(:checked)~div {
+	display: none;
+}

@@ -27,18 +27,25 @@ package backend
 
 import (
 	"net/http"
+	"net/url"
 	"os"
 	"os/user"
 	"path/filepath"
 	"strconv"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	. "github.com/smartystreets/goconvey/convey"
-	"github.com/wtsi-hgi/backup-plans/internal/config"
+	"github.com/wtsi-hgi/backup-plans/config"
+	iconfig "github.com/wtsi-hgi/backup-plans/internal/config"
 	"github.com/wtsi-hgi/backup-plans/internal/directories"
+	"github.com/wtsi-hgi/backup-plans/internal/plandb"
 	"github.com/wtsi-hgi/backup-plans/internal/testdb"
+	"github.com/wtsi-hgi/backup-plans/internal/testirods"
 	"github.com/wtsi-hgi/backup-plans/users"
+	"github.com/wtsi-hgi/ibackup/fofn"
+	"github.com/wtsi-hgi/ibackup/set"
 	"vimagination.zapto.org/tree"
 )
 
@@ -57,7 +64,7 @@ func TestClaimDir(t *testing.T) {
 		user, err := user.Current()
 		So(err, ShouldBeNil)
 
-		s, err := New(testdb.CreateTestDatabase(t), u.getUser, config.NewConfig(t, nil, nil, nil, 0))
+		s, err := New(testdb.CreateTestDatabase(t), u.getUser, iconfig.NewConfig(t, nil, nil, nil, 0))
 		So(err, ShouldBeNil)
 
 		treeDBPath := createTestTree(t)
@@ -66,33 +73,28 @@ func TestClaimDir(t *testing.T) {
 
 		Convey("You can claim directories", func() {
 			code, resp := getResponse(s.ClaimDir, "/api/dir/claim?dir=/does/not/exist", nil)
-			So(code, ShouldEqual, http.StatusForbidden)
-			So(resp, ShouldEqual, "invalid user\n")
+			checkErrorResponse(t, code, resp, ErrInvalidUser)
 
 			u = root
 
 			code, resp = getResponse(s.ClaimDir, "/api/dir/claim?dir=/does/not/exist", nil)
-			So(code, ShouldEqual, http.StatusBadRequest)
-			So(resp, ShouldEqual, "invalid dir path\n")
+			checkErrorResponse(t, code, resp, ErrInvalidDir)
 
 			code, resp = getResponse(s.ClaimDir, "/api/dir/claim?dir=/some/path/MyDir/", nil)
 			So(code, ShouldEqual, http.StatusOK)
 			So(resp, ShouldEqual, "\""+root+"\"\n")
 
 			code, resp = getResponse(s.ClaimDir, "/api/dir/claim?dir=/some/path/MyDir/", nil)
-			So(code, ShouldEqual, http.StatusNotAcceptable)
-			So(resp, ShouldEqual, "directory already claimed\n")
+			checkErrorResponse(t, code, resp, ErrDirectoryClaimed)
 
 			Convey("You can revoke a claim", func() {
 				u = ""
 
 				code, resp = getResponse(s.RevokeDirClaim, "/api/dir/revoke?dir=/does/not/exist", nil)
-				So(code, ShouldEqual, http.StatusBadRequest)
-				So(resp, ShouldEqual, "invalid dir path\n")
+				checkErrorResponse(t, code, resp, ErrInvalidDir)
 
 				code, resp = getResponse(s.RevokeDirClaim, "/api/dir/revoke?dir=/some/path/MyDir/", nil)
-				So(code, ShouldEqual, http.StatusForbidden)
-				So(resp, ShouldEqual, "invalid user\n")
+				checkErrorResponse(t, code, resp, ErrInvalidUser)
 
 				u = root
 
@@ -101,8 +103,7 @@ func TestClaimDir(t *testing.T) {
 				So(resp, ShouldEqual, "")
 
 				code, resp = getResponse(s.RevokeDirClaim, "/api/dir/revoke?dir=/some/path/MyDir/", nil)
-				So(code, ShouldEqual, http.StatusNotAcceptable)
-				So(resp, ShouldEqual, "directory not claimed\n")
+				checkErrorResponse(t, code, resp, ErrDirectoryNotClaimed)
 			})
 
 			Convey("You can pass a claim", func() {
@@ -113,16 +114,14 @@ func TestClaimDir(t *testing.T) {
 					"/api/dir/pass?dir=/does/not/exist&passTo="+user.Username,
 					nil,
 				)
-				So(code, ShouldEqual, http.StatusBadRequest)
-				So(resp, ShouldEqual, "invalid dir path\n")
+				checkErrorResponse(t, code, resp, ErrInvalidDir)
 
 				code, resp = getResponse(
 					s.PassDirClaim,
 					"/api/dir/pass?dir=/some/path/MyDir/&passTo="+user.Username,
 					nil,
 				)
-				So(code, ShouldEqual, http.StatusForbidden)
-				So(resp, ShouldEqual, "invalid user\n")
+				checkErrorResponse(t, code, resp, ErrInvalidUser)
 
 				u = root
 
@@ -131,8 +130,7 @@ func TestClaimDir(t *testing.T) {
 					"/api/dir/pass?dir=/some/path/MyDir/&passTo=NOT_A_REAL_USER",
 					nil,
 				)
-				So(code, ShouldEqual, http.StatusForbidden)
-				So(resp, ShouldEqual, "invalid user\n")
+				checkErrorResponse(t, code, resp, ErrInvalidUser)
 
 				code, resp = getResponse(
 					s.PassDirClaim,
@@ -147,8 +145,7 @@ func TestClaimDir(t *testing.T) {
 					"/api/dir/pass?dir=/some/path/MyDir/&passTo="+user.Username,
 					nil,
 				)
-				So(code, ShouldEqual, http.StatusForbidden)
-				So(resp, ShouldEqual, "invalid user\n")
+				checkErrorResponse(t, code, resp, ErrInvalidUser)
 			})
 
 			now := strconv.FormatInt(time.Now().Unix(), 10)
@@ -162,8 +159,7 @@ func TestClaimDir(t *testing.T) {
 					"/api/dir/setDirDetails?dir=/some/path/MyDir/&frequency=10&frozen=false&review="+now+"&remove="+future,
 					nil,
 				)
-				So(resp, ShouldEqual, "invalid user\n")
-				So(code, ShouldEqual, http.StatusForbidden)
+				checkErrorResponse(t, code, resp, ErrInvalidUser)
 
 				u = root
 
@@ -200,18 +196,14 @@ func TestClaimDir(t *testing.T) {
 					"/api/dir/setDirDetails?dir=/some/path/MyDir/&frequency=10&frozen=false&review=0&remove="+future,
 					nil,
 				)
-
-				So(code, ShouldEqual, http.StatusBadRequest)
-				So(resp, ShouldEqual, "invalid time\n")
+				checkErrorResponse(t, code, resp, ErrInvalidTime)
 
 				code, resp = getResponse(
 					s.SetDirDetails,
 					"/api/dir/setDirDetails?dir=/some/path/MyDir/&frequency=10&frozen=false&review="+future+"&remove="+now,
 					nil,
 				)
-
-				So(code, ShouldEqual, http.StatusBadRequest)
-				So(resp, ShouldEqual, "invalid time\n")
+				checkErrorResponse(t, code, resp, ErrInvalidTime)
 			})
 		})
 	})
@@ -221,7 +213,7 @@ func TestRules(t *testing.T) {
 	Convey("With a configured backend", t, func() {
 		u := userHandler(root)
 
-		s, err := New(testdb.CreateTestDatabase(t), u.getUser, config.NewConfig(t, nil, nil, nil, 0))
+		s, err := New(testdb.CreateTestDatabase(t), u.getUser, iconfig.NewConfig(t, nil, nil, nil, 0))
 		So(err, ShouldBeNil)
 
 		treeDBPath := createTestTree(t)
@@ -234,8 +226,7 @@ func TestRules(t *testing.T) {
 				"/api/rules/create?dir=/some/path/MyDir/&action=backup&match=*.txt&frequency=7&review=100&remove=200",
 				nil,
 			)
-			So(code, ShouldEqual, http.StatusBadRequest)
-			So(resp, ShouldEqual, "invalid dir path\n")
+			checkErrorResponse(t, code, resp, ErrInvalidDir)
 
 			code, resp = getResponse(
 				s.ClaimDir,
@@ -258,8 +249,7 @@ func TestRules(t *testing.T) {
 				"/api/rules/create?dir=/some/path/MyDir/&action=backup&match=*.txt&frequency=7&review=100&remove=200",
 				nil,
 			)
-			So(code, ShouldEqual, http.StatusBadRequest)
-			So(resp, ShouldEqual, "rule already exists for that match string\n")
+			checkErrorResponse(t, code, resp, ErrRuleExists)
 
 			Convey("And remove them", func() {
 				u = "someone"
@@ -269,8 +259,7 @@ func TestRules(t *testing.T) {
 					"/api/rules/remove?dir=/some/path/MyDir/&action=backup&match=*.txt",
 					nil,
 				)
-				So(code, ShouldEqual, http.StatusForbidden)
-				So(resp, ShouldEqual, "invalid user\n")
+				checkErrorResponse(t, code, resp, ErrInvalidUser)
 
 				u = root
 
@@ -279,8 +268,7 @@ func TestRules(t *testing.T) {
 					"/api/rules/remove?dir=/some/path/MyDir/&action=backup&match=*.tsv",
 					nil,
 				)
-				So(code, ShouldEqual, http.StatusBadRequest)
-				So(resp, ShouldEqual, "no matching rule\n")
+				checkErrorResponse(t, code, resp, ErrNoRule)
 
 				code, resp = getResponse(
 					s.RemoveRule,
@@ -295,8 +283,7 @@ func TestRules(t *testing.T) {
 					"/api/rules/remove?dir=/some/path/MyDir/&action=backup&match=*.txt",
 					nil,
 				)
-				So(code, ShouldEqual, http.StatusBadRequest)
-				So(resp, ShouldEqual, "no matching rule\n")
+				checkErrorResponse(t, code, resp, ErrNoRule)
 			})
 		})
 
@@ -364,6 +351,92 @@ func TestRules(t *testing.T) {
 					So(resp, ShouldStartWith, `{"Group":"root","RuleSummaries":[{"ID":1,"Users":[{"Name":"`+currUser.Username+`","MTime":36,"Files":1,"Size":35}],"Groups":[{"Name":"`+secondGroup.Name+`","MTime":36,"Files":1,"Size":35}]}],"Children":{},"ClaimedBy":"root","Rules":{"/some/path/ChildDir/Child/":{"1":{"BackupType":`+strconv.Itoa(n)+`,"Metadata":"","Match":"*","Override":false,"Created":`) //nolint:lll
 				})
 			}
+		})
+	})
+}
+
+func TestMelt(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		Convey("Given a configured server with an ibackup server", t, func() {
+			So(testirods.AddPseudoIRODsToolsToPathIfRequired(t), ShouldBeNil)
+
+			u := userHandler("userA")
+
+			testDB, _ := plandb.PopulateExamplePlanDB(t)
+			tr := plandb.ExampleTree()
+
+			treeFile := filepath.Join(t.TempDir(), "tree.db")
+			f, err := os.Create(treeFile)
+			So(err, ShouldBeNil)
+
+			So(tree.Serialise(f, tr), ShouldBeNil)
+			So(f.Close(), ShouldBeNil)
+
+			cfg := filepath.Join(t.TempDir(), "config.yaml")
+			fofnDir := t.TempDir()
+
+			So(os.WriteFile(cfg, []byte(""+
+				`ibackup:
+  servers:
+    "server":
+      fofndir: `+fofnDir+`
+  pathtoserver:
+    ^/:
+      servername: server
+      transformer: prefix=/:/
+ibackupcacheduration: 3600`,
+			), 0600), ShouldBeNil)
+
+			c, err := config.Parse(cfg)
+			So(err, ShouldBeNil)
+
+			s, err := New(testDB, u.getUser, c)
+			So(err, ShouldBeNil)
+
+			Reset(s.stop)
+			Reset(s.config.GetCachedIBackupClient().Stop)
+			Reset(s.config.GetIBackupClient().Stop)
+
+			So(s.AddTree(treeFile), ShouldBeNil)
+
+			Convey("You can temporarily thaw a backup set to get it to overwrite existing files", func() {
+				now := time.Now().Unix()
+
+				So(s.directoryRules["/lustre/scratch123/humgen/a/b/"].Melt, ShouldEqual, 0)
+
+				code, resp := getResponse(s.SetDirDetails, "/api/setDetails", url.Values{"dir": {"/lustre/scratch123/humgen/a/b/"}, "frequency": {"1"}, "review": {strconv.FormatInt(now+1000, 10)}, "remove": {strconv.FormatInt(now+2000, 10)}, "frozen": {"true"}, "meltToggle": {"true"}}) //nolint:lll
+				So(resp, ShouldBeBlank)
+				So(code, ShouldEqual, http.StatusNoContent)
+
+				So(s.directoryRules["/lustre/scratch123/humgen/a/b/"].Melt, ShouldBeGreaterThanOrEqualTo, now)
+
+				ns, err := New(testDB, u.getUser, c)
+				So(err, ShouldBeNil)
+				So(ns.directoryRules["/lustre/scratch123/humgen/a/b/"].Melt, ShouldBeGreaterThanOrEqualTo, now)
+
+				ns.stop()
+
+				fofnPath := filepath.Join(fofnDir, (&set.Set{Requester: "userA", Name: setNamePrefix + "/lustre/scratch123/humgen/a/b/"}).ID()) //nolint:lll
+
+				So(os.MkdirAll(fofnPath, 0700), ShouldBeNil)
+				So(fofn.WriteConfig(fofnPath, fofn.SubDirConfig{
+					Transformer: "prefix=/:/",
+					Freeze:      true,
+					Requester:   "userA",
+					Name:        setNamePrefix + "/lustre/scratch123/humgen/a/b/",
+				}), ShouldBeNil)
+				So(os.WriteFile(filepath.Join(fofnPath, "status"), nil, 0600), ShouldBeNil)
+
+				time.Sleep(61 * time.Minute)
+
+				So(s.directoryRules["/lustre/scratch123/humgen/a/b/"].Melt, ShouldEqual, 0)
+
+				ns, err = New(testDB, u.getUser, c)
+				So(err, ShouldBeNil)
+				So(ns.directoryRules["/lustre/scratch123/humgen/a/b/"].Melt, ShouldEqual, 0)
+
+				ns.stop()
+			})
 		})
 	})
 }
