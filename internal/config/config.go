@@ -45,8 +45,11 @@ func NewConfig(t *testing.T, boms, owners map[string][]string, rr []string, ag u
 	sc.ag = ag
 	sc.wrsc = wrsc
 
-	d := slog.Default()
+	if wrsc == nil {
+		sc.wrsc = config.NullWRStat
+	}
 
+	d := slog.Default()
 	slog.SetDefault(slog.New(slog.DiscardHandler))
 
 	Reset(func() {

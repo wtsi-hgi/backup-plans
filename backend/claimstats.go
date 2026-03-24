@@ -27,10 +27,13 @@ package backend
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"slices"
 	"strings"
+	"time"
 
+	"github.com/wtsi-hgi/backup-plans/config"
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/ibackup"
 	"github.com/wtsi-hgi/backup-plans/ruletree"
@@ -48,6 +51,7 @@ type DirStats struct {
 	Group        string
 	BackupStatus []ibackup.SetBackupActivity
 	RuleStats    []ruleStats
+	LastMod      time.Time
 }
 
 type filter struct {
@@ -126,8 +130,8 @@ func createClaimstatsFilter(r *http.Request) filter {
 
 func (s *Server) generateDirStats(dir *Directory, dirSummary *ruletree.DirSummary) *DirStats {
 	rulestats := s.generateRuleStats(dir.Path, dirSummary)
-
 	sbas := s.gatherSBAs(dir, dirSummary)
+	mod, _ := s.getLastMod(dir.Path) //nolint:errcheck
 
 	return &DirStats{
 		Path:         dir.Path,
@@ -135,11 +139,13 @@ func (s *Server) generateDirStats(dir *Directory, dirSummary *ruletree.DirSummar
 		Group:        dirSummary.Group,
 		BackupStatus: sbas,
 		RuleStats:    rulestats,
+		LastMod:      mod,
 	}
 }
 
 func (s *Server) gatherSBAs(dir *Directory, dirSummary *ruletree.DirSummary) []ibackup.SetBackupActivity {
 	sbas := make([]ibackup.SetBackupActivity, 0, len(dirSummary.RuleSummaries))
+	seen := make(map[string]struct{})
 
 	for _, ruleSummary := range dirSummary.RuleSummaries {
 		rule := s.rules[ruleSummary.ID]
@@ -149,31 +155,47 @@ func (s *Server) gatherSBAs(dir *Directory, dirSummary *ruletree.DirSummary) []i
 			continue
 		}
 
-		sbas = s.addSBA(sbas, dir, rule)
+		sbas = s.addSBA(sbas, seen, dir, rule)
 	}
 
 	return sbas
 }
 
-func (s *Server) addSBA(sbas []ibackup.SetBackupActivity, dir *Directory, rule *db.Rule) []ibackup.SetBackupActivity {
+// addSBA will retrieve the ibackup.SetBackupActivity for a given set and add it to sbas. Duplicates are skipped.
+func (s *Server) addSBA( //nolint:gocognit,gocyclo,funlen
+	sbas []ibackup.SetBackupActivity,
+	seen map[string]struct{},
+	dir *Directory,
+	rule *db.Rule,
+) []ibackup.SetBackupActivity {
 	requester := dir.ClaimedBy
 
 	switch rule.BackupType { //nolint:exhaustive
 	case db.BackupIBackup:
 		backupName := "plan::" + dir.Path
-		sbas = append(sbas, s.getIBackupBackupStatus(backupName, dir.Path, requester))
+		if _, exists := seen[backupName]; !exists {
+			sbas = append(sbas, s.getIBackupBackupStatus(backupName, dir.Path, requester))
+			seen[backupName] = struct{}{}
+		}
 
 	case db.BackupManualIBackup:
 		dirSet := dirSet{dir.Path, rule.Metadata}
-		sbas = append(sbas, s.getManualIBackupStatus(dirSet, requester))
+		if _, exists := seen[rule.Metadata]; !exists {
+			sbas = append(sbas, s.getManualIBackupStatus(dirSet, requester))
+			seen[rule.Metadata] = struct{}{}
+		}
 
 	case db.BackupManualGit:
-		sbas = append(sbas, s.getGitBackupStatus(dir.Path, rule.Metadata, requester))
+		if _, exists := seen[rule.Metadata]; !exists {
+			sbas = append(sbas, s.getGitBackupStatus(rule.Metadata, requester))
+			seen[rule.Metadata] = struct{}{}
+		}
 
 	case db.BackupManualNFS:
-		sba, err := s.getNFSStatus(dir.Path, rule.Metadata, requester)
-		if err == nil {
+		sba, err := s.getNFSStatus(rule.Metadata, requester)
+		if _, exists := seen[rule.Metadata]; !exists && err == nil {
 			sbas = append(sbas, sba)
+			seen[rule.Metadata] = struct{}{}
 		}
 	}
 
@@ -227,4 +249,22 @@ func (s *Server) gatherDirRules(path string) map[uint64]struct{} {
 	}
 
 	return ids
+}
+
+func (s *Server) getLastMod(path string) (time.Time, error) {
+	client := s.config.GetWRStatClient()
+	if client == config.NullWRStat {
+		return time.Time{}, ErrNoClient
+	}
+
+	if path == "" {
+		return time.Time{}, ErrInvalidDir
+	}
+
+	m, err := client.GetWRStatModTime(path)
+	if err != nil {
+		slog.Error("error querying wrstat status", "path", path, "err", err)
+	}
+
+	return m, nil
 }

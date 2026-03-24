@@ -37,7 +37,6 @@ import (
 	"github.com/wtsi-hgi/backup-plans/ibackup"
 	"github.com/wtsi-hgi/backup-plans/ruletree"
 	"github.com/wtsi-hgi/backup-plans/users"
-	"github.com/wtsi-hgi/backup-plans/wrstat"
 	"vimagination.zapto.org/tree"
 )
 
@@ -63,10 +62,6 @@ type SizeCount struct {
 
 type dirSet struct {
 	dir, set string
-}
-
-type claimPath struct {
-	claimedBy, dirPath string
 }
 
 func (s *Server) addTotals(backupType int, group ruletree.Stats, summary *summary) {
@@ -127,7 +122,7 @@ func (s *Server) getClaimed(root string) string {
 	return ""
 }
 
-func (s *Server) populateBackupStatus(dirClaims map[string]string, repos, nfs map[string]claimPath,
+func (s *Server) populateBackupStatus(dirClaims, repos, nfs map[string]string,
 	manualIbackup map[string][]dirSet, dirSummary *summary,
 ) {
 	s.populateIbackupStatus(dirClaims, dirSummary)
@@ -185,13 +180,13 @@ func (s *Server) getManualIBackupStatus(dirSet dirSet, claimedBy string) ibackup
 	}
 }
 
-func (s *Server) populateGitBackupStatus(repos map[string]claimPath, dirSummary *summary) {
-	for repo, claimPath := range repos {
-		dirSummary.BackupStatus[repo] = s.getGitBackupStatus(claimPath.dirPath, repo, claimPath.claimedBy)
+func (s *Server) populateGitBackupStatus(repos map[string]string, dirSummary *summary) {
+	for repo, claimedBy := range repos {
+		dirSummary.BackupStatus[repo] = s.getGitBackupStatus(repo, claimedBy)
 	}
 }
 
-func (s *Server) getGitBackupStatus(dirPath, repo, claimedBy string) ibackup.SetBackupActivity {
+func (s *Server) getGitBackupStatus(repo, claimedBy string) ibackup.SetBackupActivity {
 	t, err := s.gitCache.GetLatestCommitDate(repo)
 	if err != nil {
 		slog.Error("error querying repo status", "repo", repo, "err", err)
@@ -204,17 +199,12 @@ func (s *Server) getGitBackupStatus(dirPath, repo, claimedBy string) ibackup.Set
 		Failures:    -1,
 	}
 
-	err = s.populateLastMod(&sba, dirPath, nil)
-	if err != nil {
-		slog.Error("error populating lastmod", "dirPath", dirPath, "err", err)
-	}
-
 	return sba
 }
 
-func (s *Server) populateNFSStatus(backupPaths map[string]claimPath, dirSummary *summary) {
-	for backupPath, claimPath := range backupPaths {
-		sba, err := s.getNFSStatus(claimPath.dirPath, backupPath, claimPath.claimedBy)
+func (s *Server) populateNFSStatus(backupPaths map[string]string, dirSummary *summary) {
+	for backupPath, claimedBy := range backupPaths {
+		sba, err := s.getNFSStatus(backupPath, claimedBy)
 		if err != nil {
 			continue
 		}
@@ -223,7 +213,7 @@ func (s *Server) populateNFSStatus(backupPaths map[string]claimPath, dirSummary 
 	}
 }
 
-func (s *Server) getNFSStatus(dirPath, backupPath, claimedBy string) (ibackup.SetBackupActivity, error) {
+func (s *Server) getNFSStatus(backupPath, claimedBy string) (ibackup.SetBackupActivity, error) {
 	sba := ibackup.SetBackupActivity{
 		Name:      backupPath,
 		Requester: claimedBy,
@@ -242,32 +232,7 @@ func (s *Server) getNFSStatus(dirPath, backupPath, claimedBy string) (ibackup.Se
 
 	sba.LastSuccess = t
 
-	err = s.populateLastMod(&sba, dirPath, client)
-	if err != nil {
-		return sba, err
-	}
-
 	return sba, nil
-}
-
-func (s *Server) populateLastMod(sba *ibackup.SetBackupActivity, path string, client *wrstat.Client) error {
-	if client == nil {
-		client = s.config.GetWRStatClient()
-		if client == nil {
-			return ErrNoClient
-		}
-	}
-
-	if path != "" {
-		m, err := client.GetWRStatModTime(path)
-		if err != nil {
-			slog.Error("error querying wrstat status", "path", path, "err", err)
-		}
-
-		sba.LastMod = m
-	}
-
-	return nil
 }
 
 func (s *Server) collectBackupTotals(dirSummary *summary) error {
@@ -296,8 +261,8 @@ func (s *Server) getBackupTypeForTotals(id uint64) int {
 
 func (s *Server) buildRootDirSummary(reportingRoots []string, dirSummary *summary) {
 	dirClaims := make(map[string]string)
-	repos := make(map[string]claimPath)
-	nfs := make(map[string]claimPath)
+	repos := make(map[string]string)
+	nfs := make(map[string]string)
 	manualIbackup := make(map[string][]dirSet)
 
 	for _, root := range reportingRoots {
@@ -367,7 +332,7 @@ func (s *Server) collectChildDirSummaries(ds *ruletree.DirSummary, root string) 
 }
 
 func (s *Server) collectRuleMetadata(ds *ruletree.DirSummary, dirSummary *summary, //nolint:gocyclo
-	dirClaims map[string]string, repos, nfs map[string]claimPath, manualIbackup map[string][]dirSet,
+	dirClaims, repos, nfs map[string]string, manualIbackup map[string][]dirSet,
 ) {
 	for _, ruleSummary := range ds.RuleSummaries {
 		rule := s.rules[ruleSummary.ID]
@@ -386,9 +351,9 @@ func (s *Server) collectRuleMetadata(ds *ruletree.DirSummary, dirSummary *summar
 		case db.BackupManualIBackup:
 			manualIbackup[dir.ClaimedBy] = append(manualIbackup[dir.ClaimedBy], dirSet{dir.Path, rule.Metadata})
 		case db.BackupManualGit:
-			repos[rule.Metadata] = claimPath{dir.ClaimedBy, dir.Path}
+			repos[rule.Metadata] = dir.ClaimedBy
 		case db.BackupManualNFS:
-			nfs[rule.Metadata] = claimPath{dir.ClaimedBy, dir.Path}
+			nfs[rule.Metadata] = dir.ClaimedBy
 		}
 
 		if _, ok := dirSummary.Directories[dirPath]; ok {

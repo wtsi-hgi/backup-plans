@@ -476,7 +476,6 @@ type SetBackupActivity struct {
 	Orphaned    uint64
 	Hardlinks   uint64
 	Skipped     uint64
-	LastMod     time.Time
 }
 
 // GetBackupActivity queries an ibackup server to get the last completed backup

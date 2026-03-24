@@ -137,7 +137,6 @@ export type SetBackupActivity = {
 	Orphaned: number;
 	Hardlinks: number;
 	Skipped: number;
-	LastMod: string;
 }
 
 
@@ -147,4 +146,5 @@ export type DirStats = {
 	Group: string;
 	BackupStatus: SetBackupActivity[];
 	RuleStats: RuleInfo[];
+	LastMod: string;
 }

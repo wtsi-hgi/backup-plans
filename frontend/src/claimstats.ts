@@ -27,20 +27,7 @@ const filter = {
     "groupbom": ""
 }
 
-function dedupeSBA(sba: SetBackupActivity[]) {
-    const seen = new Set();
-
-    return sba.filter((sba) => {
-        if (seen.has(sba.Name)) {
-            return false;
-        }
-
-        seen.add(sba.Name);
-        return true;
-    })
-}
-
-function getStatusTd(sba: SetBackupActivity) {
+function getStatusTd(lastMod: string, sba: SetBackupActivity) {
     return [
         sba.LastSuccess === "0001-01-01T00:00:00Z" ?
             [
@@ -49,14 +36,14 @@ function getStatusTd(sba: SetBackupActivity) {
             ] : [
                 td(longAgoStr(sba.LastSuccess)),
                 sba.Failures === -1 ? td({},
-                    new Date(sba.LastMod) > new Date(sba.LastSuccess) ? svg(use({ "href": "#crossIcon" })) : svg(use({ "href": "#tickIcon" }))
+                    new Date(lastMod) > new Date(sba.LastSuccess) ? svg(use({ "href": "#crossIcon" })) : svg(use({ "href": "#tickIcon" }))
                 ) : td({
                     "class": "tooltip",
                     "data-tooltip": ibackupStatusColumns
                         .filter(c => sba[c])
                         .map(c => `${c}: ${sba[c].toLocaleString()}`)
                         .join("\n") || false
-                }, sba.Failures < 0 ? svg(use({ "href": "#crossIcon" })) : svg(use({ "href": "#tickIcon" }))
+                }, sba.Failures > 0 ? svg(use({ "href": "#crossIcon" })) : svg(use({ "href": "#tickIcon" }))
                 )
             ]
     ]
@@ -68,7 +55,6 @@ function createClaimStatsSection() {
     page.appendChild(spinner);
 
     getClaimStats(filter.user, filter.groupbom).then(claimstats => {
-        console.log(claimstats);
         page.replaceChildren(...claimstats.length > 0 ? claimstats.map((dirStats) => {
             if (!users.has(dirStats.ClaimedBy)) {
                 users.add(dirStats.ClaimedBy);
@@ -112,10 +98,10 @@ function createClaimStatsSection() {
                             th("Last Backup"),
                             th("Status")
                         ])),
-                        tbody(dirStats.BackupStatus.length > 0 ? dedupeSBA(dirStats.BackupStatus).map((sba) => [
+                        tbody(dirStats.BackupStatus.length > 0 ? dirStats.BackupStatus.map(sba => [
                             tr([
                                 td(sba.Name),
-                                getStatusTd(sba),
+                                getStatusTd(dirStats.LastMod, sba), //TODO: Copy to report
                             ])
                         ]) : tr(td({ "colspan": "3" }, "No backup sets.")))
                     ])
