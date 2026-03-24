@@ -86,8 +86,7 @@
     margin: 40px auto;
 }
 
-.tooltip svg,
-.testclass {
+.status svg {
     width: 1.5em;
     height: 1.5em;
 }

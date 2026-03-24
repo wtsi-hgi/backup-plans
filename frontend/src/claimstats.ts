@@ -35,10 +35,10 @@ function getStatusTd(lastMod: string, sba: SetBackupActivity) {
                 td("-")
             ] : [
                 td(longAgoStr(sba.LastSuccess)),
-                sba.Failures === -1 ? td({},
+                sba.Failures === -1 ? td({ "class": "status" },
                     new Date(lastMod) > new Date(sba.LastSuccess) ? svg(use({ "href": "#crossIcon" })) : svg(use({ "href": "#tickIcon" }))
                 ) : td({
-                    "class": "tooltip",
+                    "class": "tooltip status",
                     "data-tooltip": ibackupStatusColumns
                         .filter(c => sba[c])
                         .map(c => `${c}: ${sba[c].toLocaleString()}`)
