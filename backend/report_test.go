@@ -96,6 +96,7 @@ func TestReport(t *testing.T) {
 					ClaimedBy: "userC",
 					User:      firstUser.Username,
 					Group:     firstGroup.Name,
+					LastMod:   98766,
 					RuleSummaries: []ruletree.Rule{
 						{
 							ID: 4,
@@ -123,6 +124,7 @@ func TestReport(t *testing.T) {
 					ClaimedBy: "userD",
 					User:      firstUser.Username,
 					Group:     firstGroup.Name,
+					LastMod:   12346,
 					RuleSummaries: []ruletree.Rule{
 						{
 							ID: 5,
@@ -140,6 +142,7 @@ func TestReport(t *testing.T) {
 					ClaimedBy: "userB",
 					User:      secondUser.Username,
 					Group:     firstGroup.Name,
+					LastMod:   98766,
 					RuleSummaries: []ruletree.Rule{
 						{
 							ID: 3,
@@ -167,6 +170,7 @@ func TestReport(t *testing.T) {
 					ClaimedBy: userA,
 					User:      firstUser.Username,
 					Group:     firstGroup.Name,
+					LastMod:   98767,
 					RuleSummaries: []ruletree.Rule{
 						{
 							ID: 0,
@@ -228,8 +232,9 @@ func TestReport(t *testing.T) {
 				expectedSummary := summary{
 					Summaries: map[string]*ruletree.DirSummary{
 						"/lustre/scratch123/humgen/a/": {
-							User:  "root",
-							Group: "root",
+							User:    "root",
+							Group:   "root",
+							LastMod: 98767,
 							RuleSummaries: []ruletree.Rule{
 								{
 									ID: 0,

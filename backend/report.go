@@ -281,6 +281,7 @@ func (s *Server) buildRootDirSummary(reportingRoots []string, dirSummary *summar
 		nds.Group = users.Group(gid)
 		s.collectChildDirSummaries(nds, root)
 		nds.ClaimedBy = s.getClaimed(root)
+		nds.LastMod = s.getLastMod(nds.RuleSummaries)
 		dirSummary.Summaries[root] = nds
 
 		s.collectRuleMetadata(ds, dirSummary, dirClaims, repos, nfs, manualIbackup)

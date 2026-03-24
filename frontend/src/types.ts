@@ -24,7 +24,7 @@ export type DirSummary = {
 	RuleSummaries: RuleSummary[];
 	ClaimedBy: string;
 	Children: Record<string, DirSummary>;
-	LastMod: string;
+	LastMod: number;
 };
 
 export type Rules = Record<string, Record<number, Rule>>;

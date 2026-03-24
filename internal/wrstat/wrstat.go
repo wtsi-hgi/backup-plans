@@ -9,6 +9,7 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey" //nolint:revive,staticcheck
 	"github.com/wtsi-hgi/backup-plans/internal/directories"
+	"github.com/wtsi-hgi/backup-plans/wrstat"
 	wr "github.com/wtsi-hgi/backup-plans/wrstat"
 	gas "github.com/wtsi-hgi/go-authserver"
 	"github.com/wtsi-hgi/wrstat-ui/basedirs"
@@ -27,7 +28,7 @@ const (
 	dgutaPath           = "dguta.dbs"
 )
 
-func NewTestWRStatClient(t *testing.T, tree *directories.Root) *wr.Client { //nolint:funlen
+func NewTestWRStatClient(t *testing.T, tree *directories.Root) (*wr.Client, wrstat.Config) { //nolint:funlen
 	t.Helper()
 
 	s := summary.NewSummariser(stats.NewStatsParser(tree.AsReader()))
@@ -91,5 +92,5 @@ func NewTestWRStatClient(t *testing.T, tree *directories.Root) *wr.Client { //no
 
 	Reset(client.Stop)
 
-	return client
+	return client, cfg
 }

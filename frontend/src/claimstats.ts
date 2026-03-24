@@ -27,16 +27,19 @@ const filter = {
     "groupbom": ""
 }
 
-export function getStatusTd(lastMod: string, sba: SetBackupActivity) {
+function getStatusTd(lastMod: string, sba: SetBackupActivity) {
     return [
         sba.LastSuccess === "0001-01-01T00:00:00Z" ?
-            [
+            sba.Failures === -1 ? [
+                td("None"),
+                td({ "class": "status" }, svg(use({ "href": "#crossIcon" })))
+            ] : [
                 td("Pending"),
                 td("-")
             ] : [
                 td(longAgoStr(sba.LastSuccess)),
                 sba.Failures === -1 ? td({ "class": "status" },
-                    new Date(lastMod) > new Date(sba.LastSuccess) ? svg(use({ "href": "#crossIcon" })) : svg(use({ "href": "#tickIcon" }))
+                    +new Date(lastMod) > +new Date(sba.LastSuccess) ? svg(use({ "href": "#crossIcon" })) : svg(use({ "href": "#tickIcon" }))
                 ) : td({
                     "class": "tooltip status",
                     "data-tooltip": ibackupStatusColumns
@@ -101,7 +104,7 @@ function createClaimStatsSection() {
                         tbody(dirStats.BackupStatus.length > 0 ? dirStats.BackupStatus.map(sba => [
                             tr([
                                 td(sba.Name),
-                                getStatusTd(dirStats.LastMod, sba), // TODO: Copy to report
+                                getStatusTd(dirStats.LastMod, sba),
                             ])
                         ]) : tr(td({ "colspan": "3" }, "No backup sets.")))
                     ])

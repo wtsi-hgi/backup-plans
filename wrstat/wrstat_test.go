@@ -35,7 +35,7 @@ import (
 
 func TestWRStat(t *testing.T) {
 	Convey("With a wrstat database and server and a configured WRStat client", t, func() {
-		client := wrstat.NewTestWRStatClient(t, plandb.ExampleTree())
+		client, _ := wrstat.NewTestWRStatClient(t, plandb.ExampleTree())
 
 		Convey("You can request mtimes", func() {
 			ts, err := client.GetWRStatModTime("/lustre/scratch123/humgen/a/b/")

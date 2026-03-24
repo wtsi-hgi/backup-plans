@@ -348,7 +348,7 @@ func TestRules(t *testing.T) {
 						nil,
 					)
 					So(code, ShouldEqual, http.StatusOK)
-					So(resp, ShouldStartWith, `{"Group":"root","RuleSummaries":[{"ID":1,"Users":[{"Name":"`+currUser.Username+`","MTime":36,"Files":1,"Size":35}],"Groups":[{"Name":"`+secondGroup.Name+`","MTime":36,"Files":1,"Size":35}]}],"Children":{},"ClaimedBy":"root","Rules":{"/some/path/ChildDir/Child/":{"1":{"BackupType":`+strconv.Itoa(n)+`,"Metadata":"","Match":"*","Override":false,"Created":`) //nolint:lll
+					So(resp, ShouldStartWith, `{"Group":"root","RuleSummaries":[{"ID":1,"Users":[{"Name":"`+currUser.Username+`","MTime":36,"Files":1,"Size":35}],"Groups":[{"Name":"`+secondGroup.Name+`","MTime":36,"Files":1,"Size":35}]}],"Children":{},"LastMod":0,"ClaimedBy":"root","Rules":{"/some/path/ChildDir/Child/":{"1":{"BackupType":`+strconv.Itoa(n)+`,"Metadata":"","Match":"*","Override":false,"Created":`) //nolint:lll
 				})
 			}
 		})
