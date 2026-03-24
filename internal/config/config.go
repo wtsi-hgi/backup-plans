@@ -50,6 +50,7 @@ func NewConfig(t *testing.T, boms, owners map[string][]string, rr []string, ag u
 	}
 
 	d := slog.Default()
+
 	slog.SetDefault(slog.New(slog.DiscardHandler))
 
 	Reset(func() {
