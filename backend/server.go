@@ -269,3 +269,13 @@ func (s *Server) refreezeUpdatedDirectories() {
 		}
 	}
 }
+
+type rw struct{}
+
+func (rw) Write([]byte) (int, error) { return 0, nil }
+func (rw) WriteHeader(int)           {}
+func (rw) Header() http.Header       { return http.Header{} }
+
+func (s *Server) PreLoadCache() error {
+	return s.summary(rw{}, nil)
+}
