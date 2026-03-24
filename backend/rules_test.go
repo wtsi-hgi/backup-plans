@@ -356,6 +356,8 @@ func TestRules(t *testing.T) {
 }
 
 func TestMelt(t *testing.T) {
+	t.Setenv("BACKUP_PLANS_CONNECTION_TEST", "")
+
 	synctest.Test(t, func(t *testing.T) {
 		Convey("Given a configured server with an ibackup server", t, func() {
 			So(testirods.AddPseudoIRODsToolsToPathIfRequired(t), ShouldBeNil)
