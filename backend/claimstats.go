@@ -33,7 +33,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/wtsi-hgi/backup-plans/config"
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/ibackup"
 	"github.com/wtsi-hgi/backup-plans/ruletree"
@@ -253,9 +252,6 @@ func (s *Server) gatherDirRules(path string) map[uint64]struct{} {
 
 func (s *Server) getLastMod(path string) (time.Time, error) {
 	client := s.config.GetWRStatClient()
-	if client == config.NullWRStat {
-		return time.Time{}, ErrNoClient
-	}
 
 	if path == "" {
 		return time.Time{}, ErrInvalidDir
