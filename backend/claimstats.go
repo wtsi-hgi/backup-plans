@@ -27,7 +27,6 @@ package backend
 
 import (
 	"encoding/json"
-	"log/slog"
 	"net/http"
 	"slices"
 	"strings"
@@ -130,7 +129,7 @@ func createClaimstatsFilter(r *http.Request) filter {
 func (s *Server) generateDirStats(dir *Directory, dirSummary *ruletree.DirSummary) *DirStats {
 	rulestats := s.generateRuleStats(dir.Path, dirSummary)
 	sbas := s.gatherSBAs(dir, dirSummary)
-	mod, _ := s.getLastMod(dir.Path) //nolint:errcheck
+	// mod, _ := s.getLastMod(dir.Path) //nolint:errcheck
 
 	return &DirStats{
 		Path:         dir.Path,
@@ -138,7 +137,7 @@ func (s *Server) generateDirStats(dir *Directory, dirSummary *ruletree.DirSummar
 		Group:        dirSummary.Group,
 		BackupStatus: sbas,
 		RuleStats:    rulestats,
-		LastMod:      mod,
+		LastMod:      dirSummary.LastMod,
 	}
 }
 
@@ -250,17 +249,17 @@ func (s *Server) gatherDirRules(path string) map[uint64]struct{} {
 	return ids
 }
 
-func (s *Server) getLastMod(path string) (time.Time, error) {
-	client := s.config.GetWRStatClient()
+// func (s *Server) getLastMod(path string) (time.Time, error) {
+// 	client := s.config.GetWRStatClient()
 
-	if path == "" {
-		return time.Time{}, ErrInvalidDir
-	}
+// 	if path == "" {
+// 		return time.Time{}, ErrInvalidDir
+// 	}
 
-	m, err := client.GetWRStatModTime(path)
-	if err != nil {
-		slog.Error("error querying wrstat status", "path", path, "err", err)
-	}
+// 	m, err := client.GetWRStatModTime(path)
+// 	if err != nil {
+// 		slog.Error("error querying wrstat status", "path", path, "err", err)
+// 	}
 
-	return m, nil
-}
+// 	return m, nil
+// }

@@ -27,7 +27,7 @@ const filter = {
     "groupbom": ""
 }
 
-function getStatusTd(lastMod: string, sba: SetBackupActivity) {
+export function getStatusTd(lastMod: string, sba: SetBackupActivity) {
     return [
         sba.LastSuccess === "0001-01-01T00:00:00Z" ?
             [
@@ -101,7 +101,7 @@ function createClaimStatsSection() {
                         tbody(dirStats.BackupStatus.length > 0 ? dirStats.BackupStatus.map(sba => [
                             tr([
                                 td(sba.Name),
-                                getStatusTd(dirStats.LastMod, sba), //TODO: Copy to report
+                                getStatusTd(dirStats.LastMod, sba), // TODO: Copy to report
                             ])
                         ]) : tr(td({ "colspan": "3" }, "No backup sets.")))
                     ])

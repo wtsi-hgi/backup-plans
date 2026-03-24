@@ -32,6 +32,7 @@ import (
 	"net/http"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/ibackup"
@@ -324,8 +325,9 @@ func (s *Server) collectChildDirSummaries(ds *ruletree.DirSummary, root string) 
 
 			nchild.User = users.Username(uid)
 			nchild.Group = users.Group(gid)
-
 			nchild.ClaimedBy = s.getClaimed(dir.Path)
+			nchild.LastMod = s.getLastMod(dir.Path)
+
 			ds.Children[dir.Path] = &nchild
 		}
 	}
@@ -379,4 +381,19 @@ func (s *Server) collectRules(dirSummary *summary, dir *ruletree.DirRules) {
 
 	slices.Sort(ruleIDs)
 	dirSummary.Directories[dir.Path] = ruleIDs
+}
+
+func (s *Server) getLastMod(path string) time.Time {
+	client := s.config.GetWRStatClient()
+
+	if path == "" {
+		return time.Time{}
+	}
+
+	m, err := client.GetWRStatModTime(path)
+	if err != nil {
+		slog.Error("error querying wrstat status", "path", path, "err", err)
+	}
+
+	return m
 }

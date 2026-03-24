@@ -29,6 +29,7 @@ import (
 	"cmp"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/wtsi-hgi/backup-plans/users"
 	"github.com/wtsi-hgi/wrstat-ui/summary/group"
@@ -45,6 +46,7 @@ type DirSummary struct {
 	ClaimedBy     string
 	RuleSummaries []Rule
 	Children      map[string]*DirSummary
+	LastMod       time.Time
 }
 
 func (d *DirSummary) mergeRules(rules []Rule) {

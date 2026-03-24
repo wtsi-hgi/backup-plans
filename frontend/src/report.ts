@@ -5,13 +5,14 @@ import { a, br, button, datalist, details, div, fieldset, h1, h2, input, label, 
 import { svg, title, use } from "./lib/svg.js";
 import { action, formatBytes, longAgo, secondsInWeek, setAndReturn, splitLongPath, stringSort, createSpinner } from "./lib/utils.js";
 import { getReportSummary } from "./rpc.js";
-import { BackupType, MainProgrammes, ibackupStatusColumns } from "./consts.js";
+import { BackupType, MainProgrammes } from "./consts.js";
 import { render } from "./disktree.js";
 import { load } from './load.js';
 import ODS from './odf.js';
 import { boms, owners, userGroups } from './userGroups.js';
 import { inputState } from "./state.js";
 import graph from "./graph.js";
+import { getStatusTd } from "./claimstats.js";
 
 class Summary {
 	actions: SizeCountTime[] = [];
@@ -83,11 +84,13 @@ class Summary {
 class ParentSummary extends Summary {
 	children = new Map<string, ChildSummary>();
 	group: string;
+	// lastestMTime: number;
 
 	constructor(path: string, group: string, backupStatus?: BackupStatus) {
 		super(path, backupStatus);
 
 		this.group = group;
+		// this.
 	}
 
 	addChild(child: string, rule: Rule, stats: Stats) {
@@ -141,22 +144,24 @@ class ParentSummary extends Summary {
 						td(splitLongPath(path)),
 						td(backup.Requester),
 						td(splitLongPath(backup.Name)),
-						td(
-							backup.LastSuccess
-								// If status exists but is equal to zero time (ibackup broken) show pending
-								? +new Date(backup.LastSuccess) <= 0
-									? "Pending"
-									: new Date(backup.LastSuccess).toLocaleString()
-								: "-"
-						),
-						td({
-							"class": "tooltip",
-							"data-tooltip": ibackupStatusColumns
-								.filter(c => backup[c])
-								.map(c => `${c}: ${backup[c].toLocaleString()}`)
-								.join("\n") || false
-						}, backup.Failures === -1 ? "-"
-							: backup.Failures === 0 ? svg(use({ "href": "#tickIcon" })) : svg(use({ "href": "#crossIcon" })))
+						td(String(this.lastestMTime)),
+						td("-"),
+						// td(
+						// 	backup.LastSuccess
+						// 		// If status exists but is equal to zero time (ibackup broken) show pending
+						// 		? +new Date(backup.LastSuccess) <= 0
+						// 			? "Pending"
+						// 			: new Date(backup.LastSuccess).toLocaleString()
+						// 		: "-"
+						// ),
+						// td({
+						// 	"class": "tooltip",
+						// 	"data-tooltip": ibackupStatusColumns
+						// 		.filter(c => backup[c])
+						// 		.map(c => `${c}: ${backup[c].toLocaleString()}`)
+						// 		.join("\n") || false
+						// }, backup.Failures === -1 ? "-"
+						// 	: backup.Failures === 0 ? svg(use({ "href": "#tickIcon" })) : svg(use({ "href": "#crossIcon" })))
 					])))
 				] : tr(td({ "colspan": "5" }, "No Backups")))
 			]),
@@ -338,6 +343,7 @@ base.appendChild(spinner);
 
 getReportSummary()
 	.then(data => {
+		console.log(data);
 		base.removeChild(spinner);
 		summaryData = data;
 		now = +new Date();
