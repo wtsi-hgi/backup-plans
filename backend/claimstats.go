@@ -30,7 +30,6 @@ import (
 	"net/http"
 	"slices"
 	"strings"
-	"time"
 
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/ibackup"
@@ -49,7 +48,7 @@ type DirStats struct {
 	Group        string
 	BackupStatus []ibackup.SetBackupActivity
 	RuleStats    []ruleStats
-	LastMod      time.Time
+	LastMod      uint64
 }
 
 type filter struct {
@@ -129,7 +128,6 @@ func createClaimstatsFilter(r *http.Request) filter {
 func (s *Server) generateDirStats(dir *Directory, dirSummary *ruletree.DirSummary) *DirStats {
 	rulestats := s.generateRuleStats(dir.Path, dirSummary)
 	sbas := s.gatherSBAs(dir, dirSummary)
-	// mod, _ := s.getLastMod(dir.Path) //nolint:errcheck
 
 	return &DirStats{
 		Path:         dir.Path,
@@ -248,18 +246,3 @@ func (s *Server) gatherDirRules(path string) map[uint64]struct{} {
 
 	return ids
 }
-
-// func (s *Server) getLastMod(path string) (time.Time, error) {
-// 	client := s.config.GetWRStatClient()
-
-// 	if path == "" {
-// 		return time.Time{}, ErrInvalidDir
-// 	}
-
-// 	m, err := client.GetWRStatModTime(path)
-// 	if err != nil {
-// 		slog.Error("error querying wrstat status", "path", path, "err", err)
-// 	}
-
-// 	return m, nil
-// }
