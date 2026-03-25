@@ -10,7 +10,6 @@ import (
 	. "github.com/smartystreets/goconvey/convey" //nolint:revive,staticcheck
 	"github.com/wtsi-hgi/backup-plans/internal/directories"
 	"github.com/wtsi-hgi/backup-plans/wrstat"
-	wr "github.com/wtsi-hgi/backup-plans/wrstat"
 	gas "github.com/wtsi-hgi/go-authserver"
 	"github.com/wtsi-hgi/wrstat-ui/basedirs"
 	"github.com/wtsi-hgi/wrstat-ui/db"
@@ -28,7 +27,7 @@ const (
 	dgutaPath           = "dguta.dbs"
 )
 
-func NewTestWRStatClient(t *testing.T, tree *directories.Root) (*wr.Client, wrstat.Config) { //nolint:funlen
+func NewTestWRStatClient(t *testing.T, tree *directories.Root) (*wrstat.Client, wrstat.Config) { //nolint:funlen
 	t.Helper()
 
 	s := summary.NewSummariser(stats.NewStatsParser(tree.AsReader()))
@@ -80,14 +79,14 @@ func NewTestWRStatClient(t *testing.T, tree *directories.Root) (*wr.Client, wrst
 		So(dfunc(), ShouldBeNil)
 	})
 
-	cfg := wr.Config{
+	cfg := wrstat.Config{
 		JWTBasename:         jwtBasename,
 		ServerTokenBasename: serverTokenBasename,
 		ServerURL:           addr,
 		ServerCert:          cert,
 	}
 
-	client, err := wr.New(time.Hour, cfg)
+	client, err := wrstat.New(time.Hour, cfg)
 	So(err, ShouldBeNil)
 
 	Reset(client.Stop)
