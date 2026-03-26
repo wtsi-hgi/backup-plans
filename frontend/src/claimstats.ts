@@ -75,8 +75,8 @@ function prepareData(dirStats: DirStats) {
 
         rows.push({
             matches: [rule.Match],
-            size: rule.size,
-            count: rule.count,
+            size: BigInt(rule.size),
+            count: BigInt(rule.count),
             backup: `${BackupType.from(rule.BackupType).toString()}:${rule.Metadata}`, // make only do :rule.metadata if manual
             sba: backupMap.get(rule.Metadata),
         });
