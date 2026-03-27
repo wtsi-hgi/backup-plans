@@ -121,30 +121,30 @@ function makeRow(rowMap: Map<string, Map<string, row>>, backupMap: Map<string, S
 // than they were backed up (based on nfs mod time/commit date), the status will be X.
 // For automatic backups, the status will be based on failure count (anything other than
 // 0 will be X).
-function getStatusTd(lastMod: string, row: row) {
+function getStatusTd(lastMod: number, row: row) {
     if (row.backup === "nobackup" || row.backup === "manualunchecked" || row.backup === "manualprefect") { return [td("-"), td("-")] }
-
     const sba = row.sba!;
+    const tooltip = [
+        `Last Modified: ${new Date(lastMod * 1000).toLocaleString()}`,
+        `Last Backup: ${new Date(sba.LastSuccess).toLocaleString()}`
+    ];
 
     return [
         sba.LastSuccess === "0001-01-01T00:00:00Z" ?
             sba.Failures === -1 ? [
                 td("None"),
-                td({ "class": "status" }, svg(use({ "href": "#crossIcon" })))
+                td({ "class": "tooltip status", "data-tooltip": tooltip.join("\n") || false }, svg(use({ "href": "#crossIcon" })))
             ] : [
                 td("Pending"),
                 td("-")
             ] : [
                 td(longAgoStr(sba.LastSuccess)),
-                sba.Failures === -1 ? td({ "class": "status" },
+                sba.Failures === -1 ? td({ "class": "tooltip status", "data-tooltip": tooltip.join("\n") || false },
                     +new Date(lastMod) > +new Date(sba.LastSuccess) ? svg(use({ "href": "#crossIcon" })) : svg(use({ "href": "#tickIcon" }))
                 ) : td({
                     "class": "tooltip status",
                     "data-tooltip": (
-                        [
-                            `Last Modified: ${new Date(lastMod).toLocaleString()}`,
-                            `Last Backup: ${new Date(sba.LastSuccess).toLocaleString()}`
-                        ].concat(ibackupStatusColumns
+                        tooltip.concat(ibackupStatusColumns
                             .filter(c => sba[c])
                             .map(c => `${c}: ${sba[c].toLocaleString()}`))
                             .join("\n") || false

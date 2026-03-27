@@ -133,5 +133,5 @@ export type DirStats = {
 	Group: string;
 	BackupStatus: SetBackupActivity[];
 	RuleStats: RuleInfo[];
-	LastMod: string;
+	LastMod: number;
 }

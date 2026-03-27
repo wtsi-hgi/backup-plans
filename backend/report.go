@@ -281,7 +281,6 @@ func (s *Server) buildRootDirSummary(reportingRoots []string, dirSummary *summar
 		nds.Group = users.Group(gid)
 		s.collectChildDirSummaries(nds, root)
 		nds.ClaimedBy = s.getClaimed(root)
-		nds.LastMod = s.getLastMod(nds.RuleSummaries)
 		dirSummary.Summaries[root] = nds
 
 		s.collectRuleMetadata(ds, dirSummary, dirClaims, repos, nfs, manualIbackup)
@@ -326,7 +325,6 @@ func (s *Server) collectChildDirSummaries(ds *ruletree.DirSummary, root string) 
 			nchild.User = users.Username(uid)
 			nchild.Group = users.Group(gid)
 			nchild.ClaimedBy = s.getClaimed(dir.Path)
-			nchild.LastMod = s.getLastMod(nchild.RuleSummaries)
 
 			ds.Children[dir.Path] = &nchild
 		}
@@ -381,18 +379,4 @@ func (s *Server) collectRules(dirSummary *summary, dir *ruletree.DirRules) {
 
 	slices.Sort(ruleIDs)
 	dirSummary.Directories[dir.Path] = ruleIDs
-}
-
-func (s *Server) getLastMod(rules []ruletree.Rule) uint64 {
-	latestMtime := uint64(0)
-
-	for _, ruleStats := range rules {
-		for _, stat := range ruleStats.Users {
-			if stat.MTime > latestMtime {
-				latestMtime = stat.MTime
-			}
-		}
-	}
-
-	return latestMtime
 }

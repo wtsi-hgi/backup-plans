@@ -442,6 +442,8 @@ func (t *topLevelDir) Update() error {
 		}
 	}
 
+	t.summary.setLastMod()
+
 	if t.parent != nil {
 		return t.parent.Update()
 	}

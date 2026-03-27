@@ -27,6 +27,7 @@ package backend
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"slices"
 	"strings"
@@ -86,6 +87,7 @@ func (s *Server) collectDirStats(f filter) []DirStats {
 		}
 
 		dirSummary := dir.DirSummary
+		fmt.Println("collectDirStats :", dirSummary.LastMod)
 		dirSummary.ClaimedBy = s.getClaimed(dir.Path)
 		claimstats = append(claimstats, *s.generateDirStats(dir, dirSummary))
 	}

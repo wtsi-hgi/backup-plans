@@ -48,6 +48,16 @@ type DirSummary struct {
 	LastMod       uint64
 }
 
+func (d *DirSummary) setLastMod() {
+	for _, ruleStats := range d.RuleSummaries {
+		for _, stat := range ruleStats.Users {
+			if stat.MTime > d.LastMod {
+				d.LastMod = stat.MTime
+			}
+		}
+	}
+}
+
 func (d *DirSummary) mergeRules(rules []Rule) {
 	for _, rule := range rules {
 		pos, ok := slices.BinarySearchFunc(d.RuleSummaries, rule, func(a, b Rule) int {
@@ -216,6 +226,8 @@ func (r *ruleOverlay) getSummary(wildcard int64) *DirSummary {
 	if len(ds.RuleSummaries) == 1 && ds.RuleSummaries[0].ID == 0 {
 		ds.RuleSummaries[0].ID = uint64(wildcard) //nolint:gosec
 	}
+
+	ds.setLastMod()
 
 	return ds
 }
