@@ -112,6 +112,7 @@ func TestClaimStats(t *testing.T) {
 							},
 						},
 					},
+					LastMod: 98767,
 				},
 			})
 
@@ -161,6 +162,7 @@ func TestClaimStats(t *testing.T) {
 							},
 						},
 					},
+					LastMod: 98767,
 				},
 				{
 					Path:      "/lustre/scratch123/humgen/a/c/",

@@ -27,7 +27,6 @@ package backend
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"slices"
 	"strings"
@@ -87,7 +86,6 @@ func (s *Server) collectDirStats(f filter) []DirStats {
 		}
 
 		dirSummary := dir.DirSummary
-		fmt.Println("collectDirStats :", dirSummary.LastMod)
 		dirSummary.ClaimedBy = s.getClaimed(dir.Path)
 		claimstats = append(claimstats, *s.generateDirStats(dir, dirSummary))
 	}
@@ -160,7 +158,7 @@ func (s *Server) gatherSBAs(dir *Directory, dirSummary *ruletree.DirSummary) []i
 }
 
 // addSBA will retrieve the ibackup.SetBackupActivity for a given set and add it to sbas. Duplicates are skipped.
-func (s *Server) addSBA( //nolint:gocognit,gocyclo,funlen
+func (s *Server) addSBA( //nolint:gocyclo,funlen
 	sbas []ibackup.SetBackupActivity,
 	seen map[string]struct{},
 	dir *Directory,
@@ -190,8 +188,8 @@ func (s *Server) addSBA( //nolint:gocognit,gocyclo,funlen
 		}
 
 	case db.BackupManualNFS:
-		sba, err := s.getNFSStatus(rule.Metadata, requester)
-		if _, exists := seen[rule.Metadata]; !exists && err == nil {
+		sba := s.getNFSStatus(rule.Metadata, requester)
+		if _, exists := seen[rule.Metadata]; !exists {
 			sbas = append(sbas, sba)
 			seen[rule.Metadata] = struct{}{}
 		}

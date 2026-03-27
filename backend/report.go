@@ -204,16 +204,13 @@ func (s *Server) getGitBackupStatus(repo, claimedBy string) ibackup.SetBackupAct
 
 func (s *Server) populateNFSStatus(backupPaths map[string]string, dirSummary *summary) {
 	for backupPath, claimedBy := range backupPaths {
-		sba, err := s.getNFSStatus(backupPath, claimedBy)
-		if err != nil {
-			continue
-		}
+		sba := s.getNFSStatus(backupPath, claimedBy)
 
 		dirSummary.BackupStatus["nfs:"+backupPath] = sba
 	}
 }
 
-func (s *Server) getNFSStatus(backupPath, claimedBy string) (ibackup.SetBackupActivity, error) {
+func (s *Server) getNFSStatus(backupPath, claimedBy string) ibackup.SetBackupActivity {
 	sba := ibackup.SetBackupActivity{
 		Name:      backupPath,
 		Requester: claimedBy,
@@ -221,9 +218,6 @@ func (s *Server) getNFSStatus(backupPath, claimedBy string) (ibackup.SetBackupAc
 	}
 
 	client := s.config.GetWRStatClient()
-	if client == nil {
-		return ibackup.SetBackupActivity{}, ErrNoClient
-	}
 
 	t, err := client.GetWRStatModTime(backupPath)
 	if err != nil {
@@ -232,7 +226,7 @@ func (s *Server) getNFSStatus(backupPath, claimedBy string) (ibackup.SetBackupAc
 
 	sba.LastSuccess = t
 
-	return sba, nil
+	return sba
 }
 
 func (s *Server) collectBackupTotals(dirSummary *summary) error {

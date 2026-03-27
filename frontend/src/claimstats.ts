@@ -40,8 +40,6 @@ type row = {
 
 // match[], Size (Total), Count(Total), Backup (BackupType:BackupName), LastBackup, Status
 function prepareData(dirStats: DirStats) {
-    console.log("Prepare data:", dirStats);
-
     const rowMap: Map<string, Map<string, row>> = new Map(); // backuptype->backupname->row
     const backupMap = new Map(Object.values(dirStats.BackupStatus).map(sba => [sba.Name, sba]));
     const iBackupSba = Object.values(dirStats.BackupStatus).find(sba => sba.Name.startsWith("plan::"));
@@ -75,17 +73,11 @@ function prepareData(dirStats: DirStats) {
         }
     }
 
-    console.log("rows:", rows);
-
     return rows
 }
 
 function makeRow(rowMap: Map<string, Map<string, row>>, backupMap: Map<string, SetBackupActivity>, rule: RuleInfo, backupName: string) {
-    if (rule.BackupType === undefined) {
-        console.log("Undefined backup type on rule: ", rule);
-
-        return
-    }
+    if (rule.BackupType === undefined) { return }
 
     const backuptype = BackupType.from(rule.BackupType);
     const btype = backuptype.optionLabel()

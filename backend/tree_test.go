@@ -75,7 +75,7 @@ func TestTree(t *testing.T) {
 				"],\"Children\":{\"ChildToClaim/\":{\"Group\":\"root\",\"ClaimedBy\":\"\",\"RuleSummaries\""+
 				":[],\"Children\":{},\"LastMod\":0},\"ChildToNotClaim/\""+
 				":{\"Group\":\"root\",\"ClaimedBy\":\"\",\"RuleSummaries\":[],\""+
-				"Children\":{},\"LastMod\":0}},\"LastMod\":0,\"ClaimedBy\":\"\",\"Rules\":{},\"Unauthorised\":[],\"CanClaim\""+
+				"Children\":{},\"LastMod\":0}},\"LastMod\":6,\"ClaimedBy\":\"\",\"Rules\":{},\"Unauthorised\":[],\"CanClaim\""+
 				":true,\"Frequency\":0,\"Frozen\":false,\"ReviewDate\":0,\"RemoveDate\":0}\n")
 
 			code, _ = getResponse(
