@@ -1,4 +1,4 @@
-import { div, h2, p, button, table, thead, tbody, th, td, tr, fieldset, legend, input, datalist, option } from "./lib/html.js";
+import { div, h2, p, button, table, thead, tbody, th, td, tr, fieldset, legend, input, datalist, option, map, b, i } from "./lib/html.js";
 import { createRule, getClaimStats, user } from "./rpc.js";
 import { formatBytes, longAgoStr, createSpinner } from "./lib/utils.js";
 import { BackupType, ibackupStatusColumns } from "./consts.js";
@@ -27,75 +27,97 @@ const filter = {
     "groupbom": ""
 }
 
+type row = {
+    matches: string[],
+    size: bigint,
+    count: bigint,
+    backup: string,
+    name: string,
+    sba?: SetBackupActivity
+};
 
+// match[], Size (Total), Count(Total), Backup (BackupType:BackupName), LastBackup, Status
 function prepareData(dirStats: DirStats) {
-    // match[], Size (Total), Count(Total), Backup (BackupType:BackupName), LastBackup, Status
+    console.log("Prepare data:", dirStats);
 
-    type row = {
-        matches: string[],
-        size: bigint,
-        count: bigint,
-        backup: string,
-        sba?: SetBackupActivity
-    };
-
-    const rows: row[] = [];
+    const rowMap: Map<string, Map<string, row>> = new Map(); // backuptype->backupname->row
     const backupMap = new Map(Object.values(dirStats.BackupStatus).map(sba => [sba.Name, sba]));
     const iBackupSba = Object.values(dirStats.BackupStatus).find(sba => sba.Name.startsWith("plan::"));
-    const iBackupRow: row = {
-        matches: [],
-        size: 0n,
-        count: 0n,
-        backup: "",
-        sba: iBackupSba
-    };
+    if (iBackupSba !== undefined) {
+        backupMap.set(iBackupSba!.Name, iBackupSba!)
+    }
 
     for (const rule of dirStats.RuleStats) {
-        console.log("Processing rule", rule);
-        if (rule.BackupType === undefined) {
-            // console.log("Undefined rule (unplanned??)", rule);
-            continue;
+        let backupName = "-"
+
+        if (BackupType.manual.includes(rule.BackupType)) {
+            backupName = rule.Metadata
+        } else if (rule.BackupType === BackupType.BackupIBackup) {
+            backupName = iBackupSba!.Name
         }
 
-        if (+rule.BackupType === +BackupType.BackupIBackup) {
-            // console.log("ibackup rule found");
-            iBackupRow.matches.push(rule.Match)
-            iBackupRow.size += BigInt(rule.size);
-            iBackupRow.count += BigInt(rule.count);
-            for (const sba of dirStats.BackupStatus) {
-                if (sba.Name.startsWith("plan::")) {
-                    iBackupRow.backup = "iBackup:" + sba.Name
-                    iBackupRow.sba = sba
-                    break;
-                }
-            }
+        makeRow(rowMap, backupMap, rule, backupName)
+    }
 
-            continue;
+    const rows: row[] = [];
+
+    for (const map of rowMap.values()) {
+        for (const row of map.values()) {
+            rows.push(row)
         }
-
-        rows.push({
-            matches: [rule.Match],
-            size: BigInt(rule.size),
-            count: BigInt(rule.count),
-            backup: `${BackupType.from(rule.BackupType).toString()}:${rule.Metadata}`, // make only do :rule.metadata if manual
-            sba: backupMap.get(rule.Metadata),
-        });
-
     }
 
-    // console.log(iBackupRow);
-
-    if (iBackupRow.matches.length > 0) {
-        rows.push(iBackupRow);
-    }
-
-    // console.log("backupMap:", backupMap);
     console.log("rows:", rows);
 
     return rows
 }
 
-function getStatusTd(lastMod: string, sba: SetBackupActivity) {
+function makeRow(rowMap: Map<string, Map<string, row>>, backupMap: Map<string, SetBackupActivity>, rule: RuleInfo, backupName: string) {
+    if (rule.BackupType === undefined) {
+        console.log("Undefined backup type on rule: ", rule);
+
+        return
+    }
+
+    const backuptype = BackupType.from(rule.BackupType);
+    const btype = backuptype.optionLabel()
+
+    if (!rowMap.has(btype)) {
+        rowMap.set(btype, new Map());
+    }
+
+    const rMap = rowMap.get(btype)
+
+    if (!rMap!.has(backupName)) {
+        rMap?.set(backupName, {
+            matches: [rule.Match],
+            size: BigInt(rule.size),
+            count: BigInt(rule.count),
+            backup: btype,
+            name: backupName,
+            sba: backupMap.get(backupName)!,
+        })
+
+        return
+    }
+
+    const row = rMap!.get(backupName)!
+    row.matches.push(rule.Match);
+    row.size += BigInt(rule.size);
+    row.count += BigInt(rule.count);
+}
+
+// getStatusTd returns the table data cells for Last Backup and Status
+//
+// For manual types, if modifications to the matched files has occurred more recently
+// than they were backed up (based on nfs mod time/commit date), the status will be X.
+// For automatic backups, the status will be based on failure count (anything other than
+// 0 will be X).
+function getStatusTd(lastMod: string, row: row) {
+    if (row.backup === "nobackup" || row.backup === "manualunchecked" || row.backup === "manualprefect") { return [td("-"), td("-")] }
+
+    const sba = row.sba!;
+
     return [
         sba.LastSuccess === "0001-01-01T00:00:00Z" ?
             sba.Failures === -1 ? [
@@ -110,10 +132,15 @@ function getStatusTd(lastMod: string, sba: SetBackupActivity) {
                     +new Date(lastMod) > +new Date(sba.LastSuccess) ? svg(use({ "href": "#crossIcon" })) : svg(use({ "href": "#tickIcon" }))
                 ) : td({
                     "class": "tooltip status",
-                    "data-tooltip": ibackupStatusColumns // TODO: Add last mod to tooltip
-                        .filter(c => sba[c])
-                        .map(c => `${c}: ${sba[c].toLocaleString()}`)
-                        .join("\n") || false
+                    "data-tooltip": (
+                        [
+                            `Last Modified: ${new Date(lastMod).toLocaleString()}`,
+                            `Last Success: ${new Date(sba.LastSuccess).toLocaleString()}`
+                        ].concat(ibackupStatusColumns
+                            .filter(c => sba[c])
+                            .map(c => `${c}: ${sba[c].toLocaleString()}`))
+                            .join("\n") || false
+                    )
                 }, sba.Failures > 0 ? svg(use({ "href": "#crossIcon" })) : svg(use({ "href": "#tickIcon" }))
                 )
             ]
@@ -150,7 +177,8 @@ function createClaimStatsSection() {
                             th("Match"),
                             th("Size"),
                             th("Count"),
-                            th("Backup"), // type: backupname
+                            th("Backup Type"),
+                            th("Backup Name"),
                             th("Last Backup"),
                             th("Status")
                         ])),
@@ -161,32 +189,12 @@ function createClaimStatsSection() {
                                     td(formatBytes(row.size)),
                                     td(formatBytes(row.count)),
                                     td(row.backup),
-                                    row.sba === undefined ? [td("Pending"), td("-")] : getStatusTd(dirStats.LastMod, row.sba!)
+                                    td(row.name),
+                                    row.sba === undefined ? [td("Pending"), td("-")] : getStatusTd(dirStats.LastMod, row)
                                 ])
-                            ]) : tr(td({ "colspan": "6" }, "No rules or unplanned data."))
-                            // dirStats.RuleStats.length > 0 ? dirStats.RuleStats.map((rule) => [
-                            //     tr([
-                            //         td(rule.BackupType != null ? BackupType.from(rule.BackupType).optionLabel() : "Unplanned"),
-                            //         td(rule.BackupType != null ? rule.Match : "-"),
-                            //         td(formatBytes(BigInt(rule.size))),
-                            //         td("" + rule.count)
-                            //     ])
-                            // ]) : tr(td({ "colspan": "6" }, "No rules or unplanned data."))
+                            ]) : tr(td({ "colspan": "7" }, "No rules or unplanned data."))
                         ])
                     ]),
-                    // table({ "class": "summary" }, [
-                    //     thead(tr([
-                    //         th("Backup Name"),
-                    //         th("Last Backup"),
-                    //         th("Status")
-                    //     ])),
-                    //     tbody(dirStats.BackupStatus.length > 0 ? dirStats.BackupStatus.map(sba => [
-                    //         tr([
-                    //             td(sba.Name),
-                    //             getStatusTd(dirStats.LastMod, sba),
-                    //         ])
-                    //     ]) : tr(td({ "colspan": "3" }, "No backup sets.")))
-                    // ])
                 ])
             ])
         }) : [h2("No claimed directories.")]);

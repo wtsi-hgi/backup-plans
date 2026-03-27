@@ -209,7 +209,7 @@ func (s *Server) populateNFSStatus(backupPaths map[string]string, dirSummary *su
 			continue
 		}
 
-		dirSummary.BackupStatus[backupPath] = sba
+		dirSummary.BackupStatus["nfs:"+backupPath] = sba
 	}
 }
 
