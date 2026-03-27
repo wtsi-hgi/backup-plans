@@ -36,6 +36,8 @@ type row = {
     sba?: SetBackupActivity
 };
 
+// TODO: Add unplanned stats somehow?
+
 // match[], Size (Total), Count(Total), Backup (BackupType:BackupName), LastBackup, Status
 function prepareData(dirStats: DirStats) {
     console.log("Prepare data:", dirStats);
@@ -48,11 +50,17 @@ function prepareData(dirStats: DirStats) {
     }
 
     for (const rule of dirStats.RuleStats) {
+        if (rule.BackupType === undefined) {
+            // unplanned i assume
+            continue;
+        }
+
+        const backuptype = BackupType.from(rule.BackupType);
         let backupName = "-"
 
-        if (BackupType.manual.includes(rule.BackupType)) {
+        if (BackupType.manual.includes(backuptype)) {
             backupName = rule.Metadata
-        } else if (rule.BackupType === BackupType.BackupIBackup) {
+        } else if (backuptype === BackupType.BackupIBackup) {
             backupName = iBackupSba!.Name
         }
 
@@ -135,7 +143,7 @@ function getStatusTd(lastMod: string, row: row) {
                     "data-tooltip": (
                         [
                             `Last Modified: ${new Date(lastMod).toLocaleString()}`,
-                            `Last Success: ${new Date(sba.LastSuccess).toLocaleString()}`
+                            `Last Backup: ${new Date(sba.LastSuccess).toLocaleString()}`
                         ].concat(ibackupStatusColumns
                             .filter(c => sba[c])
                             .map(c => `${c}: ${sba[c].toLocaleString()}`))
