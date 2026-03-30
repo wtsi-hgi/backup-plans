@@ -112,13 +112,16 @@ function makeRow(rowMap: Map<string, Map<string, row>>, backupMap: Map<string, S
 // For automatic backups, the status will be based on failure count (anything other than
 // 0 will be X).
 function getStatusTd(lastMod: number, row: row) {
-    if (row.backup === "Manual: Unchecked" || row.backup === "Manual: Perfect") { return [td("-"), td("-")] }
+    if (row.backup === "Manual Backup: Unchecked" || row.backup === "Manual Backup: Perfect") { return [td("-"), td("-")] }
     if (row.backup === "No Backup") { return [td("None"), td("-")] }
 
+    if (row.sba === undefined) { console.log("No backup status activity found for backup", row.name); return [td("Unknown"), td("-")] }
+
     const sba = row.sba!;
+
     const tooltip = [
-        `Last Modified: ${new Date(lastMod * 1000).toLocaleString()}`,
-        `Last Backup: ${new Date(sba.LastSuccess).toLocaleString()}`
+        `Last Modified: ${lastMod === 0 ? "None" : new Date(lastMod * 1000).toLocaleString()}`,
+        `Last Backup: ${sba.LastSuccess === "0001-01-01T00:00:00Z" ? "None" : new Date(sba.LastSuccess).toLocaleString()}`
     ];
 
     return [
@@ -192,7 +195,7 @@ function createClaimStatsSection() {
                                     td(row.name),
                                     getStatusTd(dirStats.LastMod, row)
                                 ])
-                            ]) : tr(td({ "colspan": "7" }, "No rules or unplanned data."))
+                            ]) : tr(td({ "colspan": "7" }, "No rules added to this directory."))
                         ])
                     ]),
                 ])

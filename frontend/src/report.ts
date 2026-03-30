@@ -294,8 +294,8 @@ function getStatus(latestMTime: number, backup: SetBackupActivity) {
 					"class": "tooltip status",
 					"data-tooltip":
 						[
-							`Last Modified: ${new Date(latestMTime).toLocaleString()}`,
-							`Last Backup: ${new Date(backup.LastSuccess).toLocaleString()}`
+							`Last Modified: ${latestMTime === 0 ? "None" : new Date(latestMTime * 1000).toLocaleString()}`,
+							`Last Backup: ${backup.LastSuccess === "0001-01-01T00:00:00Z" ? "None" : new Date(backup.LastSuccess).toLocaleString()}`
 						].concat(ibackupStatusColumns
 							.filter(c => backup[c])
 							.map(c => `${c}: ${backup[c].toLocaleString()}`))
