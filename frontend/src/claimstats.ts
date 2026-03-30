@@ -36,20 +36,18 @@ type row = {
     sba?: SetBackupActivity
 };
 
-// TODO: Add unplanned stats somehow?
-
-// match[], Size (Total), Count(Total), Backup (BackupType:BackupName), LastBackup, Status
 function prepareData(dirStats: DirStats) {
     const rowMap: Map<string, Map<string, row>> = new Map(); // backuptype->backupname->row
     const backupMap = new Map(Object.values(dirStats.BackupStatus).map(sba => [sba.Name, sba]));
     const iBackupSba = Object.values(dirStats.BackupStatus).find(sba => sba.Name.startsWith("plan::"));
+
     if (iBackupSba !== undefined) {
         backupMap.set(iBackupSba!.Name, iBackupSba!)
     }
 
     for (const rule of dirStats.RuleStats) {
         if (rule.BackupType === undefined) {
-            // unplanned i assume
+            // unplanned data
             continue;
         }
 
@@ -114,7 +112,9 @@ function makeRow(rowMap: Map<string, Map<string, row>>, backupMap: Map<string, S
 // For automatic backups, the status will be based on failure count (anything other than
 // 0 will be X).
 function getStatusTd(lastMod: number, row: row) {
-    if (row.backup === "nobackup" || row.backup === "manualunchecked" || row.backup === "manualprefect") { return [td("-"), td("-")] }
+    if (row.backup === "Manual: Unchecked" || row.backup === "Manual: Perfect") { return [td("-"), td("-")] }
+    if (row.backup === "No Backup") { return [td("None"), td("-")] }
+
     const sba = row.sba!;
     const tooltip = [
         `Last Modified: ${new Date(lastMod * 1000).toLocaleString()}`,
@@ -190,7 +190,7 @@ function createClaimStatsSection() {
                                     td(formatBytes(row.count)),
                                     td(row.backup),
                                     td(row.name),
-                                    row.sba === undefined ? [td("Pending"), td("-")] : getStatusTd(dirStats.LastMod, row)
+                                    getStatusTd(dirStats.LastMod, row)
                                 ])
                             ]) : tr(td({ "colspan": "7" }, "No rules or unplanned data."))
                         ])
