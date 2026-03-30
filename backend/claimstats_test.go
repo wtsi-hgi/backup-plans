@@ -183,6 +183,7 @@ func TestClaimStats(t *testing.T) {
 							},
 						},
 					},
+					LastMod: 12346,
 				},
 			})
 		})

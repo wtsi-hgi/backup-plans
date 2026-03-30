@@ -112,7 +112,7 @@ func TestTree(t *testing.T) {
 				"{\"Name\":\""+users.Group(2)+"\",\"MTime\":4,\"Files\":1,\"Size\":3}]}"+
 				"],\"Children\":{\"ChildToClaim/\":{\"Group\":\"root\",\"ClaimedBy\":\"\",\"RuleSummaries\":"+
 				"[],\"Children\":{},\"LastMod\":0},\"ChildToNotClaim/\":{\"Group\":\"root\",\"ClaimedBy\":\"\""+
-				",\"RuleSummaries\":[],\"Children\":{},\"LastMod\":0}},\"LastMod\":0,\"ClaimedBy\":\"root\",\"Rules\":{"+
+				",\"RuleSummaries\":[],\"Children\":{},\"LastMod\":0}},\"LastMod\":6,\"ClaimedBy\":\"root\",\"Rules\":{"+
 				"\"/some/path/MyDir/\":{\"1\":{\"BackupType\":1,\"Metadata\":\"\","+
 				"\"Match\":\"*.txt\",\"Override\":false,\"Created\":0,\"Modified\":0}}},"+
 				"\"Unauthorised\":[],\"CanClaim\":true,"+
