@@ -112,10 +112,8 @@ function makeRow(rowMap: Map<string, Map<string, row>>, backupMap: Map<string, S
 // For automatic backups, the status will be based on failure count (anything other than
 // 0 will be X).
 function getStatusTd(lastMod: number, row: row) {
-    if (row.backup === "Manual Backup: Unchecked" || row.backup === "Manual Backup: Perfect") { return [td("-"), td("-")] }
+    if (row.backup === "Manual Backup: Unchecked" || row.backup === "Manual Backup: Prefect") { return [td("-"), td("-")] }
     if (row.backup === "No Backup") { return [td("None"), td("-")] }
-
-    if (row.sba === undefined) { console.log("No backup status activity found for backup", row.name); return [td("Unknown"), td("-")] }
 
     const sba = row.sba!;
 
