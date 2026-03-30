@@ -55,14 +55,7 @@ func (d *DirSummary) setLastMod() {
 				d.LastMod = stat.MTime
 			}
 		}
-		// for _, stat := range ruleStats.Groups { // include groups
-		// 	if stat.MTime > d.LastMod {
-		// 		d.LastMod = stat.MTime
-		// 	}
-		// }
 	}
-
-	// fmt.Println("Setting last mod for", d.ClaimedBy, d.Group, d.User, "to", d.LastMod)
 }
 
 func (d *DirSummary) mergeRules(rules []Rule) {

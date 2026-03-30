@@ -28,7 +28,6 @@ package backend
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"slices"
@@ -278,7 +277,6 @@ func (s *Server) buildRootDirSummary(reportingRoots []string, dirSummary *summar
 		s.collectChildDirSummaries(nds, root)
 		nds.ClaimedBy = s.getClaimed(root)
 		dirSummary.Summaries[root] = nds
-		fmt.Println("buildRootDirSummary for", root, "lastMod", nds.LastMod)
 
 		s.collectRuleMetadata(ds, dirSummary, dirClaims, repos, nfs, manualIbackup)
 	}
@@ -324,8 +322,6 @@ func (s *Server) collectChildDirSummaries(ds *ruletree.DirSummary, root string) 
 			nchild.ClaimedBy = s.getClaimed(dir.Path)
 
 			ds.Children[dir.Path] = &nchild
-
-			fmt.Println("collectChildDirSummaries for", dir.Path, "lastMod", nchild.LastMod)
 		}
 	}
 }
