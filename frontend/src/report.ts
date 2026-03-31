@@ -289,7 +289,7 @@ function getStatus(latestMTime: number, backup: SetBackupActivity) {
 			] : [
 				td(longAgoStr(backup.LastSuccess)),
 				backup.Failures === -1 ? td({ "class": "status" },
-					new Date(latestMTime) > new Date(backup.LastSuccess) ? svg(use({ "href": "#crossIcon" })) : svg(use({ "href": "#tickIcon" }))
+					new Date(latestMTime * 1000) > new Date(backup.LastSuccess) ? svg(use({ "href": "#crossIcon" })) : svg(use({ "href": "#tickIcon" }))
 				) : td({
 					"class": "tooltip status",
 					"data-tooltip":

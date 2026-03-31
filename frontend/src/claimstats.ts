@@ -7,7 +7,6 @@ import { amendNode, clearNode } from "./lib/dom.js";
 import { users, groups, bomSet } from './userGroups.js';
 import type { SetBackupActivity, DirStats, RuleInfo } from "./types.js";
 import { svg, use } from './lib/svg.js';
-import { handleState, inputState, setState } from './state.js';
 
 const base = div({ "class": "main-container" });
 const container = div();
@@ -15,19 +14,10 @@ const container = div();
 function initialiseClaimStats() {
     base.append(createFilterSection());
 
-    handleState("claimName", (v) => v, filter.user);
-    handleState("claimGroupBom", (v) => v, filter.groupbom);
-
     updateClaimStats();
 
     base.append(container);
 }
-
-function loadFiltered(name: string, groupbom: string) {
-    setState("claimName", name);
-    setState("claimGroupbom", groupbom);
-    load();
-};
 
 export function updateClaimStats() {
     clearNode(container);
@@ -148,7 +138,7 @@ function getStatusTd(lastMod: number, row: row) {
             ] : [
                 td(longAgoStr(sba.LastSuccess)),
                 sba.Failures === -1 ? td({ "class": "tooltip status", "data-tooltip": tooltip.join("\n") || false },
-                    +new Date(lastMod) > +new Date(sba.LastSuccess) ? svg(use({ "href": "#crossIcon" })) : svg(use({ "href": "#tickIcon" }))
+                    +new Date(lastMod * 1000) > +new Date(sba.LastSuccess) ? svg(use({ "href": "#crossIcon" })) : svg(use({ "href": "#tickIcon" }))
                 ) : td({
                     "class": "tooltip status",
                     "data-tooltip": (
@@ -173,7 +163,7 @@ function buildTableRow(dirStats: DirStats, row: row) {
             "data-tooltip": (rest.join(", ") || false)
         }, rest.length > 0 ? first.join(", ") + "..." : first.join(", ")),
         td(formatBytes(row.size)),
-        td(formatBytes(row.count)),
+        td(row.count.toLocaleString()),
         td(row.backup),
         td(row.name),
         getStatusTd(dirStats.LastMod, row)
@@ -239,12 +229,8 @@ groupBomList.append(...Array.from(groups).map((group) => option({ "label": "Grou
 groupBomList.append(...Array.from(bomSet).map((bom) => option({ "label": "BOM: " + bom }, bom)));
 
 function filterClaimStats() {
-    filter.user = handleState("claimName", (v) => v, "");
-    filter.groupbom = handleState("claimGroupbom", (v) => v, "");
-
     if (filter.user !== "" || filter.groupbom !== "") {
         updateClaimStats()
-        loadFiltered(filter.user, filter.groupbom);
     } else {
         alert("Please enter a user and/or group to filter by.");
     }
@@ -254,28 +240,22 @@ function createFilterSection() {
     return div({ "class": "claimstats-filter-container" }, [
         userList,
         groupBomList,
-        inputState({
-            "id": "claimName",
+        input({
             "placeholder": "Username",
             "list": "claimstatsUsers",
             "value": user,
+            "input": function (this: HTMLInputElement) { filter.user = this.value },
             "keydown": function (this: HTMLInputElement, e: KeyboardEvent) { if (e.key === "Enter") filterClaimStats() },
             "dblclick": function (this: HTMLInputElement) { this.select(); }
         }),
-        inputState({
-            "id": "claimGroupbom",
+        input({
             "placeholder": "Group, BOM",
             "list": "claimstatsGroupBoms",
+            "input": function (this: HTMLInputElement) { filter.groupbom = this.value },
             "keydown": function (this: HTMLInputElement, e: KeyboardEvent) { if (e.key === "Enter") filterClaimStats() },
             "dblclick": function (this: HTMLInputElement) { this.select(); }
         }),
-        button({
-            "click": () => {
-                // filter.user = handleState("claimName", (v) => v, "") || user;
-                // filter.groupbom = handleState("claimGroupbom", (v) => v, "") || "";
-                filterClaimStats();
-            }
-        }, "Filter"),
+        button({ "click": filterClaimStats }, "Filter"),
     ]);
 }
 

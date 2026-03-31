@@ -67,7 +67,7 @@ export default (path: string) => getTree(path)
 			"Melt": 0,
 			"ReviewDate": 0,
 			"RemoveDate": 0,
-			"LastMod": ""
+			"LastMod": 0
 		} as Tree;
 	})
 	.then(data => {
