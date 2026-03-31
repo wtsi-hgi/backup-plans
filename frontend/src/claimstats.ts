@@ -7,15 +7,27 @@ import { amendNode, clearNode } from "./lib/dom.js";
 import { users, groups, bomSet } from './userGroups.js';
 import type { SetBackupActivity, DirStats, RuleInfo } from "./types.js";
 import { svg, use } from './lib/svg.js';
+import { handleState, inputState, setState } from './state.js';
 
 const base = div({ "class": "main-container" });
 const container = div();
 
 function initialiseClaimStats() {
     base.append(createFilterSection());
+
+    handleState("claimName", (v) => v, filter.user);
+    handleState("claimGroupBom", (v) => v, filter.groupbom);
+
     updateClaimStats();
+
     base.append(container);
 }
+
+function loadFiltered(name: string, groupbom: string) {
+    setState("claimName", name);
+    setState("claimGroupbom", groupbom);
+    load();
+};
 
 export function updateClaimStats() {
     clearNode(container);
@@ -227,8 +239,12 @@ groupBomList.append(...Array.from(groups).map((group) => option({ "label": "Grou
 groupBomList.append(...Array.from(bomSet).map((bom) => option({ "label": "BOM: " + bom }, bom)));
 
 function filterClaimStats() {
+    filter.user = handleState("claimName", (v) => v, "");
+    filter.groupbom = handleState("claimGroupbom", (v) => v, "");
+
     if (filter.user !== "" || filter.groupbom !== "") {
         updateClaimStats()
+        loadFiltered(filter.user, filter.groupbom);
     } else {
         alert("Please enter a user and/or group to filter by.");
     }
@@ -238,22 +254,28 @@ function createFilterSection() {
     return div({ "class": "claimstats-filter-container" }, [
         userList,
         groupBomList,
-        input({
+        inputState({
+            "id": "claimName",
             "placeholder": "Username",
             "list": "claimstatsUsers",
             "value": user,
-            "input": function (this: HTMLInputElement) { filter.user = this.value },
             "keydown": function (this: HTMLInputElement, e: KeyboardEvent) { if (e.key === "Enter") filterClaimStats() },
             "dblclick": function (this: HTMLInputElement) { this.select(); }
         }),
-        input({
+        inputState({
+            "id": "claimGroupbom",
             "placeholder": "Group, BOM",
             "list": "claimstatsGroupBoms",
-            "input": function (this: HTMLInputElement) { filter.groupbom = this.value },
             "keydown": function (this: HTMLInputElement, e: KeyboardEvent) { if (e.key === "Enter") filterClaimStats() },
             "dblclick": function (this: HTMLInputElement) { this.select(); }
         }),
-        button({ "click": filterClaimStats }, "Filter"),
+        button({
+            "click": () => {
+                // filter.user = handleState("claimName", (v) => v, "") || user;
+                // filter.groupbom = handleState("claimGroupbom", (v) => v, "") || "";
+                filterClaimStats();
+            }
+        }, "Filter"),
     ]);
 }
 
