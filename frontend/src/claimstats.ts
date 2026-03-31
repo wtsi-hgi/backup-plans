@@ -158,8 +158,8 @@ function buildTableRow(dirStats: DirStats, row: row) {
     return tr({}, [
         td({
             "class": "tooltip status",
-            "data-tooltip": (rest.join("\n") || false)
-        }, first.join(", ")),
+            "data-tooltip": (rest.join(", ") || false)
+        }, rest.length > 0 ? first.join(", ") + "..." : first.join(", ")),
         td(formatBytes(row.size)),
         td(formatBytes(row.count)),
         td(row.backup),
