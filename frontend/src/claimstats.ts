@@ -78,7 +78,11 @@ function makeRow(rowMap: Map<string, Map<string, row>>, backupMap: Map<string, S
     if (rule.BackupType === undefined) { return }
 
     const backuptype = BackupType.from(rule.BackupType);
-    const btype = backuptype.optionLabel()
+    const label = backuptype.optionLabel();
+    const btype =
+        label.startsWith("Manual Backup:") && label !== "Manual Backup: iBackup"
+            ? label.slice("Manual Backup:".length)
+            : label;
 
     if (!rowMap.has(btype)) {
         rowMap.set(btype, new Map());
@@ -111,9 +115,10 @@ function makeRow(rowMap: Map<string, Map<string, row>>, backupMap: Map<string, S
 // than they were backed up (based on nfs mod time/commit date), the status will be X.
 // For automatic backups, the status will be based on failure count (anything other than
 // 0 will be X).
-function getStatusTd(lastMod: number, row: row) {
-    if (row.backup === "Manual Backup: Unchecked" || row.backup === "Manual Backup: Prefect") { return [td("-"), td("-")] }
-    if (row.backup === "No Backup") { return [td("None"), td("-")] }
+function getStatusTd(lastMod: number, row: row, hoverMatches: string[]) {
+    if (row.backup === "No Backup" || row.backup === "Unchecked" || row.backup === "Prefect") { return [td("-"), td("-")] }
+
+    if (row.sba === undefined) { console.log("Undefined sba for row:", row); return [td("Unknown"), td("-")] }
 
     const sba = row.sba!;
 
@@ -121,6 +126,10 @@ function getStatusTd(lastMod: number, row: row) {
         `Last Modified: ${lastMod === 0 ? "None" : new Date(lastMod * 1000).toLocaleString()}`,
         `Last Backup: ${sba.LastSuccess === "0001-01-01T00:00:00Z" ? "None" : new Date(sba.LastSuccess).toLocaleString()}`
     ];
+
+    if (hoverMatches.length > 0) {
+        tooltip.push(...hoverMatches)
+    }
 
     return [
         sba.LastSuccess === "0001-01-01T00:00:00Z" ?
@@ -146,6 +155,20 @@ function getStatusTd(lastMod: number, row: row) {
                 )
             ]
     ]
+}
+
+function buildRow(dirStats: DirStats, row: row) {
+    const first = row.matches.slice(0, 10);
+    const rest = row.matches.length > 10 ? row.matches.slice(10) : [];
+
+    return tr({}, [
+        td(first.join(", ")),
+        td(formatBytes(row.size)),
+        td(formatBytes(row.count)),
+        td(row.backup),
+        td(row.name),
+        getStatusTd(dirStats.LastMod, row, rest)
+    ])
 }
 
 function createClaimStatsSection() {
@@ -185,14 +208,7 @@ function createClaimStatsSection() {
                         ])),
                         tbody([
                             dirStats.RuleStats.length > 0 ? prepareData(dirStats).map((row) => [
-                                tr({}, [
-                                    td(row.matches.join(", ")),
-                                    td(formatBytes(row.size)),
-                                    td(formatBytes(row.count)),
-                                    td(row.backup),
-                                    td(row.name),
-                                    getStatusTd(dirStats.LastMod, row)
-                                ])
+                                buildRow(dirStats, row),
                             ]) : tr(td({ "colspan": "7" }, "No rules added to this directory."))
                         ])
                     ]),
