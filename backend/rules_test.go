@@ -38,7 +38,7 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/wtsi-hgi/backup-plans/config"
-	iconfig "github.com/wtsi-hgi/backup-plans/internal/config"
+	lconfig "github.com/wtsi-hgi/backup-plans/internal/config"
 	"github.com/wtsi-hgi/backup-plans/internal/directories"
 	"github.com/wtsi-hgi/backup-plans/internal/plandb"
 	"github.com/wtsi-hgi/backup-plans/internal/testdb"
@@ -64,7 +64,7 @@ func TestClaimDir(t *testing.T) {
 		user, err := user.Current()
 		So(err, ShouldBeNil)
 
-		s, err := New(testdb.CreateTestDatabase(t), u.getUser, iconfig.NewConfig(t, nil, nil, nil, 0))
+		s, err := New(testdb.CreateTestDatabase(t), u.getUser, lconfig.NewConfig(t, nil, nil, nil, 0, nil))
 		So(err, ShouldBeNil)
 
 		treeDBPath := createTestTree(t)
@@ -213,7 +213,7 @@ func TestRules(t *testing.T) {
 	Convey("With a configured backend", t, func() {
 		u := userHandler(root)
 
-		s, err := New(testdb.CreateTestDatabase(t), u.getUser, iconfig.NewConfig(t, nil, nil, nil, 0))
+		s, err := New(testdb.CreateTestDatabase(t), u.getUser, lconfig.NewConfig(t, nil, nil, nil, 0, nil))
 		So(err, ShouldBeNil)
 
 		treeDBPath := createTestTree(t)
@@ -348,7 +348,7 @@ func TestRules(t *testing.T) {
 						nil,
 					)
 					So(code, ShouldEqual, http.StatusOK)
-					So(resp, ShouldStartWith, `{"Group":"root","RuleSummaries":[{"ID":1,"Users":[{"Name":"`+currUser.Username+`","MTime":36,"Files":1,"Size":35}],"Groups":[{"Name":"`+secondGroup.Name+`","MTime":36,"Files":1,"Size":35}]}],"Children":{},"ClaimedBy":"root","Rules":{"/some/path/ChildDir/Child/":{"1":{"BackupType":`+strconv.Itoa(n)+`,"Metadata":"","Match":"*","Override":false,"Created":`) //nolint:lll
+					So(resp, ShouldStartWith, `{"Group":"root","RuleSummaries":[{"ID":1,"Users":[{"Name":"`+currUser.Username+`","MTime":36,"Files":1,"Size":35}],"Groups":[{"Name":"`+secondGroup.Name+`","MTime":36,"Files":1,"Size":35}]}],"Children":{},"LastMod":36,"ClaimedBy":"root","Rules":{"/some/path/ChildDir/Child/":{"1":{"BackupType":`+strconv.Itoa(n)+`,"Metadata":"","Match":"*","Override":false,"Created":`) //nolint:lll
 				})
 			}
 		})
@@ -356,6 +356,8 @@ func TestRules(t *testing.T) {
 }
 
 func TestMelt(t *testing.T) {
+	t.Setenv("BACKUP_PLANS_CONNECTION_TEST", "")
+
 	synctest.Test(t, func(t *testing.T) {
 		Convey("Given a configured server with an ibackup server", t, func() {
 			So(testirods.AddPseudoIRODsToolsToPathIfRequired(t), ShouldBeNil)

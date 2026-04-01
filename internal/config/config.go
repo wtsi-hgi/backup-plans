@@ -13,7 +13,7 @@ import (
 	"github.com/wtsi-hgi/backup-plans/wrstat"
 )
 
-func NewConfig(t *testing.T, boms, owners map[string][]string, rr []string, ag uint32) *config.Config { //nolint:funlen,lll
+func NewConfig(t *testing.T, boms, owners map[string][]string, rr []string, ag uint32, wrsc *wrstat.Client) *config.Config { //nolint:funlen,lll
 	t.Helper()
 
 	mc := internalibackup.NewMultiClient(t)
@@ -25,7 +25,7 @@ func NewConfig(t *testing.T, boms, owners map[string][]string, rr []string, ag u
 		_      sync.RWMutex
 		mc     *ibackup.MultiClient
 		cc     *ibackup.MultiCache
-		_      *wrstat.Client
+		wrsc   *wrstat.Client
 		boms   map[string][]string
 		owners map[string][]string
 		_      ibackup.Config
@@ -43,6 +43,11 @@ func NewConfig(t *testing.T, boms, owners map[string][]string, rr []string, ag u
 	sc.owners = owners
 	sc.rr = rr
 	sc.ag = ag
+	sc.wrsc = wrsc
+
+	if wrsc == nil {
+		sc.wrsc = config.NullWRStat
+	}
 
 	d := slog.Default()
 

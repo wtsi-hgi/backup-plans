@@ -24,6 +24,7 @@ export type DirSummary = {
 	RuleSummaries: RuleSummary[];
 	ClaimedBy: string;
 	Children: Record<string, DirSummary>;
+	LastMod: number;
 };
 
 export type Rules = Record<string, Record<number, Rule>>;
@@ -100,11 +101,11 @@ export type ReportSummary = {
 	Summaries: Record<string, ClaimedDir>;
 	Rules: Record<number, Rule>;
 	Directories: Record<string, number[]>;
-	BackupStatus: Record<string, BackupStatus>;
+	BackupStatus: Record<string, SetBackupActivity>;
 	GroupBackupTypeTotals: Record<string, Record<number, SizeCount>>;
 };
 
-export type BackupStatus = {
+export type SetBackupActivity = {
 	LastSuccess: string;
 	Name: string;
 	Requester: string;
@@ -126,17 +127,11 @@ export type UserGroups = {
 
 export type RuleInfo = Rule & SizeCount;
 
-export type SetBackupActivity = {
-	LastSuccess: string;
-	Name: string;
-	Requester: string;
-	Failures: number;
-}
-
 export type DirStats = {
 	Path: string;
 	ClaimedBy: string;
 	Group: string;
-	BackupStatus: SetBackupActivity;
+	BackupStatus: SetBackupActivity[];
 	RuleStats: RuleInfo[];
+	LastMod: number;
 }

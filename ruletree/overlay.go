@@ -45,6 +45,21 @@ type DirSummary struct {
 	ClaimedBy     string
 	RuleSummaries []Rule
 	Children      map[string]*DirSummary
+	LastMod       uint64
+}
+
+func (d *DirSummary) setLastMod() {
+	newMod := uint64(0)
+
+	for _, ruleStats := range d.RuleSummaries {
+		for _, stat := range ruleStats.Users {
+			if stat.MTime > newMod {
+				newMod = stat.MTime
+			}
+		}
+	}
+
+	d.LastMod = newMod
 }
 
 func (d *DirSummary) mergeRules(rules []Rule) {
@@ -215,6 +230,8 @@ func (r *ruleOverlay) getSummary(wildcard int64) *DirSummary {
 	if len(ds.RuleSummaries) == 1 && ds.RuleSummaries[0].ID == 0 {
 		ds.RuleSummaries[0].ID = uint64(wildcard) //nolint:gosec
 	}
+
+	ds.setLastMod()
 
 	return ds
 }

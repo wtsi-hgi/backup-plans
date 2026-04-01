@@ -175,6 +175,7 @@ func TestRuletree(t *testing.T) {
 							RuleSummaries: ruleExpectations,
 						},
 					},
+					LastMod: 36,
 				},
 				"/some/": {
 					RuleSummaries: ruleExpectations,
@@ -186,6 +187,7 @@ func TestRuletree(t *testing.T) {
 							RuleSummaries: ruleExpectations,
 						},
 					},
+					LastMod: 36,
 				},
 				"/some/path/": {
 					RuleSummaries: ruleExpectations,
@@ -194,24 +196,29 @@ func TestRuletree(t *testing.T) {
 							RuleSummaries: []Rule{ruleExpectations[1], ruleExpectations[2]},
 							Children:      map[string]*DirSummary{},
 							Group:         "root",
+							LastMod:       6,
 						},
 						"YourDir/": {
 							RuleSummaries: []Rule{ruleExpectations[3]},
 							Children:      map[string]*DirSummary{},
 							Group:         "root",
+							LastMod:       16,
 						},
 						"OtherDir/": {
 							RuleSummaries: []Rule{ruleExpectations[0]},
 							Children:      map[string]*DirSummary{},
 							Group:         "root",
+							LastMod:       36,
 						},
 					},
-					Group: "root",
+					Group:   "root",
+					LastMod: 36,
 				},
 				"/some/path/MyDir/": {
 					RuleSummaries: []Rule{ruleExpectations[1], ruleExpectations[2]},
 					Children:      map[string]*DirSummary{},
 					Group:         "root",
+					LastMod:       6,
 				},
 			}
 

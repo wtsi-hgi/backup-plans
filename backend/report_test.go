@@ -60,7 +60,7 @@ func TestReport(t *testing.T) {
 			"/lustre/scratch123/humgen/a/[bc]/",
 		}
 
-		srv, err := New(testDB, func(_ *http.Request) string { return "test" }, config.NewConfig(t, nil, nil, roots, 0))
+		srv, err := New(testDB, func(_ *http.Request) string { return "test" }, config.NewConfig(t, nil, nil, roots, 0, nil))
 		So(err, ShouldBeNil)
 		err = srv.AddTree(path)
 		So(err, ShouldBeNil)
@@ -96,6 +96,7 @@ func TestReport(t *testing.T) {
 					ClaimedBy: "userC",
 					User:      firstUser.Username,
 					Group:     firstGroup.Name,
+					LastMod:   98766,
 					RuleSummaries: []ruletree.Rule{
 						{
 							ID: 4,
@@ -123,6 +124,7 @@ func TestReport(t *testing.T) {
 					ClaimedBy: "userD",
 					User:      firstUser.Username,
 					Group:     firstGroup.Name,
+					LastMod:   12346,
 					RuleSummaries: []ruletree.Rule{
 						{
 							ID: 5,
@@ -140,6 +142,7 @@ func TestReport(t *testing.T) {
 					ClaimedBy: "userB",
 					User:      secondUser.Username,
 					Group:     firstGroup.Name,
+					LastMod:   98766,
 					RuleSummaries: []ruletree.Rule{
 						{
 							ID: 3,
@@ -167,6 +170,7 @@ func TestReport(t *testing.T) {
 					ClaimedBy: userA,
 					User:      firstUser.Username,
 					Group:     firstGroup.Name,
+					LastMod:   98767,
 					RuleSummaries: []ruletree.Rule{
 						{
 							ID: 0,
@@ -228,8 +232,9 @@ func TestReport(t *testing.T) {
 				expectedSummary := summary{
 					Summaries: map[string]*ruletree.DirSummary{
 						"/lustre/scratch123/humgen/a/": {
-							User:  "root",
-							Group: "root",
+							User:    "root",
+							Group:   "root",
+							LastMod: 98767,
 							RuleSummaries: []ruletree.Rule{
 								{
 									ID: 0,
@@ -323,7 +328,7 @@ func TestReport(t *testing.T) {
 						"/lustre/scratch123/humgen/a/b/newdir/": {4, 5},
 						"/lustre/scratch123/humgen/a/c/":        {3, 6},
 					},
-					BackupStatus: map[string]*ibackup.SetBackupActivity{
+					BackupStatus: map[string]ibackup.SetBackupActivity{
 						"/lustre/scratch123/humgen/a/b/": {
 							Name:      setNamePrefix + "/lustre/scratch123/humgen/a/b/",
 							Requester: "userA",
@@ -362,7 +367,9 @@ func TestReport(t *testing.T) {
 				So(bs, ShouldNotBeNil)
 				So(bs.LastSuccess, ShouldHappenAfter, beforeTrigger)
 
-				gotSummary.BackupStatus["/lustre/scratch123/humgen/a/c/"].LastSuccess = time.Time{}
+				s := gotSummary.BackupStatus["/lustre/scratch123/humgen/a/c/"]
+				s.LastSuccess = time.Time{}
+				gotSummary.BackupStatus["/lustre/scratch123/humgen/a/c/"] = s
 
 				So(gotSummary, ShouldResemble, expectedSummary)
 			})

@@ -44,13 +44,13 @@ import (
 const csvCols = 2
 
 var (
-	nullWRStat        *wrstat.Client       //nolint:gochecknoglobals
+	NullWRStat        *wrstat.Client       //nolint:gochecknoglobals
 	nullIBackupClient *ibackup.MultiClient //nolint:gochecknoglobals
 	nullIBackupCache  *ibackup.MultiCache  //nolint:gochecknoglobals
 )
 
 func init() { //nolint:gochecknoinits
-	nullWRStat, _ = wrstat.New(0, wrstat.Config{})       //nolint:errcheck
+	NullWRStat, _ = wrstat.New(0, wrstat.Config{})       //nolint:errcheck
 	nullIBackupClient, _ = ibackup.New(ibackup.Config{}) //nolint:errcheck
 	nullIBackupCache = ibackup.NewMultiCache(nullIBackupClient, 0)
 }
@@ -104,6 +104,13 @@ type Config struct {
 //	            ServerName, Transformer string
 //	        }
 //	    }
+//
+//		wrstat {
+//			jwtbasename, servertokenbasename, serverurl, username string
+//			oktamode bool
+//		}
+//
+//		wrstatcacheduration: uint64
 //	    IBackupCacheDuration uint64
 //	    BOMFile              string
 //	    OwnersFile           string
@@ -134,7 +141,7 @@ func Parse(path string) (*Config, error) {
 		path:                path,
 		ibackupClient:       nullIBackupClient,
 		ibackupCachedClient: nullIBackupCache,
-		wrstatClient:        nullWRStat,
+		wrstatClient:        NullWRStat,
 	}
 
 	if err := c.loadConfig(); err != nil {
@@ -228,12 +235,12 @@ func (c *Config) loadIBackup() error {
 
 func (c *Config) loadWRStat() error {
 	if c.yamlConfig.WRStat.ServerURL == "" {
-		c.wrstatClient = nullWRStat
+		c.wrstatClient = NullWRStat
 
 		return nil
 	}
 
-	if c.wrstatClient != nullWRStat {
+	if c.wrstatClient != NullWRStat {
 		return c.wrstatClient.UpdateConfig(c.yamlConfig.WRStat)
 	}
 

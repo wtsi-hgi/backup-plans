@@ -33,7 +33,7 @@ export class BackupType extends Number {
     static BackupManual = new BackupType(-2, "manual");
     static BackupWarn = new BackupType(-1, "warn");
     static BackupNone = new BackupType(0, "nobackup", "No Backup");
-    static BackupIBackup = new BackupType(1, "backup", "IBackup");
+    static BackupIBackup = new BackupType(1, "backup", "iBackup");
     static BackupManualIBackup = new BackupType(2, "manualibackup", "Manual Backup: iBackup", "Set Name", helpText.MetadataSetName);
     static BackupManualGit = new BackupType(3, "manualgit", "Manual Backup: Git", "Git URL", helpText.MetadataGit);
     static BackupManualUnchecked = new BackupType(4, "manualunchecked", "Manual Backup: Unchecked", "Metadata", helpText.MetadataUnchecked);
@@ -108,3 +108,13 @@ export class BackupType extends Number {
 }
 
 export const MainProgrammes = ["All"].concat(await getMainProgrammes());
+
+export const ibackupStatusColumns = [
+    "Uploaded",
+    "Replaced",
+    "Missing",
+    "Failures",
+    "Orphaned",
+    "Hardlinks",
+    "Skipped"
+] as const;

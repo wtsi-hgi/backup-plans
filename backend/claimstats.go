@@ -46,8 +46,9 @@ type DirStats struct {
 	Path         string
 	ClaimedBy    string
 	Group        string
-	BackupStatus ibackup.SetBackupActivity
+	BackupStatus []ibackup.SetBackupActivity
 	RuleStats    []ruleStats
+	LastMod      uint64
 }
 
 type filter struct {
@@ -86,7 +87,7 @@ func (s *Server) collectDirStats(f filter) []DirStats {
 
 		dirSummary := dir.DirSummary
 		dirSummary.ClaimedBy = s.getClaimed(dir.Path)
-		claimstats = append(claimstats, *s.generateDirStats(dir.Path, dirSummary))
+		claimstats = append(claimstats, *s.generateDirStats(dir, dirSummary))
 	}
 
 	return claimstats
@@ -124,59 +125,77 @@ func createClaimstatsFilter(r *http.Request) filter {
 	return filter{user, group, filterUser, filterGroup}
 }
 
-func (s *Server) generateDirStats(path string, dirSummary *ruletree.DirSummary) *DirStats {
-	rulestats := s.generateRuleStats(path, dirSummary)
-
-	sba := s.getSetBackupActivity(dirSummary)
+func (s *Server) generateDirStats(dir *Directory, dirSummary *ruletree.DirSummary) *DirStats {
+	rulestats := s.generateRuleStats(dir.Path, dirSummary)
+	sbas := s.gatherSBAs(dir, dirSummary)
 
 	return &DirStats{
-		Path:         path,
+		Path:         dir.Path,
 		ClaimedBy:    dirSummary.ClaimedBy,
 		Group:        dirSummary.Group,
-		BackupStatus: *sba,
+		BackupStatus: sbas,
 		RuleStats:    rulestats,
+		LastMod:      dirSummary.LastMod,
 	}
 }
 
-func (s *Server) getSetBackupActivity(dirSummary *ruletree.DirSummary) *ibackup.SetBackupActivity {
-	sbas := s.gatherSBAs(dirSummary)
-
-	if len(sbas) == 0 {
-		return &ibackup.SetBackupActivity{}
-	}
-
-	mostRecentSBA := sbas[0]
-	for _, sba := range sbas {
-		if sba.LastSuccess.After(mostRecentSBA.LastSuccess) {
-			mostRecentSBA = sba
-		}
-	}
-
-	return mostRecentSBA
-}
-
-func (s *Server) gatherSBAs(dirSummary *ruletree.DirSummary) []*ibackup.SetBackupActivity {
-	sbas := make([]*ibackup.SetBackupActivity, 0, len(dirSummary.RuleSummaries))
+func (s *Server) gatherSBAs(dir *Directory, dirSummary *ruletree.DirSummary) []ibackup.SetBackupActivity {
+	sbas := make([]ibackup.SetBackupActivity, 0, len(dirSummary.RuleSummaries))
+	seen := make(map[string]struct{})
 
 	for _, ruleSummary := range dirSummary.RuleSummaries {
-		rule := s.rules[ruleSummary.ID]
+		rule, ok := s.rules[ruleSummary.ID]
 
-		dirID := rule.DirID()
-		if dirID <= 0 {
+		if !ok {
 			continue
 		}
 
-		dirPath := s.dirs[uint64(dirID)].Path
-		requester := s.directoryRules[dirPath].ClaimedBy
+		rdirID := rule.DirID()
+		if rdirID <= 0 || dir.ID() != rdirID {
+			continue
+		}
 
-		switch rule.BackupType { //nolint:exhaustive
-		case db.BackupIBackup:
-			sbas = append(sbas, s.getIBackupBackupStatus(setNamePrefix+dirPath, dirPath, requester))
-		case db.BackupManualIBackup:
-			dirSet := dirSet{dirPath, rule.Metadata}
+		sbas = s.addSBA(sbas, seen, dir, rule)
+	}
+
+	return sbas
+}
+
+// addSBA will retrieve the ibackup.SetBackupActivity for a given set and add it to sbas. Duplicates are skipped.
+func (s *Server) addSBA( //nolint:gocyclo,funlen
+	sbas []ibackup.SetBackupActivity,
+	seen map[string]struct{},
+	dir *Directory,
+	rule *db.Rule,
+) []ibackup.SetBackupActivity {
+	requester := dir.ClaimedBy
+
+	switch rule.BackupType { //nolint:exhaustive
+	case db.BackupIBackup:
+		backupName := "plan::" + dir.Path
+		if _, exists := seen[backupName]; !exists {
+			sbas = append(sbas, s.getIBackupBackupStatus(backupName, dir.Path, requester))
+			seen[backupName] = struct{}{}
+		}
+
+	case db.BackupManualIBackup:
+		dirSet := dirSet{dir.Path, rule.Metadata}
+		if _, exists := seen[rule.Metadata]; !exists {
 			sbas = append(sbas, s.getManualIBackupStatus(dirSet, requester))
-		case db.BackupManualGit:
+			seen[rule.Metadata] = struct{}{}
+		}
+
+	case db.BackupManualGit:
+		if _, exists := seen[rule.Metadata]; !exists {
 			sbas = append(sbas, s.getGitBackupStatus(rule.Metadata, requester))
+			seen[rule.Metadata] = struct{}{}
+		}
+
+	case db.BackupManualNFS:
+		sba := s.getNFSStatus(rule.Metadata, requester)
+		if _, exists := seen[rule.Metadata]; !exists {
+			sbas = append(sbas, sba)
+			seen[rule.Metadata] = struct{}{}
 		}
 	}
 

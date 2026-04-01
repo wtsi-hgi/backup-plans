@@ -70,6 +70,13 @@ func start(listen net.Listener, d *db.DB, getUser func(*http.Request) string,
 		return err
 	}
 
+	slog.Info("Preloading cache.")
+
+	err = b.PreLoadCache()
+	if err != nil {
+		return err
+	}
+
 	return addHandlesAndListen(b, listen, logout)
 }
 

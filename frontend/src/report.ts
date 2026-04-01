@@ -1,11 +1,11 @@
-import type { BackupStatus, ClaimedDir, ReportSummary, Rule, SizeCount, SizeCountTime, Stats } from "./types.js";
+import type { SetBackupActivity, ClaimedDir, ReportSummary, Rule, SizeCount, SizeCountTime, Stats } from "./types.js";
 import type { Children } from "./lib/dom.js";
 import { amendNode } from "./lib/dom.js";
 import { a, br, button, datalist, details, div, fieldset, h1, h2, input, label, legend, li, option, span, summary, table, tbody, td, th, thead, tr, ul } from "./lib/html.js";
 import { svg, title, use } from "./lib/svg.js";
-import { action, formatBytes, longAgo, secondsInWeek, setAndReturn, splitLongPath, stringSort, createSpinner } from "./lib/utils.js";
+import { action, formatBytes, longAgo, longAgoStr, secondsInWeek, setAndReturn, splitLongPath, stringSort, createSpinner } from "./lib/utils.js";
 import { getReportSummary } from "./rpc.js";
-import { BackupType, MainProgrammes } from "./consts.js";
+import { BackupType, MainProgrammes, ibackupStatusColumns } from "./consts.js";
 import { render } from "./disktree.js";
 import { load } from './load.js';
 import ODS from './odf.js';
@@ -16,12 +16,12 @@ import graph from "./graph.js";
 class Summary {
 	actions: SizeCountTime[] = [];
 	path: string;
-	lastestMTime = 0;
+	latestMTime = 0;
 	count = 0n;
-	backupStatus?: BackupStatus;
-	backups = new Map<string, Set<BackupStatus>>();
+	backupStatus?: SetBackupActivity;
+	backups = new Map<string, Set<SetBackupActivity>>();
 
-	constructor(path: string, backupStatus?: BackupStatus) {
+	constructor(path: string, backupStatus?: SetBackupActivity) {
 		this.path = path;
 		this.backupStatus = backupStatus;
 	}
@@ -33,11 +33,11 @@ class Summary {
 		sct.size += BigInt(rule.Size);
 		sct.mtime = Math.max(sct.mtime, rule.MTime);
 
-		this.lastestMTime = Math.max(this.lastestMTime, rule.MTime);
+		this.latestMTime = Math.max(this.latestMTime, rule.MTime);
 		this.count += BigInt(rule.Files);
 	}
 
-	addBackupStatus(path: string, backupStatus?: BackupStatus) {
+	addBackupStatus(path: string, backupStatus?: SetBackupActivity) {
 		if (!backupStatus) {
 			return;
 		}
@@ -84,7 +84,7 @@ class ParentSummary extends Summary {
 	children = new Map<string, ChildSummary>();
 	group: string;
 
-	constructor(path: string, group: string, backupStatus?: BackupStatus) {
+	constructor(path: string, group: string, backupStatus?: SetBackupActivity) {
 		super(path, backupStatus);
 
 		this.group = group;
@@ -125,7 +125,7 @@ class ParentSummary extends Summary {
 			ul([
 				this.backupStatus ? li("Requester: " + this.backupStatus.Requester) : [],
 				this.actions[+BackupType.BackupIBackup]?.mtime ? li("Last Activity in Backed-up Set: " + longAgo(this.actions[+BackupType.BackupIBackup]?.mtime ?? 0)) : [],
-				li("Last Activity: " + (this.lastestMTime ? longAgo(this.lastestMTime) : "--none--"))
+				li("Last Activity: " + (this.latestMTime ? longAgo(this.latestMTime) : "--none--"))
 			]),
 			this.table(),
 			table({ "class": "summary" }, [
@@ -134,22 +134,14 @@ class ParentSummary extends Summary {
 					th("Claimed By"),
 					th("Backup Name"),
 					th("Last Backup"),
-					th("Failures")
+					th("Status")
 				])),
 				tbody(this.backups.size ? [
 					Array.from(this.backups).map(([path, backups]) => Array.from(backups).map(backup => tr([
 						td(splitLongPath(path)),
 						td(backup.Requester),
 						td(splitLongPath(backup.Name)),
-						td(
-							backup.LastSuccess
-								// If status exists but is equal to zero time (ibackup broken) show pending
-								? +new Date(backup.LastSuccess) <= 0
-									? "Pending"
-									: new Date(backup.LastSuccess).toLocaleString()
-								: "-"
-						),
-						backup.Failures === -1 ? td("-") : td({ "class": "tooltip", "data-tooltip": ibackupStatusColumns.filter(c => backup[c]).map(c => `${c}: ${backup[c].toLocaleString()}`).join("\n") || false }, backup.Failures.toLocaleString())
+						getStatus(this.latestMTime, backup)
 					])))
 				] : tr(td({ "colspan": "5" }, "No Backups")))
 			]),
@@ -166,7 +158,7 @@ class ParentSummary extends Summary {
 	status() {
 		const now = (+new Date()) / 1000,
 			backupTime = this.actions[+BackupType.BackupIBackup]?.mtime ?? 0,
-			lastActivity = Math.max(now - this.lastestMTime, 0),
+			lastActivity = Math.max(now - this.latestMTime, 0),
 			lastBackupActivity = Math.max(now - backupTime),
 			dt = lastBackupActivity - lastActivity;
 
@@ -220,15 +212,6 @@ class ChildSummary extends Summary {
 }
 
 const groupList = datalist({ "id": "groupList" }),
-	ibackupStatusColumns = [
-		"Uploaded",
-		"Replaced",
-		"Missing",
-		"Failures",
-		"Orphaned",
-		"Hardlinks",
-		"Skipped"
-	] as const,
 	base = div({ "id": "report" }, groupList),
 	initFilterSort = (container: HTMLDivElement, children: HTMLFieldSetElement[], [filterProject, filterAll, filterR, filterA, filterG, filterB, sortName, sortWarnSize, sortNoBackupSize, sortBackupSize]: [HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement]) => {
 		const projects = children.map(child => ({
@@ -293,6 +276,35 @@ const groupList = datalist({ "id": "groupList" }),
 
 let now = 0,
 	summaryData: ReportSummary;
+
+function getStatus(latestMTime: number, backup: SetBackupActivity) {
+	return [
+		backup.LastSuccess === "0001-01-01T00:00:00Z" ?
+			backup.Failures === -1 ? [
+				td("None"),
+				td({ "class": "status" }, svg(use({ "href": "#crossIcon" })))
+			] : [
+				td("Pending"),
+				td("-")
+			] : [
+				td(longAgoStr(backup.LastSuccess)),
+				backup.Failures === -1 ? td({ "class": "status" },
+					new Date(latestMTime * 1000) > new Date(backup.LastSuccess) ? svg(use({ "href": "#crossIcon" })) : svg(use({ "href": "#tickIcon" }))
+				) : td({
+					"class": "tooltip status",
+					"data-tooltip":
+						[
+							`Last Modified: ${latestMTime === 0 ? "None" : new Date(latestMTime * 1000).toLocaleString()}`,
+							`Last Backup: ${backup.LastSuccess === "0001-01-01T00:00:00Z" ? "None" : new Date(backup.LastSuccess).toLocaleString()}`
+						].concat(ibackupStatusColumns
+							.filter(c => backup[c])
+							.map(c => `${c}: ${backup[c].toLocaleString()}`))
+							.join("\n") || false
+				}, backup.Failures > 0 ? svg(use({ "href": "#crossIcon" })) : svg(use({ "href": "#tickIcon" }))
+				)
+			]
+	]
+}
 
 function renderCell(counts: Map<BackupType, SizeCount>, type: BackupType) {
 	const cells = [
@@ -391,8 +403,11 @@ getReportSummary()
 
 							break;
 						case BackupType.BackupManualGit:
-						case BackupType.BackupManualNFS:
 							dirSummary.addBackupStatus(childDir, data.BackupStatus[rule.Metadata]);
+
+							break
+						case BackupType.BackupManualNFS:
+							dirSummary.addBackupStatus(childDir, data.BackupStatus["nfs:" + rule.Metadata]);
 					}
 
 					for (const stats of summary.RuleSummaries.find(v => v.ID === id)?.Users ?? []) {

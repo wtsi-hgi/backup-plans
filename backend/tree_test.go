@@ -44,7 +44,7 @@ func TestTree(t *testing.T) {
 		user, err := user.Current()
 		So(err, ShouldBeNil)
 
-		s, err := New(testdb.CreateTestDatabase(t), u.getUser, config.NewConfig(t, nil, nil, nil, 0))
+		s, err := New(testdb.CreateTestDatabase(t), u.getUser, config.NewConfig(t, nil, nil, nil, 0, nil))
 		So(err, ShouldBeNil)
 
 		treeDBPath := createTestTree(t)
@@ -73,9 +73,9 @@ func TestTree(t *testing.T) {
 				"\"Groups\":["+
 				"{\"Name\":\""+users.Group(2)+"\",\"MTime\":6,\"Files\":2,\"Size\":8}]}"+
 				"],\"Children\":{\"ChildToClaim/\":{\"Group\":\"root\",\"ClaimedBy\":\"\",\"RuleSummaries\""+
-				":[],\"Children\":{}},\"ChildToNotClaim/\""+
+				":[],\"Children\":{},\"LastMod\":0},\"ChildToNotClaim/\""+
 				":{\"Group\":\"root\",\"ClaimedBy\":\"\",\"RuleSummaries\":[],\""+
-				"Children\":{}}},\"ClaimedBy\":\"\",\"Rules\":{},\"Unauthorised\":[],\"CanClaim\""+
+				"Children\":{},\"LastMod\":0}},\"LastMod\":6,\"ClaimedBy\":\"\",\"Rules\":{},\"Unauthorised\":[],\"CanClaim\""+
 				":true,\"Frequency\":0,\"Frozen\":false,\"ReviewDate\":0,\"RemoveDate\":0}\n")
 
 			code, _ = getResponse(
@@ -111,8 +111,8 @@ func TestTree(t *testing.T) {
 				"],\"Groups\":["+
 				"{\"Name\":\""+users.Group(2)+"\",\"MTime\":4,\"Files\":1,\"Size\":3}]}"+
 				"],\"Children\":{\"ChildToClaim/\":{\"Group\":\"root\",\"ClaimedBy\":\"\",\"RuleSummaries\":"+
-				"[],\"Children\":{}},\"ChildToNotClaim/\""+
-				":{\"Group\":\"root\",\"ClaimedBy\":\"\",\"RuleSummaries\":[],\"Children\":{}}},\"ClaimedBy\":\"root\",\"Rules\":{"+
+				"[],\"Children\":{},\"LastMod\":0},\"ChildToNotClaim/\":{\"Group\":\"root\",\"ClaimedBy\":\"\""+
+				",\"RuleSummaries\":[],\"Children\":{},\"LastMod\":0}},\"LastMod\":6,\"ClaimedBy\":\"root\",\"Rules\":{"+
 				"\"/some/path/MyDir/\":{\"1\":{\"BackupType\":1,\"Metadata\":\"\","+
 				"\"Match\":\"*.txt\",\"Override\":false,\"Created\":0,\"Modified\":0}}},"+
 				"\"Unauthorised\":[],\"CanClaim\":true,"+
