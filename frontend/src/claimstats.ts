@@ -1,5 +1,5 @@
-import { div, h2, p, button, table, thead, tbody, th, td, tr, fieldset, legend, input, datalist, option, map, b, i } from "./lib/html.js";
-import { createRule, getClaimStats, user } from "./rpc.js";
+import { div, h2, p, button, table, thead, tbody, th, td, tr, fieldset, legend, input, datalist, option } from "./lib/html.js";
+import { getClaimStats, user } from "./rpc.js";
 import { formatBytes, longAgoStr, createSpinner } from "./lib/utils.js";
 import { BackupType, ibackupStatusColumns } from "./consts.js";
 import { load } from './load.js';

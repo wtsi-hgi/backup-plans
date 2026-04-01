@@ -49,13 +49,17 @@ type DirSummary struct {
 }
 
 func (d *DirSummary) setLastMod() {
+	newMod := uint64(0)
+
 	for _, ruleStats := range d.RuleSummaries {
 		for _, stat := range ruleStats.Users {
-			if stat.MTime > d.LastMod {
-				d.LastMod = stat.MTime
+			if stat.MTime > newMod {
+				newMod = stat.MTime
 			}
 		}
 	}
+
+	d.LastMod = newMod
 }
 
 func (d *DirSummary) mergeRules(rules []Rule) {

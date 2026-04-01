@@ -144,7 +144,11 @@ func (s *Server) gatherSBAs(dir *Directory, dirSummary *ruletree.DirSummary) []i
 	seen := make(map[string]struct{})
 
 	for _, ruleSummary := range dirSummary.RuleSummaries {
-		rule := s.rules[ruleSummary.ID]
+		rule, ok := s.rules[ruleSummary.ID]
+
+		if !ok {
+			continue
+		}
 
 		rdirID := rule.DirID()
 		if rdirID <= 0 || dir.ID() != rdirID {

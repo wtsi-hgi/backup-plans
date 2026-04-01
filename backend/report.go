@@ -40,8 +40,6 @@ import (
 	"vimagination.zapto.org/tree"
 )
 
-var ErrNoClient = errors.New("no wrstat client found")
-
 type summary struct {
 	Summaries             map[string]*ruletree.DirSummary
 	Rules                 map[uint64]*db.Rule
