@@ -223,9 +223,9 @@ function createClaimStatsSection() {
                             th("Status")
                         ])),
                         tbody([
-                            dirStats.RuleStats.length > 0 ? prepareData(dirStats).map((row) => [
+                            dirStats.RuleStats.some(rule => rule.Match) ? prepareData(dirStats).map((row) => [
                                 buildTableRow(dirStats, row),
-                            ]) : tr(td({ "colspan": "7" }, "No rules added to this directory."))
+                            ]) : tr(td({ "colspan": "7" }, "No rules matching files added to this directory."))
                         ])
                     ]),
                 ])
