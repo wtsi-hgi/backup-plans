@@ -222,7 +222,7 @@ const groupList = datalist({ "id": "groupList" }),
 		const filterData = {
 			name: "",
 			status: "",
-			showempty: false
+			showempty: true
 		},
 			projects = children.map(child => ({
 				"elem": child,
