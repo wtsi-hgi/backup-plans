@@ -504,7 +504,7 @@ getReportSummary()
 			label({ "for": "filterAmber" }, "No backup in 2 weeks"), filterA,
 			label({ "for": "filterGreen" }, "Backup within 2 weeks"), filterG,
 			label({ "for": "filterBlue" }, "No files to backup"), filterB,
-			span("Show Empty "), showEmpty
+			label({ "for": "filterEmpty", "class": "no-colour" }, "Show Empty "), showEmpty
 		]);
 		children[2] = fieldset([
 			legend("Sort"),
