@@ -9,14 +9,12 @@ import RuleTree from './ruletree.js';
 import Summary from './summary.js';
 import UserStats from './userstats.js';
 import ClaimStats from './claimstats.js';
-import { symbols } from './symbols.js';
 import { tab } from './state.js';
 import Graph from './graph.js';
 import { user } from './rpc.js';
 
 (document.readyState === "complete" ? Promise.resolve() : new Promise(successFn => window.addEventListener("load", successFn, { "once": true })))
 	.then(() => document.body.replaceChildren(
-		symbols,
 		div({ "id": "user" }, ["User: ", user, button({
 			"click": () => window.location.pathname = window.location.pathname.replace(/[^/]*$/, "logout")
 		},
