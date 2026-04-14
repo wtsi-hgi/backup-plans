@@ -8,10 +8,11 @@ import { getReportSummary } from "./rpc.js";
 import { BackupType, MainProgrammes, ibackupStatusColumns } from "./consts.js";
 import { render } from "./disktree.js";
 import { load } from './load.js';
-import ODS from './odf.js';
-import { boms, owners, userGroups } from './userGroups.js';
-import { inputState } from "./state.js";
 import graph from "./graph.js";
+import ODS from './odf.js';
+import { inputState } from "./state.js";
+import { symbols } from './symbols.js';
+import { boms, owners, userGroups } from './userGroups.js';
 
 class Summary {
 	actions: SizeCountTime[] = [];
@@ -212,7 +213,8 @@ class ChildSummary extends Summary {
 }
 
 const groupList = datalist({ "id": "groupList" }),
-	base = div({ "id": "report" }, groupList),
+	spinner = createSpinner(),
+	base = div({ "id": "report" }, [symbols, groupList, spinner]),
 	initFilterSort = (container: HTMLDivElement, children: HTMLFieldSetElement[],
 		[
 			filterProject, filterAll, filterR, filterA, filterG, filterB, showEmpty, sortName, sortWarnSize, sortNoBackupSize, sortBackupSize
@@ -361,9 +363,6 @@ function getUnplannedFraction(counts: Map<BackupType, SizeCount>) {
 	const unplannedSize = counts.get(BackupType.BackupWarn)?.size ?? 0n;
 	return Number(unplannedSize * 100n / totalSize) / 100
 }
-
-const spinner = createSpinner();
-base.appendChild(spinner);
 
 getReportSummary()
 	.then(data => {
