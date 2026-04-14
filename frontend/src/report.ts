@@ -213,35 +213,49 @@ class ChildSummary extends Summary {
 
 const groupList = datalist({ "id": "groupList" }),
 	base = div({ "id": "report" }, groupList),
-	initFilterSort = (container: HTMLDivElement, children: HTMLFieldSetElement[], [filterProject, filterAll, filterR, filterA, filterG, filterB, sortName, sortWarnSize, sortNoBackupSize, sortBackupSize]: [HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement]) => {
-		const projects = children.map(child => ({
-			"elem": child,
-			"name": child.dataset.name!,
-			"warnSize": parseInt(child.dataset.warnSize!),
-			"nobackupSize": parseInt(child.dataset.nobackupSize!),
-			"backupSize": parseInt(child.dataset.backupSize!),
-			"status": child.dataset.status!,
-			"owner": child.dataset.owner || null,
-			"bom": child.dataset.bom || null,
-			"group": child.dataset.group || null,
-		})),
+	initFilterSort = (container: HTMLDivElement, children: HTMLFieldSetElement[],
+		[
+			filterProject, filterAll, filterR, filterA, filterG, filterB, showEmpty, sortName, sortWarnSize, sortNoBackupSize, sortBackupSize
+		]: [
+				HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement,
+				HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement]) => {
+		const filterData = {
+			name: "",
+			status: "",
+			showempty: true
+		},
+			projects = children.map(child => ({
+				"elem": child,
+				"name": child.dataset.name!,
+				"warnSize": parseInt(child.dataset.warnSize!),
+				"nobackupSize": parseInt(child.dataset.nobackupSize!),
+				"backupSize": parseInt(child.dataset.backupSize!),
+				"status": child.dataset.status!,
+				"owner": child.dataset.owner || null,
+				"bom": child.dataset.bom || null,
+				"group": child.dataset.group || null,
+			})),
 			stringSort = new Intl.Collator().compare,
-			filterData = { "name": "", "status": "" },
-			filter = (key: "name" | "status", value: string) => {
-				filterData[key] = value;
+			applyFilter = () => {
+				const { name, status, showempty } = filterData;
+
 				for (const project of projects) {
 					let hideProject = false;
 					let skipName = false;
-					if (!project.status.includes(filterData["status"])) {
+
+					if (!project.status.includes(status)) {
 						hideProject = true;
 					}
 
-					if (project.owner === filterData['name'] ||
-						project.bom === filterData['name'] ||
-						project.group === filterData['name']
-					) { skipName = true; }
+					if (project.owner === name || project.bom === name || project.group === name) {
+						skipName = true;
+					}
 
-					if (!skipName && !project.name.toLowerCase().includes(filterData['name'].toLowerCase())) {
+					if (!skipName && !project.name.toLowerCase().includes(name.toLowerCase())) {
+						hideProject = true;
+					}
+
+					if (!showempty && project.warnSize === 0 && project.nobackupSize === 0 && project.backupSize === 0) {
 						hideProject = true;
 					}
 
@@ -253,12 +267,13 @@ const groupList = datalist({ "id": "groupList" }),
 				container.append(...projects.map(p => p.elem));
 			};
 
-		filterProject.addEventListener("input", () => filter("name", filterProject.value));
-		filterAll.addEventListener("click", () => filter("status", ""));
-		filterR.addEventListener("click", () => filter("status", "r"));
-		filterA.addEventListener("click", () => filter("status", "a"));
-		filterG.addEventListener("click", () => filter("status", "g"));
-		filterB.addEventListener("click", () => filter("status", "b"));
+		filterProject.addEventListener("input", () => { filterData["name"] = filterProject.value; applyFilter() });
+		filterAll.addEventListener("click", () => { filterData["status"] = ""; applyFilter() });
+		filterR.addEventListener("click", () => { filterData["status"] = "r"; applyFilter() });
+		filterA.addEventListener("click", () => { filterData["status"] = "a"; applyFilter() });
+		filterG.addEventListener("click", () => { filterData["status"] = "g"; applyFilter() });
+		filterB.addEventListener("click", () => { filterData["status"] = "b"; applyFilter() });
+		showEmpty.addEventListener("change", () => { filterData["showempty"] = showEmpty.checked; applyFilter() });
 
 		sortName.addEventListener("click", () => sort("name"));
 		sortWarnSize.addEventListener("click", () => sort("warnSize"));
@@ -368,7 +383,8 @@ getReportSummary()
 			sortName = input({ "id": "sortName", "name": "sort", "type": "radio", "checked": "checked" }),
 			sortWarnSize = input({ "id": "sortWarnSize", "name": "sort", "type": "radio" }),
 			sortNoBackupSize = input({ "id": "sortNoBackupSize", "name": "sort", "type": "radio" }),
-			sortBackupSize = input({ "id": "sortBackupSize", "name": "sort", "type": "radio" });
+			sortBackupSize = input({ "id": "sortBackupSize", "name": "sort", "type": "radio" }),
+			showEmpty = input({ "id": "filterEmpty", "name": "filterEmpty", "type": "checkbox", "checked": "true" });
 
 		for (const rule of Object.values(data.Rules)) {
 			rule.BackupType = BackupType.from(rule.BackupType);
@@ -487,7 +503,8 @@ getReportSummary()
 			label({ "for": "filterRed" }, "No backup in 6 weeks"), filterR,
 			label({ "for": "filterAmber" }, "No backup in 2 weeks"), filterA,
 			label({ "for": "filterGreen" }, "Backup within 2 weeks"), filterG,
-			label({ "for": "filterBlue" }, "No files to backup"), filterB
+			label({ "for": "filterBlue" }, "No files to backup"), filterB,
+			label({ "for": "filterEmpty", "class": "no-colour" }, "Show Empty "), showEmpty
 		]);
 		children[2] = fieldset([
 			legend("Sort"),
@@ -497,7 +514,7 @@ getReportSummary()
 			label({ "for": "sortBackupSize" }, "Backup Size"), sortBackupSize
 		]);
 
-		initFilterSort(base, children.slice(3) as HTMLFieldSetElement[], [filterProject, filterAll, filterR, filterA, filterG, filterB, sortName, sortWarnSize, sortNoBackupSize, sortBackupSize]);
+		initFilterSort(base, children.slice(3) as HTMLFieldSetElement[], [filterProject, filterAll, filterR, filterA, filterG, filterB, showEmpty, sortName, sortWarnSize, sortNoBackupSize, sortBackupSize]);
 		amendNode(base, children);
 	});
 

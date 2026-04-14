@@ -221,3 +221,7 @@ fieldset {
 #report ul {
 	margin-top: -1em;
 }
+
+label.no-colour::after {
+	display: none !important;
+}
