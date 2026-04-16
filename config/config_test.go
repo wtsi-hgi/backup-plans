@@ -121,22 +121,22 @@ func TestConfig(t *testing.T) {
 
 				setName := "mySet"
 
-				ib := config.GetIBackupClient()
+				ibc := config.GetIBackupClient()
 
-				Reset(func() { ib.Stop() })
+				Reset(func() { ibc.Stop() })
 
-				So(ib.Backup("/some/path/a/dir/", setName, u.Username,
-					[]string{"/some/path/a/dir/file", "/some/path/a/dir/file2"}, 0, true, 1, 2), ShouldBeNil)
-				So(ib.Backup("/some/other/path/a/dir/", setName, u.Username,
-					[]string{"/some/other/path/a/dir/file"}, 0, true, 3, 4), ShouldBeNil)
+				So(ibc.Backup("/some/path/a/dir/", setName, u.Username,
+					ib.FilesWithZeroMTimes([]string{"/some/path/a/dir/file", "/some/path/a/dir/file2"}), 0, true, 1, 2), ShouldBeNil)
+				So(ibc.Backup("/some/other/path/a/dir/", setName, u.Username,
+					ib.FilesWithZeroMTimes([]string{"/some/other/path/a/dir/file"}), 0, true, 3, 4), ShouldBeNil)
 
-				baa, err := ib.GetBackupActivity("/some/path/a/dir/", setName, u.Username, false)
+				baa, err := ibc.GetBackupActivity("/some/path/a/dir/", setName, u.Username, false)
 				So(err, ShouldBeNil)
 
-				bab, err := ib.GetBackupActivity("/some/other/path/a/dir/", setName, u.Username, false)
+				bab, err := ibc.GetBackupActivity("/some/other/path/a/dir/", setName, u.Username, false)
 				So(err, ShouldBeNil)
 
-				_, err = ib.GetBackupActivity("/some/other/path/a/dir/", setName, u.Username, true)
+				_, err = ibc.GetBackupActivity("/some/other/path/a/dir/", setName, u.Username, true)
 				So(err, ShouldEqual, server.ErrBadSet)
 
 				So(baa.LastSuccess, ShouldNotEqual, bab.LastSuccess)
