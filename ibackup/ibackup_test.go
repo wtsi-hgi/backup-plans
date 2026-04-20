@@ -547,7 +547,7 @@ func (fc *fofnClientWrapper) TriggerDiscovery(setID string, forceRemovals bool) 
 }
 
 func (fc *fofnClientWrapper) GetSets(user string) ([]*set.Set, error) {
-	var sets []*set.Set //nolint:prealloc
+	var sets []*set.Set
 
 	for _, setName := range fc.sets[user] {
 		got, err := fc.GetSetByName(user, setName)
@@ -666,7 +666,7 @@ func (m *MockClient) TriggerDiscovery(setID string, forceRemovals bool) error {
 	return nil
 }
 
-func (m *MockClient) MergeFiles(setID string, paths []string) error {
+func (m *MockClient) MergeFiles(setID string, paths []string) error { //nolint:unparam
 	m.MergeCalls = append(m.MergeCalls, mergeCall{setID: setID, paths: paths})
 
 	return nil
