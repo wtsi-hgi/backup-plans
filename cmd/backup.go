@@ -34,8 +34,7 @@ import (
 	"github.com/wtsi-hgi/backup-plans/backups"
 	"github.com/wtsi-hgi/backup-plans/config"
 	"github.com/wtsi-hgi/backup-plans/db"
-	"golang.org/x/sys/unix"
-	"vimagination.zapto.org/tree"
+	"github.com/wtsi-hgi/backup-plans/internal/memtree"
 )
 
 // options for this cmd.
@@ -121,7 +120,7 @@ regexp.
 		}
 		defer planDB.Close()
 
-		treeNode, dfn, err := openTree(treeDB)
+		treeNode, dfn, err := memtree.OpenMemTree(treeDB)
 		if err != nil {
 			return fmt.Errorf("\n failed to open tree db: %w", err)
 		}
@@ -164,48 +163,4 @@ func checkEnvVarFlags(cmd *cobra.Command, envMap map[string]string) error {
 	}
 
 	return nil
-}
-
-func openTree(path string) (*tree.MemTree, func(), error) {
-	f, size, err := openAndSize(path)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	data, err := unix.Mmap(int(f.Fd()), 0, size, unix.PROT_READ, unix.MAP_SHARED)
-	if err != nil {
-		f.Close()
-
-		return nil, nil, err
-	}
-
-	fn := func() {
-		unix.Munmap(data) //nolint:errcheck
-		f.Close()
-	}
-
-	db, err := tree.OpenMem(data)
-	if err != nil {
-		fn()
-
-		return nil, nil, fmt.Errorf("error opening tree: %w", err)
-	}
-
-	return db, fn, nil
-}
-
-func openAndSize(path string) (*os.File, int, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, 0, err
-	}
-
-	stat, err := f.Stat()
-	if err != nil {
-		f.Close()
-
-		return nil, 0, err
-	}
-
-	return f, int(stat.Size()), nil
 }
