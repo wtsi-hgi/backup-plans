@@ -1,6 +1,6 @@
 module github.com/wtsi-hgi/backup-plans
 
-go 1.25.5
+go 1.26
 
 tool vimagination.zapto.org/jspacker/cmd/jspacker
 
@@ -16,7 +16,7 @@ require (
 	github.com/ugorji/go/codec v1.3.1
 	github.com/wtsi-hgi/activecache v1.0.0
 	github.com/wtsi-hgi/go-authserver v1.6.0
-	github.com/wtsi-hgi/ibackup v1.16.11-0.20260416125547-664c5704207f
+	github.com/wtsi-hgi/ibackup v1.17.0
 	github.com/wtsi-hgi/wrstat-ui v1.8.11
 	go.etcd.io/bbolt v1.4.3
 	golang.org/x/sys v0.42.0
@@ -33,7 +33,6 @@ require (
 	cloud.google.com/go/compute/metadata v0.7.0 // indirect
 	code.cloudfoundry.org/bytefmt v0.41.0 // indirect
 	filippo.io/edwards25519 v1.1.0 // indirect
-	github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358 // indirect
 	github.com/BurntSushi/toml v1.5.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/ProtonMail/go-crypto v1.3.0 // indirect
@@ -70,10 +69,8 @@ require (
 	github.com/gin-contrib/secure v1.1.2 // indirect
 	github.com/gin-contrib/sse v1.1.0 // indirect
 	github.com/gin-gonic/gin v1.11.0 // indirect
-	github.com/go-asn1-ber/asn1-ber v1.5.8-0.20250403174932-29230038a667 // indirect
 	github.com/go-git/gcfg/v2 v2.0.2 // indirect
 	github.com/go-ini/ini v1.67.0 // indirect
-	github.com/go-ldap/ldap/v3 v3.4.11 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
