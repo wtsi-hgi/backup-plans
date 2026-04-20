@@ -638,7 +638,8 @@ func setSet(s *server.Server, got *set.Set) error {
 
 func runTestBackups(client ibackupClient, setname, requester string, files []string,
 	frequency int, frozen bool, review, remove int64) {
-	err := ibackup.Backup(client, "prefix=/lustre/:/remote/", setname, requester, ib.FilesWithZeroMTimes(files), frequency, frozen, review, remove)
+	err := ibackup.Backup(client, "prefix=/lustre/:/remote/", setname, requester,
+		ib.FilesWithZeroMTimes(files), frequency, frozen, review, remove)
 	So(err, ShouldBeNil)
 }
 

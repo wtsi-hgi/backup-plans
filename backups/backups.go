@@ -208,7 +208,7 @@ func figureOutFOFNs(node tree.Node, sm ruletree.State, path *summary.DirectoryPa
 }
 
 func readMTime(child tree.Node) int64 {
-	return int64(ruletree.ReadFileStats(child.(*tree.MemTree)).MTime)
+	return int64(ruletree.ReadFileStats(child.(*tree.MemTree)).MTime) //nolint:gosec,errcheck,forcetypeassert
 }
 
 type backupClient interface {
