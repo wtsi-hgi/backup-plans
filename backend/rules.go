@@ -161,6 +161,8 @@ func (s *Server) revokeDirClaim(_ http.ResponseWriter, r *http.Request) error {
 	return s.rootDir.RevokeDirectory(dir)
 }
 
+// SetDirDetails allows the claimant of a directory to set the directory
+// specific backup details.
 func (s *Server) SetDirDetails(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.setDirDetails)
 }
@@ -285,8 +287,8 @@ func getDirDetails(r *http.Request) (dirDetails, error) { //nolint:gocyclo,funle
 // The following are the GET params for the rule:
 //
 //	match       The match rule.
-//	action      One of nobackup, backup, manualibackup, manualgit, manualprefect
-//				or manualunchecked.
+//	action      One of nobackup, backup, manualibackup, manualgit,
+//				manualprefect, manualunchecked, or manualnfs.
 //	metadata    For a manualibackup, it's the requestor of the backup set.
 func (s *Server) CreateRule(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.createRule)

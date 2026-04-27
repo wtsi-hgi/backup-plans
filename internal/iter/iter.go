@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2025 Genome Research Ltd.
+ * Copyright (c) 2026 Genome Research Ltd.
  *
  * Author: Michael Woolnough <mw31@sanger.ac.uk>
  *
@@ -23,20 +23,69 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  ******************************************************************************/
 
-package db
+package iter
 
-import "github.com/wtsi-hgi/backup-plans/internal/iter"
+import (
+	"iter"
+)
 
-type scanner = iter.Scanner
+// IterErr is an extension to the iter package that allows for returning errors.
+type IterErr[T any] struct { //nolint:revive
+	Iter  iter.Seq[T]
+	Error error
+}
 
-type IterErr[T any] = iter.IterErr[T]
+func noSeq[T any](_ func(T) bool) {}
 
-func iterRows[T any](d *DBRO, scanner func(scanner) (T, error), query string, args ...any) *IterErr[T] {
+// Error returns an IterErr with the error preset and an empty iterator.
+func Error[T any](err error) *IterErr[T] {
+	return &IterErr[T]{
+		Iter:  noSeq[T],
+		Error: err,
+	}
+}
 
-	rows, err := d.db.Query(query, args...) //nolint:noctx
-	if err != nil {
-		return iter.Error[T](err)
+// ForEach calls the given callback for each member of the iterator, stopping on
+// and returning the first error encountered.
+func (i *IterErr[T]) ForEach(fn func(T) error) error {
+	for item := range i.Iter {
+		if err := fn(item); err != nil {
+			return err
+		}
 	}
 
-	return iter.Rows(rows, scanner)
+	return i.Error
+}
+
+type Scanner interface {
+	Close() error
+	Next() bool
+	Scan(params ...any) error
+	Err() error
+}
+
+// Rows creates an IterErr from a database Scanner (like sql.Rows).
+func Rows[T any](rows Scanner, fn func(Scanner) (T, error)) *IterErr[T] {
+	var ie IterErr[T]
+
+	ie.Iter = func(yield func(T) bool) {
+		defer rows.Close()
+
+		for rows.Next() {
+			v, err := fn(rows)
+			if err != nil {
+				ie.Error = err
+
+				return
+			}
+
+			if !yield(v) {
+				break
+			}
+		}
+
+		ie.Error = rows.Err()
+	}
+
+	return &ie
 }

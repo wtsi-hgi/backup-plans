@@ -31,6 +31,7 @@ import (
 	"strings"
 
 	"github.com/wtsi-hgi/backup-plans/db"
+	iiter "github.com/wtsi-hgi/backup-plans/internal/iter"
 	"github.com/wtsi-hgi/wrstat-ui/summary/group"
 )
 
@@ -168,7 +169,7 @@ func isDirectory(path string, getChild func(string) (summariser, string, string,
 }
 
 func createTopLevelDirs(treeRoot *ruleOverlay, rootPath string, p *topLevelDir) error { //nolint:gocognit
-	for part := range pathParts(rootPath[1 : len(rootPath)-1]) {
+	for part := range iiter.PathParts(rootPath[1 : len(rootPath)-1]) {
 		np, ok := p.children[part]
 		if !ok {
 			np = newTopLevelDir(p)
