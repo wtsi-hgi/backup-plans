@@ -120,5 +120,10 @@ export const symbols = svg({ "style": `width: 0; height: 0` }, [
 			fill: "none",
 			"stroke-width": "2"
 		})
-	)
+	),
+	symbol({ "id": "save", "viewBox": "0 0 70 70" }, path({
+		"d": "M16,6 h38 l10,10 v48 a4,4 0 0 1 -4,4 h-44 a4,4 0 0 1 -4,-4 v-54 a4,4 0 0 1 4,-4 z M22,6 v18 h22 v-18 z M22,38 h26 M22,46 h26",
+		"style": "stroke: currentColor; stroke-width: 2",
+		"fill": "none"
+	}))
 ]);

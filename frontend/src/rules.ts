@@ -357,7 +357,23 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 
 export default base;
 
-function getSelectedRules(rulesTable: HTMLTableElement) {
+function getSelectedRules(rulesTable: HTMLTableElement, ruleMap: Map<string, Rule>) {
+	const checkboxes = rulesTable.querySelectorAll<HTMLInputElement>("tbody input[type='checkbox']");
+	const rules: Rule[] = [];
+
+	for (const checkbox of checkboxes) {
+		if (checkbox.checked) {
+			const rule = ruleMap.get(checkbox.value);
+			if (rule) {
+				rules.push(rule);
+			}
+		}
+	}
+
+	return rules;
+}
+
+function getSelectedMatches(rulesTable: HTMLTableElement) {
 	const checkboxes = rulesTable.querySelectorAll<HTMLInputElement>("tbody input[type='checkbox']");
 	const matches: string[] = [];
 
@@ -367,7 +383,7 @@ function getSelectedRules(rulesTable: HTMLTableElement) {
 		}
 	}
 
-	return matches;
+	return matches
 }
 
 registerLoader((path: string, data: DirectoryWithChildren) => {
@@ -393,7 +409,8 @@ registerLoader((path: string, data: DirectoryWithChildren) => {
 			td(rule.count.toLocaleString()),
 			td({ "title": rule.size.toLocaleString() }, formatBytes(rule.size))
 		])))
-	]);
+	]),
+		ruleMap = new Map(data.rules[path].map(r => [r.Match, r]));
 
 	clearNode(base, [
 		data.claimedBy === user ? td([addDirDetails(path, data), addRules(path, data.rules[path] ?? [])]) : [],
@@ -401,7 +418,7 @@ registerLoader((path: string, data: DirectoryWithChildren) => {
 			data.claimedBy === user ? td([
 				button({
 					"class": "actionButtonBig",
-					// "click": () => editOverlay(path, rule)
+					// "click": () => editOverlay(path, getSelectedRules(rulesTable, ruleMap))
 				},
 					svg([
 						title("Edit Rule"),
@@ -412,12 +429,23 @@ registerLoader((path: string, data: DirectoryWithChildren) => {
 					"class": "actionButtonBig",
 					"click": () => {
 						confirm("Are you sure you wish to remove the selected rule(s)?", () =>
-							removeRules(path, getSelectedRules(rulesTable)).then(() => { load(path); updateClaimStats(); })
+							removeRules(path, getSelectedMatches(rulesTable)).then(() => { load(path); updateClaimStats(); })
 						)
 					}
 				}, svg([
 					title("Remove Rule"),
 					use({ "href": "#remove" })
+				])),
+				button({
+					"class": "actionButtonBig",
+					"click": () => {
+						const selectedRules = getSelectedRules(rulesTable, ruleMap);
+						console.log(selectedRules);
+						// saveOverlay(path, selectedRules);
+					}
+				}, svg([
+					title("Save As"),
+					use({ "href": "#save" })
 				]))
 			]) : [],
 			rulesTable
