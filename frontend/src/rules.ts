@@ -356,11 +356,24 @@ export default base;
 
 registerLoader((path: string, data: DirectoryWithChildren) => {
 	clearNode(base, [
-		data.claimedBy ? h2("Rules on this directory") : [],
 		data.claimedBy && data.claimedBy == user && !data.rules[path]?.length ? [addRules(path, data.rules[path] ?? []), addDirDetails(path, data)] : [],
 		data.claimedBy && data.rules[path]?.length ? table({ "id": "rules", "class": "summary" }, [
-			thead(tr([th("Match"), th("Action"), th("Files"), th("Size"), data.claimedBy === user ? td([addRules(path, data.rules[path] ?? []), addDirDetails(path, data)]) : []])),
+			thead(tr([th(input({
+				"type": "checkbox", "change": (e: Event) => {
+					const checkbox = e.target as HTMLInputElement;
+
+					const selectors = checkbox
+						.closest("table")!
+						.querySelectorAll<HTMLInputElement>("tbody input[type='checkbox']");
+
+					for (const selector of selectors) {
+						selector.checked = checkbox.checked;
+					}
+
+				}
+			})), th("Match"), th("Action"), th("Files"), th("Size"), data.claimedBy === user ? td([addRules(path, data.rules[path] ?? []), addDirDetails(path, data)]) : []])),
 			tbody(Object.values(data.rules[path] ?? []).map(rule => tr([
+				td(input({ "type": "checkbox", "value": rule.Match })),
 				td({ "data-override": rule.Override }, rule.Match),
 				td(action(rule.BackupType)),
 				td(rule.count.toLocaleString()),
