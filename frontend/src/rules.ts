@@ -3,7 +3,7 @@ import { clearNode } from "./lib/dom.js";
 import { br, button, dialog, div, form, h2, h3, input, label, option, p, select, table, tbody, td, textarea, th, thead, tr, span, ul, li } from './lib/html.js';
 import { svg, title, use } from './lib/svg.js';
 import { action, confirm, formatBytes, setAndReturn } from "./lib/utils.js";
-import { createRule, removeRule, setDirDetails, updateRule, setExists, user } from "./rpc.js";
+import { createRule, removeRules, setDirDetails, updateRule, setExists, user } from "./rpc.js";
 import { BackupType, helpText } from "./consts.js"
 import { load, registerLoader } from "./load.js";
 import { updateClaimStats } from "./claimstats.js";
@@ -344,57 +344,82 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 
 		overlay.showModal();
 	},
-	addRules = (path: string, existingRules: RuleStats[]) => button({
-		"click": () => addRulesOverlay(path, new Set(existingRules.map(r => r.Match))),
-	}, "Add Rules"),
 	addDirDetails = (path: string, dirDetails: dirDetails) => button({
+		"style": "margin-left:1em",
 		"click": () => dirDetailOverlay(path, dirDetails),
 	}, "Set Directory Details"),
+	addRules = (path: string, existingRules: RuleStats[]) => button({
+		"class": "actionButtonBig",
+		"click": () => addRulesOverlay(path, new Set(existingRules.map(r => r.Match))),
+	}, "+"),
 	base = div();
 
 export default base;
 
+function getSelectedRules(rulesTable: HTMLTableElement) {
+	const checkboxes = rulesTable.querySelectorAll<HTMLInputElement>("tbody input[type='checkbox']");
+	const matches: string[] = [];
+
+	for (const checkbox of checkboxes) {
+		if (checkbox.checked) {
+			matches.push(checkbox.value)
+		}
+	}
+
+	return matches;
+}
+
 registerLoader((path: string, data: DirectoryWithChildren) => {
-	clearNode(base, [
-		data.claimedBy && data.claimedBy == user && !data.rules[path]?.length ? [addRules(path, data.rules[path] ?? []), addDirDetails(path, data)] : [],
-		data.claimedBy && data.rules[path]?.length ? table({ "id": "rules", "class": "summary" }, [
-			thead(tr([th(input({
-				"type": "checkbox", "change": (e: Event) => {
-					const checkbox = e.target as HTMLInputElement;
+	const rulesTable = table({ "id": "rules", "class": "summary" }, [
+		thead(tr([th(input({
+			"type": "checkbox", "change": (e: Event) => {
+				const checkbox = e.target as HTMLInputElement;
 
-					const selectors = checkbox
-						.closest("table")!
-						.querySelectorAll<HTMLInputElement>("tbody input[type='checkbox']");
+				const selectors = checkbox
+					.closest("table")!
+					.querySelectorAll<HTMLInputElement>("tbody input[type='checkbox']");
 
-					for (const selector of selectors) {
-						selector.checked = checkbox.checked;
-					}
-
+				for (const selector of selectors) {
+					selector.checked = checkbox.checked;
 				}
-			})), th("Match"), th("Action"), th("Files"), th("Size"), data.claimedBy === user ? td([addRules(path, data.rules[path] ?? []), addDirDetails(path, data)]) : []])),
-			tbody(Object.values(data.rules[path] ?? []).map(rule => tr([
-				td(input({ "type": "checkbox", "value": rule.Match })),
-				td({ "data-override": rule.Override }, rule.Match),
-				td(action(rule.BackupType)),
-				td(rule.count.toLocaleString()),
-				td({ "title": rule.size.toLocaleString() }, formatBytes(rule.size)),
-				data.claimedBy === user ? td([
-					button({
-						"class": "actionButton",
-						"click": () => editOverlay(path, rule)
-					}, svg([
+
+			}
+		})), th("Match"), th("Action"), th("Files"), th("Size")])),
+		tbody(Object.values(data.rules[path] ?? []).map(rule => tr([
+			td(input({ "type": "checkbox", "value": rule.Match })),
+			td({ "data-override": rule.Override }, rule.Match),
+			td(action(rule.BackupType)),
+			td(rule.count.toLocaleString()),
+			td({ "title": rule.size.toLocaleString() }, formatBytes(rule.size))
+		])))
+	]);
+
+	clearNode(base, [
+		data.claimedBy === user ? td([addDirDetails(path, data), addRules(path, data.rules[path] ?? [])]) : [],
+		data.claimedBy && data.rules[path]?.length ? [
+			data.claimedBy === user ? td([
+				button({
+					"class": "actionButtonBig",
+					// "click": () => editOverlay(path, rule)
+				},
+					svg([
 						title("Edit Rule"),
 						use({ "href": "#edit" })
-					])),
-					button({
-						"class": "actionButton",
-						"click": () => confirm("Are you sure you wish to remove this rule?", () => removeRule(path, rule.Match).then(() => { load(path); updateClaimStats(); }))
-					}, svg([
-						title("Remove Rule"),
-						use({ "href": "#remove" })
-					]))
-				]) : []
-			])))
-		]) : []
+					])
+				),
+				button({
+					"class": "actionButtonBig",
+					"click": () => {
+						confirm("Are you sure you wish to remove the selected rule(s)?", () =>
+							removeRules(path, getSelectedRules(rulesTable)).then(() => { load(path); updateClaimStats(); })
+						)
+					}
+				}, svg([
+					title("Remove Rule"),
+					use({ "href": "#remove" })
+				]))
+			]) : [],
+			rulesTable
+		] : []
 	]);
 });

@@ -88,7 +88,7 @@ func addHandlesAndListen(b *backend.Server, listen net.Listener, logout http.Han
 	http.Handle("POST /api/dir/revoke", http.HandlerFunc(b.RevokeDirClaim))
 	http.Handle("POST /api/rules/create", http.HandlerFunc(b.CreateRule))
 	http.Handle("POST /api/rules/update", http.HandlerFunc(b.UpdateRule))
-	http.Handle("POST /api/rules/remove", http.HandlerFunc(b.RemoveRule))
+	http.Handle("POST /api/rules/remove", http.HandlerFunc(b.RemoveRules))
 	http.Handle("GET /api/report/summary", http.HandlerFunc(b.Summary))
 	http.Handle("GET /api/setExists", http.HandlerFunc(b.SetExists))
 	http.Handle("POST /api/dir/setdetails", http.HandlerFunc(b.SetDirDetails))

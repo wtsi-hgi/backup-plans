@@ -678,12 +678,12 @@ func (s *Server) updateRule(w http.ResponseWriter, r *http.Request) error { //no
 	return nil
 }
 
-// RemoveRule allows the claimant of a directory to remove a rule from that
-// directory.
+// RemoveRules allows the claimant of a directory to remove one or more rules
+// from that directory.
 //
-// Like in ClaimDir, the directory is taken from the 'dir' GET param. The rule
-// is determined by the 'match' GET param.
-func (s *Server) RemoveRule(w http.ResponseWriter, r *http.Request) {
+// Like in ClaimDir, the directory is taken from the 'dir' GET param. The rules
+// are determined by the 'match' GET param.
+func (s *Server) RemoveRules(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.removeRule)
 }
 
@@ -696,22 +696,27 @@ func (s *Server) removeRule(w http.ResponseWriter, r *http.Request) error { //no
 	s.buildMu.Lock()
 	defer s.buildMu.Unlock()
 
-	directory, rule, err := s.getRuleToRemove(r, dir)
+	directory, rules, err := s.getRulesToRemove(r, dir)
 	if err != nil {
 		return err
 	}
 
-	if err := s.rulesDB.RemoveRule(rule); err != nil {
-		return err
-	}
+	for _, rule := range rules {
+		if err := s.rulesDB.RemoveRule(rule); err != nil {
+			return err
+		}
 
-	if err := s.rootDir.RemoveRule(directory.Directory, rule); err != nil {
-		return err
+		if err := s.rootDir.RemoveRule(directory.Directory, rule); err != nil {
+			return err
+		}
 	}
 
 	s.rulesMu.Lock()
-	delete(directory.Rules, rule.Match)
-	delete(s.rules, uint64(rule.ID())) //nolint:gosec
+
+	for _, rule := range rules {
+		delete(directory.Rules, rule.Match)
+		delete(s.rules, uint64(rule.ID())) //nolint:gosec
+	}
 	s.rulesMu.Unlock()
 
 	if err := s.updateDirSummaries(directory.Path); err != nil {
@@ -723,7 +728,7 @@ func (s *Server) removeRule(w http.ResponseWriter, r *http.Request) error { //no
 	return nil
 }
 
-func (s *Server) getRuleToRemove(r *http.Request, dir string) (*Directory, *db.Rule, error) {
+func (s *Server) getRulesToRemove(r *http.Request, dir string) (*Directory, []*db.Rule, error) {
 	s.rulesMu.RLock()
 	defer s.rulesMu.RUnlock()
 
@@ -736,14 +741,20 @@ func (s *Server) getRuleToRemove(r *http.Request, dir string) (*Directory, *db.R
 		return nil, nil, ErrInvalidUser
 	}
 
-	match := r.FormValue("match")
+	matches := r.Form["match"]
 
-	rule, ok := directory.Rules[match]
-	if !ok {
-		return nil, nil, ErrNoRule
+	rules := make([]*db.Rule, 0, len(matches))
+
+	for _, match := range matches {
+		rule, ok := directory.Rules[match]
+		if !ok {
+			return nil, nil, ErrNoRule
+		}
+
+		rules = append(rules, rule)
 	}
 
-	return directory, rule, nil
+	return directory, rules, nil
 }
 
 func getDir(r *http.Request) (string, error) {
