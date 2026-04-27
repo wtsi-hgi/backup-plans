@@ -312,6 +312,16 @@ func TestRules(t *testing.T) {
 			So(code, ShouldEqual, http.StatusOK)
 			So(resp, ShouldContainSubstring, `{"1":{"BackupType":1,"Metadata":"","Match":"*.jpg",`)
 			So(resp, ShouldContainSubstring, `,"2":{"BackupType":1,"Metadata":"","Match":"*.txt",`)
+
+			Convey("And remove multiple rules at once", func() {
+				code, resp := getResponse(
+					s.RemoveRules,
+					"/api/rules/remove?dir=/some/path/MyDir/&action=backup&match=*.txt&match=*.jpg",
+					nil,
+				)
+				So(code, ShouldEqual, http.StatusNoContent)
+				So(resp, ShouldEqual, "")
+			})
 		})
 
 		Convey("You can add rules of every type", func() {
