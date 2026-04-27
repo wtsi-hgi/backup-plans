@@ -148,7 +148,7 @@ func init() {
 		"sql connection string for your plan database")
 	backupCmd.Flags().StringVarP(&treeDB, "tree", "t", "",
 		"Path to tree db file, usually generated using db cmd")
-	backupCmd.Flags().StringVarP(&configPath, "config", "c", "", "ibackup config")
+	backupCmd.Flags().StringVarP(&configPath, "config", "c", "", "backup config")
 
 	backupCmd.MarkFlagRequired("tree")   //nolint:errcheck
 	backupCmd.MarkFlagRequired("config") //nolint:errcheck

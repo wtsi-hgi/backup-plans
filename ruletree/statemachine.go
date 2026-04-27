@@ -35,6 +35,7 @@ import (
 	"unsafe"
 
 	"github.com/wtsi-hgi/backup-plans/db"
+	iiter "github.com/wtsi-hgi/backup-plans/internal/iter"
 	"github.com/wtsi-hgi/wrstat-ui/summary/group"
 )
 
@@ -239,7 +240,7 @@ func newRuleTree(dirTreeRule dirTreeRule) *RuleTree {
 func (r *RuleTree) Set(path string, rules map[string]*db.Rule, changed bool) { //nolint:gocognit,gocyclo,funlen
 	curr := r
 
-	for part := range pathParts(path[1:]) {
+	for part := range iiter.PathParts(path[1:]) {
 		next, ok := curr.children[part]
 		if !ok { //nolint:nestif
 			if changed && len(rules) == 0 {
@@ -356,7 +357,7 @@ func (r *RuleTree) resolveSlashes() { //nolint:gocognit,gocyclo,funlen
 
 		curr := r
 
-		for part := range pathParts(match[:slash+1]) {
+		for part := range iiter.PathParts(match[:slash+1]) {
 			next, ok := curr.children[part]
 			if !ok {
 				var newDT dirTreeRule

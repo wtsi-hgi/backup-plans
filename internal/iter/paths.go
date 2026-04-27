@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2025 Genome Research Ltd.
+ * Copyright (c) 2026 Genome Research Ltd.
  *
  * Author: Michael Woolnough <mw31@sanger.ac.uk>
  *
@@ -23,20 +23,62 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  ******************************************************************************/
 
-package db
+package iter
 
-import "github.com/wtsi-hgi/backup-plans/internal/iter"
+import (
+	"iter"
+	"strings"
+)
 
-type scanner = iter.Scanner
+// PathParts returns an iterator that returns each directory part including a
+// trailing slash.
+//
+// Path must not contain a starting slash.
+func PathParts(path string) iter.Seq[string] {
+	return pathParts(path, false)
+}
 
-type IterErr[T any] = iter.IterErr[T]
+func pathParts(path string, includeFile bool) iter.Seq[string] { //nolint:gocognit
+	return func(yield func(string) bool) {
+		for path != "" {
+			pos := strings.IndexByte(path, '/')
+			if pos == -1 {
+				if includeFile {
+					yield(path)
+				}
 
-func iterRows[T any](d *DBRO, scanner func(scanner) (T, error), query string, args ...any) *IterErr[T] {
+				return
+			}
 
-	rows, err := d.db.Query(query, args...) //nolint:noctx
-	if err != nil {
-		return iter.Error[T](err)
+			if !yield(path[:pos+1]) {
+				break
+			}
+
+			path = path[pos+1:]
+		}
 	}
+}
 
-	return iter.Rows(rows, scanner)
+// FilePathParts acts like PathParts, but will conclude with a trailing
+// filename, if it exists.
+func FilePathParts(path string) iter.Seq[string] {
+	return pathParts(path, true)
+}
+
+// ParentParts acts like PathParts, but reverses the yielded parts.
+func ParentParts(path string) iter.Seq[string] {
+	return func(yield func(string) bool) {
+		for len(path) > 0 {
+			pos := strings.LastIndexByte(path[:len(path)-1], '/')
+			if pos == -1 {
+				return
+			}
+
+			if !yield(path[:pos+1]) {
+				break
+			}
+
+			path = path[:pos]
+		}
+	}
 }

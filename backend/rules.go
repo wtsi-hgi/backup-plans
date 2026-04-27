@@ -171,7 +171,7 @@ func (s *Server) ClaimDir(w http.ResponseWriter, r *http.Request) {
 func (s *Server) claimDir(w http.ResponseWriter, r *http.Request) error { //nolint:funlen
 	user := s.getUser(r)
 
-	uid, groups := users.GetIDs(s.getUser(r))
+	uid, groups := users.GetIDs(user)
 	if groups == nil {
 		return ErrInvalidUser
 	}
@@ -341,6 +341,8 @@ func (s *Server) revokeDirClaim(_ http.ResponseWriter, r *http.Request) error {
 	return s.rulesDB.RemoveDirectory(directory.Directory)
 }
 
+// SetDirDetails allows the claimant of a directory to set the directory
+// specific backup details.
 func (s *Server) SetDirDetails(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.setDirDetails)
 }
@@ -474,8 +476,8 @@ func getDirDetails(r *http.Request) (dirDetails, error) { //nolint:gocyclo,funle
 // The following are the GET params for the rule:
 //
 //	match       The match rule.
-//	action      One of nobackup, backup, manualibackup, manualgit, manualprefect
-//				or manualunchecked.
+//	action      One of nobackup, backup, manualibackup, manualgit,
+//				manualprefect, manualunchecked, or manualnfs.
 //	metadata    For a manualibackup, it's the requestor of the backup set.
 func (s *Server) CreateRule(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.createRule)
@@ -532,7 +534,7 @@ func (s *Server) checkAddRules(r *http.Request, dir string, rules []*db.Rule) (*
 
 	directory, ok := s.directoryRules[dir]
 	if !ok {
-		return nil, ErrInvalidDir
+		return nil, ErrDirectoryNotClaimed
 	}
 
 	if directory.ClaimedBy != s.getUser(r) {
@@ -651,7 +653,7 @@ func (s *Server) updateRule(w http.ResponseWriter, r *http.Request) error { //no
 
 	directory, ok := s.directoryRules[dir]
 	if !ok {
-		return ErrInvalidDir
+		return ErrDirectoryNotClaimed
 	}
 
 	if directory.ClaimedBy != s.getUser(r) {

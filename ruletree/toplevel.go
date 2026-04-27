@@ -29,13 +29,13 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"iter"
 	"maps"
 	"os"
 	"strings"
 	"sync"
 
 	"github.com/wtsi-hgi/backup-plans/db"
+	iiter "github.com/wtsi-hgi/backup-plans/internal/iter"
 	"github.com/wtsi-hgi/wrstat-ui/summary/group"
 	"golang.org/x/sys/unix"
 	"vimagination.zapto.org/tree"
@@ -234,7 +234,7 @@ func (r *RootDir) regenRules(mount string, directoryRules map[string]*DirRules, 
 	t := &r.topLevelDir
 	pos := 1
 
-	for part := range pathParts(mount[1:]) {
+	for part := range iiter.PathParts(mount[1:]) {
 		child := t.children[part]
 		if child == nil {
 			return ErrNotFound
@@ -351,7 +351,7 @@ func (r *RootDir) GetSummariesForMountpoint(paths []string, mountpoint string,
 	for _, path := range paths {
 		parentTargetPaths[path] = targetPath
 
-		for parent := range parentParts(path) {
+		for parent := range iiter.ParentParts(path) {
 			if _, exists := parentTargetPaths[parent]; exists {
 				break
 			}
@@ -645,7 +645,7 @@ func (r *RootDir) processRules(treeRoot *tree.MemTree, rootPath string) (*ruleOv
 }
 
 func createTopLevelDirs(treeRoot *ruleOverlay, rootPath string, p *topLevelDir) error { //nolint:gocognit
-	for part := range pathParts(rootPath[1 : len(rootPath)-1]) {
+	for part := range iiter.PathParts(rootPath[1 : len(rootPath)-1]) {
 		np, ok := p.children[part]
 		if !ok {
 			np = newTopLevelDir(p)
@@ -672,40 +672,6 @@ func createTopLevelDirs(treeRoot *ruleOverlay, rootPath string, p *topLevelDir) 
 	}
 
 	return p.setChild(name, treeRoot)
-}
-
-func pathParts(path string) iter.Seq[string] {
-	return func(yield func(string) bool) {
-		for {
-			pos := strings.IndexByte(path, '/')
-			if pos == -1 {
-				return
-			}
-
-			if !yield(path[:pos+1]) {
-				break
-			}
-
-			path = path[pos+1:]
-		}
-	}
-}
-
-func parentParts(path string) iter.Seq[string] {
-	return func(yield func(string) bool) {
-		for len(path) > 0 {
-			pos := strings.LastIndexByte(path[:len(path)-1], '/')
-			if pos == -1 {
-				return
-			}
-
-			if !yield(path[:pos+1]) {
-				break
-			}
-
-			path = path[:pos]
-		}
-	}
 }
 
 var (
