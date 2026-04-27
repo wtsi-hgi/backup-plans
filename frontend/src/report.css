@@ -165,10 +165,10 @@ table.summary tbody tr:last-child th:first-child {
 	border-top-right-radius: 0.5em;
 }
 
-.summary:has(thead td:last-child) tbody tr:first-child td:last-child {
+/* .summary:has(thead td:last-child) tbody tr:first-child td:last-child {
 	border-top: 1px solid currentColor;
 	border-top-right-radius: 0.5em;
-}
+} */
 
 .summary td {
 	border-width: 0 1px 1px 0;

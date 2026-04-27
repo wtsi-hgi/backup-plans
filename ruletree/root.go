@@ -294,7 +294,7 @@ func (r *RootDir) UpdateRule(path string, rule rules.Rule) error {
 	return r.rules.UpdateRule(path, rule)
 }
 
-// RemoveRule remove the given rule from the given directory and regenerates the
+// RemoveRule removes the given rule from the given directory and regenerates the
 // rule summaries.
 func (r *RootDir) RemoveRule(dir string, rule string) error {
 	return updateRule(r, dir, rule, removeRule)

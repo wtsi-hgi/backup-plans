@@ -1,4 +1,5 @@
-button.actionButton {
+button.actionButton,
+button.actionButtonBig {
 	border: 0;
 	background: none;
 }
@@ -6,6 +7,15 @@ button.actionButton {
 button.actionButton svg {
 	width: 1em;
 	height: 1em;
+}
+
+button.actionButtonBig svg {
+	width: 1em;
+	height: 1em;
+}
+
+button.actionButtonBig {
+	font-size: 1.5em;
 }
 
 ::backdrop {

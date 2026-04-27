@@ -428,16 +428,16 @@ func (s *Server) updateRule(_ http.ResponseWriter, r *http.Request) error {
 	return s.rootDir.UpdateRule(dir, rules[0])
 }
 
-// RemoveRule allows the claimant of a directory to remove a rule from that
-// directory.
+// RemoveRules allows the claimant of a directory to remove one or more rules
+// from that directory.
 //
-// Like in ClaimDir, the directory is taken from the 'dir' GET param. The rule
-// is determined by the 'match' GET param.
-func (s *Server) RemoveRule(w http.ResponseWriter, r *http.Request) {
-	handle(w, r, s.removeRule)
+// Like in ClaimDir, the directory is taken from the 'dir' GET param. The rules
+// are determined by the 'match' GET param.
+func (s *Server) RemoveRules(w http.ResponseWriter, r *http.Request) {
+	handle(w, r, s.removeRules)
 }
 
-func (s *Server) removeRule(_ http.ResponseWriter, r *http.Request) error {
+func (s *Server) removeRules(_ http.ResponseWriter, r *http.Request) error {
 	dir, err := getDir(r)
 	if err != nil {
 		return err
@@ -447,7 +447,16 @@ func (s *Server) removeRule(_ http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	return s.rootDir.RemoveRule(dir, r.FormValue("match"))
+	matches := r.Form["match"]
+
+	for _, match := range matches {
+		err := s.rootDir.RemoveRule(dir, match)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func getDir(r *http.Request) (string, error) {

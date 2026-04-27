@@ -255,7 +255,7 @@ func TestRules(t *testing.T) {
 				u = "someone"
 
 				code, resp := getResponse(
-					s.RemoveRule,
+					s.RemoveRules,
 					"/api/rules/remove?dir=/some/path/MyDir/&action=backup&match=*.txt",
 					nil,
 				)
@@ -264,14 +264,14 @@ func TestRules(t *testing.T) {
 				u = root
 
 				code, resp = getResponse(
-					s.RemoveRule,
+					s.RemoveRules,
 					"/api/rules/remove?dir=/some/path/MyDir/&action=backup&match=*.tsv",
 					nil,
 				)
 				checkErrorResponse(t, code, resp, ErrNoRule)
 
 				code, resp = getResponse(
-					s.RemoveRule,
+					s.RemoveRules,
 					"/api/rules/remove?dir=/some/path/MyDir/&action=backup&match=*.txt",
 					nil,
 				)
@@ -279,7 +279,7 @@ func TestRules(t *testing.T) {
 				So(resp, ShouldEqual, "")
 
 				code, resp = getResponse(
-					s.RemoveRule,
+					s.RemoveRules,
 					"/api/rules/remove?dir=/some/path/MyDir/&action=backup&match=*.txt",
 					nil,
 				)
