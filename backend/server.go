@@ -123,9 +123,6 @@ func (s *Server) addToDirMaps(id int64, dirSummary *ruletree.DirSummary) {
 //	s.dirGroups: map(directory ID -> group name)
 //	s.dirBoms: map(directory ID -> BOM)
 func (s *Server) updateDirMaps(rootPath string) error { //nolint:gocognit
-	s.rulesMu.Lock()
-	defer s.rulesMu.Unlock()
-
 	for _, dir := range s.directoryRules {
 		if rootPath != "" && !strings.HasPrefix(dir.Path, rootPath) {
 			continue

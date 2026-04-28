@@ -51,10 +51,16 @@ var (
 // AddTree adds a tree database, specified by the given file path, to the
 // server, possibly overriding an existing database if they share the same root.
 func (s *Server) AddTree(file string) error {
+	s.buildMu.Lock()
+	defer s.buildMu.Unlock()
+
 	rootPath, err := s.rootDir.AddTree(file)
 	if err != nil {
 		return err
 	}
+
+	s.rulesMu.Lock()
+	defer s.rulesMu.Unlock()
 
 	err = s.updateDirSummaries(rootPath)
 	if err != nil {
@@ -65,9 +71,6 @@ func (s *Server) AddTree(file string) error {
 }
 
 func (s *Server) updateDirSummaries(path string) error {
-	s.rulesMu.Lock()
-	defer s.rulesMu.Unlock()
-
 	toUpdate := make([]string, 0, len(s.directoryRules))
 
 	for p := range s.directoryRules {

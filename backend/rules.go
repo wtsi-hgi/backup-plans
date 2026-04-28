@@ -504,6 +504,10 @@ func (s *Server) createRule(w http.ResponseWriter, r *http.Request) error { //no
 		return err
 	}
 
+	if err := s.rootDir.AddRules(directory.Directory, rules); err != nil {
+		return err
+	}
+
 	s.rulesMu.Lock()
 
 	for _, rule := range rules {
@@ -511,15 +515,11 @@ func (s *Server) createRule(w http.ResponseWriter, r *http.Request) error { //no
 		s.rules[uint64(rule.ID())] = rule //nolint:gosec
 	}
 
-	s.rulesMu.Unlock()
-
-	if err := s.rootDir.AddRules(directory.Directory, rules); err != nil {
-		return err
-	}
-
 	if err := s.updateDirSummaries(directory.Path); err != nil {
 		return err
 	}
+
+	s.rulesMu.Unlock()
 
 	w.WriteHeader(http.StatusNoContent)
 
@@ -712,11 +712,11 @@ func (s *Server) removeRule(w http.ResponseWriter, r *http.Request) error { //no
 	s.rulesMu.Lock()
 	delete(directory.Rules, rule.Match)
 	delete(s.rules, uint64(rule.ID())) //nolint:gosec
-	s.rulesMu.Unlock()
 
 	if err := s.updateDirSummaries(directory.Path); err != nil {
 		return err
 	}
+	s.rulesMu.Unlock()
 
 	w.WriteHeader(http.StatusNoContent)
 
