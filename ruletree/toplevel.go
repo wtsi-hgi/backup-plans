@@ -27,7 +27,6 @@ package ruletree
 
 import (
 	"errors"
-	"iter"
 	"strings"
 
 	"github.com/wtsi-hgi/backup-plans/db"
@@ -196,23 +195,6 @@ func createTopLevelDirs(treeRoot *ruleOverlay, rootPath string, p *topLevelDir) 
 	}
 
 	return p.setChild(name, treeRoot)
-}
-
-func pathParts(path string) iter.Seq[string] {
-	return func(yield func(string) bool) {
-		for {
-			pos := strings.IndexByte(path, '/')
-			if pos == -1 {
-				return
-			}
-
-			if !yield(path[:pos+1]) {
-				break
-			}
-
-			path = path[pos+1:]
-		}
-	}
 }
 
 var (

@@ -233,7 +233,7 @@ func getCollection(req *msg.QueryRequest) string {
 		if k == msg.ICAT_COLUMN_COLL_NAME.Int() {
 			_, coll, _ := strings.Cut(req.Conditions.Values[n], " ")
 
-			return strings.TrimSuffix(coll, "%")
+			return strings.TrimPrefix(strings.TrimSuffix(strings.TrimSuffix(coll, "'"), "%"), "'")
 		}
 	}
 

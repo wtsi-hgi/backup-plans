@@ -35,6 +35,7 @@ import (
 	"unsafe"
 
 	"github.com/wtsi-hgi/backup-plans/db"
+	iiter "github.com/wtsi-hgi/backup-plans/internal/iter"
 	"github.com/wtsi-hgi/backup-plans/rules"
 	"github.com/wtsi-hgi/wrstat-ui/summary/group"
 )

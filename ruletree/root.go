@@ -34,6 +34,7 @@ import (
 	"strings"
 	"sync"
 
+	iiter "github.com/wtsi-hgi/backup-plans/internal/iter"
 	"github.com/wtsi-hgi/backup-plans/internal/memtree"
 	"github.com/wtsi-hgi/backup-plans/rules"
 	"github.com/wtsi-hgi/backup-plans/users"
@@ -308,7 +309,7 @@ func (r *RootDir) regenRules(mount string, directoryRules *rules.Database, dirs 
 	t := &r.topLevelDir
 	pos := 1
 
-	for part := range pathParts(mount[1:]) {
+	for part := range iiter.PathParts(mount[1:]) {
 		child := t.children[part]
 		if child == nil {
 			return ErrNotFound
