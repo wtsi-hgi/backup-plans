@@ -44,12 +44,13 @@ const (
 
 // Rule represents a defined rule.
 type Rule struct {
-	id          int64
-	directoryID int64
-	BackupType  BackupType
-	Metadata    string // requester:name for manual
-	Match       string
-	Override    bool
+	id           int64
+	directoryID  int64
+	BackupType   BackupType
+	Metadata     string
+	Match        string
+	Override     bool
+	isCollection bool
 
 	Created, Modified int64
 }
@@ -77,6 +78,16 @@ func (r *Rule) DirID() int64 {
 	return r.directoryID
 }
 
+// CollectionID returns the name of the collection this rule belongs to, or ""
+// if it does not belong to a collection.
+func (r *Rule) CollectionID() string {
+	if r.isCollection {
+		return r.Match
+	}
+
+	return ""
+}
+
 // CreateDirectoryRule defines the given rule(s) for the given directory.
 func (d *DB) CreateDirectoryRule(dir *Directory, rules ...*Rule) error { //nolint:funlen
 	tx, err := d.db.Begin() //nolint:noctx
@@ -92,12 +103,13 @@ func (d *DB) CreateDirectoryRule(dir *Directory, rules ...*Rule) error { //nolin
 		rule.Modified = now
 
 		res, err := tx.Exec( //nolint:noctx
-			createRule,
+			createDirRule,
 			dir.id,
 			rule.BackupType,
 			rule.Metadata,
 			rule.Match,
 			rule.Override,
+			rule.isCollection,
 			rule.Created,
 			rule.Modified,
 		)
@@ -136,6 +148,7 @@ func scanRule(scanner scanner) (*Rule, error) {
 		&rule.Metadata,
 		&rule.Match,
 		&rule.Override,
+		&rule.isCollection,
 		&rule.Created,
 		&rule.Modified,
 	); err != nil {
@@ -159,10 +172,11 @@ func (d *DB) UpdateRule(rules ...*Rule) error {
 		rule.Modified = now
 
 		if _, err := tx.Exec( //nolint:noctx
-			updateRule,
+			updateDirRule,
 			rule.BackupType,
 			rule.Metadata,
 			rule.Match,
+			rule.isCollection,
 			rule.Modified,
 			rule.id,
 		); err != nil {
@@ -175,5 +189,5 @@ func (d *DB) UpdateRule(rules ...*Rule) error {
 
 // RemoveRule will remove the given Rule from the database.
 func (d *DB) RemoveRule(rule *Rule) error {
-	return d.exec(deleteRule, rule.id)
+	return d.exec(deleteDirRule, rule.id)
 }

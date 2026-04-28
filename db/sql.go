@@ -47,17 +47,40 @@ var tables = [...]string{
 		"`directoryID` INTEGER NOT NULL, " +
 		"`type` INTEGER NOT NULL, " +
 		"`metadata` TEXT NOT NULL, " +
-		"`match` /*! MEDIUMTEXT -- */ TEXT\n/*! */ NOT NULL, " +
+		"`match` /*! MEDIUMTEXT -- */ TEXT\n/*! */ NOT NULL, " + // collection name if collection rule
 		"`matchHash` " + hashColumnStart + "`match`" + hashColumnEnd + ", " +
 		"`override` BOOLEAN DEFAULT FALSE, " +
+		"`isCollection` BOOLEAN DEFAULT FALSE, " +
 		"`created` BIGINT NOT NULL, " +
 		"`modified` BIGINT NOT NULL, " +
 		"UNIQUE(`directoryID`, `matchHash`), " +
 		"FOREIGN KEY(`directoryID`) REFERENCES `directories`(`id`) ON DELETE CASCADE" +
 		");",
+
+	"CREATE TABLE IF NOT EXISTS `collections` (" +
+		"`id` INTEGER PRIMARY KEY " + autoIncrement + ", " +
+		"`name` TEXT NOT NULL, " +
+		"`description` TEXT, " +
+		"`created` BIGINT NOT NULL, " +
+		"`modified` BIGINT NOT NULL " +
+		");",
+
+	"CREATE TABLE IF NOT EXISTS `collectionRules` (" +
+		"`id` INTEGER PRIMARY KEY " + autoIncrement + ", " +
+		"`collectionID` INTEGER NOT NULL, " +
+		"`type` INTEGER NOT NULL, " +
+		"`metadata` TEXT NOT NULL, " +
+		"`match` /*! MEDIUMTEXT -- */ TEXT\n/*! */ NOT NULL, " +
+		"`matchHash` " + hashColumnStart + "`match`" + hashColumnEnd + ", " +
+		"`override` BOOLEAN DEFAULT FALSE, " +
+		"`created` BIGINT NOT NULL, " +
+		"`modified` BIGINT NOT NULL, " +
+		"UNIQUE(`collectionID`, `matchHash`), " +
+		"FOREIGN KEY(`collectionID`) REFERENCES `collections`(`id`) ON DELETE CASCADE" +
+		");",
 }
 
-var tableNames = [...]string{"directories", "rules"}
+var tableNames = [...]string{"directories", "rules", "collections", "collectionRules"}
 
 const (
 	autoIncrement   = "/*! AUTO_INCREMENT -- */ AUTOINCREMENT\n/*! */"
@@ -83,10 +106,15 @@ const (
 		"`created`, " +
 		"`modified`" +
 		") VALUES (?, ?, ?, ?, ?, ?, ?, ?);"
-	createRule = "INSERT INTO `rules` " +
-		"(`directoryID`, `type`, `metadata`, `match`, `override`, `created`, `modified`) " +
+	createDirRule = "INSERT INTO `rules` " +
+		"(`directoryID`, `type`, `metadata`, `match`, `override`, `isCollection`, `created`, `modified`) " +
+		"VALUES (?, ?, ?, ?, ?, ?, ?, ?);"
+	createCollection = "INSERT INTO `collections` " +
+		"(`name`, `description`, `created`, `modified`) " +
+		"VALUES (?, ?, ?, ?);"
+	createCollectionRule = "INSERT INTO `collectionRules` " +
+		"(`collectionID`, `type`, `metadata`, `match`, `override`, `created`, `modified`) " +
 		"VALUES (?, ?, ?, ?, ?, ?, ?);"
-
 	selectAllDirectories = "SELECT " +
 		"`id`, " +
 		"`directory`, " +
@@ -106,9 +134,27 @@ const (
 		"`metadata`, " +
 		"`match`, " +
 		"`override`, " +
+		"`isCollection`, " +
 		"`created`, " +
 		"`modified` " +
 		"FROM `rules`;"
+	selectAllCollections = "SELECT " +
+		"`id`, " +
+		"`name`, " +
+		"`description`, " +
+		"`created`, " +
+		"`modified` " +
+		"FROM `collections`;"
+	selectAllCollectionRules = "SELECT " +
+		"`id`, " +
+		"`collectionID`, " +
+		"`type`, " +
+		"`metadata`, " +
+		"`match`, " +
+		"`override`, " +
+		"`created`, " +
+		"`modified` " +
+		"FROM `collectionRules`;"
 
 	updateDirectory = "UPDATE `directories` SET " +
 		"`claimedBy` = ?, " +
@@ -119,14 +165,29 @@ const (
 		"`reviewDate` = ?, " +
 		"`removeDate` = ? " +
 		"WHERE `id` = ?;"
-	updateRule = "UPDATE `rules` SET " +
+	updateDirRule = "UPDATE `rules` SET " +
 		"`type` = ?, " +
 		"`metadata` = ?, " +
 		"`match` = ?, " +
+		"`isCollection` = ?, " +
+		"`modified` = ? " +
+		"WHERE `id` = ?;"
+	updateCollection = "UPDATE `collections` SET " +
+		"`name` = ?, " +
+		"`description` = ?, " +
+		"`modified` = ? " +
+		"WHERE `id` = ?;"
+	updateCollectionRule = "UPDATE `collectionRules` SET " +
+		"`type` = ?, " +
+		"`metadata` = ?, " +
+		"`match` = ?, " +
+		"`override` = ?, " +
 		"`modified` = ? " +
 		"WHERE `id` = ?;"
 	refreezeDirectory = "UPDATE `directories` SET `melt` = 0 WHERE `id` = ?;"
 
-	deleteDirectory = "DELETE FROM `directories` WHERE `id` = ?;"
-	deleteRule      = "DELETE FROM `rules` WHERE `id` = ?;"
+	deleteDirectory      = "DELETE FROM `directories` WHERE `id` = ?;"
+	deleteDirRule        = "DELETE FROM `rules` WHERE `id` = ?;"
+	deleteCollection     = "DELETE FROM `collections` WHERE `id` = ?;"
+	deleteCollectionRule = "DELETE FROM `collectionRules` WHERE `id` = ?;"
 )
