@@ -7,6 +7,7 @@ import (
 
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/ibackup"
+	"github.com/wtsi-hgi/backup-plans/rules"
 	"github.com/wtsi-hgi/backup-plans/ruletree"
 	"github.com/wtsi-hgi/ibackup/server"
 	"github.com/wtsi-hgi/wrstat-ui/summary"
@@ -90,20 +91,20 @@ func readMountpoint(treeNode tree.Node) (string, error) {
 
 type dirRules struct {
 	*db.Directory
-	Rules   map[string]*db.Rule
-	RuleIDs map[int64]*db.Rule
+	Rules   []rules.Rule
+	RuleIDs map[int64]rules.Rule
 }
 
 func readDirRules(planDB *db.DB, mountpoint string) (map[int64]*dirRules, map[int64]*dirRules, error) {
 	dirs := make(map[int64]*dirRules)
-	rules := make(map[int64]*dirRules)
+	rs := make(map[int64]*dirRules)
 
 	if err := planDB.ReadDirectories().ForEach(func(dir *db.Directory) error {
 		if strings.HasPrefix(dir.Path, mountpoint) {
 			dirs[dir.ID()] = &dirRules{
 				Directory: dir,
-				Rules:     make(map[string]*db.Rule),
-				RuleIDs:   make(map[int64]*db.Rule),
+				Rules:     make([]rules.Rule, 0),
+				RuleIDs:   make(map[int64]rules.Rule),
 			}
 		}
 
@@ -114,9 +115,9 @@ func readDirRules(planDB *db.DB, mountpoint string) (map[int64]*dirRules, map[in
 
 	if err := planDB.ReadRules().ForEach(func(rule *db.Rule) error {
 		if dir, ok := dirs[rule.DirID()]; ok {
-			dir.Rules[rule.Match] = rule
-			dir.RuleIDs[rule.ID()] = rule
-			rules[rule.ID()] = dir
+			dir.Rules = append(dir.Rules, rules.ToRule(rule))
+			dir.RuleIDs[rule.ID()] = rules.ToRule(rule)
+			rs[rule.ID()] = dir
 		}
 
 		return nil
@@ -124,7 +125,7 @@ func readDirRules(planDB *db.DB, mountpoint string) (map[int64]*dirRules, map[in
 		return nil, nil, err
 	}
 
-	return dirs, rules, nil
+	return dirs, rs, nil
 }
 
 var hasBackups int64 = -1 //nolint:gochecknoglobals

@@ -35,6 +35,7 @@ import (
 	"unsafe"
 
 	"github.com/wtsi-hgi/backup-plans/db"
+	"github.com/wtsi-hgi/backup-plans/rules"
 	"github.com/wtsi-hgi/wrstat-ui/summary/group"
 )
 
@@ -133,7 +134,7 @@ const (
 )
 
 func generateStatemachineFor(mount string, paths []string,
-	directoryRules map[string]*DirRules) (State, group.StateMachine[int64], error) {
+	directoryRules *rules.Database) (State, group.StateMachine[int64], error) {
 	rules, wildcards := buildDirRules(mount, paths, directoryRules)
 
 	sm, err := BuildMultiStateMachine(rules)
@@ -151,7 +152,7 @@ func generateStatemachineFor(mount string, paths []string,
 
 type dirTreeRule struct {
 	Dir   dirState
-	Rules map[string]*db.Rule
+	Rules map[string]rules.Rule
 }
 
 type RuleTree struct {
@@ -225,7 +226,7 @@ func NewRuleTree() *RuleTree {
 
 func newRuleTree(dirTreeRule dirTreeRule) *RuleTree {
 	if dirTreeRule.Rules == nil {
-		dirTreeRule.Rules = map[string]*db.Rule{}
+		dirTreeRule.Rules = map[string]rules.Rule{}
 	}
 
 	return &RuleTree{
@@ -236,13 +237,13 @@ func newRuleTree(dirTreeRule dirTreeRule) *RuleTree {
 
 // Set adds the rules for the given path. The changed flag should be set true if
 // this directory has had a rule changed (added, updated, or removed).
-func (r *RuleTree) Set(path string, rules map[string]*db.Rule, changed bool) { //nolint:gocognit,gocyclo,funlen
+func (r *RuleTree) Set(path string, ruleList []rules.Rule, changed bool) { //nolint:gocognit,gocyclo,funlen
 	curr := r
 
 	for part := range pathParts(path[1:]) {
 		next, ok := curr.children[part]
 		if !ok { //nolint:nestif
-			if changed && len(rules) == 0 {
+			if changed && len(ruleList) == 0 {
 				curr.Dir |= RulesChanged
 			}
 
@@ -256,7 +257,7 @@ func (r *RuleTree) Set(path string, rules map[string]*db.Rule, changed bool) { /
 			curr.children[part] = next
 		}
 
-		if len(rules) > 0 {
+		if len(ruleList) > 0 {
 			curr.Dir |= HasChildWithRules
 
 			if changed {
@@ -271,7 +272,17 @@ func (r *RuleTree) Set(path string, rules map[string]*db.Rule, changed bool) { /
 		curr.Dir |= RulesChanged
 	}
 
-	curr.Rules = maps.Clone(rules)
+	curr.Rules = rulesToMap(ruleList)
+}
+
+func rulesToMap(ruleList []rules.Rule) map[string]rules.Rule {
+	m := make(map[string]rules.Rule, len(ruleList))
+
+	for _, r := range ruleList {
+		m[r.Match] = r
+	}
+
+	return m
 }
 
 // Canon resolves the parent rule-override and slash containing rules, producing
@@ -294,7 +305,7 @@ func (r *RuleTree) resolveOverrides() bool {
 	hasOverride := false
 
 	for match, rule := range r.Rules {
-		if rule == nil || !rule.Override {
+		if rule.ID == 0 || !rule.Override {
 			continue
 		}
 
@@ -312,7 +323,7 @@ func (r *RuleTree) resolveOverrides() bool {
 	return hasOverride
 }
 
-func (r *RuleTree) setOverride(match string, rule *db.Rule, changed bool) {
+func (r *RuleTree) setOverride(match string, rule rules.Rule, changed bool) {
 	if _, ok := r.Rules[match]; ok { //nolint:nestif
 		slash := strings.IndexByte(match, '/')
 		wildcard := strings.IndexByte(match, '*')
@@ -516,20 +527,20 @@ func (r *RuleTree) processRules(path string, rules []Rules, hasVeryComplex bool,
 	}
 
 	for match, rule := range orderRulesByPrecedence(r.Rules) {
-		rules[idx] = addRuleToList(rules[idx], path+match, rule.ID())
+		rules[idx] = addRuleToList(rules[idx], path+match, rule.ID)
 	}
 
 	return rules
 }
 
-func orderRulesByPrecedence(rules map[string]*db.Rule) iter.Seq2[string, *db.Rule] {
-	return func(yield func(string, *db.Rule) bool) {
-		keys := slices.Collect(maps.Keys(rules))
+func orderRulesByPrecedence(rs map[string]rules.Rule) iter.Seq2[string, rules.Rule] {
+	return func(yield func(string, rules.Rule) bool) {
+		keys := slices.Collect(maps.Keys(rs))
 
 		slices.SortFunc(keys, matchPrecedence)
 
 		for _, key := range keys {
-			if !yield(key, rules[key]) {
+			if !yield(key, rs[key]) {
 				return
 			}
 		}
@@ -567,7 +578,7 @@ func matchPrecedence(a, b string) int { //nolint:gocognit,gocyclo
 
 func (r *RuleTree) addRuleStates(path string, rules Rules, wildcard int64) Rules { //nolint:gocyclo
 	if wc, ok := r.Rules["*"]; ok {
-		wildcard = wc.ID()
+		wildcard = wc.ID
 	}
 
 	for part, child := range r.children {
@@ -593,24 +604,26 @@ func (r *RuleTree) addRuleStates(path string, rules Rules, wildcard int64) Rules
 	return rules
 }
 
-var basicWildcard = map[string]*db.Rule{"*": {Match: "*"}} //nolint:gochecknoglobals
+var basicWildcard = []rules.Rule{{Match: "*"}} //nolint:gochecknoglobals
 
 func buildDirRules(mount string, paths []string,
-	directoryRules map[string]*DirRules) ([]Rules, Rules) {
-	dirs := slices.Collect(maps.Keys(directoryRules))
+	directoryRules *rules.Database) ([]Rules, Rules) {
+	dirs := slices.Collect(directoryRules.Dirs())
 
-	slices.Sort(dirs)
+	slices.SortFunc(dirs, func(a, b rules.Directory) int {
+		return strings.Compare(a.Path, b.Path)
+	})
 
 	root := NewRuleTree()
 	root.Set(mount, basicWildcard, false)
 	root.Set("/", basicWildcard, true)
 
 	for _, dir := range dirs {
-		if !strings.HasPrefix(dir, mount) {
+		if !strings.HasPrefix(dir.Path, mount) {
 			continue
 		}
 
-		root.Set(dir, directoryRules[dir].Rules, paths == nil || slices.Contains(paths, dir))
+		root.Set(dir.Path, slices.Collect(directoryRules.DirRules(dir.Path)), paths == nil || slices.Contains(paths, dir.Path))
 	}
 
 	root.Canon()
@@ -621,7 +634,7 @@ func buildDirRules(mount string, paths []string,
 	return rules, buildWildcards(root, "/", nil)
 }
 
-func getRuleState(rules map[string]*db.Rule) ruleState { //nolint:gocognit
+func getRuleState(rules map[string]rules.Rule) ruleState { //nolint:gocognit
 	if len(rules) == 0 {
 		return 0
 	}
@@ -689,7 +702,7 @@ func addSimpleRules(rules Rules, path string, dirState dirState,
 }
 
 func addComplexRules(rules Rules, path string, dirState dirState,
-	ruleState ruleState, wildcard int64, rs map[string]*db.Rule) Rules {
+	ruleState ruleState, wildcard int64, rs map[string]rules.Rule) Rules {
 	rules = addRuleToList(rules, path, processRules)
 
 	if dirState&RulesChanged == 0 && dirState&ParentRulesChanged == 0 {
@@ -700,7 +713,7 @@ func addComplexRules(rules Rules, path string, dirState dirState,
 }
 
 func addComplexChildRules(rules Rules, path string, ruleState ruleState, //nolint:gocognit,gocyclo
-	wildcard int64, rs map[string]*db.Rule) Rules {
+	wildcard int64, rs map[string]rules.Rule) Rules {
 	if ruleState&ComplexWildcardWithSuffix != 0 {
 		return addRuleToList(rules, path+"*/", processRules)
 	} else if ruleState&SimpleWildcard != 0 {
@@ -716,7 +729,7 @@ func addComplexChildRules(rules Rules, path string, ruleState ruleState, //nolin
 			if _, ok := todo[newMatch]; ok || pos+1 < len(match) {
 				todo[newMatch] = processRules
 			} else {
-				todo[newMatch] = r.ID()
+				todo[newMatch] = r.ID
 			}
 		}
 	}
@@ -729,7 +742,7 @@ func addComplexChildRules(rules Rules, path string, ruleState ruleState, //nolin
 }
 
 func addComplexWithWildcardRules(rules Rules, path string, dirState dirState,
-	ruleState ruleState, wildcard int64, rs map[string]*db.Rule) Rules {
+	ruleState ruleState, wildcard int64, rs map[string]rules.Rule) Rules {
 	if dirState&RulesChanged == 0 {
 		if dirState&HasChildWithChangedRules != 0 {
 			return addRuleToList(addRuleToList(rules, path, processRules), path+"*/", -wildcard-1)
@@ -745,7 +758,7 @@ func addComplexWithWildcardRules(rules Rules, path string, dirState dirState,
 
 func buildWildcards(d *RuleTree, path string, rules Rules) Rules { //nolint:gocyclo
 	for match, rule := range d.Rules {
-		id := rule.ID()
+		id := rule.ID
 
 		if match == "*" && id != 0 {
 			rules = append(rules,

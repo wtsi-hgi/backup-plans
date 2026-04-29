@@ -44,10 +44,9 @@ func TestGlob(t *testing.T) {
 
 		treeDBPathA := createTree(t, treeDB)
 
-		root, err := NewRoot(nil)
-		So(err, ShouldBeNil)
+		root := newEmptyRoot(t)
 
-		_, err = root.AddTree(treeDBPathA)
+		_, err := root.AddTree(treeDBPathA)
 		So(err, ShouldBeNil)
 
 		Convey("You can Glob paths in it", func() {

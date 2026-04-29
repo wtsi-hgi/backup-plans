@@ -173,7 +173,19 @@ func (d *DB) UpdateRule(rules ...*Rule) error {
 	return tx.Commit()
 }
 
-// RemoveRule will remove the given Rule from the database.
-func (d *DB) RemoveRule(rule *Rule) error {
-	return d.exec(deleteRule, rule.id)
+// RemoveRules will remove the given Rules from the database.
+func (d *DB) RemoveRules(rules ...*Rule) error {
+	tx, err := d.db.Begin() //nolint:noctx
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback() //nolint:errcheck
+
+	for _, rule := range rules {
+		if err := d.exec(deleteRule, rule.id); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

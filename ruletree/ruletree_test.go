@@ -39,6 +39,7 @@ import (
 	"github.com/wtsi-hgi/backup-plans/internal/directories"
 	"github.com/wtsi-hgi/backup-plans/internal/plandb"
 	"github.com/wtsi-hgi/backup-plans/internal/testdb"
+	"github.com/wtsi-hgi/backup-plans/rules"
 	"github.com/wtsi-hgi/backup-plans/users"
 	"vimagination.zapto.org/tree"
 )
@@ -60,15 +61,14 @@ func TestRuletree(t *testing.T) {
 			treeDBPathA := createTree(t, treeDBA)
 			treeDBPathB := createTree(t, treeDBB)
 
-			rules := genRules(t, tdb, map[string][]string{
+			ruleList := genRules(t, tdb, map[string][]string{
 				"/some/path/MyDir/":   {"*", "*.txt"},
 				"/some/path/YourDir/": {"*"},
 			})
 
-			root, err := NewRoot(rules)
-			So(err, ShouldBeNil)
+			root := newRoot(t, tdb)
 
-			_, err = root.AddTree(treeDBPathA)
+			_, err := root.AddTree(treeDBPathA)
 			So(err, ShouldBeNil)
 			_, err = root.AddTree(treeDBPathB)
 			So(err, ShouldBeNil)
@@ -103,7 +103,7 @@ func TestRuletree(t *testing.T) {
 					},
 				},
 				{
-					ID: uint64(rules[0].Rule.ID()), //nolint:gosec
+					ID: uint64(ruleList[0].Rule.ID()), //nolint:gosec
 					Users: RuleStats{
 						{
 							id:    1,
@@ -124,7 +124,7 @@ func TestRuletree(t *testing.T) {
 					},
 				},
 				{
-					ID: uint64(rules[1].Rule.ID()), //nolint:gosec
+					ID: uint64(ruleList[1].Rule.ID()), //nolint:gosec
 					Users: RuleStats{
 						{
 							id:    1,
@@ -145,7 +145,7 @@ func TestRuletree(t *testing.T) {
 					},
 				},
 				{
-					ID: uint64(rules[2].Rule.ID()), //nolint:gosec
+					ID: uint64(ruleList[2].Rule.ID()), //nolint:gosec
 					Users: RuleStats{
 						{
 							id:    21,
@@ -195,28 +195,33 @@ func TestRuletree(t *testing.T) {
 						"MyDir/": {
 							RuleSummaries: []Rule{ruleExpectations[1], ruleExpectations[2]},
 							Children:      map[string]*DirSummary{},
+							User:          "root",
 							Group:         "root",
 							LastMod:       6,
 						},
 						"YourDir/": {
 							RuleSummaries: []Rule{ruleExpectations[3]},
 							Children:      map[string]*DirSummary{},
+							User:          "root",
 							Group:         "root",
 							LastMod:       16,
 						},
 						"OtherDir/": {
 							RuleSummaries: []Rule{ruleExpectations[0]},
 							Children:      map[string]*DirSummary{},
+							User:          "root",
 							Group:         "root",
 							LastMod:       36,
 						},
 					},
+					User:    "root",
 					Group:   "root",
 					LastMod: 36,
 				},
 				"/some/path/MyDir/": {
 					RuleSummaries: []Rule{ruleExpectations[1], ruleExpectations[2]},
 					Children:      map[string]*DirSummary{},
+					User:          "root",
 					Group:         "root",
 					LastMod:       6,
 				},
@@ -237,15 +242,10 @@ func TestRuletree(t *testing.T) {
 			s, err = root.Summary("/some/path/MyDir/")
 			So(err, ShouldBeNil)
 			So(s, ShouldResemble, expectedSummaries["/some/path/MyDir/"])
-
-			summaries, err := root.GetSummaries([]string{"/", "/some/", "/some/path/", "/some/path/MyDir/"})
-			So(err, ShouldBeNil)
-			So(summaries, ShouldResemble, expectedSummaries)
 		})
 
 		Convey("You can add and remove rules with basic wildcard matches", func() {
-			root, err := NewRoot(nil)
-			So(err, ShouldBeNil)
+			root := newRoot(t, tdb)
 
 			treeDB := buildTreeDB(t, []string{
 				"/path/wildcard/file.txt",
@@ -256,7 +256,7 @@ func TestRuletree(t *testing.T) {
 
 			treeDBPath := createTree(t, treeDB)
 
-			_, err = root.AddTree(treeDBPath)
+			_, err := root.AddTree(treeDBPath)
 			So(err, ShouldBeNil)
 
 			wildcardRuleID := createRule(t, tdb, root, "/path/wildcard/", "*")
@@ -301,8 +301,7 @@ func TestRuletree(t *testing.T) {
 		})
 
 		Convey("You can add and remove rules with complex matches", func() {
-			root, err := NewRoot(nil)
-			So(err, ShouldBeNil)
+			root := newRoot(t, tdb)
 
 			treeDB := buildTreeDB(t, []string{
 				"/path/temp/complex1a.txt",
@@ -314,7 +313,7 @@ func TestRuletree(t *testing.T) {
 			})
 
 			treeDBPath := createTree(t, treeDB)
-			_, err = root.AddTree(treeDBPath)
+			_, err := root.AddTree(treeDBPath)
 			So(err, ShouldBeNil)
 
 			createRule(t, tdb, root, "/path/temp/", "complex*a")
@@ -334,8 +333,7 @@ func TestRuletree(t *testing.T) {
 		})
 
 		Convey("You can add and remove rules with complex matches and simple wildcards", func() {
-			root, err := NewRoot(nil)
-			So(err, ShouldBeNil)
+			root := newRoot(t, tdb)
 
 			treeDB := buildTreeDB(t, []string{
 				"/path/dir/file1.txt",
@@ -345,7 +343,7 @@ func TestRuletree(t *testing.T) {
 			})
 
 			treeDBPath := createTree(t, treeDB)
-			_, err = root.AddTree(treeDBPath)
+			_, err := root.AddTree(treeDBPath)
 			So(err, ShouldBeNil)
 
 			r1 := createRule(t, tdb, root, "/path/dir/", "f*")
@@ -359,8 +357,7 @@ func TestRuletree(t *testing.T) {
 		})
 
 		Convey("You can remove a child rule and numbers update correctly", func() {
-			root, err := NewRoot(nil)
-			So(err, ShouldBeNil)
+			root := newRoot(t, tdb)
 
 			treeDB := buildTreeDB(t, []string{
 				"/path/dir/file1.txt",
@@ -370,7 +367,7 @@ func TestRuletree(t *testing.T) {
 			})
 
 			treeDBPath := createTree(t, treeDB)
-			_, err = root.AddTree(treeDBPath)
+			_, err := root.AddTree(treeDBPath)
 			So(err, ShouldBeNil)
 
 			r1 := createRule(t, tdb, root, "/path/dir/", "*.txt")
@@ -387,8 +384,7 @@ func TestRuletree(t *testing.T) {
 		})
 
 		Convey("Override wildcard rules are correctly handled in a summary", func() {
-			root, err := NewRoot(nil)
-			So(err, ShouldBeNil)
+			root := newRoot(t, tdb)
 
 			treeDB := buildTreeDB(t, []string{
 				"/path/dir/a/file1.txt",
@@ -396,7 +392,7 @@ func TestRuletree(t *testing.T) {
 			})
 
 			treeDBPath := createTree(t, treeDB)
-			_, err = root.AddTree(treeDBPath)
+			_, err := root.AddTree(treeDBPath)
 			So(err, ShouldBeNil)
 
 			r1 := createRule(t, tdb, root, "/path/dir/", "b/*", true)
@@ -411,8 +407,7 @@ func TestRuletree(t *testing.T) {
 		})
 
 		Convey("Override wildcard rules with two or more levels of depth are correctly handled in a summary", func() {
-			root, err := NewRoot(nil)
-			So(err, ShouldBeNil)
+			root := newRoot(t, tdb)
 
 			treeDB := buildTreeDB(t, []string{
 				"/path/dir/a/file1.txt",
@@ -422,7 +417,7 @@ func TestRuletree(t *testing.T) {
 			})
 
 			treeDBPath := createTree(t, treeDB)
-			_, err = root.AddTree(treeDBPath)
+			_, err := root.AddTree(treeDBPath)
 			So(err, ShouldBeNil)
 
 			r1 := createRule(t, tdb, root, "/path/dir/", "b/c/*", true)
@@ -470,8 +465,7 @@ func TestRuletree(t *testing.T) {
 				return nil
 			}), ShouldBeNil)
 
-			root, err := NewRoot(dirRules)
-			So(err, ShouldBeNil)
+			root := newRoot(t, rulesDB)
 
 			treeDBPath := createTree(t, treeDB)
 			_, err = root.AddTree(treeDBPath)
@@ -496,15 +490,14 @@ func TestRuletree(t *testing.T) {
 		})
 
 		Convey("When removing a rule, subdirectories are correctly recalculated", func() {
-			root, err := NewRoot(nil)
-			So(err, ShouldBeNil)
+			root := newRoot(t, tdb)
 
 			treeDB := buildTreeDB(t, []string{
 				"/path/dir/a/b/file.txt",
 			})
 
 			treeDBPath := createTree(t, treeDB)
-			_, err = root.AddTree(treeDBPath)
+			_, err := root.AddTree(treeDBPath)
 			So(err, ShouldBeNil)
 
 			So(ruleIDCount(t, root, "/path/dir/a/"), ShouldResemble, map[uint64]uint64{0: 1})
@@ -520,13 +513,12 @@ func TestRuletree(t *testing.T) {
 		})
 
 		Convey("When removing the last rule from a directory, that directory is correctly recalculated", func() {
-			root, err := NewRoot(nil)
-			So(err, ShouldBeNil)
+			root := newRoot(t, tdb)
 
 			treeDB := plandb.ExampleTreeBig()
 
 			treeDBPath := createTree(t, treeDB)
-			_, err = root.AddTree(treeDBPath)
+			_, err := root.AddTree(treeDBPath)
 			So(err, ShouldBeNil)
 
 			r1 := createRule(t, tdb, root, "/lustre/scratch123/humgen/a/b/", "*.jpg")
@@ -545,8 +537,7 @@ func TestRuletree(t *testing.T) {
 		})
 
 		Convey("When removing the last rule from a directory, its ruleless children are recalculated correctly", func() {
-			root, err := NewRoot(nil)
-			So(err, ShouldBeNil)
+			root := newRoot(t, tdb)
 
 			treeDB := buildTreeDB(t, []string{
 				"/path/dir/a/this/c/file.txt",
@@ -554,7 +545,7 @@ func TestRuletree(t *testing.T) {
 			})
 
 			treeDBPath := createTree(t, treeDB)
-			_, err = root.AddTree(treeDBPath)
+			_, err := root.AddTree(treeDBPath)
 			So(err, ShouldBeNil)
 
 			So(ruleIDCount(t, root, "/path/dir/a/"), ShouldResemble, map[uint64]uint64{0: 2})
@@ -607,7 +598,7 @@ func RemoveRule(t *testing.T, tdb *db.DB, root *RootDir, dirPath, match string) 
 
 	rule := getRule(t, tdb, directory, match)
 
-	So(root.RemoveRule(directory, rule), ShouldBeNil)
+	So(root.RemoveRule(dirPath, rule), ShouldBeNil)
 }
 
 func getRule(t *testing.T, tdb *db.DB, directory *db.Directory, match string) *db.Rule {
@@ -647,20 +638,22 @@ func getDir(t *testing.T, tdb *db.DB, dirPath string) *db.Directory {
 func createRule(t *testing.T, tdb *db.DB, root *RootDir, dirPath, match string, override ...bool) uint64 {
 	t.Helper()
 
-	directory := getDir(t, tdb, dirPath)
-
-	if directory == nil {
-		directory = &db.Directory{Path: dirPath}
-
-		So(tdb.CreateDirectory(directory), ShouldBeNil)
+	if getDir(t, tdb, dirPath) == nil {
+		So(root.rules.ClaimDirectory(dirPath, ""), ShouldBeNil)
 	}
 
-	r := &db.Rule{Match: match, Override: len(override) > 0 && override[0]}
+	So(root.AddRule(dirPath, rules.Rule{
+		Match:    match,
+		Override: len(override) > 0 && override[0],
+	}), ShouldBeNil)
 
-	So(tdb.CreateDirectoryRule(directory, r), ShouldBeNil)
-	So(root.AddRule(directory, r), ShouldBeNil)
+	for rule := range root.rules.DirRules(dirPath) {
+		if rule.Match == match {
+			return uint64(rule.ID) //nolint:gosec
+		}
+	}
 
-	return uint64(r.ID()) //nolint:gosec
+	return 0
 }
 
 func genRules(t *testing.T, tdb *db.DB, rs map[string][]string) []DirRule {

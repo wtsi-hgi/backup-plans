@@ -37,8 +37,8 @@ import (
 
 	"github.com/wtsi-hgi/backup-plans/backend"
 	"github.com/wtsi-hgi/backup-plans/config"
-	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/frontend"
+	"github.com/wtsi-hgi/backup-plans/ruletree"
 	wrs "github.com/wtsi-hgi/wrstat-ui/server"
 )
 
@@ -47,7 +47,7 @@ var dbCheckTime = time.Minute //nolint:gochecknoglobals
 var ErrNoTrees = errors.New("no tree dbs specified")
 
 // Start creates and start a new server after loading the trees given.
-func Start(listen string, d *db.DB, getUser func(*http.Request) string,
+func Start(listen string, d *ruletree.RootDir, getUser func(*http.Request) string,
 	logout http.Handler, config *config.Config, initialTrees ...string) error {
 	l, err := net.Listen("tcp", listen) //nolint:noctx
 	if err != nil {
@@ -58,24 +58,19 @@ func Start(listen string, d *db.DB, getUser func(*http.Request) string,
 	return start(l, d, getUser, logout, config, initialTrees...)
 }
 
-func start(listen net.Listener, d *db.DB, getUser func(*http.Request) string,
+func start(listen net.Listener, d *ruletree.RootDir, getUser func(*http.Request) string,
 	logout http.Handler, config *config.Config, initialTrees ...string) error {
 	b, err := backend.New(d, getUser, config)
 	if err != nil {
 		return err
 	}
 
-	err = loadTrees(initialTrees, b)
+	err = loadTrees(initialTrees, d)
 	if err != nil {
 		return err
 	}
 
 	slog.Info("Preloading cache.")
-
-	err = b.PreLoadCache()
-	if err != nil {
-		return err
-	}
 
 	return addHandlesAndListen(b, listen, logout)
 }
@@ -103,7 +98,7 @@ func addHandlesAndListen(b *backend.Server, listen net.Listener, logout http.Han
 	return http.Serve(listen, nil) //nolint:gosec
 }
 
-func loadTrees(initialTrees []string, b *backend.Server) error {
+func loadTrees(initialTrees []string, b *ruletree.RootDir) error {
 	if len(initialTrees) != 1 {
 		loadDBs(b, initialTrees)
 	} else if len(initialTrees) == 0 {
@@ -135,16 +130,16 @@ func loadTrees(initialTrees []string, b *backend.Server) error {
 	return nil
 }
 
-func loadDBs(b *backend.Server, trees []string) {
+func loadDBs(b *ruletree.RootDir, trees []string) {
 	for _, db := range trees {
 		loadDB(b, db)
 	}
 }
 
-func loadDB(b *backend.Server, db string) {
+func loadDB(b *ruletree.RootDir, db string) {
 	slog.Info("Loading Tree", "db", db)
 
-	if err := b.AddTree(db); err != nil {
+	if _, err := b.AddTree(db); err != nil {
 		slog.Error("Error loading db", "db", db, "err", err)
 	}
 }
@@ -168,7 +163,7 @@ func getTreePaths(path string) ([]string, error) {
 
 // timerLoop will, given a path to a directory, check for and load all new trees
 // in the directory.
-func timerLoop(path string, b *backend.Server, treePaths []string) {
+func timerLoop(path string, b *ruletree.RootDir, treePaths []string) {
 	for {
 		time.Sleep(dbCheckTime)
 
