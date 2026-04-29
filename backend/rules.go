@@ -2,6 +2,7 @@
  * Copyright (c) 2025 Genome Research Ltd.
  *
  * Author: Michael Woolnough <mw31@sanger.ac.uk>
+ *		   Sky Haines <sh55@sanger.ac.uk>
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -110,6 +111,9 @@ func (s *Server) loadRules() ([]ruletree.DirRule, error) { //nolint:funlen
 	s.rules = make(map[uint64]*db.Rule)
 	dirs := make(map[int64]*ruletree.DirRules)
 	dirRules := make([]ruletree.DirRule, 0)
+	s.collections = make(map[int64]*db.Collection)         // collectionRuleId -> Collection
+	s.collectionRules = make(map[int64]*db.CollectionRule) // collection rule id -> collectionRule
+	s.collectionNames = make(map[string]int64)             // collection name -> collection id
 
 	if err := s.rulesDB.ReadDirectories().ForEach(func(dir *db.Directory) error {
 		dr := Directory{
@@ -148,6 +152,23 @@ func (s *Server) loadRules() ([]ruletree.DirRule, error) { //nolint:funlen
 			Directory: dir.Directory,
 			Rule:      r,
 		})
+
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	if err := s.rulesDB.ReadCollections().ForEach(func(c *db.Collection) error {
+		s.collections[c.ID()] = c
+		s.collectionNames[c.Name] = c.ID()
+
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	if err := s.rulesDB.ReadCollectionRules().ForEach(func(r *db.CollectionRule) error {
+		s.collectionRules[r.ID()] = r
 
 		return nil
 	}); err != nil {

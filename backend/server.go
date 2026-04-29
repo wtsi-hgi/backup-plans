@@ -54,14 +54,17 @@ var ErrNoIBackup = Error{
 type Server struct {
 	getUser func(r *http.Request) string
 
-	buildMu        sync.Mutex
-	rulesMu        sync.RWMutex
-	rulesDB        *db.DB
-	directoryRules map[string]*Directory
-	dirs           map[uint64]*db.Directory
-	rules          map[uint64]*db.Rule
-	dirGroups      map[int64]string
-	dirBoms        map[int64]string
+	buildMu         sync.Mutex
+	rulesMu         sync.RWMutex
+	rulesDB         *db.DB
+	directoryRules  map[string]*Directory
+	dirs            map[uint64]*db.Directory
+	rules           map[uint64]*db.Rule
+	dirGroups       map[int64]string
+	dirBoms         map[int64]string
+	collections     map[int64]*db.Collection     // collection id -> collection
+	collectionNames map[string]int64             // collection name -> collection id
+	collectionRules map[int64]*db.CollectionRule // collection rule id -> collection rule
 
 	config   *config.Config
 	gitCache *git.Cache

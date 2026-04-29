@@ -1,4 +1,4 @@
-import type { ReportSummary, Tree, UserGroups, DirStats } from './types.js';
+import type { ReportSummary, Tree, UserGroups, DirStats, Collection } from './types.js';
 
 const encodeForm = (params: Record<string, unknown>) => {
 	const u = new URLSearchParams();
@@ -53,4 +53,10 @@ export const getTree = (dir: string) => getURL<Tree>("api/tree", { dir }),
 	getUserGroups = () => getURL<UserGroups>("api/usergroups"),
 	getMainProgrammes = () => getURL<string[]>("api/mainprogrammes"),
 	getClaimStats = (user: string, groupbom: string) => getURL<DirStats[]>("api/claimstats", {}, { user, groupbom }),
+	getCollections = () => getURL<Collection[]>("api/collections"),
+	createCollection = (name: string, description: string) => getURL<void>("api/collections/create", {}, { name, description }),
+	updateCollection = (name: string, description: string) => getURL<void>("api/collections/update", {}, { name, description }),
+	deleteCollection = (id: number) => getURL<void>("api/collections/delete", {}, { id }),
+	addCollectionRule = (collectionID: number, action: string, match: string[], metadata: string, override: boolean) => getURL<void>("api/collections/rules/add", {}, { collectionID, action, match, metadata, override }),
+	removeCollectionRule = (id: number) => getURL<void>("api/collections/rules/remove", {}, { id }),
 	user = await getURL<string>("api/whoami");

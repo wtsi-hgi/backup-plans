@@ -43,26 +43,26 @@ export const formatBytes = (size: bigint) => {
 		const seconds = Math.floor(new Date(time).getTime() / 1000);
 		return longAgo(seconds);
 	},
-	confirm = (msg: Children, doAction: () => Promise<void>) => {
-		const remove = button({
+	confirm = (msg: Children, confirmmsg: string, doAction: () => Promise<void>) => {
+		const confirmbutton = button({
 			"click": () => {
 				overlay.setAttribute("closedby", "none");
-				remove.toggleAttribute("disabled", true);
+				confirmbutton.toggleAttribute("disabled", true);
 				cancel.toggleAttribute("disabled", true);
 				doAction()
 					.then(() => overlay.close())
 					.catch((e: Error) => {
 						overlay.setAttribute("closedby", "any");
-						remove.removeAttribute("disabled");
+						confirmbutton.removeAttribute("disabled");
 						cancel.removeAttribute("disabled");
 						alert("Error: " + e.message);
 					});
 			}
-		}, "Remove"),
+		}, confirmmsg),
 			cancel = button({ "type": "button", "click": () => overlay.close() }, "Cancel"),
 			overlay = document.body.appendChild(dialog({ "id": "confirm", "closedby": "any", "close": () => overlay.remove() }, [
 				div(msg),
-				remove, cancel
+				confirmbutton, cancel
 			]));
 
 		overlay.showModal();

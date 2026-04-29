@@ -95,6 +95,12 @@ func addHandlesAndListen(b *backend.Server, listen net.Listener, logout http.Han
 	http.Handle("GET /api/usergroups", http.HandlerFunc(b.UserGroups))
 	http.Handle("GET /api/mainprogrammes", http.HandlerFunc(b.GetMainProgrammes))
 	http.Handle("POST /api/claimstats", http.HandlerFunc(b.ClaimStats))
+	http.Handle("GET /api/collections", http.HandlerFunc(b.Collections))
+	http.Handle("POST /api/collections/create", http.HandlerFunc(b.CreateCollection))
+	http.Handle("POST /api/collections/update", http.HandlerFunc(b.UpdateCollection))
+	http.Handle("POST /api/collections/delete", http.HandlerFunc(b.DeleteCollection))
+	http.Handle("POST /api/collections/rules/create", http.HandlerFunc(b.CreateCollectionRule))
+	http.Handle("POST /api/collections/rules/delete", http.HandlerFunc(b.DeleteCollectionRule))
 	http.Handle("GET /", frontend.Index)
 	http.Handle("GET /logout", logout)
 
