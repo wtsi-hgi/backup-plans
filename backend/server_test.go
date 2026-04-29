@@ -52,7 +52,7 @@ func TestEndpoints(t *testing.T) {
 		testDB, _ := plandb.PopulateExamplePlanDB(t)
 		treeFile := filepath.Join(t.TempDir(), "tree")
 
-		treeNode, dFn, err := memtree.Tree2MemTree(plandb.ExampleTree(), treeFile)
+		treeNode, dFn, err := memtree.FromTree(plandb.ExampleTree(), treeFile)
 		So(err, ShouldBeNil)
 
 		Reset(dFn)

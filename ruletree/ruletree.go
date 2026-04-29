@@ -86,7 +86,7 @@ type File struct {
 	Size     uint64
 }
 
-// ReadFileStats read the data for a file.
+// ReadFileStats reads the data for a file.
 func ReadFileStats(f *tree.MemTree) File {
 	var file File
 
@@ -238,7 +238,8 @@ func (r *ruleProcessor) getRulePos(ruleID int64) int {
 }
 
 func (r *ruleProcessor) processDir(name string, state State,
-	lowerChild, upperChild *tree.MemTree, wg *sync.WaitGroup) {
+	lowerChild, upperChild *tree.MemTree, wg *sync.WaitGroup,
+) {
 	c := &ruleProcessor{}
 
 	r.children = append(r.children, namedNode{name: name, Node: c})
@@ -263,7 +264,8 @@ func (r *ruleProcessor) mergeChild(child *ruleProcessor) {
 }
 
 func (r *ruleProcessor) copyUpperOrAddLower(name string, wildcard int64,
-	lowerChild, upperChild *tree.MemTree) {
+	lowerChild, upperChild *tree.MemTree,
+) {
 	if upperChild == nil {
 		r.addLower(wildcard, lowerChild)
 

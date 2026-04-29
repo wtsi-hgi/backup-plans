@@ -38,9 +38,11 @@ import (
 )
 
 // options for this cmd.
-var planDB string
-var treeDB string
-var configPath string
+var (
+	planDB     string
+	treeDB     string
+	configPath string
+)
 
 // serverCmd represents the server command.
 var backupCmd = &cobra.Command{
@@ -120,7 +122,7 @@ regexp.
 		}
 		defer planDB.Close()
 
-		treeNode, dfn, err := memtree.OpenMemTree(treeDB)
+		treeNode, dfn, err := memtree.Open(treeDB)
 		if err != nil {
 			return fmt.Errorf("\n failed to open tree db: %w", err)
 		}

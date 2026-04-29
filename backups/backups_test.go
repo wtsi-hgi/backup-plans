@@ -244,7 +244,7 @@ func TestBackups(t *testing.T) {
 
 		testDB, _ := plandb.PopulateExamplePlanDB(t)
 
-		tr, dFn, err := memtree.Tree2MemTree(exampleTree(), filepath.Join(t.TempDir(), "tree"))
+		tr, dFn, err := memtree.FromTree(exampleTree(), filepath.Join(t.TempDir(), "tree"))
 		So(err, ShouldBeNil)
 
 		Reset(dFn)
@@ -380,7 +380,8 @@ type clientWrapper struct {
 type frozenTest map[string]bool
 
 func (f frozenTest) Backup(path, _, _ string, _ []server.PathMTime,
-	_ int, frozen bool, _, _ int64) error { //nolint:unparam
+	_ int, frozen bool, _, _ int64,
+) error { //nolint:unparam
 	f[path] = frozen
 
 	return nil

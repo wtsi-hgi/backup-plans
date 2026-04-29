@@ -33,10 +33,10 @@ import (
 	"vimagination.zapto.org/tree"
 )
 
-// OpenMemTree opens the given path as a mmaped tree.
+// Open opens the given path as a mmaped tree.
 //
 // The returned function should be called when the tree is no longer required.
-func OpenMemTree(path string) (*tree.MemTree, func(), error) {
+func Open(path string) (*tree.MemTree, func(), error) {
 	f, size, err := openAndSize(path)
 	if err != nil {
 		return nil, nil, err
@@ -80,15 +80,18 @@ func openAndSize(path string) (*os.File, int, error) {
 	return f, int(stat.Size()), nil
 }
 
-// Tree2MemTree serialises the given tree to the given path and then calls
+// FromTree serialises the given tree to the given path and then calls
 // OpenMemTree.
-func Tree2MemTree(n tree.Node, path string) (*tree.MemTree, func(), error) {
+func FromTree(n tree.Node, path string) (*tree.MemTree, func(), error) {
 	f, err := os.Create(path)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	if err := tree.Serialise(f, n); err != nil {
+		f.Close()
+		os.Remove(path)
+
 		return nil, nil, err
 	}
 
@@ -96,5 +99,5 @@ func Tree2MemTree(n tree.Node, path string) (*tree.MemTree, func(), error) {
 		return nil, nil, err
 	}
 
-	return OpenMemTree(path)
+	return Open(path)
 }
