@@ -171,7 +171,7 @@ func (s *Server) ClaimDir(w http.ResponseWriter, r *http.Request) {
 func (s *Server) claimDir(w http.ResponseWriter, r *http.Request) error { //nolint:funlen
 	user := s.getUser(r)
 
-	uid, groups := users.GetIDs(s.getUser(r))
+	uid, groups := users.GetIDs(user)
 	if groups == nil {
 		return ErrInvalidUser
 	}

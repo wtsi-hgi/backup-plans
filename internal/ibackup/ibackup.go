@@ -236,3 +236,13 @@ func hasDiscoveryInProgress(client *server.Client) (bool, error) {
 func isDiscovering(item *set.Set) bool {
 	return !item.StartedDiscovery.IsZero() && item.LastDiscovery.Before(item.StartedDiscovery)
 }
+
+func FilesWithZeroMTimes(paths []string) []server.PathMTime {
+	p := make([]server.PathMTime, len(paths))
+
+	for n, path := range paths {
+		p[n] = server.PathMTime{Path: path}
+	}
+
+	return p
+}

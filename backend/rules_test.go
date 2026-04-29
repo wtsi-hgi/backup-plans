@@ -418,16 +418,17 @@ ibackupcacheduration: 3600`,
 
 				ns.stop()
 
-				fofnPath := filepath.Join(fofnDir, (&set.Set{Requester: "userA", Name: setNamePrefix + "/lustre/scratch123/humgen/a/b/"}).ID()) //nolint:lll
-
-				So(os.MkdirAll(fofnPath, 0700), ShouldBeNil)
-				So(fofn.WriteConfig(fofnPath, fofn.SubDirConfig{
-					Transformer: "prefix=/:/",
-					Freeze:      true,
+				got := &set.Set{
 					Requester:   "userA",
 					Name:        setNamePrefix + "/lustre/scratch123/humgen/a/b/",
-				}), ShouldBeNil)
-				So(os.WriteFile(filepath.Join(fofnPath, "status"), nil, 0600), ShouldBeNil)
+					Frozen:      true,
+					Transformer: "prefix=/:/",
+				}
+
+				client := fofn.NewClient(fofnDir)
+
+				So(client.AddOrUpdateSet(got), ShouldBeNil)
+				So(os.WriteFile(filepath.Join(fofnDir, got.ID(), "status"), nil, 0600), ShouldBeNil)
 
 				time.Sleep(61 * time.Minute)
 

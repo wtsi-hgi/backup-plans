@@ -19,6 +19,7 @@ import (
 	"github.com/wtsi-hgi/backup-plans/ibackup"
 	ib "github.com/wtsi-hgi/backup-plans/internal/ibackup"
 	gas "github.com/wtsi-hgi/go-authserver"
+	"github.com/wtsi-hgi/ibackup/fofn"
 	"github.com/wtsi-hgi/ibackup/server"
 	"github.com/wtsi-hgi/ibackup/set"
 	"github.com/wtsi-hgi/ibackup/transfer"
@@ -165,9 +166,11 @@ func TestMultiIbackup(t *testing.T) {
 
 			Convey("You can backup the same set to different servers", func() {
 				So(mc.Backup("/some/path/a/dir/", setName, u.Username,
-					[]string{"/some/path/a/dir/file", "/some/path/a/dir/file2"}, 0, true, 1, 2), ShouldBeNil)
+					ib.FilesWithZeroMTimes([]string{"/some/path/a/dir/file", "/some/path/a/dir/file2"}),
+					0, true, 1, 2), ShouldBeNil)
 				So(mc.Backup("/some/other/path/a/dir/", setName, u.Username,
-					[]string{"/some/other/path/a/dir/file"}, 0, true, 3, 4), ShouldBeNil)
+					ib.FilesWithZeroMTimes([]string{"/some/other/path/a/dir/file"}),
+					0, true, 3, 4), ShouldBeNil)
 
 				config.PathToServer["^/some/other/path/"] = ibackup.ServerTransformer{
 					ServerName:  "example_3",
@@ -178,9 +181,9 @@ func TestMultiIbackup(t *testing.T) {
 				So(err, ShouldBeNil)
 
 				So(nc.Backup("/some/other/path/a/dir/", setNameB, u.Username,
-					[]string{"/some/other/path/a/dir/file"}, 0, true, 1, 2), ShouldBeNil)
+					ib.FilesWithZeroMTimes([]string{"/some/other/path/a/dir/file"}), 0, true, 1, 2), ShouldBeNil)
 				So(nc.Backup("/some/other/path/another/dir/", setNameC, u.Username,
-					[]string{"/some/other/path/another/dir/file"}, 0, true, 1, 2), ShouldBeNil)
+					ib.FilesWithZeroMTimes([]string{"/some/other/path/another/dir/file"}), 0, true, 1, 2), ShouldBeNil)
 
 				baa, err := mc.GetBackupActivity("/some/path/a/dir/", setName, u.Username, false)
 				So(err, ShouldBeNil)
@@ -272,7 +275,7 @@ func ibackupTests(t *testing.T, createClient func() (ibackupClient, func(*set.Se
 
 			setName := "mySet"
 
-			err = ibackup.Backup(client, "prefix=/lustre/:/remote/", setName, u.Username, []string{}, 0, true, 0, 0)
+			err = ibackup.Backup(client, "prefix=/lustre/:/remote/", setName, u.Username, []server.PathMTime{}, 0, true, 0, 0)
 			So(err, ShouldBeNil)
 
 			sets, err = client.GetSets(u.Username)
@@ -375,7 +378,8 @@ func ibackupTests(t *testing.T, createClient func() (ibackupClient, func(*set.Se
 				So(sba.LastSuccess, ShouldNotBeNil)
 
 				err = ibackup.Backup(mockClient, "prefix=/lustre/:/remote/", setName, u.Username,
-					[]string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}, 0, true, 0, 0)
+					ib.FilesWithZeroMTimes([]string{"/lustre/scratch999/humgen/projects/myProject/path/to/a/file"}),
+					0, true, 0, 0)
 
 				So(err, ShouldEqual, ibackup.ErrNoUpdate)
 
@@ -494,11 +498,11 @@ type fofnClientWrapper struct {
 	sets            map[string][]string
 	files           map[string]uint64
 	lastDiscoveries map[string]time.Time
-	*ibackup.FOFNClient
+	*fofn.Client
 }
 
 func (fc *fofnClientWrapper) GetSetByName(requester, setName string) (*set.Set, error) {
-	got, err := fc.FOFNClient.GetSetByName(requester, setName)
+	got, err := fc.Client.GetSetByName(requester, setName)
 	if err != nil {
 		return nil, err
 	}
@@ -522,19 +526,19 @@ func (fc *fofnClientWrapper) AddOrUpdateSet(set *set.Set) error {
 
 	fc.sets[set.Requester] = sets
 
-	return fc.FOFNClient.AddOrUpdateSet(set)
+	return fc.Client.AddOrUpdateSet(set)
 }
 
-func (fc *fofnClientWrapper) MergeFiles(setID string, paths []string) (err error) {
+func (fc *fofnClientWrapper) MergeFilesWithMTimes(setID string, paths []server.PathMTime) (err error) {
 	fc.files[setID] = uint64(len(paths))
 
-	return fc.FOFNClient.MergeFiles(setID, paths)
+	return fc.Client.MergeFilesWithMTimes(setID, paths)
 }
 
 func (fc *fofnClientWrapper) TriggerDiscovery(setID string, forceRemovals bool) error {
 	fc.lastDiscoveries[setID] = time.Now()
 
-	err := fc.FOFNClient.TriggerDiscovery(setID, forceRemovals)
+	err := fc.Client.TriggerDiscovery(setID, forceRemovals)
 	if os.IsNotExist(err) {
 		err = nil
 	}
@@ -543,7 +547,7 @@ func (fc *fofnClientWrapper) TriggerDiscovery(setID string, forceRemovals bool) 
 }
 
 func (fc *fofnClientWrapper) GetSets(user string) ([]*set.Set, error) {
-	var sets []*set.Set //nolint:prealloc
+	var sets []*set.Set
 
 	for _, setName := range fc.sets[user] {
 		got, err := fc.GetSetByName(user, setName)
@@ -562,7 +566,7 @@ func TestIbackupFOFN(t *testing.T) {
 		t.Helper()
 
 		base := t.TempDir()
-		client := ibackup.NewFOFNClient(base)
+		client := fofn.NewClient(base)
 
 		wc := &fofnClientWrapper{
 			map[string][]string{},
@@ -576,7 +580,7 @@ func TestIbackupFOFN(t *testing.T) {
 
 	Convey("The FOFN creator makes directories group-writable", t, func() {
 		base := t.TempDir()
-		client := ibackup.NewFOFNClient(base)
+		client := fofn.NewClient(base)
 		set := &set.Set{
 			Name:        "set-name",
 			Requester:   "username",
@@ -634,7 +638,8 @@ func setSet(s *server.Server, got *set.Set) error {
 
 func runTestBackups(client ibackupClient, setname, requester string, files []string,
 	frequency int, frozen bool, review, remove int64) {
-	err := ibackup.Backup(client, "prefix=/lustre/:/remote/", setname, requester, files, frequency, frozen, review, remove)
+	err := ibackup.Backup(client, "prefix=/lustre/:/remote/", setname, requester,
+		ib.FilesWithZeroMTimes(files), frequency, frozen, review, remove)
 	So(err, ShouldBeNil)
 }
 
@@ -661,7 +666,7 @@ func (m *MockClient) TriggerDiscovery(setID string, forceRemovals bool) error {
 	return nil
 }
 
-func (m *MockClient) MergeFiles(setID string, paths []string) error {
+func (m *MockClient) MergeFiles(setID string, paths []string) error { //nolint:unparam
 	m.MergeCalls = append(m.MergeCalls, mergeCall{setID: setID, paths: paths})
 
 	return nil

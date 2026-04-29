@@ -80,17 +80,26 @@ func (r *RuleStats) add(id uint32, mtime, count, size uint64) {
 	(*r)[pos].Size += size
 }
 
-type file struct {
-	uid, gid uint32
-	mtime    uint64
-	size     uint64
+type File struct {
+	UID, GID uint32
+	MTime    uint64
+	Size     uint64
 }
 
-func (f *file) readFrom(lr byteio.MemLittleEndian) {
-	f.uid = uint32(lr.ReadUintX()) //nolint:gosec
-	f.gid = uint32(lr.ReadUintX()) //nolint:gosec
-	f.mtime = lr.ReadUintX()
-	f.size = lr.ReadUintX()
+// ReadFileStats reads the data for a file.
+func ReadFileStats(f *tree.MemTree) File {
+	var file File
+
+	file.readFrom(byteio.MemLittleEndian(f.Data()))
+
+	return file
+}
+
+func (f *File) readFrom(lr byteio.MemLittleEndian) {
+	f.UID = uint32(lr.ReadUintX()) //nolint:gosec
+	f.GID = uint32(lr.ReadUintX()) //nolint:gosec
+	f.MTime = lr.ReadUintX()
+	f.Size = lr.ReadUintX()
 }
 
 // ruleProcessor does the actual processing of the rules on a tree DB.
@@ -195,7 +204,7 @@ func (r *ruleProcessor) waitForChildren(wg *sync.WaitGroup) {
 }
 
 func (r *ruleProcessor) processFile(sm State, name string, data []byte) {
-	var f file
+	var f File
 
 	f.readFrom(data)
 
@@ -208,11 +217,11 @@ func (r *ruleProcessor) processFile(sm State, name string, data []byte) {
 	r.setRule(ruleID, &f)
 }
 
-func (r *ruleProcessor) setRule(ruleID int64, f *file) {
+func (r *ruleProcessor) setRule(ruleID int64, f *File) {
 	pos := r.getRulePos(ruleID)
 
-	r.Rules[pos].Users.add(f.uid, f.mtime, 1, f.size)
-	r.Rules[pos].Groups.add(f.gid, f.mtime, 1, f.size)
+	r.Rules[pos].Users.add(f.UID, f.MTime, 1, f.Size)
+	r.Rules[pos].Groups.add(f.GID, f.MTime, 1, f.Size)
 }
 
 func (r *ruleProcessor) getRulePos(ruleID int64) int {
@@ -229,7 +238,8 @@ func (r *ruleProcessor) getRulePos(ruleID int64) int {
 }
 
 func (r *ruleProcessor) processDir(name string, state State,
-	lowerChild, upperChild *tree.MemTree, wg *sync.WaitGroup) {
+	lowerChild, upperChild *tree.MemTree, wg *sync.WaitGroup,
+) {
 	c := &ruleProcessor{}
 
 	r.children = append(r.children, namedNode{name: name, Node: c})
@@ -254,7 +264,8 @@ func (r *ruleProcessor) mergeChild(child *ruleProcessor) {
 }
 
 func (r *ruleProcessor) copyUpperOrAddLower(name string, wildcard int64,
-	lowerChild, upperChild *tree.MemTree) {
+	lowerChild, upperChild *tree.MemTree,
+) {
 	if upperChild == nil {
 		r.addLower(wildcard, lowerChild)
 

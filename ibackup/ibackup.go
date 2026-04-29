@@ -39,6 +39,7 @@ import (
 
 	"github.com/wtsi-hgi/activecache"
 	gas "github.com/wtsi-hgi/go-authserver"
+	"github.com/wtsi-hgi/ibackup/fofn"
 	"github.com/wtsi-hgi/ibackup/server"
 	"github.com/wtsi-hgi/ibackup/set"
 	"github.com/wtsi-hgi/ibackup/transfer"
@@ -132,8 +133,8 @@ func (s *serverClient) AddOrUpdateSet(set *set.Set) error {
 	return s.Load().AddOrUpdateSet(set)
 }
 
-func (s *serverClient) MergeFiles(setID string, paths []string) error {
-	return s.Load().MergeFiles(setID, paths)
+func (s *serverClient) MergeFilesWithMTimes(setID string, paths []server.PathMTime) error {
+	return s.Load().MergeFilesWithMTimes(setID, paths)
 }
 
 func (s *serverClient) TriggerDiscovery(setID string, forceRemovals bool) error {
@@ -196,7 +197,7 @@ func createServers(ctx context.Context, c Config) (map[string]*serverClient, err
 		var client serverClient
 
 		if details.FOFNDir != "" { //nolint:nestif
-			client.Store(NewFOFNClient(details.FOFNDir))
+			client.Store(fofn.NewClient(details.FOFNDir))
 		} else if c, err := connect(
 			jwtBasename(details.Token),
 			details.Token, details.Addr, details.Cert, details.Username,
@@ -300,7 +301,7 @@ func IsOnlyConnectionErrors(err error) bool {
 
 // Backup retrieves a client using the given path, and then calls the normal
 // Backup function.
-func (m *MultiClient) Backup(path string, setName, requester string, files []string,
+func (m *MultiClient) Backup(path string, setName, requester string, files []server.PathMTime,
 	frequency int, frozen bool, review, remove int64) error {
 	c := m.getClient(path)
 	if c == nil {
@@ -360,13 +361,13 @@ func connect(jwtBasename, serverTokenBasename, url, cert, username string) (*ser
 type Client interface {
 	GetSetByName(requester, setName string) (*set.Set, error)
 	AddOrUpdateSet(set *set.Set) error
-	MergeFiles(setID string, paths []string) error
+	MergeFilesWithMTimes(setID string, paths []server.PathMTime) error
 	TriggerDiscovery(setID string, forceRemovals bool) error
 }
 
 // Backup creates a new set called setName for the requester if it has been
 // longer than the frequency since the last discovery for that set.
-func Backup(client Client, transformer, setName, requester string, files []string,
+func Backup(client Client, transformer, setName, requester string, files []server.PathMTime,
 	frequency int, frozen bool, review, remove int64) error {
 	if len(files) == 0 {
 		return nil
@@ -383,7 +384,7 @@ func Backup(client Client, transformer, setName, requester string, files []strin
 		return nil
 	}
 
-	if err := client.MergeFiles(got.ID(), files); err != nil {
+	if err := client.MergeFilesWithMTimes(got.ID(), files); err != nil {
 		return err
 	}
 

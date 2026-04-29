@@ -1,3 +1,29 @@
+/*******************************************************************************
+ * Copyright (c) 2025 Genome Research Ltd.
+ *
+ * Author: Michael Woolnough <mw31@sanger.ac.uk>
+ *         Sky Haines <sh55@sanger.ac.uk>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included
+ * in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ ******************************************************************************/
+
 package backups
 
 import (
@@ -13,9 +39,11 @@ import (
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/ibackup"
 	"github.com/wtsi-hgi/backup-plans/internal/directories"
+	"github.com/wtsi-hgi/backup-plans/internal/memtree"
 	"github.com/wtsi-hgi/backup-plans/internal/plandb"
 	"github.com/wtsi-hgi/backup-plans/ruletree"
 	"github.com/wtsi-hgi/ibackup/fofn"
+	"github.com/wtsi-hgi/ibackup/server"
 	"github.com/wtsi-hgi/ibackup/set"
 	"github.com/wtsi-hgi/wrstat-ui/summary"
 	"github.com/wtsi-hgi/wrstat-ui/summary/group"
@@ -27,7 +55,7 @@ func TestFileInfos(t *testing.T) {
 	Convey("Given a tree of wrstat info you can get all the file infos", t, func() {
 		tr := exampleTree()
 
-		var paths []string
+		var paths []server.PathMTime
 
 		sm, err := ruletree.BuildMultiStateMachine([]ruletree.Rules{
 			{{Path: []byte("*"), Group: &hasBackups}},
@@ -42,37 +70,37 @@ func TestFileInfos(t *testing.T) {
 		}
 
 		figureOutFOFNs(ctr, sm,
-			&summary.DirectoryPath{Name: "/lustre/scratch123/humgen/a/b/"}, func(path *summary.DirectoryPath, _ int64) {
-				paths = append(paths, string(path.AppendTo(nil)))
+			&summary.DirectoryPath{Name: "/lustre/scratch123/humgen/a/b/"}, func(path *summary.DirectoryPath, mtime, _ int64) {
+				paths = append(paths, server.PathMTime{Path: string(path.AppendTo(nil)), MTime: mtime})
 			})
 
 		So(len(paths), ShouldEqual, 5)
 
-		So(paths, ShouldResemble, []string{
-			"/lustre/scratch123/humgen/a/b/1.jpg",
-			"/lustre/scratch123/humgen/a/b/2.jpg",
-			"/lustre/scratch123/humgen/a/b/3.txt",
-			"/lustre/scratch123/humgen/a/b/temp.jpg",
-			"/lustre/scratch123/humgen/a/b/testdir/test.txt",
+		So(paths, ShouldResemble, []server.PathMTime{
+			{Path: "/lustre/scratch123/humgen/a/b/1.jpg", MTime: 98766},
+			{Path: "/lustre/scratch123/humgen/a/b/2.jpg", MTime: 98767},
+			{Path: "/lustre/scratch123/humgen/a/b/3.txt", MTime: 98767},
+			{Path: "/lustre/scratch123/humgen/a/b/temp.jpg", MTime: 98767},
+			{Path: "/lustre/scratch123/humgen/a/b/testdir/test.txt", MTime: 12346},
 		})
 
 		paths = paths[:0]
 
-		figureOutFOFNs(tr, sm.GetStateString(""), nil, func(path *summary.DirectoryPath, _ int64) {
-			paths = append(paths, string(path.AppendTo(nil)))
+		figureOutFOFNs(tr, sm.GetStateString(""), nil, func(path *summary.DirectoryPath, mtime, _ int64) {
+			paths = append(paths, server.PathMTime{Path: string(path.AppendTo(nil)), MTime: mtime})
 		})
 
 		So(len(paths), ShouldEqual, 8)
 
-		So(paths, ShouldResemble, []string{
-			"/lustre/scratch123/humgen/a/b/1.jpg",
-			"/lustre/scratch123/humgen/a/b/2.jpg",
-			"/lustre/scratch123/humgen/a/b/3.txt",
-			"/lustre/scratch123/humgen/a/b/temp.jpg",
-			"/lustre/scratch123/humgen/a/b/testdir/test.txt",
-			"/lustre/scratch123/humgen/a/c/4.txt",
-			"/lustre/scratch123/humgen/b/5.txt",
-			"/lustre/scratch123/humgen/b/c/6.txt",
+		So(paths, ShouldResemble, []server.PathMTime{
+			{Path: "/lustre/scratch123/humgen/a/b/1.jpg", MTime: 98766},
+			{Path: "/lustre/scratch123/humgen/a/b/2.jpg", MTime: 98767},
+			{Path: "/lustre/scratch123/humgen/a/b/3.txt", MTime: 98767},
+			{Path: "/lustre/scratch123/humgen/a/b/temp.jpg", MTime: 98767},
+			{Path: "/lustre/scratch123/humgen/a/b/testdir/test.txt", MTime: 12346},
+			{Path: "/lustre/scratch123/humgen/a/c/4.txt", MTime: 12346},
+			{Path: "/lustre/scratch123/humgen/b/5.txt", MTime: 12346},
+			{Path: "/lustre/scratch123/humgen/b/c/6.txt", MTime: 12346},
 		})
 	})
 }
@@ -215,7 +243,11 @@ func TestBackups(t *testing.T) {
 		So(ibackupClient, ShouldNotBeNil)
 
 		testDB, _ := plandb.PopulateExamplePlanDB(t)
-		tr := exampleTree()
+
+		tr, dFn, err := memtree.FromTree(exampleTree(), filepath.Join(t.TempDir(), "tree"))
+		So(err, ShouldBeNil)
+
+		Reset(dFn)
 
 		Convey("You can create ibackup sets for all automatic ibackup plans, excluding BackupNone and manual backup types", func() { //nolint:lll
 			setInfos, err := Backup(testDB, tr, ibackupClient)
@@ -306,21 +338,20 @@ func TestAddFofnsToIBackup(t *testing.T) {
 			"/lustre/c",
 			"/lustre/d",
 		} {
-			setDir := filepath.Join(fofnDir, (&set.Set{Requester: "a", Name: setNamePrefix + path}).ID())
-			statusFile := filepath.Join(setDir, "status")
-
-			So(os.MkdirAll(setDir, 0700), ShouldBeNil)
-			So(fofn.WriteConfig(setDir, fofn.SubDirConfig{
-				Transformer: "prefix=/lustre/:/remote/",
-				Requester:   "a",
+			client := fofn.NewClient(fofnDir)
+			got := &set.Set{
 				Name:        setNamePrefix + path,
-			}), ShouldBeNil)
-			So(os.WriteFile(statusFile, nil, 0600), ShouldBeNil)
+				Requester:   "a",
+				Transformer: "prefix=/lustre/:/remote/",
+			}
+
+			So(client.AddOrUpdateSet(got), ShouldBeNil)
+			So(os.WriteFile(filepath.Join(fofnDir, got.ID(), "status"), nil, 0600), ShouldBeNil)
 		}
 
 		ft := make(frozenTest)
 
-		_, err = addFofnsToIBackup(clientWrapper{ibackupClient, ft}, map[*db.Directory][]string{
+		_, err = addFofnsToIBackup(clientWrapper{ibackupClient, ft}, map[*db.Directory][]server.PathMTime{
 			{ClaimedBy: "a", Path: "/lustre/a"}:                                                 {},
 			{ClaimedBy: "a", Path: "/lustre/b", Melt: now.Add(time.Hour).Unix()}:                {},
 			{ClaimedBy: "a", Path: "/lustre/c", Frozen: true, Melt: now.Add(time.Hour).Unix()}:  {},
@@ -348,7 +379,9 @@ type clientWrapper struct {
 
 type frozenTest map[string]bool
 
-func (f frozenTest) Backup(path, _, _ string, _ []string, _ int, frozen bool, _, _ int64) error { //nolint:unparam
+func (f frozenTest) Backup(path, _, _ string, _ []server.PathMTime,
+	_ int, frozen bool, _, _ int64,
+) error { //nolint:unparam
 	f[path] = frozen
 
 	return nil

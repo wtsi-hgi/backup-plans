@@ -1,3 +1,29 @@
+/*******************************************************************************
+ * Copyright (c) 2025 Genome Research Ltd.
+ *
+ * Author: Michael Woolnough <mw31@sanger.ac.uk>
+ *         Sky Haines <sh55@sanger.ac.uk>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included
+ * in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ ******************************************************************************/
+
 package backups
 
 import (
@@ -27,7 +53,7 @@ type SetInfo struct {
 // Backup will back up all files in the given treeNode that match rules in the
 // given planDB, using the given ibackup client. It returns a list of the set IDs
 // created.
-func Backup(planDB *db.DB, treeNode tree.Node, client *ibackup.MultiClient) ([]SetInfo, error) { //nolint:funlen
+func Backup(planDB *db.DB, treeNode *tree.MemTree, client *ibackup.MultiClient) ([]SetInfo, error) { //nolint:funlen
 	mountpoint, err := readMountpoint(treeNode)
 	if err != nil {
 		return nil, err
@@ -56,20 +82,23 @@ func Backup(planDB *db.DB, treeNode tree.Node, client *ibackup.MultiClient) ([]S
 		return nil, err
 	}
 
-	setFofns := make(map[*db.Directory][]string)
+	setFofns := make(map[*db.Directory][]server.PathMTime)
 
-	figureOutFOFNs(treeNode, sm, nil, func(path *summary.DirectoryPath, ruleID int64) {
+	figureOutFOFNs(treeNode, sm, nil, func(path *summary.DirectoryPath, mtime, ruleID int64) {
 		rule := dirRules[ruleID]
 
 		if rule.RuleIDs[ruleID].BackupType == db.BackupIBackup {
-			setFofns[rule.Directory] = append(setFofns[rule.Directory], string(path.AppendTo(nil)))
+			setFofns[rule.Directory] = append(setFofns[rule.Directory], server.PathMTime{
+				Path:  string(path.AppendTo(nil)),
+				MTime: mtime,
+			})
 		}
 	})
 
 	return addFofnsToIBackup(client, setFofns)
 }
 
-func readMountpoint(treeNode tree.Node) (string, error) {
+func readMountpoint(treeNode *tree.MemTree) (string, error) {
 	var (
 		mountpoint string
 		err        error
@@ -154,7 +183,7 @@ func collectRuleGroups(root *ruletree.RuleTree, path string, rules ruletree.Rule
 }
 
 func figureOutFOFNs(node tree.Node, sm ruletree.State, path *summary.DirectoryPath,
-	cb func(*summary.DirectoryPath, int64)) {
+	cb func(*summary.DirectoryPath, int64, int64)) {
 	for name, child := range node.Children() {
 		state := sm.GetStateString(name)
 		newPath := &summary.DirectoryPath{Parent: path, Name: name}
@@ -165,7 +194,7 @@ func figureOutFOFNs(node tree.Node, sm ruletree.State, path *summary.DirectoryPa
 		}
 
 		if !strings.HasSuffix(name, "/") {
-			cb(newPath, *group)
+			cb(newPath, readMTime(child), *group)
 
 			continue
 		}
@@ -178,13 +207,17 @@ func figureOutFOFNs(node tree.Node, sm ruletree.State, path *summary.DirectoryPa
 	}
 }
 
+func readMTime(child tree.Node) int64 {
+	return int64(ruletree.ReadFileStats(child.(*tree.MemTree)).MTime) //nolint:gosec,errcheck,forcetypeassert
+}
+
 type backupClient interface {
-	Backup(path string, setName, requester string, files []string,
+	Backup(path string, setName, requester string, files []server.PathMTime,
 		frequency int, frozen bool, review, remove int64) error
 	GetBackupActivity(path, setName, requester string, manual bool) (*ibackup.SetBackupActivity, error)
 }
 
-func addFofnsToIBackup(client backupClient, setFofns map[*db.Directory][]string) ([]SetInfo, error) {
+func addFofnsToIBackup(client backupClient, setFofns map[*db.Directory][]server.PathMTime) ([]SetInfo, error) {
 	backupSetInfos := make([]SetInfo, 0, len(setFofns))
 
 	var errs error

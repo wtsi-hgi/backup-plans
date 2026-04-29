@@ -1,6 +1,6 @@
 module github.com/wtsi-hgi/backup-plans
 
-go 1.25.5
+go 1.26
 
 tool vimagination.zapto.org/jspacker/cmd/jspacker
 
@@ -16,13 +16,13 @@ require (
 	github.com/ugorji/go/codec v1.3.1
 	github.com/wtsi-hgi/activecache v1.0.0
 	github.com/wtsi-hgi/go-authserver v1.6.0
-	github.com/wtsi-hgi/ibackup v1.16.1
+	github.com/wtsi-hgi/ibackup v1.17.0
 	github.com/wtsi-hgi/wrstat-ui v1.8.11
 	go.etcd.io/bbolt v1.4.3
 	golang.org/x/sys v0.42.0
 	gopkg.in/yaml.v2 v2.4.0
 	modernc.org/sqlite v1.47.0
-	vimagination.zapto.org/byteio v1.3.1
+	vimagination.zapto.org/byteio v1.3.2
 	vimagination.zapto.org/httpbuffer v1.1.4
 	vimagination.zapto.org/httpembed v1.4.1
 	vimagination.zapto.org/tree v1.4.0
@@ -37,7 +37,7 @@ require (
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/ProtonMail/go-crypto v1.3.0 // indirect
 	github.com/VertebrateResequencing/muxfys/v4 v4.0.3 // indirect
-	github.com/VertebrateResequencing/wr v0.36.2 // indirect
+	github.com/VertebrateResequencing/wr v0.36.5 // indirect
 	github.com/VividCortex/ewma v1.2.0 // indirect
 	github.com/alexflint/go-filemutex v1.3.0 // indirect
 	github.com/appleboy/gin-jwt/v2 v2.10.3 // indirect
@@ -167,7 +167,7 @@ require (
 	github.com/tklauser/numcpus v0.10.0 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/viant/ptrie v1.0.1 // indirect
-	github.com/wtsi-hgi/statter v1.2.2 // indirect
+	github.com/wtsi-hgi/statter v1.3.0 // indirect
 	github.com/wtsi-hgi/walk v1.0.1 // indirect
 	github.com/wtsi-npg/extendo/v2 v2.7.1-0.20250509131519-b95b89bd744d // indirect
 	github.com/wtsi-npg/logshim v1.5.0 // indirect

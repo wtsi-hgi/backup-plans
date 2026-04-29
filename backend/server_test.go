@@ -30,7 +30,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -38,10 +37,10 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/wtsi-hgi/backup-plans/backups"
 	"github.com/wtsi-hgi/backup-plans/internal/config"
+	"github.com/wtsi-hgi/backup-plans/internal/memtree"
 	"github.com/wtsi-hgi/backup-plans/internal/plandb"
 	"github.com/wtsi-hgi/backup-plans/internal/testdb"
 	"github.com/wtsi-hgi/backup-plans/internal/testirods"
-	"vimagination.zapto.org/tree"
 )
 
 func TestEndpoints(t *testing.T) {
@@ -51,21 +50,19 @@ func TestEndpoints(t *testing.T) {
 		var u userHandler
 
 		testDB, _ := plandb.PopulateExamplePlanDB(t)
-		tr := plandb.ExampleTree()
+		treeFile := filepath.Join(t.TempDir(), "tree")
 
-		treeFile := filepath.Join(t.TempDir(), "tree.db")
-		f, err := os.Create(treeFile)
+		treeNode, dFn, err := memtree.FromTree(plandb.ExampleTree(), treeFile)
 		So(err, ShouldBeNil)
 
-		So(tree.Serialise(f, tr), ShouldBeNil)
-		So(f.Close(), ShouldBeNil)
+		Reset(dFn)
 
 		s, err := New(testdb.CreateTestDatabase(t), u.getUser, config.NewConfig(t, nil, nil, nil, 0, nil))
 		So(err, ShouldBeNil)
 
 		So(s.AddTree(treeFile), ShouldBeNil)
 
-		setInfos, err := backups.Backup(testDB, tr, s.config.GetIBackupClient())
+		setInfos, err := backups.Backup(testDB, treeNode, s.config.GetIBackupClient())
 		So(err, ShouldBeNil)
 		So(setInfos, ShouldNotBeNil)
 

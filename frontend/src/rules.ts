@@ -254,6 +254,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 								.then(() => {
 									load(path);
 									overlay.remove();
+									updateClaimStats();
 								});
 						})
 						.catch(e => {

@@ -12,7 +12,6 @@ import (
 	ibackup_test "github.com/wtsi-hgi/backup-plans/internal/ibackup"
 	"github.com/wtsi-hgi/backup-plans/internal/plandb"
 	"github.com/wtsi-hgi/ibackup/fofn"
-	"github.com/wtsi-hgi/ibackup/set"
 	"gopkg.in/yaml.v2"
 )
 
@@ -159,17 +158,12 @@ func TestCommands(t *testing.T) {
 				"ibackup set 'plan::/lustre/scratch123/humgen/a/b/' created for userA with 2 files\n")
 			So(err, ShouldBeNil)
 
-			id := (&set.Set{Requester: "userA", Name: "plan::/lustre/scratch123/humgen/a/b/"}).ID()
+			client := fofn.NewClient(fofnDir)
 
-			data, err := os.ReadFile(filepath.Join(fofnDir, id, "fofn"))
+			got, err := client.GetSetByName("userA", "plan::/lustre/scratch123/humgen/a/b/")
 			So(err, ShouldBeNil)
-			So(data, ShouldEqual, []byte("/lustre/scratch123/humgen/a/b/1.jpg\x00/lustre/scratch123/humgen/a/b/2.jpg\x00"))
 
-			Convey("…and a valid FOFN config file", func() {
-				cfg, err := fofn.ReadConfig(filepath.Join(fofnDir, id))
-				So(err, ShouldBeNil)
-				So(cfg.Transformer, ShouldEqual, "prefix=/:/remote/")
-			})
+			So(got.Transformer, ShouldEqual, "prefix=/:/remote/")
 		})
 
 		if mysqlConnection == "" {
