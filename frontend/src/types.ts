@@ -135,3 +135,18 @@ export type DirStats = {
 	RuleStats: RuleInfo[];
 	LastMod: number;
 }
+
+export type Collection = {
+	ID: number;
+	Name: string;
+	Description: string;
+}
+
+export type CollectionRule = {
+	ID: number;
+	CollectionID: number;
+	BackupType: BackupType;
+	Metadata: string;
+	Match: string;
+	Override: boolean;
+}

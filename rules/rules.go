@@ -42,6 +42,10 @@ var (
 	ErrRuleExists          = errors.New("rule already exists for that match string")
 	ErrDuplicateRule       = errors.New("cannot add same match twice")
 	ErrDirectoryClaimed    = errors.New("directory already claimed")
+	ErrNoName              = errors.New("no name provided")
+	ErrNameExists          = errors.New("collection with that name already exists")
+	ErrCollectionNotFound  = errors.New("collection not found")
+	ErrInvalidID           = errors.New("invalid collection ID")
 )
 
 type dirRules struct {
@@ -58,12 +62,15 @@ type Database struct {
 	inTx bool
 	tx   *sync.Mutex
 
-	mu             *sync.RWMutex
-	directoryRules map[string]*dirRules
-	dirs           map[uint64]*dirRules
-	rules          map[uint64]*db.Rule
-	delayAdd       []*db.Rule
-	delayRemove    []*db.Rule
+	mu              *sync.RWMutex
+	directoryRules  map[string]*dirRules
+	dirs            map[uint64]*dirRules
+	rules           map[uint64]*db.Rule
+	delayAdd        []*db.Rule
+	delayRemove     []*db.Rule
+	collections     map[int64]*db.Collection     // collectionRuleId -> Collection
+	collectionRules map[int64]*db.CollectionRule // collection rule id -> collectionRule
+	collectionNames map[string]int64             // collection name -> collection id
 }
 
 // New takes a database connection and caches the information for fast access.
@@ -101,7 +108,7 @@ func (d *Database) loadRules() error {
 		return err
 	}
 
-	return d.rulesDB.ReadRules().ForEach(func(r *db.Rule) error {
+	if err := d.rulesDB.ReadRules().ForEach(func(r *db.Rule) error {
 		dir, ok := dirs[r.DirID()]
 		if !ok {
 			return ErrOrphanedRule
@@ -109,6 +116,23 @@ func (d *Database) loadRules() error {
 
 		d.rules[uint64(r.ID())] = r //nolint:gosec
 		dir.Rules[r.Match] = r
+
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	if err := d.rulesDB.ReadCollections().ForEach(func(c *db.Collection) error {
+		d.collections[c.ID()] = c
+		d.collectionNames[c.Name] = c.ID()
+
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	return d.rulesDB.ReadCollectionRules().ForEach(func(r *db.CollectionRule) error {
+		d.collectionRules[r.ID()] = r
 
 		return nil
 	})
@@ -627,3 +651,100 @@ func ToRule(r *db.Rule) Rule {
 		Override:    r.Override,
 	}
 }
+
+func (d *Database) GetCollections() map[int64]*db.Collection {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	return d.collections
+}
+
+func (d *Database) CreateCollection(name, description string) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	if _, exists := d.collectionNames[name]; exists {
+		return ErrNameExists
+	}
+
+	c := &db.Collection{
+		Name:        name,
+		Description: description,
+	}
+
+	err := d.rulesDB.CreateCollection(c)
+	if err != nil {
+		return err
+	}
+
+	d.collections[c.ID()] = c
+	d.collectionNames[c.Name] = c.ID()
+
+	return nil
+}
+
+func (d *Database) UpdateCollection(id int64, name, description string) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	collection, exists := d.collections[id]
+	if !exists {
+		return ErrCollectionNotFound
+	}
+
+	workingCopy := *collection
+
+	updateName, updateDesc, err := d.checkUpdateFields(workingCopy, name, description)
+	if err != nil {
+		return err
+	}
+
+	if updateDesc {
+		workingCopy.Description = description
+	}
+
+	if updateName {
+		delete(d.collectionNames, collection.Name)
+		workingCopy.Name = name
+		d.collectionNames[name] = id
+	}
+
+	d.collections[id] = &workingCopy
+
+	// do the dirSummaries need updating (since they have rule matches which is rule name)?
+
+	return d.rulesDB.UpdateCollection(&workingCopy)
+}
+
+func (d *Database) checkUpdateFields(collection db.Collection, name, description string) (bool, bool, error) {
+	updateName := false
+	updateDesc := false
+
+	if description != "" {
+		updateDesc = true
+	}
+
+	if name != "" && name != collection.Name {
+		if _, exists := d.collectionNames[name]; exists {
+			return false, false, ErrNameExists
+		}
+
+		updateName = true
+	}
+
+	return updateName, updateDesc, nil
+}
+
+// func (d *Database) GetCollectionNames() map[string]int64 {
+// 	d.mu.RLock()
+// 	defer d.mu.RUnlock()
+
+// 	return d.collectionNames
+// }
+
+// func (d *Database) GetCollectionRules() map[int64]*db.CollectionRule {
+// 	d.mu.RLock()
+// 	defer d.mu.RUnlock()
+
+// 	return d.collectionRules
+// }

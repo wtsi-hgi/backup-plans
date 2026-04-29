@@ -121,8 +121,7 @@ func (d *DB) UpdateCollection(c *Collection) error {
 	return d.exec(updateCollection, c.Name, c.Description, c.Modified, c.id)
 }
 
-// RemoveCollection TODO
-// A collection should not be allowed to be removed if it is applied to any directory (rules has a rule with isCollection=True and match=collectionName)
+// RemoveCollection will remove the given collection and all its rules from the database.
 func (d *DB) RemoveCollection(collection *Collection) error {
 	return d.exec(deleteCollection, collection.id)
 }
@@ -174,6 +173,15 @@ func (c *CollectionRule) ID() int64 {
 	}
 
 	return c.id
+}
+
+// CollectionID returns the SQL collection ID that the collection rule belongs to.
+func (c *CollectionRule) CollectionID() int64 {
+	if c == nil {
+		return 0
+	}
+
+	return c.collectionID
 }
 
 // ReadCollectionRules allows iteration over the CollectionRules stored in the database.

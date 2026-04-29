@@ -2,6 +2,7 @@
  * Copyright (c) 2025 Genome Research Ltd.
  *
  * Author: Michael Woolnough <mw31@sanger.ac.uk>
+ *		   Sky Haines <sh55@sanger.ac.uk>
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -40,6 +41,86 @@ import (
 )
 
 const frequencyLimit = 100000
+
+// const (
+// 	defaultFrequency = 7
+// 	frequencyLimit   = 100000
+// 	month            = 3600 * 24 * 30
+// 	twoyears         = time.Hour * 24 * 365 * 2
+// )
+
+// func (s *Server) loadRules() ([]ruletree.DirRule, error) { //nolint:funlen
+// 	s.directoryRules = make(map[string]*Directory)
+// 	s.dirs = make(map[uint64]*db.Directory)
+// 	s.rules = make(map[uint64]*db.Rule)
+// 	dirs := make(map[int64]*ruletree.DirRules)
+// 	dirRules := make([]ruletree.DirRule, 0)
+// 	s.collections = make(map[int64]*db.Collection)         // collectionRuleId -> Collection
+// 	s.collectionRules = make(map[int64]*db.CollectionRule) // collection rule id -> collectionRule
+// 	s.collectionNames = make(map[string]int64)             // collection name -> collection id
+
+// 	if err := s.rulesDB.ReadDirectories().ForEach(func(dir *db.Directory) error {
+// 		dr := Directory{
+// 			&ruletree.DirRules{
+// 				Directory: dir,
+// 				Rules:     make(map[string]*db.Rule),
+// 			},
+// 			nil,
+// 		}
+// 		s.directoryRules[dir.Path] = &dr
+// 		dirs[dir.ID()] = dr.DirRules
+// 		s.dirs[uint64(dir.ID())] = dir //nolint:gosec
+
+// 		return nil
+// 	}); err != nil {
+// 		return nil, err
+// 	}
+
+// 	var ruleList []group.PathGroup[db.Rule]
+
+// 	if err := s.rulesDB.ReadRules().ForEach(func(r *db.Rule) error {
+// 		dir, ok := dirs[r.DirID()]
+// 		if !ok {
+// 			return ErrOrphanedRule
+// 		}
+
+// 		s.rules[uint64(r.ID())] = r //nolint:gosec
+
+// 		dir.Rules[r.Match] = r
+// 		ruleList = append(ruleList, group.PathGroup[db.Rule]{
+// 			Path:  []byte(dir.Path + r.Match),
+// 			Group: r,
+// 		})
+
+// 		dirRules = append(dirRules, ruletree.DirRule{
+// 			Directory: dir.Directory,
+// 			Rule:      r,
+// 		})
+
+// 		return nil
+// 	}); err != nil {
+// 		return nil, err
+// 	}
+
+// 	if err := s.rulesDB.ReadCollections().ForEach(func(c *db.Collection) error {
+// 		s.collections[c.ID()] = c
+// 		s.collectionNames[c.Name] = c.ID()
+
+// 		return nil
+// 	}); err != nil {
+// 		return nil, err
+// 	}
+
+// 	if err := s.rulesDB.ReadCollectionRules().ForEach(func(r *db.CollectionRule) error {
+// 		s.collectionRules[r.ID()] = r
+
+// 		return nil
+// 	}); err != nil {
+// 		return nil, err
+// 	}
+
+// 	return dirRules, nil
+// }
 
 // ClaimDir is an HTTP endpoint that allows a user to claim a directory in order
 // to add rules to it. The user must be the owner of the directory, in the group

@@ -50,6 +50,10 @@ var (
 	ErrDirectoryNotClaimed  = rules.ErrDirectoryNotClaimed
 	ErrRuleExists           = rules.ErrRuleExists
 	ErrNoRule               = rules.ErrNoRule
+	ErrNoName               = errors.New("no name provided")
+	ErrNameExists           = errors.New("collection with that name already exists")
+	ErrCollectionNotFound   = errors.New("collection not found")
+	ErrInvalidID            = errors.New("invalid collection ID")
 )
 
 var httpErrors = map[error]int{ //nolint:gochecknoglobals
@@ -69,4 +73,8 @@ var httpErrors = map[error]int{ //nolint:gochecknoglobals
 	ErrDirectoryNotFrozen:   http.StatusBadRequest,
 	ErrAlreadyFrozen:        http.StatusBadRequest,
 	ErrNoIBackup:            http.StatusNotImplemented,
+	ErrNoName:               http.StatusBadRequest,
+	ErrNameExists:           http.StatusBadRequest,
+	ErrCollectionNotFound:   http.StatusBadRequest,
+	ErrInvalidID:            http.StatusBadRequest,
 }

@@ -34,6 +34,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/internal/memtree"
 	"github.com/wtsi-hgi/backup-plans/rules"
 	"github.com/wtsi-hgi/backup-plans/users"
@@ -578,3 +579,19 @@ var (
 	ErrInvalidDatabase = errors.New("tree database should have a single root child")
 	ErrInvalidRoot     = errors.New("invalid root child")
 )
+
+func (r *RootDir) GetCollections() map[int64]*db.Collection {
+	return r.rules.GetCollections()
+}
+
+func (r *RootDir) CreateCollection(name, description string) error {
+	return r.rules.CreateCollection(name, description)
+}
+
+func (r *RootDir) UpdateCollection(id int64, name, description string) error {
+	return r.rules.UpdateCollection(id, name, description)
+}
+
+// func (r *RootDir) GetCollectionRules() map[int64]*db.CollectionRule {
+// 	return r.rules.GetCollectionRules()
+// }

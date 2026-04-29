@@ -3,7 +3,7 @@ import { clearNode } from "./lib/dom.js";
 import { br, button, dialog, div, form, h2, h3, input, label, option, p, select, table, tbody, td, textarea, th, thead, tr, span, ul, li } from './lib/html.js';
 import { svg, title, use } from './lib/svg.js';
 import { action, confirm, formatBytes, setAndReturn } from "./lib/utils.js";
-import { createRule, removeRules, setDirDetails, updateRule, setExists, user } from "./rpc.js";
+import { createRule, removeRules, setDirDetails, updateRule, setExists, user, getCollections, createCollection } from "./rpc.js";
 import { BackupType, helpText } from "./consts.js"
 import { load, registerLoader } from "./load.js";
 import { updateClaimStats } from "./claimstats.js";
@@ -345,6 +345,20 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 
 		overlay.showModal();
 	},
+	saveOverlay = (path: string, rules: Rule[]) => {
+		getCollections().then(collections => {
+			console.log("Initial collections:", collections);
+		});
+
+		confirm("Are you sure you want to create a collection?", "Confirm", () => {
+			return createCollection("name", "description").then(() => {
+				getCollections().then(collections => {
+					console.log("Final collections:", collections);
+				});
+			});
+		});
+
+	},
 	addDirDetails = (path: string, dirDetails: dirDetails) => button({
 		"style": "margin-left:1em",
 		"click": () => dirDetailOverlay(path, dirDetails),
@@ -428,7 +442,7 @@ registerLoader((path: string, data: DirectoryWithChildren) => {
 				button({
 					"class": "actionButtonBig",
 					"click": () => {
-						confirm("Are you sure you wish to remove the selected rule(s)?", () =>
+						confirm("Are you sure you wish to remove the selected rule(s)?", "Remove", () =>
 							removeRules(path, getSelectedMatches(rulesTable)).then(() => { load(path); updateClaimStats(); })
 						)
 					}
@@ -438,11 +452,7 @@ registerLoader((path: string, data: DirectoryWithChildren) => {
 				])),
 				button({
 					"class": "actionButtonBig",
-					"click": () => {
-						const selectedRules = getSelectedRules(rulesTable, ruleMap);
-						console.log(selectedRules);
-						// saveOverlay(path, selectedRules);
-					}
+					"click": () => { saveOverlay(path, getSelectedRules(rulesTable, ruleMap)); }
 				}, svg([
 					title("Save As"),
 					use({ "href": "#save" })

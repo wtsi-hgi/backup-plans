@@ -93,6 +93,10 @@ func TestCollections(t *testing.T) {
 				So(db.RemoveCollection(c), ShouldBeNil)
 				So(collectIter(t, db.ReadCollections()), ShouldResemble, []*Collection{c2})
 				So(collectIter(t, db.ReadCollectionRules()), ShouldResemble, []*CollectionRule{ruleC})
+
+				So(db.RemoveCollection(c2), ShouldBeNil)
+				So(collectIter(t, db.ReadCollections()), ShouldResemble, []*Collection{})
+				So(collectIter(t, db.ReadCollectionRules()), ShouldResemble, []*CollectionRule{})
 			})
 		})
 	})

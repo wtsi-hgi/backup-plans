@@ -78,7 +78,7 @@ registerLoader((path: string, data: DirectoryWithChildren) => {
 			]))
 			: button({
 				"class": "actionButton",
-				"click": () => confirm("Are you sure you wish to remove your claim on this directory?", () => revokeDirClaim(path).then(() => { load(path); updateClaimStats() }))
+				"click": () => confirm("Are you sure you wish to remove your claim on this directory?", "Remove", () => revokeDirClaim(path).then(() => { load(path); updateClaimStats() }))
 			}, svg([
 				title("Revoke Claim"),
 				use({ "href": "#remove" })
