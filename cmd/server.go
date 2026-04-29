@@ -37,6 +37,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/wtsi-hgi/backup-plans/config"
 	"github.com/wtsi-hgi/backup-plans/db"
+	"github.com/wtsi-hgi/backup-plans/rules"
+	"github.com/wtsi-hgi/backup-plans/ruletree"
 	"github.com/wtsi-hgi/backup-plans/server"
 )
 
@@ -159,7 +161,19 @@ The ReportingRoots is a list of paths that will appear on the Top Level Report.
 			return err
 		}
 
-		return server.Start(fmt.Sprintf(":%d", serverPort), d, getUser, http.HandlerFunc(logout), config, args...)
+		rdb, err := rules.New(d)
+		if err != nil {
+			return err
+		}
+
+		return server.Start(
+			fmt.Sprintf(":%d", serverPort),
+			ruletree.NewRoot(rdb),
+			getUser,
+			http.HandlerFunc(logout),
+			config,
+			args...,
+		)
 	},
 }
 

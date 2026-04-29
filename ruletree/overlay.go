@@ -113,26 +113,6 @@ func (r *ruleOverlay) Summary(path string, wildcard group.State[int64]) (*DirSum
 	return cr.Summary(rest, wildcard.GetStateString(child))
 }
 
-func (r *ruleOverlay) getSummaries(path string, sm group.State[bool], wcs group.State[int64],
-	summaries map[string]*DirSummary) {
-	isTarget := sm.GetGroup()
-	if isTarget == nil {
-		return
-	}
-
-	if *isTarget {
-		summaries[path] = r.getSummaryWithChildren(wcs)
-	}
-
-	for name, child := range r.lower.Children() {
-		childState := sm.GetStateString(name)
-
-		cr := r.getChildOverlay(child.(*tree.MemTree), name) //nolint:errcheck,forcetypeassert
-
-		cr.getSummaries(path+name, childState, wcs.GetStateString(name), summaries)
-	}
-}
-
 func (r *ruleOverlay) getChildOverlay(lower *tree.MemTree, child string) *ruleOverlay {
 	var upper *tree.MemTree
 
@@ -217,6 +197,7 @@ func (r *ruleOverlay) getSummary(wildcard int64) *DirSummary {
 
 	ds.uid = uint32(sr.ReadUintX()) //nolint:gosec
 	ds.gid = uint32(sr.ReadUintX()) //nolint:gosec
+	ds.User = users.Username(ds.uid)
 	ds.Group = users.Group(ds.gid)
 
 	ds.RuleSummaries = make([]Rule, sr.ReadUintX())

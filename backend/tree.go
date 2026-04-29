@@ -28,74 +28,27 @@ package backend
 import (
 	"encoding/json"
 	"errors"
+	"iter"
 	"net/http"
 	"slices"
-	"strings"
 
-	"github.com/wtsi-hgi/backup-plans/db"
+	"github.com/wtsi-hgi/backup-plans/rules"
 	"github.com/wtsi-hgi/backup-plans/ruletree"
 	"github.com/wtsi-hgi/backup-plans/users"
 )
 
 var (
-	ErrNotFound = Error{
-		Code: http.StatusNotFound,
-		Err:  errors.New("404 page not found"), //nolint:err113
-	}
-	ErrNotAuthorised = Error{
-		Code: http.StatusUnauthorized,
-		Err:  errors.New("not authorised to see this directory"), //nolint:err113
-	}
+	ErrNotFound      = errors.New("404 page not found")
+	ErrNotAuthorised = errors.New("not authorised to see this directory")
 )
-
-// AddTree adds a tree database, specified by the given file path, to the
-// server, possibly overriding an existing database if they share the same root.
-func (s *Server) AddTree(file string) error {
-	rootPath, err := s.rootDir.AddTree(file)
-	if err != nil {
-		return err
-	}
-
-	err = s.updateDirSummaries(rootPath)
-	if err != nil {
-		return err
-	}
-
-	return s.updateDirMaps(rootPath)
-}
-
-func (s *Server) updateDirSummaries(path string) error {
-	s.rulesMu.Lock()
-	defer s.rulesMu.Unlock()
-
-	toUpdate := make([]string, 0, len(s.directoryRules))
-
-	for p := range s.directoryRules {
-		if strings.HasPrefix(p, path) || strings.HasPrefix(path, p) {
-			toUpdate = append(toUpdate, p)
-		}
-	}
-
-	summaries, err := s.rootDir.GetSummaries(toUpdate)
-	if err != nil {
-		return err
-	}
-
-	for path, summary := range summaries {
-		dir := s.directoryRules[path]
-		dir.DirSummary = summary
-	}
-
-	return nil
-}
 
 type treeDB struct {
 	*ruletree.DirSummary
 	ClaimedBy    string
-	Rules        map[string]map[uint64]*db.Rule
+	Rules        map[string]map[uint64]rules.Rule
 	Unauthorised []string
 	CanClaim     bool
-	dirDetails
+	rules.Directory
 }
 
 // Tree is an HTTP endpoint that returns data about a given directory and its
@@ -115,9 +68,6 @@ func (s *Server) tree(w http.ResponseWriter, r *http.Request) error { //nolint:f
 		return ErrNotAuthorised
 	}
 
-	s.rulesMu.RLock()
-	defer s.rulesMu.RUnlock()
-
 	summary, err := s.rootDir.Summary(dir)
 	if err != nil {
 		return err
@@ -132,57 +82,46 @@ func (s *Server) tree(w http.ResponseWriter, r *http.Request) error { //nolint:f
 
 	t := treeDB{
 		DirSummary:   summary,
-		Rules:        make(map[string]map[uint64]*db.Rule),
+		ClaimedBy:    summary.ClaimedBy,
+		Rules:        make(map[string]map[uint64]rules.Rule),
 		Unauthorised: []string{},
 	}
 
 	t.CanClaim = isOwner(uid, groups, duid, dgid)
 
+	if directory := s.rootDir.ClaimedDirectory(dir); directory != nil {
+		t.Directory = *directory
+	}
+
+	if s.rootDir.HasRules(dir) {
+		t.Rules[dir] = ruleMap(s.rootDir.DirRules(dir))
+	}
+
 	for name, child := range summary.Children {
 		if !isAuthorised(child, uid, groups, adminGroup) {
 			t.Unauthorised = append(t.Unauthorised, name)
 		}
-	}
 
-	dirRules, ok := s.directoryRules[dir]
-	if ok {
-		t.ClaimedBy = dirRules.ClaimedBy
-		thisDir := make(map[uint64]*db.Rule)
-		t.Rules[dir] = thisDir
+		childPath := dir + name
 
-		t.dirDetails = dirDetails{
-			Frequency:  dirRules.Frequency,
-			Frozen:     dirRules.Frozen,
-			ReviewDate: dirRules.ReviewDate,
-			RemoveDate: dirRules.RemoveDate,
-			Melt:       dirRules.Melt,
+		if s.rootDir.HasRules(childPath) {
+			t.Rules[dir] = ruleMap(s.rootDir.DirRules(childPath))
 		}
-
-		for _, rule := range dirRules.Rules {
-			thisDir[uint64(rule.ID())] = rule //nolint:gosec
-		}
-	}
-
-	for _, rs := range t.RuleSummaries {
-		if rs.ID == 0 {
-			continue
-		}
-
-		rule := s.rules[rs.ID]
-		dir := s.dirs[uint64(rule.DirID())] //nolint:gosec
-
-		r, ok := t.Rules[dir.Path]
-		if !ok {
-			r = make(map[uint64]*db.Rule)
-			t.Rules[dir.Path] = r
-		}
-
-		r[rs.ID] = rule
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 
 	return json.NewEncoder(w).Encode(t)
+}
+
+func ruleMap(ri iter.Seq[rules.Rule]) map[uint64]rules.Rule {
+	rm := make(map[uint64]rules.Rule)
+
+	for rule := range ri {
+		rm[uint64(rule.ID)] = rule //nolint:gosec
+	}
+
+	return rm
 }
 
 func isOwner(uid uint32, groups []uint32, duid, dgid uint32) bool {

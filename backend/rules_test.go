@@ -41,7 +41,6 @@ import (
 	lconfig "github.com/wtsi-hgi/backup-plans/internal/config"
 	"github.com/wtsi-hgi/backup-plans/internal/directories"
 	"github.com/wtsi-hgi/backup-plans/internal/plandb"
-	"github.com/wtsi-hgi/backup-plans/internal/testdb"
 	"github.com/wtsi-hgi/backup-plans/internal/testirods"
 	"github.com/wtsi-hgi/backup-plans/users"
 	"github.com/wtsi-hgi/ibackup/fofn"
@@ -64,12 +63,12 @@ func TestClaimDir(t *testing.T) {
 		user, err := user.Current()
 		So(err, ShouldBeNil)
 
-		s, err := New(testdb.CreateTestDatabase(t), u.getUser, lconfig.NewConfig(t, nil, nil, nil, 0, nil))
-		So(err, ShouldBeNil)
+		s := New(newEmptyRoot(t), u.getUser, lconfig.NewConfig(t, nil, nil, nil, 0, nil))
 
 		treeDBPath := createTestTree(t)
 
-		So(s.AddTree(treeDBPath), ShouldBeNil)
+		_, err = s.rootDir.AddTree(treeDBPath)
+		So(err, ShouldBeNil)
 
 		Convey("You can claim directories", func() {
 			code, resp := getResponse(s.ClaimDir, "/api/dir/claim?dir=/does/not/exist", nil)
@@ -178,7 +177,8 @@ func TestClaimDir(t *testing.T) {
 					nil,
 				)
 				So(code, ShouldEqual, http.StatusOK)
-				So(resp, ShouldContainSubstring, "\"Frequency\":10,\"Frozen\":false,\"ReviewDate\":"+now+",\"RemoveDate\":"+future)
+				So(resp, ShouldContainSubstring,
+					"\"Frequency\":10,\"Frozen\":false,\"Melt\":0,\"ReviewDate\":"+now+",\"RemoveDate\":"+future)
 			})
 
 			Convey("You cannot set invalid directory details", func() {
@@ -213,12 +213,12 @@ func TestRules(t *testing.T) {
 	Convey("With a configured backend", t, func() {
 		u := userHandler(root)
 
-		s, err := New(testdb.CreateTestDatabase(t), u.getUser, lconfig.NewConfig(t, nil, nil, nil, 0, nil))
-		So(err, ShouldBeNil)
+		s := New(newEmptyRoot(t), u.getUser, lconfig.NewConfig(t, nil, nil, nil, 0, nil))
 
 		treeDBPath := createTestTree(t)
 
-		So(s.AddTree(treeDBPath), ShouldBeNil)
+		_, err := s.rootDir.AddTree(treeDBPath)
+		So(err, ShouldBeNil)
 
 		Convey("You can add rules", func() {
 			code, resp := getResponse(
@@ -226,7 +226,7 @@ func TestRules(t *testing.T) {
 				"/api/rules/create?dir=/some/path/MyDir/&action=backup&match=*.txt&frequency=7&review=100&remove=200",
 				nil,
 			)
-			checkErrorResponse(t, code, resp, ErrInvalidDir)
+			checkErrorResponse(t, code, resp, ErrDirectoryNotClaimed)
 
 			code, resp = getResponse(
 				s.ClaimDir,
@@ -310,8 +310,8 @@ func TestRules(t *testing.T) {
 				nil,
 			)
 			So(code, ShouldEqual, http.StatusOK)
-			So(resp, ShouldContainSubstring, `{"1":{"BackupType":1,"Metadata":"","Match":"*.jpg",`)
-			So(resp, ShouldContainSubstring, `,"2":{"BackupType":1,"Metadata":"","Match":"*.txt",`)
+			So(resp, ShouldContainSubstring, `{"1":{"ID":1,"DirectoryID":1,"BackupType":1,"Metadata":"","Match":"*.jpg",`)
+			So(resp, ShouldContainSubstring, `,"2":{"ID":2,"DirectoryID":1,"BackupType":1,"Metadata":"","Match":"*.txt",`)
 		})
 
 		Convey("You can add rules of every type", func() {
@@ -348,7 +348,7 @@ func TestRules(t *testing.T) {
 						nil,
 					)
 					So(code, ShouldEqual, http.StatusOK)
-					So(resp, ShouldStartWith, `{"Group":"root","RuleSummaries":[{"ID":1,"Users":[{"Name":"`+currUser.Username+`","MTime":36,"Files":1,"Size":35}],"Groups":[{"Name":"`+secondGroup.Name+`","MTime":36,"Files":1,"Size":35}]}],"Children":{},"LastMod":36,"ClaimedBy":"root","Rules":{"/some/path/ChildDir/Child/":{"1":{"BackupType":`+strconv.Itoa(n)+`,"Metadata":"","Match":"*","Override":false,"Created":`) //nolint:lll
+					So(resp, ShouldStartWith, `{"User":"`+currUser.Username+`","Group":"root","RuleSummaries":[{"ID":1,"Users":[{"Name":"`+currUser.Username+`","MTime":36,"Files":1,"Size":35}],"Groups":[{"Name":"`+secondGroup.Name+`","MTime":36,"Files":1,"Size":35}]}],"Children":{},"LastMod":36,"ClaimedBy":"root","Rules":{"/some/path/ChildDir/Child/":{"1":{"ID":1,"DirectoryID":1,"BackupType":`+strconv.Itoa(n)+`,"Metadata":"","Match":"*","Override":false`) //nolint:lll
 				})
 			}
 		})
@@ -392,29 +392,29 @@ ibackupcacheduration: 3600`,
 			c, err := config.Parse(cfg)
 			So(err, ShouldBeNil)
 
-			s, err := New(testDB, u.getUser, c)
-			So(err, ShouldBeNil)
+			s := New(newRoot(t, testDB), u.getUser, c)
 
 			Reset(s.stop)
 			Reset(s.config.GetCachedIBackupClient().Stop)
 			Reset(s.config.GetIBackupClient().Stop)
 
-			So(s.AddTree(treeFile), ShouldBeNil)
+			_, err = s.rootDir.AddTree(treeFile)
+			So(err, ShouldBeNil)
 
 			Convey("You can temporarily thaw a backup set to get it to overwrite existing files", func() {
 				now := time.Now().Unix()
 
-				So(s.directoryRules["/lustre/scratch123/humgen/a/b/"].Melt, ShouldEqual, 0)
+				So(s.rootDir.ClaimedDirectory("/lustre/scratch123/humgen/a/b/").Melt, ShouldEqual, 0)
 
 				code, resp := getResponse(s.SetDirDetails, "/api/setDetails", url.Values{"dir": {"/lustre/scratch123/humgen/a/b/"}, "frequency": {"1"}, "review": {strconv.FormatInt(now+1000, 10)}, "remove": {strconv.FormatInt(now+2000, 10)}, "frozen": {"true"}, "meltToggle": {"true"}}) //nolint:lll
 				So(resp, ShouldBeBlank)
 				So(code, ShouldEqual, http.StatusNoContent)
 
-				So(s.directoryRules["/lustre/scratch123/humgen/a/b/"].Melt, ShouldBeGreaterThanOrEqualTo, now)
+				So(s.rootDir.ClaimedDirectory("/lustre/scratch123/humgen/a/b/").Melt, ShouldBeGreaterThanOrEqualTo, now)
 
-				ns, err := New(testDB, u.getUser, c)
-				So(err, ShouldBeNil)
-				So(ns.directoryRules["/lustre/scratch123/humgen/a/b/"].Melt, ShouldBeGreaterThanOrEqualTo, now)
+				ns := New(newRoot(t, testDB), u.getUser, c)
+
+				So(s.rootDir.ClaimedDirectory("/lustre/scratch123/humgen/a/b/").Melt, ShouldBeGreaterThanOrEqualTo, now)
 
 				ns.stop()
 
@@ -432,11 +432,11 @@ ibackupcacheduration: 3600`,
 
 				time.Sleep(61 * time.Minute)
 
-				So(s.directoryRules["/lustre/scratch123/humgen/a/b/"].Melt, ShouldEqual, 0)
+				So(s.rootDir.ClaimedDirectory("/lustre/scratch123/humgen/a/b/").Melt, ShouldEqual, 0)
 
-				ns, err = New(testDB, u.getUser, c)
-				So(err, ShouldBeNil)
-				So(ns.directoryRules["/lustre/scratch123/humgen/a/b/"].Melt, ShouldEqual, 0)
+				ns = New(newRoot(t, testDB), u.getUser, c)
+
+				So(s.rootDir.ClaimedDirectory("/lustre/scratch123/humgen/a/b/").Melt, ShouldEqual, 0)
 
 				ns.stop()
 			})

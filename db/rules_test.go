@@ -78,7 +78,7 @@ func TestRules(t *testing.T) {
 			})
 
 			Convey("…and remove them", func() {
-				So(db.RemoveRule(ruleA), ShouldBeNil)
+				So(db.RemoveRules(ruleA), ShouldBeNil)
 				So(collectIter(t, db.ReadRules()), ShouldResemble, []*Rule{ruleB, ruleC})
 			})
 

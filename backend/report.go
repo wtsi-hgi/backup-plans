@@ -27,7 +27,6 @@ package backend
 
 import (
 	"encoding/json"
-	"errors"
 	"log/slog"
 	"net/http"
 	"slices"
@@ -35,14 +34,13 @@ import (
 
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/ibackup"
+	"github.com/wtsi-hgi/backup-plans/rules"
 	"github.com/wtsi-hgi/backup-plans/ruletree"
-	"github.com/wtsi-hgi/backup-plans/users"
-	"vimagination.zapto.org/tree"
 )
 
 type summary struct {
 	Summaries             map[string]*ruletree.DirSummary
-	Rules                 map[uint64]*db.Rule
+	Rules                 map[uint64]rules.Rule
 	Directories           map[string][]uint64
 	BackupStatus          map[string]ibackup.SetBackupActivity
 	GroupBackupTypeTotals map[string]map[int]*SizeCount
@@ -90,14 +88,11 @@ func (s *Server) summary(w http.ResponseWriter, _ *http.Request) error {
 
 	dirSummary := summary{
 		Summaries:             make(map[string]*ruletree.DirSummary, len(reportingRoots)),
-		Rules:                 make(map[uint64]*db.Rule),
+		Rules:                 make(map[uint64]rules.Rule),
 		Directories:           make(map[string][]uint64),
 		BackupStatus:          make(map[string]ibackup.SetBackupActivity),
 		GroupBackupTypeTotals: make(map[string]map[int]*SizeCount),
 	}
-
-	s.rulesMu.RLock()
-	defer s.rulesMu.RUnlock()
 
 	err := s.collectBackupTotals(&dirSummary)
 	if err != nil {
@@ -109,15 +104,6 @@ func (s *Server) summary(w http.ResponseWriter, _ *http.Request) error {
 	w.Header().Set("Content-type", "application/json")
 
 	return json.NewEncoder(w).Encode(dirSummary)
-}
-
-func (s *Server) getClaimed(root string) string {
-	dirRules, ok := s.directoryRules[root]
-	if ok {
-		return dirRules.ClaimedBy
-	}
-
-	return ""
 }
 
 func (s *Server) populateBackupStatus(dirClaims, repos, nfs map[string]string,
@@ -248,7 +234,12 @@ func (s *Server) getBackupTypeForTotals(id uint64) int {
 		return unplanned
 	}
 
-	return int(s.rules[id].BackupType)
+	rule := s.rootDir.Rule(id)
+	if rule == nil {
+		return unplanned
+	}
+
+	return int(rule.BackupType)
 }
 
 func (s *Server) buildRootDirSummary(reportingRoots []string, dirSummary *summary) {
@@ -258,7 +249,7 @@ func (s *Server) buildRootDirSummary(reportingRoots []string, dirSummary *summar
 	manualIbackup := make(map[string][]dirSet)
 
 	for _, root := range reportingRoots {
-		ds, err := s.getRootSummary(root)
+		ds, err := s.rootDir.Summary(root)
 		if ds == nil || err != nil {
 			continue
 		}
@@ -267,13 +258,12 @@ func (s *Server) buildRootDirSummary(reportingRoots []string, dirSummary *summar
 			RuleSummaries: ds.RuleSummaries,
 			Children:      map[string]*ruletree.DirSummary{},
 			LastMod:       ds.LastMod,
+			User:          ds.User,
+			Group:         ds.Group,
+			ClaimedBy:     ds.ClaimedBy,
 		}
 
-		uid, gid := ds.IDs()
-		nds.User = users.Username(uid)
-		nds.Group = users.Group(gid)
 		s.collectChildDirSummaries(nds, root)
-		nds.ClaimedBy = s.getClaimed(root)
 		dirSummary.Summaries[root] = nds
 
 		s.collectRuleMetadata(ds, dirSummary, dirClaims, repos, nfs, manualIbackup)
@@ -282,44 +272,12 @@ func (s *Server) buildRootDirSummary(reportingRoots []string, dirSummary *summar
 	s.populateBackupStatus(dirClaims, repos, nfs, manualIbackup, dirSummary)
 }
 
-func (s *Server) getRootSummary(root string) (*ruletree.DirSummary, error) {
-	dr, ok := s.directoryRules[root]
-	if !ok { //nolint:nestif
-		ds, err := s.rootDir.Summary(root)
-		if errors.Is(err, ruletree.ErrNotFound) || errors.As(err, new(tree.ChildNotFoundError)) {
-			return nil, nil //nolint:nilnil
-		} else if err != nil {
-			return nil, err
-		}
-
-		return ds, nil
-	} else if dr.DirSummary == nil {
-		return nil, nil //nolint:nilnil
-	}
-
-	return dr.DirSummary, nil
-}
-
 func (s *Server) collectChildDirSummaries(ds *ruletree.DirSummary, root string) {
-	for _, dir := range s.dirs {
-		if strings.HasPrefix(dir.Path, root) && dir.Path != root {
-			dir, exists := s.directoryRules[dir.Path]
-			if !exists || dir == nil || dir.DirSummary == nil {
-				continue
-			}
-
-			child := dir.DirSummary
-
-			nchild := *dir.DirSummary
+	for dir, summary := range s.rootDir.ClaimedSummaries() {
+		if strings.HasPrefix(dir, root) && dir != root && summary != nil {
+			nchild := *summary
 			nchild.Children = map[string]*ruletree.DirSummary{}
-
-			uid, gid := child.IDs()
-
-			nchild.User = users.Username(uid)
-			nchild.Group = users.Group(gid)
-			nchild.ClaimedBy = s.getClaimed(dir.Path)
-
-			ds.Children[dir.Path] = &nchild
+			ds.Children[dir] = &nchild
 		}
 	}
 }
@@ -328,15 +286,20 @@ func (s *Server) collectRuleMetadata(ds *ruletree.DirSummary, dirSummary *summar
 	dirClaims, repos, nfs map[string]string, manualIbackup map[string][]dirSet,
 ) {
 	for _, ruleSummary := range ds.RuleSummaries {
-		rule := s.rules[ruleSummary.ID]
-
-		dirID := rule.DirID()
-		if dirID <= 0 {
+		if ruleSummary.ID <= 0 {
 			continue
 		}
 
-		dirPath := s.dirs[uint64(dirID)].Path
-		dir := s.directoryRules[dirPath]
+		rule := s.rootDir.Rule(ruleSummary.ID)
+
+		if rule == nil {
+			continue
+		}
+
+		dir := s.rootDir.RuleDir(uint64(rule.ID)) //nolint:gosec
+		if dir == nil {
+			continue
+		}
 
 		switch rule.BackupType { //nolint:exhaustive
 		case db.BackupIBackup:
@@ -349,27 +312,22 @@ func (s *Server) collectRuleMetadata(ds *ruletree.DirSummary, dirSummary *summar
 			nfs[rule.Metadata] = dir.ClaimedBy
 		}
 
-		if _, ok := dirSummary.Directories[dirPath]; ok {
+		if _, ok := dirSummary.Directories[dir.Path]; ok {
 			continue
 		}
 
-		s.collectRules(dirSummary, dir.DirRules)
+		s.collectRules(dirSummary, dir.Path)
 	}
 }
 
-func (s *Server) collectRules(dirSummary *summary, dir *ruletree.DirRules) {
-	ruleIDs := make([]uint64, 0, len(dir.Rules))
+func (s *Server) collectRules(dirSummary *summary, dir string) {
+	ruleIDs := make([]uint64, 0)
 
-	for _, r := range dir.Rules {
-		id := r.ID()
-		if id < 0 {
-			continue
-		}
-
-		ruleIDs = append(ruleIDs, uint64(id))
-		dirSummary.Rules[uint64(id)] = s.rules[uint64(id)]
+	for r := range s.rootDir.DirRules(dir) {
+		ruleIDs = append(ruleIDs, uint64(r.ID)) //nolint:gosec
+		dirSummary.Rules[uint64(r.ID)] = r      //nolint:gosec
 	}
 
 	slices.Sort(ruleIDs)
-	dirSummary.Directories[dir.Path] = ruleIDs
+	dirSummary.Directories[dir] = ruleIDs
 }
