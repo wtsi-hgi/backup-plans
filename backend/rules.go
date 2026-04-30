@@ -70,7 +70,7 @@ func (s *Server) ClaimDir(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.claimDir)
 }
 
-func (s *Server) claimDir(w http.ResponseWriter, r *http.Request) error { //nolint:funlen
+func (s *Server) claimDir(w http.ResponseWriter, r *http.Request) error {
 	user := s.getUser(r)
 
 	uid, groups := users.GetIDs(user)
@@ -115,7 +115,7 @@ func (s *Server) PassDirClaim(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.passDirClaim)
 }
 
-func (s *Server) passDirClaim(_ http.ResponseWriter, r *http.Request) error { //nolint:funlen
+func (s *Server) passDirClaim(_ http.ResponseWriter, r *http.Request) error {
 	user := s.getUser(r)
 	passTo := r.FormValue("passTo")
 
@@ -310,7 +310,7 @@ func (s *Server) CreateRule(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.createRule)
 }
 
-func (s *Server) createRule(w http.ResponseWriter, r *http.Request) error { //nolint:funlen,gocyclo
+func (s *Server) createRule(_ http.ResponseWriter, r *http.Request) error {
 	dir, err := getDir(r)
 	if err != nil {
 		return err
@@ -428,7 +428,7 @@ func (s *Server) UpdateRule(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.updateRule)
 }
 
-func (s *Server) updateRule(w http.ResponseWriter, r *http.Request) error { //nolint:funlen,gocyclo
+func (s *Server) updateRule(_ http.ResponseWriter, r *http.Request) error {
 	dir, err := getDir(r)
 	if err != nil {
 		return err
@@ -455,7 +455,7 @@ func (s *Server) RemoveRule(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.removeRule)
 }
 
-func (s *Server) removeRule(w http.ResponseWriter, r *http.Request) error { //nolint:funlen
+func (s *Server) removeRule(_ http.ResponseWriter, r *http.Request) error {
 	dir, err := getDir(r)
 	if err != nil {
 		return err

@@ -214,23 +214,6 @@ func pathParts(path string) iter.Seq[string] {
 	}
 }
 
-func parentParts(path string) iter.Seq[string] {
-	return func(yield func(string) bool) {
-		for len(path) > 0 {
-			pos := strings.LastIndexByte(path[:len(path)-1], '/')
-			if pos == -1 {
-				return
-			}
-
-			if !yield(path[:pos+1]) {
-				break
-			}
-
-			path = path[:pos]
-		}
-	}
-}
-
 var (
 	ErrDeepTree = errors.New("tree cannot be child of another tree")
 	ErrNotFound = errors.New("path not found")

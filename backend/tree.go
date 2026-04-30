@@ -57,7 +57,7 @@ func (s *Server) Tree(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.tree)
 }
 
-func (s *Server) tree(w http.ResponseWriter, r *http.Request) error { //nolint:funlen,gocyclo,cyclop,gocognit
+func (s *Server) tree(w http.ResponseWriter, r *http.Request) error { //nolint:funlen,gocyclo,gocognit
 	dir, err := getDir(r)
 	if err != nil {
 		return err

@@ -101,7 +101,7 @@ var numErr = new(strconv.NumError) //nolint:errname,gochecknoglobals
 func handle(w http.ResponseWriter, r *http.Request, fn func(http.ResponseWriter, *http.Request) error) {
 	httpbuffer.Handler{
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if err := fn(w, r); err != nil {
+			if err := fn(w, r); err != nil { //nolint:nestif
 				code := http.StatusInternalServerError
 
 				if c, ok := httpErrors[err]; ok {

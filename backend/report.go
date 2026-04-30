@@ -282,7 +282,7 @@ func (s *Server) collectChildDirSummaries(ds *ruletree.DirSummary, root string) 
 	}
 }
 
-func (s *Server) collectRuleMetadata(ds *ruletree.DirSummary, dirSummary *summary, //nolint:gocyclo
+func (s *Server) collectRuleMetadata(ds *ruletree.DirSummary, dirSummary *summary, //nolint:gocyclo,gocognit,funlen
 	dirClaims, repos, nfs map[string]string, manualIbackup map[string][]dirSet,
 ) {
 	for _, ruleSummary := range ds.RuleSummaries {
@@ -301,7 +301,7 @@ func (s *Server) collectRuleMetadata(ds *ruletree.DirSummary, dirSummary *summar
 			continue
 		}
 
-		switch rule.BackupType { //nolint:exhaustive
+		switch rule.BackupType {
 		case db.BackupIBackup:
 			dirClaims[dir.Path] = dir.ClaimedBy
 		case db.BackupManualIBackup:
@@ -321,7 +321,7 @@ func (s *Server) collectRuleMetadata(ds *ruletree.DirSummary, dirSummary *summar
 }
 
 func (s *Server) collectRules(dirSummary *summary, dir string) {
-	ruleIDs := make([]uint64, 0)
+	ruleIDs := make([]uint64, 0) //nolint:prealloc
 
 	for r := range s.rootDir.DirRules(dir) {
 		ruleIDs = append(ruleIDs, uint64(r.ID)) //nolint:gosec

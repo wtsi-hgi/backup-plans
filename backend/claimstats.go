@@ -159,8 +159,7 @@ func (s *Server) addSBA( //nolint:gocyclo,funlen
 	dir, requester string,
 	rule rules.Rule,
 ) []ibackup.SetBackupActivity {
-
-	switch rule.BackupType { //nolint:exhaustive
+	switch rule.BackupType {
 	case db.BackupIBackup:
 		backupName := "plan::" + dir
 		if _, exists := seen[backupName]; !exists {
