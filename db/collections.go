@@ -122,8 +122,8 @@ func (d *DB) UpdateCollection(c *Collection) error {
 }
 
 // RemoveCollection will remove the given collection and all its rules from the database.
-func (d *DB) RemoveCollection(collection *Collection) error {
-	return d.exec(deleteCollection, collection.id)
+func (d *DB) RemoveCollection(collectionID int64) error {
+	return d.exec(deleteCollection, collectionID)
 }
 
 // CreateCollectionRule defines the given rule(s) for the given collection.

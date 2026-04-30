@@ -86,10 +86,14 @@ func addHandlesAndListen(b *backend.Server, listen net.Listener, logout http.Han
 	http.Handle("GET /api/mainprogrammes", http.HandlerFunc(b.GetMainProgrammes))
 	http.Handle("POST /api/claimstats", http.HandlerFunc(b.ClaimStats))
 	http.Handle("GET /api/collections", http.HandlerFunc(b.Collections))
+
+	// TODO: Is this too many endpoints?
 	http.Handle("POST /api/collections/create", http.HandlerFunc(b.CreateCollection))
 	http.Handle("POST /api/collections/update", http.HandlerFunc(b.UpdateCollection))
 	http.Handle("POST /api/collections/delete", http.HandlerFunc(b.DeleteCollection))
+	http.Handle("GET /api/collections/getrules", http.HandlerFunc(b.GetCollectionRules))
 	http.Handle("POST /api/collections/rules/create", http.HandlerFunc(b.CreateCollectionRule))
+	http.Handle("POST /api/collections/rules/update", http.HandlerFunc(b.UpdateCollectionRule))
 	http.Handle("POST /api/collections/rules/delete", http.HandlerFunc(b.DeleteCollectionRule))
 	http.Handle("GET /", frontend.Index)
 	http.Handle("GET /logout", logout)

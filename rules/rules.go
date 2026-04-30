@@ -46,6 +46,7 @@ var (
 	ErrNameExists          = errors.New("collection with that name already exists")
 	ErrCollectionNotFound  = errors.New("collection not found")
 	ErrInvalidID           = errors.New("invalid collection ID")
+	ErrCollectionInUse     = errors.New("collection currently applied to a directory")
 )
 
 type dirRules struct {
@@ -735,16 +736,30 @@ func (d *Database) checkUpdateFields(collection db.Collection, name, description
 	return updateName, updateDesc, nil
 }
 
-// func (d *Database) GetCollectionNames() map[string]int64 {
-// 	d.mu.RLock()
-// 	defer d.mu.RUnlock()
+func (d *Database) DeleteCollection(id int64) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
 
-// 	return d.collectionNames
-// }
+	// Check if the collection is applied to any directory
+	// TODO: Is it worth increasing startup complexity to reduce time here by making another map?
+	for _, rule := range d.rules {
+		name := rule.CollectionName()
+		if name == "" {
+			continue
+		}
 
-// func (d *Database) GetCollectionRules() map[int64]*db.CollectionRule {
-// 	d.mu.RLock()
-// 	defer d.mu.RUnlock()
+		if _, exists := d.collectionNames[name]; !exists {
+			return ErrCollectionNotFound
+		}
 
-// 	return d.collectionRules
-// }
+		cID := d.collectionNames[name]
+		if id == cID {
+			return ErrCollectionInUse
+		}
+	}
+
+	delete(d.collections, id)
+	delete(d.collectionNames, d.collections[id].Name)
+
+	return d.rulesDB.RemoveCollection(id)
+}

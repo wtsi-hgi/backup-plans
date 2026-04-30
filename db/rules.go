@@ -78,9 +78,9 @@ func (r *Rule) DirID() int64 {
 	return r.directoryID
 }
 
-// CollectionID returns the name of the collection this rule belongs to, or ""
+// CollectionName returns the name of the collection this rule belongs to, or ""
 // if it does not belong to a collection.
-func (r *Rule) CollectionID() string {
+func (r *Rule) CollectionName() string {
 	if r.isCollection {
 		return r.Match
 	}

@@ -54,6 +54,7 @@ var (
 	ErrNameExists           = errors.New("collection with that name already exists")
 	ErrCollectionNotFound   = errors.New("collection not found")
 	ErrInvalidID            = errors.New("invalid collection ID")
+	ErrCollectionInUse      = errors.New("collection currently applied to a directory")
 )
 
 var httpErrors = map[error]int{ //nolint:gochecknoglobals
@@ -77,4 +78,5 @@ var httpErrors = map[error]int{ //nolint:gochecknoglobals
 	ErrNameExists:           http.StatusBadRequest,
 	ErrCollectionNotFound:   http.StatusBadRequest,
 	ErrInvalidID:            http.StatusBadRequest,
+	ErrCollectionInUse:      http.StatusBadRequest,
 }

@@ -592,6 +592,10 @@ func (r *RootDir) UpdateCollection(id int64, name, description string) error {
 	return r.rules.UpdateCollection(id, name, description)
 }
 
+func (r *RootDir) DeleteCollection(id int64) error {
+	return r.rules.DeleteCollection(id)
+}
+
 // func (r *RootDir) GetCollectionRules() map[int64]*db.CollectionRule {
 // 	return r.rules.GetCollectionRules()
 // }

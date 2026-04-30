@@ -136,6 +136,13 @@ func checkErrorResponse(t *testing.T, code int, resp string, err error) {
 	So(code, ShouldEqual, cmp.Or(httpErrors[err], http.StatusInternalServerError))
 }
 
+func checkNoContent(t *testing.T, code int, resp string) {
+	t.Helper()
+
+	So(code, ShouldEqual, http.StatusNoContent)
+	So(resp, ShouldEqual, "")
+}
+
 func (s *Server) stop() {
 	s.exit()
 	s.gitCache.Stop()

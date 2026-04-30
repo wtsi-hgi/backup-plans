@@ -82,10 +82,25 @@ func (s *Server) updateCollection(w http.ResponseWriter, r *http.Request) error 
 	return s.rootDir.UpdateCollection(cID, name, description)
 }
 
-// A collection should not be allowed to be removed if it is applied to any directory (rules has a rule with isCollection=True)
-func (s *Server) DeleteCollection(w http.ResponseWriter, r *http.Request) {}
+// DeleteCollection is an HTTP endpoint that deletes a collection by ID. A collection cannot be
+// deleted if it is applied to one or more directories.
+func (s *Server) DeleteCollection(w http.ResponseWriter, r *http.Request) {
+	handle(w, r, s.deleteCollection)
+}
 
-func (s *Server) CreateCollectionRule(w http.ResponseWriter, r *http.Request) {}
+func (s *Server) deleteCollection(w http.ResponseWriter, r *http.Request) error {
+	id := r.FormValue("id")
 
-func (s *Server) UpdateCollectionRule(w http.ResponseWriter, r *http.Request) {}
-func (s *Server) DeleteCollectionRule(w http.ResponseWriter, r *http.Request) {}
+	cID, err := strconv.ParseInt(id, 10, 0)
+	if err != nil {
+		return ErrInvalidID
+	}
+	// TODO: Should potentially also check the user should be allowed to here
+	return s.rootDir.DeleteCollection(cID)
+}
+
+func (s *Server) RemoveCollectionFromDir(w http.ResponseWriter, r *http.Request) {}
+func (s *Server) CreateCollectionRule(w http.ResponseWriter, r *http.Request)    {}
+func (s *Server) GetCollectionRules(w http.ResponseWriter, r *http.Request)      {}
+func (s *Server) UpdateCollectionRule(w http.ResponseWriter, r *http.Request)    {}
+func (s *Server) DeleteCollectionRule(w http.ResponseWriter, r *http.Request)    {}

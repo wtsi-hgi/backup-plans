@@ -98,8 +98,7 @@ func TestClaimDir(t *testing.T) {
 				u = root
 
 				code, resp = getResponse(s.RevokeDirClaim, "/api/dir/revoke?dir=/some/path/MyDir/", nil)
-				So(code, ShouldEqual, http.StatusNoContent)
-				So(resp, ShouldEqual, "")
+				checkNoContent(t, code, resp)
 
 				code, resp = getResponse(s.RevokeDirClaim, "/api/dir/revoke?dir=/some/path/MyDir/", nil)
 				checkErrorResponse(t, code, resp, ErrDirectoryNotClaimed)
@@ -136,8 +135,7 @@ func TestClaimDir(t *testing.T) {
 					"/api/dir/pass?dir=/some/path/MyDir/&passTo="+user.Username,
 					nil,
 				)
-				So(code, ShouldEqual, http.StatusNoContent)
-				So(resp, ShouldEqual, "")
+				checkNoContent(t, code, resp)
 
 				code, resp = getResponse(
 					s.PassDirClaim,
@@ -168,8 +166,7 @@ func TestClaimDir(t *testing.T) {
 					nil,
 				)
 
-				So(code, ShouldEqual, http.StatusNoContent)
-				So(resp, ShouldEqual, "")
+				checkNoContent(t, code, resp)
 
 				code, resp = getResponse(
 					s.Tree,
@@ -241,8 +238,7 @@ func TestRules(t *testing.T) {
 				"/api/rules/create?dir=/some/path/MyDir/&action=backup&match=*.txt&frequency=7&review=100&remove=200",
 				nil,
 			)
-			So(code, ShouldEqual, http.StatusNoContent)
-			So(resp, ShouldEqual, "")
+			checkNoContent(t, code, resp)
 
 			code, resp = getResponse(
 				s.CreateRule,
@@ -275,8 +271,7 @@ func TestRules(t *testing.T) {
 					"/api/rules/remove?dir=/some/path/MyDir/&action=backup&match=*.txt",
 					nil,
 				)
-				So(code, ShouldEqual, http.StatusNoContent)
-				So(resp, ShouldEqual, "")
+				checkNoContent(t, code, resp)
 
 				code, resp = getResponse(
 					s.RemoveRules,
@@ -301,8 +296,7 @@ func TestRules(t *testing.T) {
 				"/api/rules/create?dir=/some/path/MyDir/&action=backup&match=*.txt&match=*.txt&match=*.jpg&frequency=7&review=100&remove=200", //nolint:lll
 				nil,
 			)
-			So(code, ShouldEqual, http.StatusNoContent)
-			So(resp, ShouldEqual, "")
+			checkNoContent(t, code, resp)
 
 			code, resp = getResponse(
 				s.Tree,
@@ -319,8 +313,7 @@ func TestRules(t *testing.T) {
 					"/api/rules/remove?dir=/some/path/MyDir/&action=backup&match=*.txt&match=*.jpg",
 					nil,
 				)
-				So(code, ShouldEqual, http.StatusNoContent)
-				So(resp, ShouldEqual, "")
+				checkNoContent(t, code, resp)
 			})
 		})
 
@@ -349,8 +342,7 @@ func TestRules(t *testing.T) {
 						"/api/rules/create?dir=/some/path/ChildDir/Child/&action="+typ+"&match=*&frequency=7&review=100&remove=200",
 						nil,
 					)
-					So(code, ShouldEqual, http.StatusNoContent)
-					So(resp, ShouldEqual, "")
+					checkNoContent(t, code, resp)
 
 					code, resp = getResponse(
 						s.Tree,
@@ -417,8 +409,7 @@ ibackupcacheduration: 3600`,
 				So(s.rootDir.ClaimedDirectory("/lustre/scratch123/humgen/a/b/").Melt, ShouldEqual, 0)
 
 				code, resp := getResponse(s.SetDirDetails, "/api/setDetails", url.Values{"dir": {"/lustre/scratch123/humgen/a/b/"}, "frequency": {"1"}, "review": {strconv.FormatInt(now+1000, 10)}, "remove": {strconv.FormatInt(now+2000, 10)}, "frozen": {"true"}, "meltToggle": {"true"}}) //nolint:lll
-				So(resp, ShouldBeBlank)
-				So(code, ShouldEqual, http.StatusNoContent)
+				checkNoContent(t, code, resp)
 
 				So(s.rootDir.ClaimedDirectory("/lustre/scratch123/humgen/a/b/").Melt, ShouldBeGreaterThanOrEqualTo, now)
 
