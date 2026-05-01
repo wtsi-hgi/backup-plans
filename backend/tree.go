@@ -97,16 +97,21 @@ func (s *Server) tree(w http.ResponseWriter, r *http.Request) error { //nolint:f
 		t.Rules[dir] = ruleMap(s.rootDir.DirRules(dir))
 	}
 
-	for name, child := range summary.Children {
-		if !isAuthorised(child, uid, groups, adminGroup) {
-			t.Unauthorised = append(t.Unauthorised, name)
+	for _, rs := range t.RuleSummaries {
+		if rs.ID == 0 {
+			continue
 		}
 
-		childPath := dir + name
+		dir := s.rootDir.RuleDir(rs.ID)
+		rule := s.rootDir.Rule(rs.ID)
 
-		if s.rootDir.HasRules(childPath) {
-			t.Rules[dir] = ruleMap(s.rootDir.DirRules(childPath))
+		r, ok := t.Rules[dir.Path]
+		if !ok {
+			r = make(map[uint64]rules.Rule)
+			t.Rules[dir.Path] = r
 		}
+
+		r[rs.ID] = *rule
 	}
 
 	w.Header().Set("Content-Type", "application/json")
