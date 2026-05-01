@@ -67,8 +67,6 @@ func start(listen net.Listener, d *ruletree.RootDir, getUser func(*http.Request)
 		return err
 	}
 
-	slog.Info("Preloading cache.")
-
 	return addHandlesAndListen(b, listen, logout)
 }
 

@@ -29,6 +29,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/wtsi-hgi/backup-plans/db"
@@ -46,6 +47,7 @@ func TestRules(t *testing.T) {
 			So(rules.ClaimDirectory("/path/to/myDir/", "me"), ShouldBeNil)
 			So(rules.ClaimDirectory("/path/to/myDir/", "me"), ShouldEqual, ErrDirectoryClaimed)
 			So(rules.ClaimDirectory("/path/to/myDir/", "you"), ShouldEqual, ErrDirectoryClaimed)
+			So(rules.dirs[1], ShouldEqual, rules.directoryRules["/path/to/myDir/"])
 
 			So(collectDirs(rules), ShouldResemble, []Directory{
 				{Path: "/path/to/myDir/", ClaimedBy: "me", Frequency: 7},
@@ -58,12 +60,15 @@ func TestRules(t *testing.T) {
 				{Path: "/path/to/myOtherDir/", ClaimedBy: "me", Frequency: 7},
 			})
 
+			So(rules.PassDirectory("/path/to/otherDir/", "you"), ShouldEqual, ErrDirectoryNotClaimed)
 			So(rules.PassDirectory("/path/to/myDir/", "you"), ShouldBeNil)
 
 			So(collectDirs(rules), ShouldResemble, []Directory{
 				{Path: "/path/to/myDir/", ClaimedBy: "you", Frequency: 7},
 				{Path: "/path/to/myOtherDir/", ClaimedBy: "me", Frequency: 7},
 			})
+
+			So(rules.ForfeitDirectory("/path/to/otherDir/"), ShouldEqual, ErrDirectoryNotClaimed)
 
 			So(rules.ForfeitDirectory("/path/to/myDir/"), ShouldBeNil)
 			So(collectDirs(rules), ShouldResemble, []Directory{
@@ -80,8 +85,46 @@ func TestRules(t *testing.T) {
 			})
 		})
 
-		Convey("You can add, edit, and remove rules to claimed directories", func() {
+		Convey("You can set and retrive the details for a claimed directory", func() {
+			now := time.Now()
+
+			So(rules.DirDetails("/path/to/myDir/"), ShouldBeNil)
 			So(rules.ClaimDirectory("/path/to/myDir/", "me"), ShouldBeNil)
+
+			dir := rules.DirDetails("/path/to/myDir/")
+			So(dir.ReviewDate, ShouldBeBetweenOrEqual, now.Add(twoyears).Unix(), time.Now().Add(twoyears).Unix()+1)
+			So(dir.RemoveDate, ShouldBeBetweenOrEqual, now.Add(twoyears).Add(month).Unix(), time.Now().Add(twoyears).Add(month).Unix()+1)
+
+			So(dir, ShouldResemble, &Directory{
+				Path:       "/path/to/myDir/",
+				ClaimedBy:  "me",
+				Frequency:  defaultFrequency,
+				ReviewDate: dir.ReviewDate,
+				RemoveDate: dir.RemoveDate,
+			})
+
+			So(rules.SetDirDetails(Directory{
+				Path:       "/path/to/myDir/",
+				Frequency:  100,
+				ReviewDate: 1000,
+				RemoveDate: 2000,
+			}), ShouldBeNil)
+			So(rules.DirDetails("/path/to/myDir/"), ShouldResemble, &Directory{
+				Path:       "/path/to/myDir/",
+				ClaimedBy:  "me",
+				Frequency:  100,
+				ReviewDate: 1000,
+				RemoveDate: 2000,
+			})
+		})
+
+		Convey("You can add, edit, and remove rules to claimed directories", func() {
+			So(rules.HasRules("/path/to/myDir/"), ShouldBeFalse)
+			So(rules.ClaimDirectory("/path/to/myDir/", "me"), ShouldBeNil)
+			So(len(rules.dirs[1].Rules), ShouldBeZeroValue)
+			So(rules.rules[1], ShouldBeNil)
+			So(rules.Rule(1), ShouldBeNil)
+			So(rules.HasRules("/path/to/myDir/"), ShouldBeFalse)
 
 			So(rules.AddRules("/path/to/myDir/", Rule{
 				Match:      "*.txt",
@@ -89,6 +132,9 @@ func TestRules(t *testing.T) {
 				Metadata:   "meta",
 				Override:   true,
 			}), ShouldBeNil)
+			So(len(rules.dirs[1].Rules), ShouldEqual, 1)
+			So(rules.dirs[1].Rules["*.txt"], ShouldNotBeNil)
+			So(rules.rules[1], ShouldNotBeNil)
 			So(collectRules(rules), ShouldResemble, map[string][]Rule{
 				"/path/to/myDir/": {
 					{
@@ -101,6 +147,15 @@ func TestRules(t *testing.T) {
 					},
 				},
 			})
+			So(rules.Rule(1), ShouldResemble, &Rule{
+				ID:          1,
+				DirectoryID: 1,
+				Match:       "*.txt",
+				BackupType:  db.BackupIBackup,
+				Metadata:    "meta",
+				Override:    true,
+			})
+			So(rules.HasRules("/path/to/myDir/"), ShouldBeTrue)
 
 			So(rules.AddRules("/path/to/myDir/", Rule{
 				Match:      "*.txt",
@@ -283,6 +338,20 @@ func TestRules(t *testing.T) {
 			})
 		})
 
+		Convey("Forfeiting a directory that has rules on it also removes the rules", func() {
+			So(rules.ClaimDirectory("/path/to/myDir/", "me"), ShouldBeNil)
+			So(rules.rules[1], ShouldBeNil)
+			So(rules.AddRules("/path/to/myDir/", Rule{
+				Match:      "*.txt",
+				BackupType: db.BackupIBackup,
+				Metadata:   "meta",
+				Override:   true,
+			}), ShouldBeNil)
+			So(rules.rules[1], ShouldNotBeNil)
+			So(rules.ForfeitDirectory("/path/to/myDir/"), ShouldBeNil)
+			So(rules.rules[1], ShouldBeNil)
+		})
+
 		Convey("Transactions allow you to add or remove rules without affecting readers until Commit", func() {
 			So(rules.ClaimDirectory("/path/to/myDir/", "me"), ShouldBeNil)
 
@@ -292,6 +361,7 @@ func TestRules(t *testing.T) {
 				Metadata:   "meta",
 				Override:   true,
 			}), ShouldBeNil)
+			So(len(rules.rules), ShouldEqual, 1)
 
 			tx := rules.RuleTransaction()
 
@@ -329,6 +399,7 @@ func TestRules(t *testing.T) {
 					},
 				},
 			})
+			So(len(rules.rules), ShouldEqual, 1)
 
 			So(tx.Commit(), ShouldBeNil)
 			So(collectRules(rules), ShouldResemble, map[string][]Rule{
@@ -349,6 +420,7 @@ func TestRules(t *testing.T) {
 					},
 				},
 			})
+			So(len(rules.rules), ShouldEqual, 2)
 
 			tx = rules.RuleTransaction()
 			So(tx.RemoveRules("/path/to/myDir/", "*.txt"), ShouldBeNil)
@@ -380,6 +452,7 @@ func TestRules(t *testing.T) {
 					},
 				},
 			})
+			So(len(rules.rules), ShouldEqual, 2)
 
 			So(tx.Commit(), ShouldBeNil)
 			So(collectRules(rules), ShouldResemble, map[string][]Rule{
@@ -392,6 +465,7 @@ func TestRules(t *testing.T) {
 					},
 				},
 			})
+			So(len(rules.rules), ShouldEqual, 1)
 
 			Convey("Rolling back a transaction keeps the database at its previous state", func() {
 				tx := rules.RuleTransaction()

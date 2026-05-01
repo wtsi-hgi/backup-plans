@@ -60,7 +60,7 @@ type Database struct {
 
 	mu             *sync.RWMutex
 	directoryRules map[string]*dirRules
-	dirs           map[uint64]*db.Directory
+	dirs           map[uint64]*dirRules
 	rules          map[uint64]*db.Rule
 	delayAdd       []*db.Rule
 	delayRemove    []*db.Rule
@@ -73,7 +73,7 @@ func New(rdb *db.DB) (*Database, error) {
 		mu:             new(sync.RWMutex),
 		tx:             new(sync.Mutex),
 		directoryRules: make(map[string]*dirRules),
-		dirs:           make(map[uint64]*db.Directory),
+		dirs:           make(map[uint64]*dirRules),
 		rules:          make(map[uint64]*db.Rule),
 	}
 
@@ -94,7 +94,7 @@ func (d *Database) loadRules() error {
 		}
 		d.directoryRules[dir.Path] = dr
 		dirs[dir.ID()] = dr
-		d.dirs[uint64(dir.ID())] = dir //nolint:gosec
+		d.dirs[uint64(dir.ID())] = dr //nolint:gosec
 
 		return nil
 	}); err != nil {
@@ -146,11 +146,12 @@ func (d *Database) ClaimDirectory(path, claimant string) error {
 		return err
 	}
 
-	d.directoryRules[path] = &dirRules{
+	dr := &dirRules{
 		Directory: directory,
 		Rules:     make(map[string]*db.Rule),
 	}
-	d.dirs[uint64(directory.ID())] = directory //nolint:gosec
+	d.directoryRules[path] = dr
+	d.dirs[uint64(directory.ID())] = dr //nolint:gosec
 
 	return nil
 }
@@ -226,7 +227,7 @@ func (d *Database) RuleDir(id uint64) *Directory {
 		return nil
 	}
 
-	dir := toDir(directory)
+	dir := toDir(directory.Directory)
 
 	return &dir
 }
@@ -402,6 +403,7 @@ func (d *Database) RemoveRules(path string, matches ...string) error { //nolint:
 	}
 
 	for _, match := range matches {
+		delete(d.rules, uint64(directory.Rules[match].ID()))
 		delete(directory.Rules, match)
 	}
 
@@ -425,7 +427,7 @@ func (d *Database) Dirs() iter.Seq[Directory] {
 		defer d.mu.RUnlock()
 
 		for _, dir := range d.dirs {
-			if !yield(toDir(dir)) {
+			if !yield(toDir(dir.Directory)) {
 				return
 			}
 		}
@@ -548,19 +550,25 @@ func (d *Database) Commit() error { //nolint:gocognit,gocyclo,funlen
 		if err := d.rulesDB.RemoveRules(d.delayRemove...); err != nil {
 			return err
 		}
+
+		for _, rule := range d.delayRemove {
+			delete(d.dirs[uint64(rule.DirID())].Rules, rule.Match)
+			delete(d.rules, uint64(rule.ID()))
+		}
 	}
 
 	for _, add := range d.delayAdd {
-		dr := d.getDirectoryRules(uint64(add.DirID())) //nolint:gosec
+		dr := d.dirs[uint64(add.DirID())] //nolint:gosec
 		if dr == nil {
 			continue
 		}
 
 		dr.Rules[add.Match] = add
+		d.rules[uint64(add.ID())] = add
 	}
 
 	for _, rm := range d.delayRemove {
-		dr := d.getDirectoryRules(uint64(rm.DirID())) //nolint:gosec
+		dr := d.dirs[uint64(rm.DirID())] //nolint:gosec
 		if dr == nil {
 			continue
 		}
@@ -603,15 +611,6 @@ func (d *Database) Rollback() error {
 	d.tx = nil
 
 	return nil
-}
-
-func (d *Database) getDirectoryRules(id uint64) *dirRules {
-	directory := d.dirs[id]
-	if directory == nil {
-		return nil
-	}
-
-	return d.directoryRules[directory.Path]
 }
 
 // ToRule converts a db.Rule to a rules.Rule.

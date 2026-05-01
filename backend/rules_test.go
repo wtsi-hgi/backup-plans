@@ -314,7 +314,7 @@ func TestRules(t *testing.T) {
 			So(resp, ShouldContainSubstring, `,"2":{"ID":2,"DirectoryID":1,"BackupType":1,"Metadata":"","Match":"*.txt",`)
 		})
 
-		SkipConvey("You can add rules of every type", func() {
+		Convey("You can add rules of every type", func() {
 			currUser, err := user.Current()
 			So(err, ShouldBeNil)
 
