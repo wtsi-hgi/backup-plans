@@ -403,7 +403,7 @@ func (d *Database) RemoveRules(path string, matches ...string) error { //nolint:
 	}
 
 	for _, match := range matches {
-		delete(d.rules, uint64(directory.Rules[match].ID()))
+		delete(d.rules, uint64(directory.Rules[match].ID())) //nolint:gosec
 		delete(directory.Rules, match)
 	}
 
@@ -552,8 +552,8 @@ func (d *Database) Commit() error { //nolint:gocognit,gocyclo,funlen
 		}
 
 		for _, rule := range d.delayRemove {
-			delete(d.dirs[uint64(rule.DirID())].Rules, rule.Match)
-			delete(d.rules, uint64(rule.ID()))
+			delete(d.dirs[uint64(rule.DirID())].Rules, rule.Match) //nolint:gosec
+			delete(d.rules, uint64(rule.ID()))                     //nolint:gosec
 		}
 	}
 
@@ -564,7 +564,7 @@ func (d *Database) Commit() error { //nolint:gocognit,gocyclo,funlen
 		}
 
 		dr.Rules[add.Match] = add
-		d.rules[uint64(add.ID())] = add
+		d.rules[uint64(add.ID())] = add //nolint:gosec
 	}
 
 	for _, rm := range d.delayRemove {

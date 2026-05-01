@@ -85,7 +85,7 @@ func TestRules(t *testing.T) {
 			})
 		})
 
-		Convey("You can set and retrive the details for a claimed directory", func() {
+		Convey("You can set and retrieve the details for a claimed directory", func() {
 			now := time.Now()
 
 			So(rules.DirDetails("/path/to/myDir/"), ShouldBeNil)
@@ -93,7 +93,12 @@ func TestRules(t *testing.T) {
 
 			dir := rules.DirDetails("/path/to/myDir/")
 			So(dir.ReviewDate, ShouldBeBetweenOrEqual, now.Add(twoyears).Unix(), time.Now().Add(twoyears).Unix()+1)
-			So(dir.RemoveDate, ShouldBeBetweenOrEqual, now.Add(twoyears).Add(month).Unix(), time.Now().Add(twoyears).Add(month).Unix()+1)
+			So(
+				dir.RemoveDate,
+				ShouldBeBetweenOrEqual,
+				now.Add(twoyears).Add(month).Unix(),
+				time.Now().Add(twoyears).Add(month).Unix()+1,
+			)
 
 			So(dir, ShouldResemble, &Directory{
 				Path:       "/path/to/myDir/",
