@@ -27,7 +27,6 @@ package backend
 
 import (
 	"encoding/json"
-	"errors"
 	"maps"
 	"net/http"
 	"slices"
@@ -36,126 +35,11 @@ import (
 	"time"
 
 	"github.com/wtsi-hgi/backup-plans/db"
-	"github.com/wtsi-hgi/backup-plans/ruletree"
+	"github.com/wtsi-hgi/backup-plans/rules"
 	"github.com/wtsi-hgi/backup-plans/users"
-	"github.com/wtsi-hgi/wrstat-ui/summary/group"
 )
 
-var (
-	ErrOrphanedRule = errors.New("rule found without directory")
-	ErrInvalidDir   = Error{
-		Code: http.StatusBadRequest,
-		Err:  errors.New("invalid dir path"), //nolint:err113
-	}
-	ErrInvalidUser = Error{
-		Code: http.StatusForbidden,
-		Err:  errors.New("invalid user"), //nolint:err113
-	}
-	ErrDirectoryClaimed = Error{
-		Code: http.StatusNotAcceptable,
-		Err:  errors.New("directory already claimed"), //nolint:err113
-	}
-	ErrCannotClaimDirectory = Error{
-		Code: http.StatusNotAcceptable,
-		Err:  errors.New("cannot claim directory"), //nolint:err113
-	}
-	ErrDirectoryNotClaimed = Error{
-		Code: http.StatusNotAcceptable,
-		Err:  errors.New("directory not claimed"), //nolint:err113
-	}
-	ErrRuleExists = Error{
-		Code: http.StatusBadRequest,
-		Err:  errors.New("rule already exists for that match string"), //nolint:err113
-	}
-	ErrInvalidFrequency = Error{
-		Code: http.StatusBadRequest,
-		Err:  errors.New("invalid frequency"), //nolint:err113
-	}
-	ErrInvalidAction = Error{
-		Code: http.StatusBadRequest,
-		Err:  errors.New("invalid action"), //nolint:err113
-	}
-	ErrInvalidMatch = Error{
-		Code: http.StatusBadRequest,
-		Err:  errors.New("invalid match string"), //nolint:err113
-	}
-	ErrInvalidTime = Error{
-		Code: http.StatusBadRequest,
-		Err:  errors.New("invalid time"), //nolint:err113
-	}
-	ErrNoRule = Error{
-		Code: http.StatusBadRequest,
-		Err:  errors.New("no matching rule"), //nolint:err113
-	}
-	ErrDirectoryNotFrozen = Error{
-		Code: http.StatusBadRequest,
-		Err:  errors.New("directory not frozen"), //nolint:err113
-	}
-	ErrAlreadyFrozen = Error{
-		Code: http.StatusBadRequest,
-		Err:  errors.New("directory already frozen"), //nolint:err113
-	}
-)
-
-const (
-	defaultFrequency = 7
-	frequencyLimit   = 100000
-	month            = 3600 * 24 * 30
-	twoyears         = time.Hour * 24 * 365 * 2
-)
-
-func (s *Server) loadRules() ([]ruletree.DirRule, error) { //nolint:funlen
-	s.directoryRules = make(map[string]*Directory)
-	s.dirs = make(map[uint64]*db.Directory)
-	s.rules = make(map[uint64]*db.Rule)
-	dirs := make(map[int64]*ruletree.DirRules)
-	dirRules := make([]ruletree.DirRule, 0)
-
-	if err := s.rulesDB.ReadDirectories().ForEach(func(dir *db.Directory) error {
-		dr := Directory{
-			&ruletree.DirRules{
-				Directory: dir,
-				Rules:     make(map[string]*db.Rule),
-			},
-			nil,
-		}
-		s.directoryRules[dir.Path] = &dr
-		dirs[dir.ID()] = dr.DirRules
-		s.dirs[uint64(dir.ID())] = dir //nolint:gosec
-
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-
-	var ruleList []group.PathGroup[db.Rule]
-
-	if err := s.rulesDB.ReadRules().ForEach(func(r *db.Rule) error {
-		dir, ok := dirs[r.DirID()]
-		if !ok {
-			return ErrOrphanedRule
-		}
-
-		s.rules[uint64(r.ID())] = r //nolint:gosec
-
-		dir.Rules[r.Match] = r
-		ruleList = append(ruleList, group.PathGroup[db.Rule]{
-			Path:  []byte(dir.Path + r.Match),
-			Group: r,
-		})
-
-		dirRules = append(dirRules, ruletree.DirRule{
-			Directory: dir.Directory,
-			Rule:      r,
-		})
-
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-
-	return dirRules, nil
-}
+const frequencyLimit = 100000
 
 // ClaimDir is an HTTP endpoint that allows a user to claim a directory in order
 // to add rules to it. The user must be the owner of the directory, in the group
@@ -168,7 +52,7 @@ func (s *Server) ClaimDir(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.claimDir)
 }
 
-func (s *Server) claimDir(w http.ResponseWriter, r *http.Request) error { //nolint:funlen
+func (s *Server) claimDir(w http.ResponseWriter, r *http.Request) error {
 	user := s.getUser(r)
 
 	uid, groups := users.GetIDs(user)
@@ -181,71 +65,17 @@ func (s *Server) claimDir(w http.ResponseWriter, r *http.Request) error { //noli
 		return err
 	}
 
-	s.rulesMu.Lock()
-	defer s.rulesMu.Unlock()
-
-	if _, ok := s.directoryRules[dir]; ok {
-		return ErrDirectoryClaimed
-	}
-
 	if !s.canClaim(dir, uid, groups) {
 		return ErrCannotClaimDirectory
 	}
 
-	err = s.claimDirectory(
-		dir,
-		user,
-		defaultDirDetails(),
-	)
-	if err != nil {
+	if err := s.rootDir.ClaimDirectory(dir, user); err != nil {
 		return err
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 
 	return json.NewEncoder(w).Encode(user)
-}
-
-func defaultDirDetails() dirDetails {
-	reviewDate := time.Now().Add(twoyears).Unix()
-
-	return dirDetails{Frequency: defaultFrequency,
-		ReviewDate: reviewDate,
-		RemoveDate: reviewDate + month,
-	}
-}
-
-func (s *Server) claimDirectory(fileDir, user string, dirdetails dirDetails) error {
-	directory := &db.Directory{
-		Path:       fileDir,
-		ClaimedBy:  user,
-		Frequency:  dirdetails.Frequency,
-		ReviewDate: dirdetails.ReviewDate,
-		RemoveDate: dirdetails.RemoveDate,
-	}
-
-	if err := s.rulesDB.CreateDirectory(directory); err != nil {
-		return err
-	}
-
-	dirSummary, err := s.rootDir.Summary(directory.Path)
-	if err != nil {
-		return err
-	}
-
-	s.directoryRules[fileDir] = &Directory{
-		DirRules: &ruletree.DirRules{
-			Directory: directory,
-			Rules:     make(map[string]*db.Rule),
-		},
-		DirSummary: dirSummary,
-	}
-
-	s.dirs[uint64(directory.ID())] = directory //nolint:gosec
-
-	s.addToDirMaps(directory.ID(), dirSummary)
-
-	return nil
 }
 
 func (s *Server) canClaim(dir string, uid uint32, groups []uint32) bool {
@@ -267,7 +97,7 @@ func (s *Server) PassDirClaim(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.passDirClaim)
 }
 
-func (s *Server) passDirClaim(_ http.ResponseWriter, r *http.Request) error { //nolint:funlen
+func (s *Server) passDirClaim(_ http.ResponseWriter, r *http.Request) error {
 	user := s.getUser(r)
 	passTo := r.FormValue("passTo")
 
@@ -281,11 +111,8 @@ func (s *Server) passDirClaim(_ http.ResponseWriter, r *http.Request) error { //
 		return err
 	}
 
-	s.rulesMu.Lock()
-	defer s.rulesMu.Unlock()
-
-	directory, ok := s.directoryRules[dir]
-	if !ok {
+	directory := s.rootDir.ClaimedDirectory(dir)
+	if directory == nil {
 		return ErrDirectoryNotClaimed
 	}
 
@@ -297,9 +124,7 @@ func (s *Server) passDirClaim(_ http.ResponseWriter, r *http.Request) error { //
 		return ErrCannotClaimDirectory
 	}
 
-	directory.ClaimedBy = passTo
-
-	return s.rulesDB.UpdateDirectory(directory.Directory)
+	return s.rootDir.PassDirectory(dir, passTo)
 }
 
 // RevokeDirClaim allows the claimant of a directory to remove their claim on a
@@ -320,11 +145,8 @@ func (s *Server) revokeDirClaim(_ http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	s.rulesMu.Lock()
-	defer s.rulesMu.Unlock()
-
-	directory, ok := s.directoryRules[dir]
-	if !ok {
+	directory := s.rootDir.ClaimedDirectory(dir)
+	if directory == nil {
 		return ErrDirectoryNotClaimed
 	}
 
@@ -332,13 +154,11 @@ func (s *Server) revokeDirClaim(_ http.ResponseWriter, r *http.Request) error {
 		return ErrInvalidUser
 	}
 
-	if len(directory.Rules) > 0 {
+	if s.rootDir.HasRules(dir) {
 		return ErrInvalidDir
 	}
 
-	delete(s.directoryRules, dir)
-
-	return s.rulesDB.RemoveDirectory(directory.Directory)
+	return s.rootDir.RevokeDirectory(dir)
 }
 
 func (s *Server) SetDirDetails(w http.ResponseWriter, r *http.Request) {
@@ -360,36 +180,28 @@ func (s *Server) setDirDetails(_ http.ResponseWriter, r *http.Request) error { /
 		return err
 	}
 
-	user := s.getUser(r)
-
-	s.rulesMu.Lock()
-	defer s.rulesMu.Unlock()
-
-	directory, ok := s.directoryRules[dir]
-	if !ok {
+	directory := s.rootDir.ClaimedDirectory(dir)
+	if directory == nil {
 		return ErrDirectoryNotClaimed
 	}
 
-	if directory.ClaimedBy != user {
+	if directory.ClaimedBy != s.getUser(r) {
 		return ErrInvalidUser
 	}
 
-	directory.Frequency = dDetails.Frequency
-	directory.ReviewDate = dDetails.ReviewDate
-	directory.RemoveDate = dDetails.RemoveDate
-	directory.Frozen = dDetails.Frozen
+	dDetails.Path = dir
 
 	if dDetails.ToggleMelt { //nolint:nestif
 		if directory.Melt == 0 {
-			directory.Melt = time.Now().Unix()
+			dDetails.Melt = time.Now().Unix()
 		} else {
-			directory.Melt = 0
+			dDetails.Melt = 0
 		}
 	} else if !dDetails.Frozen {
-		directory.Melt = 0
+		dDetails.Melt = 0
 	}
 
-	return s.rulesDB.UpdateDirectory(directory.Directory)
+	return s.rootDir.SetDirDetails(dDetails.Directory)
 }
 
 func validateDirDetails(d dirDetails) error {
@@ -412,12 +224,8 @@ func validateDirDetails(d dirDetails) error {
 }
 
 type dirDetails struct {
-	Frequency  uint
-	Frozen     bool
-	ReviewDate int64
-	RemoveDate int64
-	Melt       int64 `json:",omitzero"`
-	ToggleMelt bool  `json:",omitzero"`
+	rules.Directory
+	ToggleMelt bool `json:",omitzero"`
 }
 
 func getDirDetails(r *http.Request) (dirDetails, error) { //nolint:gocyclo,funlen
@@ -429,7 +237,7 @@ func getDirDetails(r *http.Request) (dirDetails, error) { //nolint:gocyclo,funle
 
 	frequency, err := strconv.ParseUint(frequencyStr, 10, 64)
 	if err != nil {
-		return dirDetails{}, Error{Err: err, Code: http.StatusBadRequest}
+		return dirDetails{}, err
 	}
 
 	if frequency > frequencyLimit {
@@ -438,7 +246,7 @@ func getDirDetails(r *http.Request) (dirDetails, error) { //nolint:gocyclo,funle
 
 	frozen, err := strconv.ParseBool(frozenStr)
 	if err != nil {
-		return dirDetails{}, Error{Err: err, Code: http.StatusBadRequest}
+		return dirDetails{}, err
 	}
 
 	var toggleMelt bool
@@ -446,23 +254,26 @@ func getDirDetails(r *http.Request) (dirDetails, error) { //nolint:gocyclo,funle
 	if frozen {
 		toggleMelt, err = strconv.ParseBool(toggleMeltStr)
 		if err != nil {
-			return dirDetails{}, Error{Err: err, Code: http.StatusBadRequest}
+			return dirDetails{}, err
 		}
 	}
 
 	review, err := strconv.ParseInt(reviewStr, 10, 64)
 	if err != nil {
-		return dirDetails{}, Error{Err: err, Code: http.StatusBadRequest}
+		return dirDetails{}, err
 	}
 
 	remove, err := strconv.ParseInt(removeStr, 10, 64)
 	if err != nil {
-		return dirDetails{}, Error{Err: err, Code: http.StatusBadRequest}
+		return dirDetails{}, err
 	}
 
 	return dirDetails{
-		Frequency: uint(frequency), Frozen: frozen, ToggleMelt: toggleMelt,
-		ReviewDate: review, RemoveDate: remove,
+		Directory: rules.Directory{
+			Frequency: uint(frequency), Frozen: frozen,
+			ReviewDate: review, RemoveDate: remove,
+		},
+		ToggleMelt: toggleMelt,
 	}, nil
 }
 
@@ -481,7 +292,7 @@ func (s *Server) CreateRule(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.createRule)
 }
 
-func (s *Server) createRule(w http.ResponseWriter, r *http.Request) error { //nolint:funlen,gocyclo
+func (s *Server) createRule(_ http.ResponseWriter, r *http.Request) error {
 	dir, err := getDir(r)
 	if err != nil {
 		return err
@@ -492,64 +303,28 @@ func (s *Server) createRule(w http.ResponseWriter, r *http.Request) error { //no
 		return err
 	}
 
-	s.buildMu.Lock()
-	defer s.buildMu.Unlock()
-
-	directory, err := s.checkAddRules(r, dir, rules)
-	if err != nil {
+	if err := s.userClaimedDir(dir, s.getUser(r)); err != nil {
 		return err
 	}
 
-	if err := s.rulesDB.CreateDirectoryRule(directory.Directory, rules...); err != nil {
-		return err
+	return s.rootDir.AddRules(dir, rules)
+}
+
+func (s *Server) userClaimedDir(dir, user string) error {
+	directory := s.rootDir.ClaimedDirectory(dir)
+	if directory == nil {
+		return ErrDirectoryNotClaimed
 	}
 
-	s.rulesMu.Lock()
-
-	for _, rule := range rules {
-		directory.Rules[rule.Match] = rule
-		s.rules[uint64(rule.ID())] = rule //nolint:gosec
+	if directory.ClaimedBy != user {
+		return ErrInvalidUser
 	}
-
-	s.rulesMu.Unlock()
-
-	if err := s.rootDir.AddRules(directory.Directory, rules); err != nil {
-		return err
-	}
-
-	if err := s.updateDirSummaries(directory.Path); err != nil {
-		return err
-	}
-
-	w.WriteHeader(http.StatusNoContent)
 
 	return nil
 }
 
-func (s *Server) checkAddRules(r *http.Request, dir string, rules []*db.Rule) (*Directory, error) {
-	s.rulesMu.RLock()
-	defer s.rulesMu.RUnlock()
-
-	directory, ok := s.directoryRules[dir]
-	if !ok {
-		return nil, ErrInvalidDir
-	}
-
-	if directory.ClaimedBy != s.getUser(r) {
-		return nil, ErrInvalidUser
-	}
-
-	for _, rule := range rules {
-		if _, ok := directory.Rules[rule.Match]; ok {
-			return nil, ErrRuleExists
-		}
-	}
-
-	return directory, nil
-}
-
-func getRuleDetails(r *http.Request) ([]*db.Rule, error) { //nolint:cyclop,gocyclo,funlen
-	var rule db.Rule
+func getRuleDetails(r *http.Request) ([]rules.Rule, error) { //nolint:cyclop,gocyclo,funlen
+	var rule rules.Rule
 
 	var requireMetadata bool
 
@@ -583,18 +358,18 @@ func getRuleDetails(r *http.Request) ([]*db.Rule, error) { //nolint:cyclop,gocyc
 
 	rule.Override = r.FormValue("override") == "true"
 
-	rules, err := createMatchRules(rule, r.Form["match"])
+	ruleList, err := createMatchRules(rule, r.Form["match"])
 	if err != nil {
 		return nil, err
-	} else if len(rules) == 0 {
+	} else if len(ruleList) == 0 {
 		rule.Match = "*"
-		rules = []*db.Rule{&rule}
+		ruleList = []rules.Rule{rule}
 	}
 
-	return rules, nil
+	return ruleList, nil
 }
 
-func createMatchRules(rule db.Rule, matches []string) ([]*db.Rule, error) {
+func createMatchRules(rule rules.Rule, matches []string) ([]rules.Rule, error) {
 	ms := make(map[string]struct{})
 
 	for _, match := range matches {
@@ -609,13 +384,13 @@ func createMatchRules(rule db.Rule, matches []string) ([]*db.Rule, error) {
 		ms[match] = struct{}{}
 	}
 
-	rules := make([]*db.Rule, len(ms))
+	ruleList := make([]rules.Rule, len(ms))
 	matches = slices.Collect(maps.Keys(ms))
 
 	slices.Sort(matches)
 
 	for n, match := range matches {
-		rules[n] = &db.Rule{
+		ruleList[n] = rules.Rule{
 			BackupType: rule.BackupType,
 			Metadata:   rule.Metadata,
 			Match:      match,
@@ -623,7 +398,7 @@ func createMatchRules(rule db.Rule, matches []string) ([]*db.Rule, error) {
 		}
 	}
 
-	return rules, nil
+	return ruleList, nil
 }
 
 // UpdateRule allows the claimant of a directory to update a rule for that
@@ -635,7 +410,7 @@ func (s *Server) UpdateRule(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.updateRule)
 }
 
-func (s *Server) updateRule(w http.ResponseWriter, r *http.Request) error { //nolint:funlen,gocyclo
+func (s *Server) updateRule(_ http.ResponseWriter, r *http.Request) error {
 	dir, err := getDir(r)
 	if err != nil {
 		return err
@@ -646,36 +421,11 @@ func (s *Server) updateRule(w http.ResponseWriter, r *http.Request) error { //no
 		return err
 	}
 
-	s.rulesMu.Lock()
-	defer s.rulesMu.Unlock()
-
-	directory, ok := s.directoryRules[dir]
-	if !ok {
-		return ErrInvalidDir
-	}
-
-	if directory.ClaimedBy != s.getUser(r) {
-		return ErrInvalidUser
-	}
-
-	for n, rule := range rules {
-		existingRule, ok := directory.Rules[rule.Match]
-		if !ok {
-			return ErrNoRule
-		}
-
-		existingRule.BackupType = rule.BackupType
-		existingRule.Metadata = rule.Metadata
-		rules[n] = existingRule
-	}
-
-	if err := s.rulesDB.UpdateRule(rules...); err != nil {
+	if err := s.userClaimedDir(dir, s.getUser(r)); err != nil {
 		return err
 	}
 
-	w.WriteHeader(http.StatusNoContent)
-
-	return nil
+	return s.rootDir.UpdateRule(dir, rules[0])
 }
 
 // RemoveRule allows the claimant of a directory to remove a rule from that
@@ -687,63 +437,17 @@ func (s *Server) RemoveRule(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.removeRule)
 }
 
-func (s *Server) removeRule(w http.ResponseWriter, r *http.Request) error { //nolint:funlen
+func (s *Server) removeRule(_ http.ResponseWriter, r *http.Request) error {
 	dir, err := getDir(r)
 	if err != nil {
 		return err
 	}
 
-	s.buildMu.Lock()
-	defer s.buildMu.Unlock()
-
-	directory, rule, err := s.getRuleToRemove(r, dir)
-	if err != nil {
+	if err := s.userClaimedDir(dir, s.getUser(r)); err != nil {
 		return err
 	}
 
-	if err := s.rulesDB.RemoveRule(rule); err != nil {
-		return err
-	}
-
-	if err := s.rootDir.RemoveRule(directory.Directory, rule); err != nil {
-		return err
-	}
-
-	s.rulesMu.Lock()
-	delete(directory.Rules, rule.Match)
-	delete(s.rules, uint64(rule.ID())) //nolint:gosec
-	s.rulesMu.Unlock()
-
-	if err := s.updateDirSummaries(directory.Path); err != nil {
-		return err
-	}
-
-	w.WriteHeader(http.StatusNoContent)
-
-	return nil
-}
-
-func (s *Server) getRuleToRemove(r *http.Request, dir string) (*Directory, *db.Rule, error) {
-	s.rulesMu.RLock()
-	defer s.rulesMu.RUnlock()
-
-	directory, ok := s.directoryRules[dir]
-	if !ok {
-		return nil, nil, ErrDirectoryNotClaimed
-	}
-
-	if directory.ClaimedBy != s.getUser(r) {
-		return nil, nil, ErrInvalidUser
-	}
-
-	match := r.FormValue("match")
-
-	rule, ok := directory.Rules[match]
-	if !ok {
-		return nil, nil, ErrNoRule
-	}
-
-	return directory, rule, nil
+	return s.rootDir.RemoveRule(dir, r.FormValue("match"))
 }
 
 func getDir(r *http.Request) (string, error) {

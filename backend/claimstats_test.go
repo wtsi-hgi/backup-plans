@@ -40,6 +40,7 @@ import (
 	"github.com/wtsi-hgi/backup-plans/internal/config"
 	"github.com/wtsi-hgi/backup-plans/internal/plandb"
 	"github.com/wtsi-hgi/backup-plans/internal/wrstat"
+	"github.com/wtsi-hgi/backup-plans/rules"
 	"vimagination.zapto.org/tree"
 )
 
@@ -60,10 +61,10 @@ func TestClaimStats(t *testing.T) {
 		So(tree.Serialise(f, tr), ShouldBeNil)
 		So(f.Close(), ShouldBeNil)
 
-		s, err := New(testDB, u.getUser, config.NewConfig(t, nil, nil, nil, 0, nil))
-		So(err, ShouldBeNil)
+		s := New(newRoot(t, testDB), u.getUser, config.NewConfig(t, nil, nil, nil, 0, nil))
 
-		So(s.AddTree(treeFile), ShouldBeNil)
+		_, err = s.rootDir.AddTree(treeFile)
+		So(err, ShouldBeNil)
 
 		Convey("Claimstats should return all claimed directories, filtered by user, group or bom", func() {
 			u = userA
@@ -76,7 +77,7 @@ func TestClaimStats(t *testing.T) {
 			err = json.NewDecoder(strings.NewReader(resp)).Decode(&claimstatsA)
 			So(err, ShouldBeNil)
 
-			rules := slices.Collect(testDB.ReadRules().Iter)
+			ruleList := slices.Collect(testDB.ReadRules().Iter)
 
 			So(claimstatsA, ShouldResemble, []DirStats{
 				{
@@ -91,21 +92,20 @@ func TestClaimStats(t *testing.T) {
 					},
 					RuleStats: []ruleStats{
 						{
-							Rule: nil,
 							SizeCount: SizeCount{
 								Size:  14,
 								Count: 2,
 							},
 						},
 						{
-							Rule: copyRule(rules[0]),
+							Rule: rules.ToRule(ruleList[0]),
 							SizeCount: SizeCount{
 								Size:  17,
 								Count: 2,
 							},
 						},
 						{
-							Rule: copyRule(rules[1]),
+							Rule: rules.ToRule(ruleList[1]),
 							SizeCount: SizeCount{
 								Size:  8,
 								Count: 1,
@@ -126,7 +126,7 @@ func TestClaimStats(t *testing.T) {
 			err = json.NewDecoder(strings.NewReader(resp)).Decode(&claimstatsB)
 			So(err, ShouldBeNil)
 
-			rules = slices.Collect(testDB.ReadRules().Iter)
+			ruleList = slices.Collect(testDB.ReadRules().Iter)
 
 			So(claimstatsB, ShouldResemble, []DirStats{
 				{
@@ -141,21 +141,20 @@ func TestClaimStats(t *testing.T) {
 					},
 					RuleStats: []ruleStats{
 						{
-							Rule: nil,
 							SizeCount: SizeCount{
 								Size:  14,
 								Count: 2,
 							},
 						},
 						{
-							Rule: copyRule(rules[0]),
+							Rule: rules.ToRule(ruleList[0]),
 							SizeCount: SizeCount{
 								Size:  17,
 								Count: 2,
 							},
 						},
 						{
-							Rule: copyRule(rules[1]),
+							Rule: rules.ToRule(ruleList[1]),
 							SizeCount: SizeCount{
 								Size:  8,
 								Count: 1,
@@ -176,7 +175,7 @@ func TestClaimStats(t *testing.T) {
 					},
 					RuleStats: []ruleStats{
 						{
-							Rule: copyRule(rules[2]),
+							Rule: rules.ToRule(ruleList[2]),
 							SizeCount: SizeCount{
 								Size:  6,
 								Count: 1,
@@ -204,11 +203,11 @@ func TestClaimStats(t *testing.T) {
 
 		wrsc, _ := wrstat.NewTestWRStatClient(t, tr)
 
-		s, err := New(testDB, u.getUser, config.NewConfig(t, nil, nil, nil, 0, wrsc))
-		So(err, ShouldBeNil)
+		s := New(newRoot(t, testDB), u.getUser, config.NewConfig(t, nil, nil, nil, 0, wrsc))
 		So(s.config.GetWRStatClient(), ShouldNotBeNil)
 
-		So(s.AddTree(treeFile), ShouldBeNil)
+		_, err = s.rootDir.AddTree(treeFile)
+		So(err, ShouldBeNil)
 
 		u = root
 

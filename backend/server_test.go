@@ -26,6 +26,7 @@
 package backend
 
 import (
+	"cmp"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -36,11 +37,14 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/wtsi-hgi/backup-plans/backups"
+	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/internal/config"
 	"github.com/wtsi-hgi/backup-plans/internal/memtree"
 	"github.com/wtsi-hgi/backup-plans/internal/plandb"
 	"github.com/wtsi-hgi/backup-plans/internal/testdb"
 	"github.com/wtsi-hgi/backup-plans/internal/testirods"
+	"github.com/wtsi-hgi/backup-plans/rules"
+	"github.com/wtsi-hgi/backup-plans/ruletree"
 )
 
 func TestEndpoints(t *testing.T) {
@@ -57,10 +61,10 @@ func TestEndpoints(t *testing.T) {
 
 		Reset(dFn)
 
-		s, err := New(testdb.CreateTestDatabase(t), u.getUser, config.NewConfig(t, nil, nil, nil, 0, nil))
-		So(err, ShouldBeNil)
+		s := New(newEmptyRoot(t), u.getUser, config.NewConfig(t, nil, nil, nil, 0, nil))
 
-		So(s.AddTree(treeFile), ShouldBeNil)
+		_, err = s.rootDir.AddTree(treeFile)
+		So(err, ShouldBeNil)
 
 		setInfos, err := backups.Backup(testDB, treeNode, s.config.GetIBackupClient())
 		So(err, ShouldBeNil)
@@ -90,6 +94,21 @@ func TestEndpoints(t *testing.T) {
 	})
 }
 
+func newEmptyRoot(t *testing.T) *ruletree.RootDir {
+	t.Helper()
+
+	return newRoot(t, testdb.CreateTestDatabase(t))
+}
+
+func newRoot(t *testing.T, db *db.DB) *ruletree.RootDir {
+	t.Helper()
+
+	rdb, err := rules.New(db)
+	So(err, ShouldBeNil)
+
+	return ruletree.NewRoot(rdb)
+}
+
 func getResponse(fn http.HandlerFunc, u string, body any) (int, string) {
 	w := httptest.NewRecorder()
 
@@ -110,11 +129,11 @@ func getResponse(fn http.HandlerFunc, u string, body any) (int, string) {
 	return w.Code, w.Body.String()
 }
 
-func checkErrorResponse(t *testing.T, code int, resp string, err Error) {
+func checkErrorResponse(t *testing.T, code int, resp string, err error) {
 	t.Helper()
 
 	So(resp, ShouldEqual, err.Error()+"\n")
-	So(code, ShouldEqual, err.Code)
+	So(code, ShouldEqual, cmp.Or(httpErrors[err], http.StatusInternalServerError))
 }
 
 func (s *Server) stop() {

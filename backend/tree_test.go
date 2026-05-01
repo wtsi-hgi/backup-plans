@@ -33,7 +33,6 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/wtsi-hgi/backup-plans/internal/config"
-	"github.com/wtsi-hgi/backup-plans/internal/testdb"
 	"github.com/wtsi-hgi/backup-plans/users"
 )
 
@@ -44,12 +43,12 @@ func TestTree(t *testing.T) {
 		user, err := user.Current()
 		So(err, ShouldBeNil)
 
-		s, err := New(testdb.CreateTestDatabase(t), u.getUser, config.NewConfig(t, nil, nil, nil, 0, nil))
-		So(err, ShouldBeNil)
+		s := New(newEmptyRoot(t), u.getUser, config.NewConfig(t, nil, nil, nil, 0, nil))
 
 		treeDBPath := createTestTree(t)
 
-		So(s.AddTree(treeDBPath), ShouldBeNil)
+		_, err = s.rootDir.AddTree(treeDBPath)
+		So(err, ShouldBeNil)
 
 		Convey("You can get tree information for a directory", func() {
 			code, resp := getResponse(
@@ -67,16 +66,17 @@ func TestTree(t *testing.T) {
 				nil,
 			)
 			So(code, ShouldEqual, http.StatusOK)
-			So(resp, ShouldEqual, "{\"Group\":\"root\",\"RuleSummaries\":[{\"ID\":0,\"Users\":["+
+			So(resp, ShouldEqual, "{\"User\":\""+user.Username+"\",\"Group\":\"root\",\"RuleSummaries\":[{\"ID\":0,\"Users\":["+
 				"{\"Name\":\"root\",\"MTime\":4,\"Files\":1,\"Size\":3},"+
 				"{\"Name\":\""+user.Username+"\",\"MTime\":6,\"Files\":1,\"Size\":5}],"+
 				"\"Groups\":["+
 				"{\"Name\":\""+users.Group(2)+"\",\"MTime\":6,\"Files\":2,\"Size\":8}]}"+
-				"],\"Children\":{\"ChildToClaim/\":{\"Group\":\"root\",\"ClaimedBy\":\"\",\"RuleSummaries\""+
-				":[],\"Children\":{},\"LastMod\":0},\"ChildToNotClaim/\""+
-				":{\"Group\":\"root\",\"ClaimedBy\":\"\",\"RuleSummaries\":[],\""+
+				"],\"Children\":{\"ChildToClaim/\":{\"User\":\""+user.Username+"\",\"Group\":\"root\","+
+				"\"ClaimedBy\":\"\",\"RuleSummaries\":[],\"Children\":{},\"LastMod\":0},"+
+				"\"ChildToNotClaim/\":{\"User\":\""+user.Username+"\",\"Group\":\"root\","+
+				"\"ClaimedBy\":\"\",\"RuleSummaries\":[],\""+
 				"Children\":{},\"LastMod\":0}},\"LastMod\":6,\"ClaimedBy\":\"\",\"Rules\":{},\"Unauthorised\":[],\"CanClaim\""+
-				":true,\"Frequency\":0,\"Frozen\":false,\"ReviewDate\":0,\"RemoveDate\":0}\n")
+				":true,\"Frequency\":0,\"Frozen\":false,\"Melt\":0,\"ReviewDate\":0,\"RemoveDate\":0}\n")
 
 			code, _ = getResponse(
 				s.ClaimDir,
@@ -102,7 +102,7 @@ func TestTree(t *testing.T) {
 			re := regexp.MustCompile("[0-9]{5,}")
 			resp = re.ReplaceAllString(resp, "0")
 
-			So(resp, ShouldEqual, "{\"Group\":\"root\",\"RuleSummaries\":[{\"ID\":0,\"Users\":["+
+			So(resp, ShouldEqual, "{\"User\":\""+user.Username+"\",\"Group\":\"root\",\"RuleSummaries\":[{\"ID\":0,\"Users\":["+
 				"{\"Name\":\""+user.Username+"\",\"MTime\":6,\"Files\":1,\"Size\":5}"+
 				"],\"Groups\":["+
 				"{\"Name\":\""+users.Username(2)+"\",\"MTime\":6,\"Files\":1,\"Size\":5}]},"+
@@ -110,13 +110,15 @@ func TestTree(t *testing.T) {
 				"{\"Name\":\"root\",\"MTime\":4,\"Files\":1,\"Size\":3}"+
 				"],\"Groups\":["+
 				"{\"Name\":\""+users.Group(2)+"\",\"MTime\":4,\"Files\":1,\"Size\":3}]}"+
-				"],\"Children\":{\"ChildToClaim/\":{\"Group\":\"root\",\"ClaimedBy\":\"\",\"RuleSummaries\":"+
-				"[],\"Children\":{},\"LastMod\":0},\"ChildToNotClaim/\":{\"Group\":\"root\",\"ClaimedBy\":\"\""+
-				",\"RuleSummaries\":[],\"Children\":{},\"LastMod\":0}},\"LastMod\":6,\"ClaimedBy\":\"root\",\"Rules\":{"+
-				"\"/some/path/MyDir/\":{\"1\":{\"BackupType\":1,\"Metadata\":\"\","+
-				"\"Match\":\"*.txt\",\"Override\":false,\"Created\":0,\"Modified\":0}}},"+
+				"],\"Children\":{\"ChildToClaim/\":{\"User\":\""+user.Username+"\",\"Group\":\"root\","+
+				"\"ClaimedBy\":\"\",\"RuleSummaries\":[],\"Children\":{},\"LastMod\":0},"+
+				"\"ChildToNotClaim/\":{\"User\":\""+user.Username+"\",\"Group\":\"root\","+
+				"\"ClaimedBy\":\"\",\"RuleSummaries\":[],\"Children\":{},\"LastMod\":0}},"+
+				"\"LastMod\":6,\"ClaimedBy\":\"root\",\"Rules\":{"+
+				"\"/some/path/MyDir/\":{\"1\":{\"ID\":1,\"DirectoryID\":1,\"BackupType\":1,\"Metadata\":\"\","+
+				"\"Match\":\"*.txt\",\"Override\":false}}},"+
 				"\"Unauthorised\":[],\"CanClaim\":true,"+
-				"\"Frequency\":7,\"Frozen\":false,\"ReviewDate\":0,\"RemoveDate\":0}\n")
+				"\"Frequency\":7,\"Frozen\":false,\"Melt\":0,\"ReviewDate\":0,\"RemoveDate\":0}\n")
 		})
 	})
 }

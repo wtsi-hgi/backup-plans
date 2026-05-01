@@ -32,69 +32,46 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
-	"strings"
-	"sync"
+	"slices"
+	"strconv"
 	"time"
 
+	"github.com/wtsi-hgi/activecache"
 	"github.com/wtsi-hgi/backup-plans/config"
-	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/git"
 	"github.com/wtsi-hgi/backup-plans/ruletree"
 	"vimagination.zapto.org/httpbuffer"
 	_ "vimagination.zapto.org/httpbuffer/gzip" //
-	"vimagination.zapto.org/tree"
 )
-
-var ErrNoIBackup = Error{
-	Code: http.StatusNotImplemented,
-	Err:  errors.New("no ibackup server registered"), //nolint:err113
-}
 
 // Server represents all of the data required to run the backend server.
 type Server struct {
 	getUser func(r *http.Request) string
 
-	buildMu        sync.Mutex
-	rulesMu        sync.RWMutex
-	rulesDB        *db.DB
-	directoryRules map[string]*Directory
-	dirs           map[uint64]*db.Directory
-	rules          map[uint64]*db.Rule
-	dirGroups      map[int64]string
-	dirBoms        map[int64]string
-
 	config   *config.Config
 	gitCache *git.Cache
 
-	rootDir *ruletree.RootDir
+	rootDir   *ruletree.RootDir
+	groupBOMs *activecache.Cache[string, string]
 
 	exit func()
 }
 
-// Directory holds a claimed directory's rule and summary info.
-type Directory struct {
-	*ruletree.DirRules
-	DirSummary *ruletree.DirSummary
-}
-
 // New creates a new Backend API server.
-func New(db *db.DB, getUser func(r *http.Request) string, c *config.Config) (*Server, error) {
+func New(root *ruletree.RootDir, getUser func(r *http.Request) string, c *config.Config) *Server {
 	s := &Server{
-		getUser:   getUser,
-		rulesDB:   db,
-		config:    c,
-		dirGroups: make(map[int64]string),
-		dirBoms:   make(map[int64]string),
-	}
+		getUser: getUser,
+		config:  c,
+		rootDir: root,
+		groupBOMs: activecache.New(time.Hour, func(group string) (string, error) {
+			for bom, groups := range c.GetBOMs() {
+				if slices.Contains(groups, group) {
+					return bom, nil
+				}
+			}
 
-	rules, err := s.loadRules()
-	if err != nil {
-		return nil, err
-	}
-
-	s.rootDir, err = ruletree.NewRoot(rules)
-	if err != nil {
-		return nil, err
+			return "", nil
+		}),
 	}
 
 	s.gitCache = git.NewCache(time.Hour)
@@ -103,59 +80,12 @@ func New(db *db.DB, getUser func(r *http.Request) string, c *config.Config) (*Se
 
 	go s.refreezer(ctx)
 
-	s.exit = done
-
-	return s, nil
-}
-
-func (s *Server) addToDirMaps(id int64, dirSummary *ruletree.DirSummary) {
-	reverseBomMap := s.reverseBOMMap(s.config.GetBOMs())
-
-	groupname := dirSummary.Group
-
-	s.dirGroups[id] = groupname
-	s.dirBoms[id] = reverseBomMap[groupname]
-}
-
-// updateDirMaps will update s.dirGroups and s.dirBoms for the given root. If no
-// root is given, it will update all of them.
-//
-//	s.dirGroups: map(directory ID -> group name)
-//	s.dirBoms: map(directory ID -> BOM)
-func (s *Server) updateDirMaps(rootPath string) error { //nolint:gocognit
-	s.rulesMu.Lock()
-	defer s.rulesMu.Unlock()
-
-	for _, dir := range s.directoryRules {
-		if rootPath != "" && !strings.HasPrefix(dir.Path, rootPath) {
-			continue
-		}
-
-		dirSummary, err := s.rootDir.Summary(dir.Path)
-		if err != nil {
-			if errors.As(err, new(tree.ChildNotFoundError)) || errors.Is(err, ruletree.ErrNotFound) {
-				continue
-			}
-
-			return err
-		}
-
-		s.addToDirMaps(dir.ID(), dirSummary)
+	s.exit = func() {
+		s.groupBOMs.Stop()
+		done()
 	}
 
-	return nil
-}
-
-func (s *Server) reverseBOMMap(bomMap map[string][]string) map[string]string {
-	reverseBomMap := make(map[string]string)
-
-	for bom, groups := range bomMap {
-		for _, group := range groups {
-			reverseBomMap[group] = bom
-		}
-	}
-
-	return reverseBomMap
+	return s
 }
 
 // WhoAmI is an HTTP endpoint that returns the result of the getUser func that
@@ -167,29 +97,19 @@ func (s *Server) WhoAmI(w http.ResponseWriter, r *http.Request) {
 func handle(w http.ResponseWriter, r *http.Request, fn func(http.ResponseWriter, *http.Request) error) {
 	httpbuffer.Handler{
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if err := fn(w, r); err != nil {
-				var errc Error
+			if err := fn(w, r); err != nil { //nolint:nestif
+				code := http.StatusInternalServerError
 
-				if errors.As(err, &errc) {
-					http.Error(w, errc.Err.Error(), errc.Code)
-
-					return
+				if c, ok := httpErrors[err]; ok {
+					code = c
+				} else if numErr := new(strconv.NumError); errors.As(err, &numErr) {
+					code = http.StatusBadRequest
 				}
 
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				http.Error(w, err.Error(), code)
 			}
 		}),
 	}.ServeHTTP(w, r)
-}
-
-// Error is an error that contains an HTTP error code.
-type Error struct {
-	Code int
-	Err  error
-}
-
-func (e Error) Error() string {
-	return e.Err.Error()
 }
 
 // SetExists is an HTTP endpoint that will return whether there is a manual
@@ -245,16 +165,14 @@ func (s *Server) refreezer(ctx context.Context) {
 			return
 		}
 
-		s.rulesMu.Lock()
 		s.refreezeUpdatedDirectories()
-		s.rulesMu.Unlock()
 	}
 }
 
 func (s *Server) refreezeUpdatedDirectories() {
 	client := s.config.GetCachedIBackupClient()
 
-	for _, dir := range s.dirs {
+	for _, dir := range slices.Collect(s.rootDir.ClaimedDirectories()) {
 		if dir.Melt == 0 {
 			continue
 		}
@@ -264,20 +182,8 @@ func (s *Server) refreezeUpdatedDirectories() {
 			continue
 		}
 
-		if err := s.rulesDB.Refreeze(dir); err != nil {
+		if err := s.rootDir.Refreeze(dir.Path); err != nil {
 			slog.Error("error refreezing directory", "path", dir.Path, "err", err)
 		}
 	}
-}
-
-type rw struct{}
-
-func (rw) Write([]byte) (int, error) { return 0, nil }
-func (rw) WriteHeader(int)           {}
-func (rw) Header() http.Header       { return http.Header{} }
-
-// PreLoadCache will call s.summary with a mock ResponseWriter. This will preload
-// the dirSummaries into the server cache.
-func (s *Server) PreLoadCache() error {
-	return s.summary(rw{}, nil)
 }

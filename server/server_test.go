@@ -42,6 +42,8 @@ import (
 	"github.com/wtsi-hgi/backup-plans/internal/config"
 	"github.com/wtsi-hgi/backup-plans/internal/directories"
 	"github.com/wtsi-hgi/backup-plans/internal/testdb"
+	"github.com/wtsi-hgi/backup-plans/rules"
+	"github.com/wtsi-hgi/backup-plans/ruletree"
 	"github.com/wtsi-hgi/backup-plans/users"
 	"vimagination.zapto.org/tree"
 )
@@ -73,8 +75,18 @@ func TestSeverDBUpdate(t *testing.T) {
 			dbCheckTime = time.Second
 			cfg := config.NewConfig(t, nil, nil, nil, 0, nil)
 
+			rdb, err := rules.New(tdb)
+			So(err, ShouldBeNil)
+
 			go func() {
-				errCh <- start(l, tdb, func(*http.Request) string { return u.Username }, http.NotFoundHandler(), cfg, tmp)
+				errCh <- start(
+					l,
+					ruletree.NewRoot(rdb),
+					func(*http.Request) string { return u.Username },
+					http.NotFoundHandler(),
+					cfg,
+					tmp,
+				)
 			}()
 
 			baseURL := fmt.Sprintf("http://127.0.0.1:%d/", l.Addr().(*net.TCPAddr).Port) //nolint:errcheck,forcetypeassert

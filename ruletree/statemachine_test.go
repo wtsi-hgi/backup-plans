@@ -13,7 +13,7 @@ func TestStateMachine(t *testing.T) {
 	Convey("With a RootDir containing rules", t, func() {
 		tdb := testdb.CreateTestDatabase(t)
 
-		root, err := NewRoot(createDirRules(t, tdb, map[string][]*db.Rule{
+		createDirRules(t, tdb, map[string][]*db.Rule{
 			"/some/path/MyDir/": {
 				{Match: "*"},
 				{Match: "*.txt"},
@@ -46,11 +46,12 @@ func TestStateMachine(t *testing.T) {
 			"/parent/override/some/child/": {
 				{Match: "bad/*"},
 			},
-		}))
-		So(err, ShouldBeNil)
+		})
+
+		root := newRoot(t, tdb)
 
 		Convey("You can build and test a statemachine", func() {
-			sm, _, err := generateStatemachineFor("/", nil, root.directoryRules)
+			sm, _, err := generateStatemachineFor("/", nil, root.rules)
 			So(err, ShouldBeNil)
 
 			for n, test := range [...]struct {

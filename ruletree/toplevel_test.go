@@ -51,8 +51,7 @@ func TestTopLevel(t *testing.T) {
 		So(tree.Serialise(f, treeDBA), ShouldBeNil)
 		So(f.Close(), ShouldBeNil)
 
-		root, err := NewRoot(nil)
-		So(err, ShouldBeNil)
+		root := newEmptyRoot(t)
 
 		_, err = root.AddTree(treeDBPathA)
 		So(err, ShouldBeNil)

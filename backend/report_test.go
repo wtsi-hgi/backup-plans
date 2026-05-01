@@ -15,10 +15,10 @@ import (
 	"unsafe"
 
 	. "github.com/smartystreets/goconvey/convey"
-	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/ibackup"
 	"github.com/wtsi-hgi/backup-plans/internal/config"
 	"github.com/wtsi-hgi/backup-plans/internal/plandb"
+	"github.com/wtsi-hgi/backup-plans/rules"
 	"github.com/wtsi-hgi/backup-plans/ruletree"
 	"github.com/wtsi-hgi/backup-plans/users"
 	"github.com/wtsi-hgi/ibackup/server"
@@ -60,9 +60,13 @@ func TestReport(t *testing.T) {
 			"/lustre/scratch123/humgen/a/[bc]/",
 		}
 
-		srv, err := New(testDB, func(_ *http.Request) string { return "test" }, config.NewConfig(t, nil, nil, roots, 0, nil))
-		So(err, ShouldBeNil)
-		err = srv.AddTree(path)
+		srv := New(
+			newRoot(t, testDB),
+			func(_ *http.Request) string { return "test" },
+			config.NewConfig(t, nil, nil, roots, 0, nil),
+		)
+
+		_, err = srv.rootDir.AddTree(path)
 		So(err, ShouldBeNil)
 
 		exampleSet := &set.Set{
@@ -89,7 +93,7 @@ func TestReport(t *testing.T) {
 			err = json.NewDecoder(strings.NewReader(str)).Decode(&gotSummary)
 			So(err, ShouldBeNil)
 
-			rules := slices.Collect(testDB.ReadRules().Iter)
+			ruleList := slices.Collect(testDB.ReadRules().Iter)
 
 			Convey("Containing the correctly updated backup activity", func() {
 				abNewDir := &ruletree.DirSummary{
@@ -315,13 +319,13 @@ func TestReport(t *testing.T) {
 						"/lustre/scratch123/humgen/a/b/": &abWithChildren,
 						"/lustre/scratch123/humgen/a/c/": ac,
 					},
-					Rules: map[uint64]*db.Rule{
-						1: copyRule(rules[0]),
-						2: copyRule(rules[1]),
-						3: copyRule(rules[2]),
-						4: copyRule(rules[3]),
-						5: copyRule(rules[4]),
-						6: copyRule(rules[5]),
+					Rules: map[uint64]rules.Rule{
+						1: rules.ToRule(ruleList[0]),
+						2: rules.ToRule(ruleList[1]),
+						3: rules.ToRule(ruleList[2]),
+						4: rules.ToRule(ruleList[3]),
+						5: rules.ToRule(ruleList[4]),
+						6: rules.ToRule(ruleList[5]),
 					},
 					Directories: map[string][]uint64{
 						"/lustre/scratch123/humgen/a/b/":        {1, 2},
@@ -375,17 +379,6 @@ func TestReport(t *testing.T) {
 			})
 		})
 	})
-}
-
-// copyRule returns the rule without id's.
-func copyRule(rule *db.Rule) *db.Rule {
-	return &db.Rule{
-		BackupType: rule.BackupType,
-		Metadata:   rule.Metadata,
-		Match:      rule.Match,
-		Created:    rule.Created,
-		Modified:   rule.Modified,
-	}
 }
 
 // getSingleClientFromMultiClient returns the client from a MultiClient
