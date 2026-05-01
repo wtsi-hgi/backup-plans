@@ -171,6 +171,77 @@ func TestRoot(t *testing.T) {
 	})
 }
 
+func TestClaims(t *testing.T) {
+	Convey("Given a rules Database and a directory tree", t, func() {
+		treeDBA := directories.NewRoot("/some/path/", time.Now().Unix())
+		directories.AddFile(&treeDBA.Directory, "MyDir/a.txt", 0, 0, 3, 4)
+		directories.AddFile(&treeDBA.Directory, "MyDir/Child/b.csv", 0, 0, 5, 6)
+		directories.AddFile(&treeDBA.Directory, "Root/OtherDir/Child/c.csv", 0, 0, 5, 6)
+
+		treeDBPathA := filepath.Join(t.TempDir(), "a.db")
+
+		f, err := os.Create(treeDBPathA)
+		So(err, ShouldBeNil)
+		So(tree.Serialise(f, treeDBA), ShouldBeNil)
+		So(f.Close(), ShouldBeNil)
+
+		root := newEmptyRoot(t)
+
+		_, err = root.AddTree(treeDBPathA)
+		So(err, ShouldBeNil)
+
+		Convey("You can claim, pass, and revoke directories which updates the claimed caches", func() {
+			So(root.ClaimDirectory("/some/path/MyDir/", "me"), ShouldBeNil)
+			So(root.claimed["/some/path/MyDir/"].ClaimedBy, ShouldEqual, "me")
+			So(root.claimed["/some/path/MyDir/"].Children["Child/"].ClaimedBy, ShouldEqual, "")
+
+			So(root.ClaimDirectory("/some/path/MyDir/Child/", "you"), ShouldBeNil)
+			So(root.claimed["/some/path/MyDir/Child/"].ClaimedBy, ShouldEqual, "you")
+			So(root.claimed["/some/path/MyDir/"].Children["Child/"].ClaimedBy, ShouldEqual, "you")
+
+			So(root.PassDirectory("/some/path/MyDir/Child/", "other"), ShouldBeNil)
+			So(root.claimed["/some/path/MyDir/Child/"].ClaimedBy, ShouldEqual, "other")
+			So(root.claimed["/some/path/MyDir/"].Children["Child/"].ClaimedBy, ShouldEqual, "other")
+
+			So(root.RevokeDirectory("/some/path/MyDir/Child/"), ShouldBeNil)
+			So(root.claimed["/some/path/MyDir/Child/"], ShouldBeNil)
+			So(root.claimed["/some/path/MyDir/"].Children["Child/"].ClaimedBy, ShouldEqual, "")
+
+			So(root.ClaimDirectory("/some/path/NoDir/", "me"), ShouldBeNil)
+
+			dir, ok := root.claimed["/some/path/NoDir/"]
+			So(ok, ShouldBeTrue)
+			So(dir, ShouldBeNil)
+		})
+
+		Convey("Cached directories get updated when the claimed status changes", func() {
+			root.CacheSummaries("/some/path/Root/")
+			So(root.cached["/some/path/Root/"], ShouldNotBeNil)
+			So(root.cached["/some/path/Root/"].ClaimedBy, ShouldEqual, "")
+			So(root.cached["/some/path/Root/"].Children["OtherDir/"].ClaimedBy, ShouldEqual, "")
+
+			So(root.ClaimDirectory("/some/path/Root/OtherDir/", "me"), ShouldBeNil)
+			So(root.cached["/some/path/Root/"].ClaimedBy, ShouldEqual, "")
+			So(root.cached["/some/path/Root/"].Children["OtherDir/"].ClaimedBy, ShouldEqual, "me")
+
+			So(root.PassDirectory("/some/path/Root/OtherDir/", "you"), ShouldBeNil)
+			So(root.cached["/some/path/Root/"].Children["OtherDir/"].ClaimedBy, ShouldEqual, "you")
+
+			So(root.RevokeDirectory("/some/path/Root/OtherDir/"), ShouldBeNil)
+			So(root.cached["/some/path/Root/"].Children["OtherDir/"].ClaimedBy, ShouldEqual, "")
+
+			So(root.ClaimDirectory("/some/path/Root/", "me"), ShouldBeNil)
+			So(root.cached["/some/path/Root/"].ClaimedBy, ShouldEqual, "me")
+
+			So(root.PassDirectory("/some/path/Root/", "you"), ShouldBeNil)
+			So(root.cached["/some/path/Root/"].ClaimedBy, ShouldEqual, "you")
+
+			So(root.RevokeDirectory("/some/path/Root/"), ShouldBeNil)
+			So(root.cached["/some/path/Root/"].ClaimedBy, ShouldEqual, "")
+		})
+	})
+}
+
 func newEmptyRoot(t *testing.T) *RootDir {
 	t.Helper()
 

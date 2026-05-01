@@ -25,7 +25,32 @@
 
 package backend
 
-import "net/http"
+import (
+	"errors"
+	"net/http"
+
+	"github.com/wtsi-hgi/backup-plans/rules"
+)
+
+var (
+	ErrOrphanedRule         = errors.New("rule found without directory")
+	ErrInvalidDir           = errors.New("invalid dir path")
+	ErrInvalidUser          = errors.New("invalid user")
+	ErrCannotClaimDirectory = errors.New("cannot claim directory")
+	ErrInvalidFrequency     = errors.New("invalid frequency")
+	ErrInvalidAction        = errors.New("invalid action")
+	ErrInvalidMatch         = errors.New("invalid match string")
+	ErrInvalidTime          = errors.New("invalid time")
+	ErrDirectoryNotFrozen   = errors.New("directory not frozen")
+	ErrAlreadyFrozen        = errors.New("directory already frozen")
+	ErrNoIBackup            = errors.New("no ibackup server registered")
+	ErrNotFound             = errors.New("404 page not found")
+	ErrNotAuthorised        = errors.New("not authorised to see this directory")
+	ErrDirectoryClaimed     = rules.ErrDirectoryClaimed
+	ErrDirectoryNotClaimed  = rules.ErrDirectoryNotClaimed
+	ErrRuleExists           = rules.ErrRuleExists
+	ErrNoRule               = rules.ErrNoRule
+)
 
 var httpErrors = map[error]int{ //nolint:gochecknoglobals
 	ErrNotFound:             http.StatusNotFound,

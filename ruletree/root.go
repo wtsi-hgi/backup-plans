@@ -28,18 +28,16 @@ package ruletree
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"iter"
 	"maps"
-	"os"
 	"slices"
 	"strings"
 	"sync"
 
+	"github.com/wtsi-hgi/backup-plans/internal/memtree"
 	"github.com/wtsi-hgi/backup-plans/rules"
 	"github.com/wtsi-hgi/backup-plans/users"
 	"github.com/wtsi-hgi/wrstat-ui/summary/group"
-	"golang.org/x/sys/unix"
 	"vimagination.zapto.org/tree"
 )
 
@@ -111,19 +109,51 @@ func (r *RootDir) ClaimDirectory(path, claimant string) error {
 		r.cached[path] = s
 	}
 
-	parentPathPos := strings.LastIndexByte(path[:len(path)-1], '/')
-
-	if parent, ok := r.claimed[path[:parentPathPos+1]]; ok {
-		parent.Children[path[parentPathPos+1:]].ClaimedBy = claimant
-	}
+	r.setClaimed(path, claimant)
 
 	return nil
+}
+
+func (r *RootDir) setClaimed(path, claimant string) { //nolint:gocyclo
+	if claimed := r.claimed[path]; claimed != nil {
+		claimed.ClaimedBy = claimant
+	}
+
+	if cached := r.cached[path]; cached != nil {
+		cached.ClaimedBy = claimant
+	}
+
+	parentPath, childPath := splitPath(path)
+	if parentPath == "" {
+		return
+	}
+
+	if claimed := r.claimed[parentPath]; claimed != nil {
+		if child := claimed.Children[childPath]; child != nil {
+			child.ClaimedBy = claimant
+		}
+	}
+
+	if cached := r.cached[parentPath]; cached != nil {
+		if child := cached.Children[childPath]; child != nil {
+			child.ClaimedBy = claimant
+		}
+	}
+}
+
+func splitPath(path string) (string, string) {
+	parentPathPos := strings.LastIndexByte(path[:len(path)-1], '/')
+	if parentPathPos < 0 {
+		return "", ""
+	}
+
+	return path[:parentPathPos+1], path[parentPathPos+1:]
 }
 
 // CanClaim returns true if the given username can claim the given path.
 func (r *RootDir) CanClaim(path, claimant string) bool {
 	r.mu.RLock()
-	defer r.mu.Unlock()
+	defer r.mu.RUnlock()
 
 	uid, gids := users.GetIDs(claimant)
 
@@ -158,10 +188,19 @@ func (r *RootDir) RuleDir(id uint64) *rules.Directory {
 	return r.rules.RuleDir(id)
 }
 
-// PassDirectory will set the claimaint of a currently claimed directory to the
+// PassDirectory will set the claimant of a currently claimed directory to the
 // new username provided.
 func (r *RootDir) PassDirectory(path, claimant string) error {
-	return r.rules.PassDirectory(path, claimant)
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if err := r.rules.PassDirectory(path, claimant); err != nil {
+		return err
+	}
+
+	r.setClaimed(path, claimant)
+
+	return nil
 }
 
 // RevokeDirectory revokes a claim on a directory.
@@ -174,6 +213,8 @@ func (r *RootDir) RevokeDirectory(path string) error {
 	}
 
 	delete(r.claimed, path)
+
+	r.setClaimed(path, "")
 
 	return nil
 }
@@ -410,7 +451,7 @@ func (r *RootDir) getSummary(path string) (*DirSummary, error) {
 // RootDir, possibly overriding an existing database if they share the same
 // root.
 func (r *RootDir) AddTree(file string) (string, error) { //nolint:funlen,unparam
-	db, closer, err := openDB(file)
+	db, closer, err := memtree.Open(file)
 	if err != nil {
 		return "", err
 	}
@@ -453,41 +494,6 @@ func (r *RootDir) AddTree(file string) (string, error) { //nolint:funlen,unparam
 	r.updateCache(rootPath)
 
 	return rootPath, nil
-}
-
-func openDB(file string) (*tree.MemTree, func(), error) { //nolint:funlen
-	f, err := os.Open(file)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	stat, err := f.Stat()
-	if err != nil {
-		f.Close()
-
-		return nil, nil, err
-	}
-
-	data, err := unix.Mmap(int(f.Fd()), 0, int(stat.Size()), unix.PROT_READ, unix.MAP_SHARED)
-	if err != nil {
-		f.Close()
-
-		return nil, nil, err
-	}
-
-	fn := func() {
-		unix.Munmap(data) //nolint:errcheck
-		f.Close()
-	}
-
-	db, err := tree.OpenMem(data)
-	if err != nil {
-		fn()
-
-		return nil, nil, fmt.Errorf("error opening tree: %w", err)
-	}
-
-	return db, fn, nil
 }
 
 func getRoot(db *tree.MemTree) (*tree.MemTree, string, error) {

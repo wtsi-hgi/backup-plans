@@ -182,10 +182,10 @@ func (d *DB) RemoveRules(rules ...*Rule) error {
 	defer tx.Rollback() //nolint:errcheck
 
 	for _, rule := range rules {
-		if err := d.exec(deleteRule, rule.id); err != nil {
+		if _, err := tx.Exec(deleteRule, rule.id); err != nil { //nolint:noctx
 			return err
 		}
 	}
 
-	return nil
+	return tx.Commit()
 }

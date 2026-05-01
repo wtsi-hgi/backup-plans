@@ -27,7 +27,6 @@ package backend
 
 import (
 	"encoding/json"
-	"errors"
 	"iter"
 	"net/http"
 	"slices"
@@ -35,11 +34,6 @@ import (
 	"github.com/wtsi-hgi/backup-plans/rules"
 	"github.com/wtsi-hgi/backup-plans/ruletree"
 	"github.com/wtsi-hgi/backup-plans/users"
-)
-
-var (
-	ErrNotFound      = errors.New("404 page not found")
-	ErrNotAuthorised = errors.New("not authorised to see this directory")
 )
 
 type treeDB struct {
@@ -57,7 +51,7 @@ func (s *Server) Tree(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.tree)
 }
 
-func (s *Server) tree(w http.ResponseWriter, r *http.Request) error { //nolint:funlen,gocyclo,gocognit
+func (s *Server) tree(w http.ResponseWriter, r *http.Request) error {
 	dir, err := getDir(r)
 	if err != nil {
 		return err
@@ -73,26 +67,46 @@ func (s *Server) tree(w http.ResponseWriter, r *http.Request) error { //nolint:f
 		return err
 	}
 
-	duid, dgid := summary.IDs()
 	adminGroup := s.config.GetAdminGroup()
 
 	if !isAuthorised(summary, uid, groups, adminGroup) {
 		return ErrNotAuthorised
 	}
 
-	t := treeDB{
+	t := s.buildTree(summary, dir, adminGroup, uid, groups)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	return json.NewEncoder(w).Encode(t)
+}
+
+func (s *Server) buildTree(summary *ruletree.DirSummary, dir string, adminGroup, uid uint32, groups []uint32) *treeDB {
+	duid, dgid := summary.IDs()
+
+	t := &treeDB{
 		DirSummary:   summary,
 		ClaimedBy:    summary.ClaimedBy,
 		Rules:        make(map[string]map[uint64]rules.Rule),
 		Unauthorised: []string{},
+		CanClaim:     isOwner(uid, groups, duid, dgid),
 	}
-
-	t.CanClaim = isOwner(uid, groups, duid, dgid)
 
 	if directory := s.rootDir.ClaimedDirectory(dir); directory != nil {
 		t.Directory = *directory
 	}
 
+	setRules(s, t, dir)
+
+	for name, child := range summary.Children {
+		if !isAuthorised(child, uid, groups, adminGroup) {
+			t.Unauthorised = append(t.Unauthorised, name)
+		}
+	}
+
+	return t
+}
+
+func setRules(s *Server, t *treeDB, dir string) {
 	if s.rootDir.HasRules(dir) {
 		t.Rules[dir] = ruleMap(s.rootDir.DirRules(dir))
 	}
@@ -105,6 +119,10 @@ func (s *Server) tree(w http.ResponseWriter, r *http.Request) error { //nolint:f
 		dir := s.rootDir.RuleDir(rs.ID)
 		rule := s.rootDir.Rule(rs.ID)
 
+		if dir == nil || rule == nil {
+			continue
+		}
+
 		r, ok := t.Rules[dir.Path]
 		if !ok {
 			r = make(map[uint64]rules.Rule)
@@ -113,10 +131,6 @@ func (s *Server) tree(w http.ResponseWriter, r *http.Request) error { //nolint:f
 
 		r[rs.ID] = *rule
 	}
-
-	w.Header().Set("Content-Type", "application/json")
-
-	return json.NewEncoder(w).Encode(t)
 }
 
 func ruleMap(ri iter.Seq[rules.Rule]) map[uint64]rules.Rule {

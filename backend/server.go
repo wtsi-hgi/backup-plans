@@ -44,8 +44,6 @@ import (
 	_ "vimagination.zapto.org/httpbuffer/gzip" //
 )
 
-var ErrNoIBackup = errors.New("no ibackup server registered")
-
 // Server represents all of the data required to run the backend server.
 type Server struct {
 	getUser func(r *http.Request) string
@@ -96,8 +94,6 @@ func (s *Server) WhoAmI(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(s.getUser(r)) //nolint:errcheck,errchkjson
 }
 
-var numErr = new(strconv.NumError) //nolint:errname,gochecknoglobals
-
 func handle(w http.ResponseWriter, r *http.Request, fn func(http.ResponseWriter, *http.Request) error) {
 	httpbuffer.Handler{
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -106,7 +102,7 @@ func handle(w http.ResponseWriter, r *http.Request, fn func(http.ResponseWriter,
 
 				if c, ok := httpErrors[err]; ok {
 					code = c
-				} else if errors.As(err, &numErr) {
+				} else if numErr := new(strconv.NumError); errors.As(err, &numErr) {
 					code = http.StatusBadRequest
 				}
 

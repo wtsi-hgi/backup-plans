@@ -27,7 +27,6 @@ package backend
 
 import (
 	"encoding/json"
-	"errors"
 	"maps"
 	"net/http"
 	"slices"
@@ -38,23 +37,6 @@ import (
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/rules"
 	"github.com/wtsi-hgi/backup-plans/users"
-)
-
-var (
-	ErrOrphanedRule         = errors.New("rule found without directory")
-	ErrInvalidDir           = errors.New("invalid dir path")
-	ErrInvalidUser          = errors.New("invalid user")
-	ErrCannotClaimDirectory = errors.New("cannot claim directory")
-	ErrDirectoryClaimed     = rules.ErrDirectoryClaimed
-	ErrDirectoryNotClaimed  = rules.ErrDirectoryNotClaimed
-	ErrRuleExists           = rules.ErrRuleExists
-	ErrInvalidFrequency     = errors.New("invalid frequency")
-	ErrInvalidAction        = errors.New("invalid action")
-	ErrInvalidMatch         = errors.New("invalid match string")
-	ErrInvalidTime          = errors.New("invalid time")
-	ErrNoRule               = rules.ErrNoRule
-	ErrDirectoryNotFrozen   = errors.New("directory not frozen")
-	ErrAlreadyFrozen        = errors.New("directory already frozen")
 )
 
 const frequencyLimit = 100000

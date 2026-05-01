@@ -123,7 +123,7 @@ const (
 // ClaimDirectory will claim the given directory on behalf of the supplied user.
 //
 // The Frequency will be set to 7 days, the review date set for 2 years time,
-// and the remove data 1 month after that.
+// and the remove date 1 month after that.
 func (d *Database) ClaimDirectory(path, claimant string) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -156,7 +156,7 @@ func (d *Database) ClaimDirectory(path, claimant string) error {
 	return nil
 }
 
-// PassDirectory will set the claimaint of a currently claimed directory to the
+// PassDirectory will set the claimant of a currently claimed directory to the
 // new username provided.
 func (d *Database) PassDirectory(path, claimant string) error {
 	d.mu.Lock()
@@ -253,6 +253,9 @@ func (d *Database) SetDirDetails(dDetails Directory) error {
 
 // Claimant returns the username that owns the given directory.
 func (d *Database) Claimant(path string) string {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
 	dir, ok := d.directoryRules[path]
 	if !ok {
 		return ""
@@ -268,7 +271,7 @@ func (d *Database) Refreeze(path string) error {
 
 	dir, ok := d.directoryRules[path]
 	if !ok {
-		return ErrDirectoryClaimed
+		return ErrDirectoryNotClaimed
 	}
 
 	if err := d.rulesDB.Refreeze(dir.Directory); err != nil {
