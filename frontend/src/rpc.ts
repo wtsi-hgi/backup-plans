@@ -15,7 +15,7 @@ const encodeForm = (params: Record<string, unknown>) => {
 
 	return u;
 },
-	getURL = <T>(url: string, params: Record<string, string> = {}, body?: string | Record<string, unknown>) => {
+	getURL = <T>(url: string, params: Record<string, string> = {}, body?: Record<string, unknown>) => {
 		return new Promise<T>((successFn, errorFn) => {
 			const urlParams = encodeForm(params).toString(),
 				xh = new XMLHttpRequest();
@@ -36,7 +36,7 @@ const encodeForm = (params: Record<string, unknown>) => {
 					}
 				}
 			});
-			xh.send(body ? typeof body === "string" ? body : encodeForm(body) : null);
+			xh.send(body ? encodeForm(body) : null);
 		});
 	};
 
