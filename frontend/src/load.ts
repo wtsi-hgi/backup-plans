@@ -5,23 +5,15 @@ import { handleState, setState } from "./state.js";
 
 export type LoadHandler = (path: string, data: DirectoryWithChildren) => void;
 
-let lastPath = "/",
-	lastData: DirectoryWithChildren | null = null;
+let lastPath = "/";
 
 const debounce = debouncer<void>(),
 	handlers: LoadHandler[] = [];
 
-export const registerLoader = (fn: LoadHandler) => {
-	handlers.push(fn);
-
-	if (lastData) {
-		fn(lastPath, lastData);
-	}
-},
+export const registerLoader = (fn: LoadHandler) => handlers.push(fn),
 	load = (path = lastPath) => {
 		return debounce(() => (setState("path", path), Load(path)).then(data => {
 			lastPath = path;
-			lastData = data;
 
 			for (const fn of handlers) {
 				fn(path, data);
