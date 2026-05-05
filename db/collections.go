@@ -40,7 +40,7 @@ type Collection struct {
 // It is not applied to a directory and is merely a template to be applied to one.
 type CollectionRule struct {
 	id           int64
-	collectionID int64
+	CollectionID int64
 	BackupType   BackupType
 	Metadata     string
 	Match        string
@@ -175,15 +175,6 @@ func (c *CollectionRule) ID() int64 {
 	return c.id
 }
 
-// CollectionID returns the SQL collection ID that the collection rule belongs to.
-func (c *CollectionRule) CollectionID() int64 {
-	if c == nil {
-		return 0
-	}
-
-	return c.collectionID
-}
-
 // ReadCollectionRules allows iteration over the CollectionRules stored in the database.
 func (d *DBRO) ReadCollectionRules() *IterErr[*CollectionRule] {
 	return iterRows(d, scanCollectionRule, string(selectAllCollectionRules))
@@ -194,7 +185,7 @@ func scanCollectionRule(scanner scanner) (*CollectionRule, error) {
 
 	if err := scanner.Scan(
 		&r.id,
-		&r.collectionID,
+		&r.CollectionID,
 		&r.BackupType,
 		&r.Metadata,
 		&r.Match,

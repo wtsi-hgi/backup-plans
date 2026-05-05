@@ -47,12 +47,19 @@ var (
 	ErrCollectionNotFound  = errors.New("collection not found")
 	ErrInvalidID           = errors.New("invalid collection ID")
 	ErrCollectionInUse     = errors.New("collection currently applied to a directory")
+	ErrRuleNotFound        = errors.New("no collection rule found with that id")
 )
 
 type dirRules struct {
 	*db.Directory
 
 	Rules map[string]*db.Rule
+}
+
+type ColRules struct {
+	*db.Collection
+
+	Rules map[string]*db.CollectionRule // match -> colRule
 }
 
 // Database contains all of the claimed directories and their rules, adding
@@ -63,15 +70,14 @@ type Database struct {
 	inTx bool
 	tx   *sync.Mutex
 
-	mu              *sync.RWMutex
-	directoryRules  map[string]*dirRules
-	dirs            map[uint64]*dirRules
-	rules           map[uint64]*db.Rule
-	delayAdd        []*db.Rule
-	delayRemove     []*db.Rule
-	collections     map[int64]*db.Collection     // collectionRuleId -> Collection
-	collectionRules map[int64]*db.CollectionRule // collection rule id -> collectionRule
-	collectionNames map[string]int64             // collection name -> collection id
+	mu             *sync.RWMutex
+	directoryRules map[string]*dirRules
+	dirs           map[uint64]*dirRules
+	rules          map[uint64]*db.Rule
+	delayAdd       []*db.Rule
+	delayRemove    []*db.Rule
+	collections    map[int64]*ColRules  // collectionId -> ColRules
+	colRules       map[string]*ColRules // collection name -> ColRules
 }
 
 // New takes a database connection and caches the information for fast access.
@@ -83,6 +89,8 @@ func New(rdb *db.DB) (*Database, error) {
 		directoryRules: make(map[string]*dirRules),
 		dirs:           make(map[uint64]*dirRules),
 		rules:          make(map[uint64]*db.Rule),
+		collections:    make(map[int64]*ColRules),
+		colRules:       make(map[string]*ColRules),
 	}
 
 	if err := db.loadRules(); err != nil {
@@ -124,8 +132,12 @@ func (d *Database) loadRules() error {
 	}
 
 	if err := d.rulesDB.ReadCollections().ForEach(func(c *db.Collection) error {
-		d.collections[c.ID()] = c
-		d.collectionNames[c.Name] = c.ID()
+		cr := &ColRules{
+			Collection: c,
+			Rules:      make(map[string]*db.CollectionRule),
+		}
+		d.collections[c.ID()] = cr
+		d.colRules[c.Name] = cr
 
 		return nil
 	}); err != nil {
@@ -133,7 +145,13 @@ func (d *Database) loadRules() error {
 	}
 
 	return d.rulesDB.ReadCollectionRules().ForEach(func(r *db.CollectionRule) error {
-		d.collectionRules[r.ID()] = r
+		c := d.collections[r.CollectionID]
+		colRules, ok := d.colRules[c.Name]
+		if !ok {
+			return ErrOrphanedRule
+		}
+
+		colRules.Rules[r.Match] = r
 
 		return nil
 	})
@@ -311,12 +329,13 @@ func (d *Database) Refreeze(path string) error {
 type BackupType = db.BackupType
 
 type Rule struct {
-	ID          int64
-	DirectoryID int64
-	BackupType  BackupType
-	Metadata    string
-	Match       string
-	Override    bool
+	ID           int64
+	DirectoryID  int64
+	BackupType   BackupType
+	Metadata     string
+	Match        string
+	Override     bool
+	IsCollection bool
 }
 
 // AddRules adds the supplied rules to the claimed directory specified.
@@ -558,6 +577,8 @@ func (d *Database) RuleTransaction() *Database {
 		directoryRules: d.directoryRules,
 		dirs:           d.dirs,
 		rules:          d.rules,
+		collections:    d.collections,
+		colRules:       d.colRules,
 	}
 }
 
@@ -653,7 +674,7 @@ func ToRule(r *db.Rule) Rule {
 	}
 }
 
-func (d *Database) GetCollections() map[int64]*db.Collection {
+func (d *Database) GetCollections() map[int64]*ColRules {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
@@ -664,7 +685,7 @@ func (d *Database) CreateCollection(name, description string) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	if _, exists := d.collectionNames[name]; exists {
+	if _, exists := d.colRules[name]; exists {
 		return ErrNameExists
 	}
 
@@ -673,13 +694,18 @@ func (d *Database) CreateCollection(name, description string) error {
 		Description: description,
 	}
 
-	err := d.rulesDB.CreateCollection(c)
-	if err != nil {
+	if err := d.rulesDB.CreateCollection(c); err != nil {
 		return err
 	}
 
-	d.collections[c.ID()] = c
-	d.collectionNames[c.Name] = c.ID()
+	cr := &ColRules{
+		Collection: c,
+		Rules:      make(map[string]*db.CollectionRule),
+	}
+
+
+	d.collections[c.ID()] = cr // why is this map nil
+	d.colRules[c.Name] = cr
 
 	return nil
 }
@@ -693,9 +719,9 @@ func (d *Database) UpdateCollection(id int64, name, description string) error {
 		return ErrCollectionNotFound
 	}
 
-	workingCopy := *collection
+	workingCopy := d.colRules[collection.Name]
 
-	updateName, updateDesc, err := d.checkUpdateFields(workingCopy, name, description)
+	updateName, updateDesc, err := d.checkUpdateFields(*workingCopy.Collection, name, description)
 	if err != nil {
 		return err
 	}
@@ -705,16 +731,16 @@ func (d *Database) UpdateCollection(id int64, name, description string) error {
 	}
 
 	if updateName {
-		delete(d.collectionNames, collection.Name)
+		delete(d.colRules, collection.Name)
 		workingCopy.Name = name
-		d.collectionNames[name] = id
+		d.colRules[name] = workingCopy
 	}
 
-	d.collections[id] = &workingCopy
+	d.collections[id] = workingCopy
 
 	// do the dirSummaries need updating (since they have rule matches which is rule name)?
 
-	return d.rulesDB.UpdateCollection(&workingCopy)
+	return d.rulesDB.UpdateCollection(workingCopy.Collection)
 }
 
 func (d *Database) checkUpdateFields(collection db.Collection, name, description string) (bool, bool, error) {
@@ -726,7 +752,7 @@ func (d *Database) checkUpdateFields(collection db.Collection, name, description
 	}
 
 	if name != "" && name != collection.Name {
-		if _, exists := d.collectionNames[name]; exists {
+		if _, exists := d.colRules[name]; exists {
 			return false, false, ErrNameExists
 		}
 
@@ -741,25 +767,44 @@ func (d *Database) DeleteCollection(id int64) error {
 	defer d.mu.Unlock()
 
 	// Check if the collection is applied to any directory
-	// TODO: Is it worth increasing startup complexity to reduce time here by making another map?
 	for _, rule := range d.rules {
 		name := rule.CollectionName()
 		if name == "" {
 			continue
 		}
 
-		if _, exists := d.collectionNames[name]; !exists {
+		colRules, exists := d.colRules[name]
+		if !exists {
 			return ErrCollectionNotFound
 		}
 
-		cID := d.collectionNames[name]
-		if id == cID {
+		if id == colRules.ID() {
 			return ErrCollectionInUse
 		}
 	}
 
+	delete(d.colRules, d.collections[id].Name)
 	delete(d.collections, id)
-	delete(d.collectionNames, d.collections[id].Name)
 
 	return d.rulesDB.RemoveCollection(id)
+}
+
+func (d *Database) CreateCollectionRule(cName string, rules ...*db.CollectionRule) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	colRules, exists := d.colRules[cName]
+	if !exists {
+		return ErrCollectionNotFound
+	}
+
+	for _, rule := range rules {
+		for match := range colRules.Rules {
+			if match == rule.Match {
+				return ErrRuleExists
+			}
+		}
+	}
+
+	return d.rulesDB.CreateCollectionRule(colRules.Collection, rules...)
 }

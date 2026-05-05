@@ -34,21 +34,13 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/wtsi-hgi/backup-plans/db"
 	lconfig "github.com/wtsi-hgi/backup-plans/internal/config"
+	"github.com/wtsi-hgi/backup-plans/rules"
 )
 
 func TestCollections(t *testing.T) {
 	Convey("With a configured backend", t, func() {
 		var u userHandler
 
-		// user, err := user.Current()
-		// So(err, ShouldBeNil)
-
-		// s := New(testdb.CreateTestDatabase(t), u.getUser, lconfig.NewConfig(t, nil, nil, nil, 0, nil))
-		// So(err, ShouldBeNil)
-
-		// treeDBPath := createTestTree(t)
-
-		// So(s.AddTree(treeDBPath), ShouldBeNil)
 		s := New(newEmptyRoot(t), u.getUser, lconfig.NewConfig(t, nil, nil, nil, 0, nil))
 
 		treeDBPath := createTestTree(t)
@@ -60,12 +52,12 @@ func TestCollections(t *testing.T) {
 			code, resp := getResponse(s.Collections, "/api/collections", nil)
 			So(code, ShouldEqual, http.StatusOK)
 
-			var collections map[string]db.Collection
+			var collections map[string]*rules.ColRules
 
 			err = json.NewDecoder(strings.NewReader(resp)).Decode(&collections)
 			So(err, ShouldBeNil)
 
-			So(collections, ShouldResemble, map[string]db.Collection{})
+			So(collections, ShouldResemble, map[string]*rules.ColRules{})
 
 			code, resp = getResponse(s.CreateCollection, "/api/collections/create?name=Test&description=testdescription", nil)
 			checkNoContent(t, code, resp)
@@ -85,14 +77,20 @@ func TestCollections(t *testing.T) {
 			err = json.NewDecoder(strings.NewReader(resp)).Decode(&collections)
 			So(err, ShouldBeNil)
 
-			So(removeTimesFromCollection(t, collections), ShouldResemble, map[string]db.Collection{
+			So(removeTimesFromCollection(t, collections), ShouldResemble, map[string]*rules.ColRules{
 				"1": {
-					Name:        "Test",
-					Description: "testdescription",
+					Collection: &db.Collection{
+						Name:        "Test",
+						Description: "testdescription",
+					},
+					Rules: map[string]*db.CollectionRule{},
 				},
 				"2": {
-					Name:        "Test2",
-					Description: "testdescription",
+					Collection: &db.Collection{
+						Name:        "Test2",
+						Description: "testdescription",
+					},
+					Rules: map[string]*db.CollectionRule{},
 				},
 			})
 
@@ -166,18 +164,46 @@ func TestCollections(t *testing.T) {
 				So(removeTimesFromCollectionRules(t, collectionRules), ShouldResemble, []db.CollectionRule{})
 
 				Convey("And update them", func() {
-					// code, resp = getResponse(
-					// 	s.UpdateCollectionRule,
-					// 	"/api/collections/rules/update?id="
-					// )
+					code, resp = getResponse(
+						s.UpdateCollectionRule,
+						"/api/collections/rules/update?id=1&action=nobackup",
+						nil,
+					)
+					checkNoContent(t, code, resp)
+
+					code, resp = getResponse(
+						s.UpdateCollectionRule,
+						"/api/collections/rules/update?id=1234&action=nobackup",
+						nil,
+					)
+					checkErrorResponse(t, code, resp, ErrRuleNotFound)
 				})
 
 				Convey("And delete them", func() {
+					code, resp = getResponse(
+						s.DeleteCollection,
+						"/api/collections/delete?id=1",
+						nil,
+					)
+					checkErrorResponse(t, code, resp, ErrCollectionInUse)
 
+					code, resp = getResponse(
+						s.DeleteCollectionRule,
+						"/api/collections/rules/delete?id=1",
+						nil,
+					)
+					checkNoContent(t, code, resp)
+
+					code, resp = getResponse(
+						s.DeleteCollection,
+						"/api/collections/delete?id=1",
+						nil,
+					)
+					checkNoContent(t, code, resp)
 				})
 			})
 
-			Convey("You can delete collections", func() {
+			Convey("You can delete collections and collection rules", func() {
 				code, resp = getResponse(s.CreateCollectionRule, "/api/collections/rules/create?match=*.txt&isCollection=true&action=ibackup", nil)
 				checkNoContent(t, code, resp)
 
@@ -193,16 +219,42 @@ func TestCollections(t *testing.T) {
 				code, resp = getResponse(s.DeleteCollection, "/api/collections/delete?id=1", nil)
 				checkErrorResponse(t, code, resp, ErrCollectionNotFound)
 			})
+
+			Convey("You can add collections to directories", func() {
+				code, resp = getResponse(
+					s.CreateRule,
+					"/api/rules/create?dir=/some/path/MyDir/&match=Test2&isCollection=true",
+					nil,
+				)
+				checkNoContent(t, code, resp)
+
+				code, resp = getResponse(
+					s.CreateRule,
+					"/api/rules/create?dir=/some/path/MyDir/&match=Test2&isCollection=true",
+					nil,
+				)
+				checkErrorResponse(t, code, resp, ErrRuleExists)
+
+				u = root
+
+				code, resp = getResponse(
+					s.Tree,
+					"/api/tree?dir=/some/path/MyDir/",
+					nil,
+				)
+				So(code, ShouldEqual, http.StatusOK)
+				So(resp, ShouldNotBeNil)
+			})
 		})
 	})
 }
 
-func removeTimesFromCollection(t *testing.T, collections map[string]db.Collection) map[string]db.Collection {
+func removeTimesFromCollection(t *testing.T, colRules map[string]*rules.ColRules) map[string]*rules.ColRules {
 	t.Helper()
 
-	output := make(map[string]db.Collection)
+	output := make(map[string]*rules.ColRules)
 
-	for k, c := range collections {
+	for k, c := range colRules {
 		So(c.Created, ShouldBeGreaterThan, 0)
 		So(c.Modified, ShouldBeGreaterThan, 0)
 

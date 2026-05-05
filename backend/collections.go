@@ -29,6 +29,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+
+	"github.com/wtsi-hgi/backup-plans/db"
 )
 
 // Collection is an HTTP endpoint that returns all collections.
@@ -57,7 +59,7 @@ func (s *Server) createCollection(w http.ResponseWriter, r *http.Request) error 
 
 	w.Header().Set("Content-type", "application/json")
 
-	return s.rootDir.CreateCollection(name, description)
+	return s.rootDir.CreateCollection(db.Collection{Name: name, Description: description})
 }
 
 // UpdateCollection is an HTTP endpoint that updates the name and/or description of a collection.
@@ -100,7 +102,38 @@ func (s *Server) deleteCollection(w http.ResponseWriter, r *http.Request) error 
 }
 
 func (s *Server) RemoveCollectionFromDir(w http.ResponseWriter, r *http.Request) {}
-func (s *Server) CreateCollectionRule(w http.ResponseWriter, r *http.Request)    {}
-func (s *Server) GetCollectionRules(w http.ResponseWriter, r *http.Request)      {}
-func (s *Server) UpdateCollectionRule(w http.ResponseWriter, r *http.Request)    {}
-func (s *Server) DeleteCollectionRule(w http.ResponseWriter, r *http.Request)    {}
+
+// CreateCollectionRule is an HTTP endpoint that creates a new collection rule
+// and adds it to the given collection (specified via collection name)
+func (s *Server) CreateCollectionRule(w http.ResponseWriter, r *http.Request) {
+	handle(w, r, s.createCollectionRule)
+}
+
+func (s *Server) createCollectionRule(w http.ResponseWriter, r *http.Request) error {
+	name := r.FormValue("name")
+
+	rules, err := GetRuleDetails(r)
+	if err != nil {
+		return err
+	}
+
+	var collectionRules []*db.CollectionRule
+
+	for _, rule := range rules {
+		collectionRules = append(collectionRules, &db.CollectionRule{
+			BackupType: rule.BackupType,
+			Match:      rule.Match,
+			Metadata:   rule.Metadata,
+			Override:   rule.Override,
+		})
+	}
+
+	if len(collectionRules) == 0 {
+		return ErrNoRule
+	}
+
+	return s.rootDir.CreateCollectionRules(name, collectionRules)
+}
+func (s *Server) GetCollectionRules(w http.ResponseWriter, r *http.Request)   {}
+func (s *Server) UpdateCollectionRule(w http.ResponseWriter, r *http.Request) {}
+func (s *Server) DeleteCollectionRule(w http.ResponseWriter, r *http.Request) {}

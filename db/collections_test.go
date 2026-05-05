@@ -46,12 +46,12 @@ func TestCollections(t *testing.T) {
 			ruleA := &CollectionRule{
 				BackupType:   BackupIBackup,
 				Match:        "*.jpg",
-				collectionID: c.ID(),
+				CollectionID: c.ID(),
 			}
 			ruleB := &CollectionRule{
 				BackupType:   BackupIBackup,
 				Match:        "*",
-				collectionID: c.ID(),
+				CollectionID: c.ID(),
 			}
 
 			c2 := &Collection{
@@ -63,7 +63,7 @@ func TestCollections(t *testing.T) {
 			ruleC := &CollectionRule{
 				BackupType:   BackupNone,
 				Match:        "*.txt",
-				collectionID: c2.ID(),
+				CollectionID: c2.ID(),
 			}
 
 			So(db.CreateCollectionRule(c, ruleA), ShouldBeNil)

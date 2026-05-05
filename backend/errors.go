@@ -50,11 +50,12 @@ var (
 	ErrDirectoryNotClaimed  = rules.ErrDirectoryNotClaimed
 	ErrRuleExists           = rules.ErrRuleExists
 	ErrNoRule               = rules.ErrNoRule
-	ErrNoName               = errors.New("no name provided")
-	ErrNameExists           = errors.New("collection with that name already exists")
-	ErrCollectionNotFound   = errors.New("collection not found")
-	ErrInvalidID            = errors.New("invalid collection ID")
-	ErrCollectionInUse      = errors.New("collection currently applied to a directory")
+	ErrNoName               = rules.ErrNoName
+	ErrNameExists           = rules.ErrNameExists
+	ErrCollectionNotFound   = rules.ErrCollectionNotFound
+	ErrInvalidID            = rules.ErrInvalidID
+	ErrCollectionInUse      = rules.ErrCollectionInUse
+	ErrRuleNotFound         = rules.ErrRuleNotFound
 )
 
 var httpErrors = map[error]int{ //nolint:gochecknoglobals

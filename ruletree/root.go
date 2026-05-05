@@ -246,6 +246,7 @@ func (r *RootDir) Refreeze(path string) error {
 
 // AddRules adds the given rules and regenerates the tree from the top path.
 func (r *RootDir) AddRules(dir string, rules []rules.Rule) error {
+	// TODO: Seperate rules by collection and non collection and call updateRule for the two different types here?
 	return updateRule(r, dir, rules, addRules)
 }
 
@@ -580,12 +581,16 @@ var (
 	ErrInvalidRoot     = errors.New("invalid root child")
 )
 
-func (r *RootDir) GetCollections() map[int64]*db.Collection {
+func (r *RootDir) GetCollections() map[int64]*rules.ColRules {
 	return r.rules.GetCollections()
 }
 
-func (r *RootDir) CreateCollection(name, description string) error {
-	return r.rules.CreateCollection(name, description)
+func (r *RootDir) CreateCollection(c db.Collection) error {
+	return updateCollection(r, c, createCollection)
+}
+
+func createCollection(directoryRules *rules.Database, c db.Collection) error {
+	return directoryRules.CreateCollection(c.Name, c.Description)
 }
 
 func (r *RootDir) UpdateCollection(id int64, name, description string) error {
@@ -596,6 +601,68 @@ func (r *RootDir) DeleteCollection(id int64) error {
 	return r.rules.DeleteCollection(id)
 }
 
-// func (r *RootDir) GetCollectionRules() map[int64]*db.CollectionRule {
-// 	return r.rules.GetCollectionRules()
+func (r *RootDir) CreateCollectionRules(cName string, rules []*db.CollectionRule) error {
+	return updateCollectionRules(r, cName, rules, createCollectionRule)
+}
+
+func createCollectionRule(directoryRules *rules.Database, cName string, rules ...*db.CollectionRule) error {
+	return directoryRules.CreateCollectionRule(cName, rules...)
+}
+
+// // AddRules adds the given rules and regenerates the tree from the top path.
+// func (r *RootDir) AddRules(dir string, rules []rules.Rule) error {
+// 	// TODO: Seperate rules by collection and non collection and call updateRule for the two different types here?
+// 	return updateRule(r, dir, rules, addRules)
 // }
+
+// func addRules(directoryRules *rules.Database, dir string, rules []rules.Rule) error {
+// 	return directoryRules.AddRules(dir, rules...)
+// }
+
+func updateCollection[T any](r *RootDir, collection T,
+	updateFn func(*rules.Database, T) error) error {
+	tx := r.rules.RuleTransaction()
+	defer tx.Rollback() //nolint:errcheck
+
+	if err := updateFn(tx, collection); err != nil {
+		return err
+	}
+
+	// TODO: regen rules for only affected mountpoints
+	// get a list of all dirs with collection applied
+	// get set of mountpoints
+	// regenRules for each
+	// Could then try to make a regenRulesForMountpoint func that does this in one go so faster if possible
+
+	// if err := r.regenRules(r.GetMountPoint(dir), tx, dir); err != nil {
+	// 	return err
+	// }
+
+	return tx.Commit()
+}
+
+func updateCollectionRules[T any](
+	r *RootDir,
+	cName string,
+	rules []T,
+	updateFn func(*rules.Database, string, ...T) error,
+) error {
+	tx := r.rules.RuleTransaction()
+	defer tx.Rollback() //nolint:errcheck
+
+	if err := updateFn(tx, cName, rules...); err != nil {
+		return err
+	}
+
+	// TODO: regen rules for only affected mountpoints
+	// get a list of all dirs with collection applied
+	// get set of mountpoints
+	// regenRules for each
+	// Could then try to make a regenRulesForMountpoint func that does this in one go so faster if possible
+
+	// if err := r.regenRules(r.GetMountPoint(dir), tx, dir); err != nil {
+	// 	return err
+	// }
+
+	return tx.Commit()
+}
