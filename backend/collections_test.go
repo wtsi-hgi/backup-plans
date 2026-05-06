@@ -52,12 +52,12 @@ func TestCollections(t *testing.T) {
 			code, resp := getResponse(s.Collections, "/api/collections", nil)
 			So(code, ShouldEqual, http.StatusOK)
 
-			var collections map[string]*rules.ColRules
+			var collections map[int64]*rules.ColRules
 
 			err = json.NewDecoder(strings.NewReader(resp)).Decode(&collections)
 			So(err, ShouldBeNil)
 
-			So(collections, ShouldResemble, map[string]*rules.ColRules{})
+			So(collections, ShouldResemble, map[int64]*rules.ColRules{})
 
 			code, resp = getResponse(s.CreateCollection, "/api/collections/create?name=Test&description=testdescription", nil)
 			checkNoContent(t, code, resp)
@@ -77,15 +77,15 @@ func TestCollections(t *testing.T) {
 			err = json.NewDecoder(strings.NewReader(resp)).Decode(&collections)
 			So(err, ShouldBeNil)
 
-			So(removeTimesFromCollection(t, collections), ShouldResemble, map[string]*rules.ColRules{
-				"1": {
+			So(removeTimesFromCollection(t, collections), ShouldResemble, map[int64]*rules.ColRules{
+				1: {
 					Collection: &db.Collection{
 						Name:        "Test",
 						Description: "testdescription",
 					},
 					Rules: map[string]*db.CollectionRule{},
 				},
-				"2": {
+				2: {
 					Collection: &db.Collection{
 						Name:        "Test2",
 						Description: "testdescription",
@@ -116,52 +116,98 @@ func TestCollections(t *testing.T) {
 				err = json.NewDecoder(strings.NewReader(resp)).Decode(&collections)
 				So(err, ShouldBeNil)
 
-				So(removeTimesFromCollection(t, collections), ShouldResemble, map[string]db.Collection{
-					"1": {
-						Name:        "Test3",
-						Description: "testdescription3",
+				So(removeTimesFromCollection(t, collections), ShouldResemble, map[int64]*rules.ColRules{
+					1: {
+						Collection: &db.Collection{
+							Name:        "Test3",
+							Description: "testdescription3",
+						},
+						Rules: map[string]*db.CollectionRule{},
 					},
-					"2": {
-						Name:        "Test2",
-						Description: "testdescription",
+					2: {
+						Collection: &db.Collection{
+							Name:        "Test2",
+							Description: "testdescription",
+						},
+						Rules: map[string]*db.CollectionRule{},
 					},
 				})
-
 			})
 
-			Convey("You can create collection rules and retrieve their data", func() {
+			Convey("You can create collection rules", func() {
 				code, resp = getResponse(
 					s.CreateCollectionRule,
-					"/api/collections/rules/create?collectionid=1&match=*.txt&isCollection=true&action=ibackup",
+					"/api/collections/rules/create?id=1&match=*.txt&action=backup",
 					nil,
 				)
 				checkNoContent(t, code, resp)
 
 				code, resp = getResponse(
 					s.CreateCollectionRule,
-					"/api/collections/rules/create?collectionid=1&match=*.cram&isCollection=true&action=ibackup",
+					"/api/collections/rules/create?id=2&match=*.txt&action=backup",
 					nil,
 				)
 				checkNoContent(t, code, resp)
 
 				code, resp = getResponse(
 					s.CreateCollectionRule,
-					"/api/collections/rules/create?collectionid=1&match=*.txt&isCollection=true&action=nobackup",
+					"/api/collections/rules/create?id=1&match=*.cram&action=manualunchecked&metadata=testmeta",
+					nil,
+				)
+				checkNoContent(t, code, resp)
+
+				code, resp = getResponse(
+					s.CreateCollectionRule,
+					"/api/collections/rules/create?id=1&match=*.txt&action=nobackup",
 					nil,
 				)
 				checkErrorResponse(t, code, resp, ErrRuleExists)
 
-				code, resp = getResponse(
-					s.GetCollectionRules,
-					"/api/collections/getrules?collectionid=1",
-					nil,
-				)
+				code, resp = getResponse(s.Collections, "/api/collections", nil)
 				So(code, ShouldEqual, http.StatusOK)
-				var collectionRules []db.CollectionRule
-				err = json.NewDecoder(strings.NewReader(resp)).Decode(&collectionRules)
+
+				err = json.NewDecoder(strings.NewReader(resp)).Decode(&collections)
 				So(err, ShouldBeNil)
 
-				So(removeTimesFromCollectionRules(t, collectionRules), ShouldResemble, []db.CollectionRule{})
+				So(removeTimesFromCollection(t, collections), ShouldResemble, map[int64]*rules.ColRules{
+					1: {
+						Collection: &db.Collection{
+							Name:        "Test",
+							Description: "testdescription",
+						},
+						Rules: map[string]*db.CollectionRule{
+							"*.txt": {
+								CollectionID: 1,
+								BackupType:   db.BackupIBackup,
+								Metadata:     "",
+								Match:        "*.txt",
+								Override:     false,
+							},
+							"*.cram": {
+								CollectionID: 1,
+								BackupType:   db.BackupManualUnchecked,
+								Metadata:     "testmeta",
+								Match:        "*.cram",
+								Override:     false,
+							},
+						},
+					},
+					2: {
+						Collection: &db.Collection{
+							Name:        "Test2",
+							Description: "testdescription",
+						},
+						Rules: map[string]*db.CollectionRule{
+							"*.txt": {
+								CollectionID: 2,
+								BackupType:   db.BackupIBackup,
+								Metadata:     "",
+								Match:        "*.txt",
+								Override:     false,
+							},
+						},
+					},
+				})
 
 				Convey("And update them", func() {
 					code, resp = getResponse(
@@ -249,10 +295,10 @@ func TestCollections(t *testing.T) {
 	})
 }
 
-func removeTimesFromCollection(t *testing.T, colRules map[string]*rules.ColRules) map[string]*rules.ColRules {
+func removeTimesFromCollection(t *testing.T, colRules map[int64]*rules.ColRules) map[int64]*rules.ColRules {
 	t.Helper()
 
-	output := make(map[string]*rules.ColRules)
+	output := make(map[int64]*rules.ColRules)
 
 	for k, c := range colRules {
 		So(c.Created, ShouldBeGreaterThan, 0)
@@ -260,6 +306,14 @@ func removeTimesFromCollection(t *testing.T, colRules map[string]*rules.ColRules
 
 		c.Created = 0
 		c.Modified = 0
+
+		for _, r := range c.Rules {
+			So(r.Created, ShouldBeGreaterThan, 0)
+			So(r.Modified, ShouldBeGreaterThan, 0)
+
+			r.Created = 0
+			r.Modified = 0
+		}
 
 		output[k] = c
 	}

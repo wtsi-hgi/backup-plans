@@ -601,12 +601,12 @@ func (r *RootDir) DeleteCollection(id int64) error {
 	return r.rules.DeleteCollection(id)
 }
 
-func (r *RootDir) CreateCollectionRules(cName string, rules []*db.CollectionRule) error {
-	return updateCollectionRules(r, cName, rules, createCollectionRule)
+func (r *RootDir) CreateCollectionRules(cID int64, rules []*db.CollectionRule) error {
+	return updateCollectionRules(r, cID, rules, createCollectionRule)
 }
 
-func createCollectionRule(directoryRules *rules.Database, cName string, rules ...*db.CollectionRule) error {
-	return directoryRules.CreateCollectionRule(cName, rules...)
+func createCollectionRule(directoryRules *rules.Database, cID int64, rules ...*db.CollectionRule) error {
+	return directoryRules.CreateCollectionRule(cID, rules...)
 }
 
 // // AddRules adds the given rules and regenerates the tree from the top path.
@@ -643,14 +643,14 @@ func updateCollection[T any](r *RootDir, collection T,
 
 func updateCollectionRules[T any](
 	r *RootDir,
-	cName string,
+	cID int64,
 	rules []T,
-	updateFn func(*rules.Database, string, ...T) error,
+	updateFn func(*rules.Database, int64, ...T) error,
 ) error {
 	tx := r.rules.RuleTransaction()
 	defer tx.Rollback() //nolint:errcheck
 
-	if err := updateFn(tx, cName, rules...); err != nil {
+	if err := updateFn(tx, cID, rules...); err != nil {
 		return err
 	}
 

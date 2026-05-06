@@ -145,8 +145,7 @@ func (d *Database) loadRules() error {
 	}
 
 	return d.rulesDB.ReadCollectionRules().ForEach(func(r *db.CollectionRule) error {
-		c := d.collections[r.CollectionID]
-		colRules, ok := d.colRules[c.Name]
+		colRules, ok := d.collections[r.CollectionID]
 		if !ok {
 			return ErrOrphanedRule
 		}
@@ -703,8 +702,7 @@ func (d *Database) CreateCollection(name, description string) error {
 		Rules:      make(map[string]*db.CollectionRule),
 	}
 
-
-	d.collections[c.ID()] = cr // why is this map nil
+	d.collections[c.ID()] = cr
 	d.colRules[c.Name] = cr
 
 	return nil
@@ -789,21 +787,27 @@ func (d *Database) DeleteCollection(id int64) error {
 	return d.rulesDB.RemoveCollection(id)
 }
 
-func (d *Database) CreateCollectionRule(cName string, rules ...*db.CollectionRule) error {
+func (d *Database) CreateCollectionRule(cID int64, rules ...*db.CollectionRule) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	colRules, exists := d.colRules[cName]
+	colRules, exists := d.collections[cID]
 	if !exists {
 		return ErrCollectionNotFound
 	}
 
+	// check for duplicates
 	for _, rule := range rules {
 		for match := range colRules.Rules {
 			if match == rule.Match {
 				return ErrRuleExists
 			}
 		}
+	}
+
+	// add to cache
+	for _, rule := range rules {
+		colRules.Rules[rule.Match] = rule
 	}
 
 	return d.rulesDB.CreateCollectionRule(colRules.Collection, rules...)

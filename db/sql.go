@@ -75,7 +75,7 @@ var tables = [...]string{
 		"`override` BOOLEAN DEFAULT FALSE, " +
 		"`created` BIGINT NOT NULL, " +
 		"`modified` BIGINT NOT NULL, " +
-		"UNIQUE(`collectionID`, `matchHash`), " +
+		"UNIQUE(`collectionID`,`matchHash`), " +
 		"FOREIGN KEY(`collectionID`) REFERENCES `collections`(`id`) ON DELETE CASCADE" +
 		");",
 }

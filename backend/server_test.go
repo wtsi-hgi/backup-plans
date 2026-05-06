@@ -139,8 +139,8 @@ func checkErrorResponse(t *testing.T, code int, resp string, err error) {
 func checkNoContent(t *testing.T, code int, resp string) {
 	t.Helper()
 
-	So(code, ShouldEqual, http.StatusNoContent)
 	So(resp, ShouldEqual, "")
+	So(code, ShouldEqual, http.StatusNoContent)
 }
 
 func (s *Server) stop() {

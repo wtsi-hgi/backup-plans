@@ -110,7 +110,11 @@ func (s *Server) CreateCollectionRule(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) createCollectionRule(w http.ResponseWriter, r *http.Request) error {
-	name := r.FormValue("name")
+	id := r.FormValue("id")
+	cID, err := strconv.ParseInt(id, 10, 0)
+	if err != nil {
+		return ErrInvalidID
+	}
 
 	rules, err := GetRuleDetails(r)
 	if err != nil {
@@ -121,10 +125,11 @@ func (s *Server) createCollectionRule(w http.ResponseWriter, r *http.Request) er
 
 	for _, rule := range rules {
 		collectionRules = append(collectionRules, &db.CollectionRule{
-			BackupType: rule.BackupType,
-			Match:      rule.Match,
-			Metadata:   rule.Metadata,
-			Override:   rule.Override,
+			CollectionID: cID,
+			BackupType:   rule.BackupType,
+			Match:        rule.Match,
+			Metadata:     rule.Metadata,
+			Override:     rule.Override,
 		})
 	}
 
@@ -132,7 +137,7 @@ func (s *Server) createCollectionRule(w http.ResponseWriter, r *http.Request) er
 		return ErrNoRule
 	}
 
-	return s.rootDir.CreateCollectionRules(name, collectionRules)
+	return s.rootDir.CreateCollectionRules(cID, collectionRules)
 }
 func (s *Server) GetCollectionRules(w http.ResponseWriter, r *http.Request)   {}
 func (s *Server) UpdateCollectionRule(w http.ResponseWriter, r *http.Request) {}

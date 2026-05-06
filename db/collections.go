@@ -25,7 +25,9 @@
 
 package db
 
-import "time"
+import (
+	"time"
+)
 
 // Collection represents a collection of rules, which can be applied to directories as a single unit.
 type Collection struct {
