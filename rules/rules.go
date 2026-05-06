@@ -812,3 +812,24 @@ func (d *Database) CreateCollectionRule(cID int64, rules ...*db.CollectionRule) 
 
 	return d.rulesDB.CreateCollectionRule(colRules.Collection, rules...)
 }
+
+func (d *Database) UpdateCollectionRule(cID int64, rule *db.CollectionRule) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	colRules, exists := d.collections[cID]
+	if !exists {
+		return ErrCollectionNotFound
+	}
+
+	r, exists := colRules.Rules[rule.Match]
+	if !exists {
+		return ErrRuleNotFound
+	}
+
+	r.BackupType = rule.BackupType
+	r.Metadata = rule.Metadata
+	r.Override = rule.Override
+
+	return nil
+}

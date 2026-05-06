@@ -37,6 +37,8 @@ import (
 	"github.com/wtsi-hgi/backup-plans/rules"
 )
 
+// TODO: Check somehow that doing all these things to collections when applied to a dir correctly updates the rule summaries
+// either in here or the rules tests or something
 func TestCollections(t *testing.T) {
 	Convey("With a configured backend", t, func() {
 		var u userHandler
@@ -222,7 +224,15 @@ func TestCollections(t *testing.T) {
 						"/api/collections/rules/update?id=1234&action=nobackup",
 						nil,
 					)
-					checkErrorResponse(t, code, resp, ErrRuleNotFound)
+					checkErrorResponse(t, code, resp, ErrCollectionNotFound)
+
+					code, resp = getResponse(s.Collections, "/api/collections", nil)
+					So(code, ShouldEqual, http.StatusOK)
+
+					err = json.NewDecoder(strings.NewReader(resp)).Decode(&collections)
+					So(err, ShouldBeNil)
+
+					So(removeTimesFromCollection(t, collections), ShouldResemble, map[int64]*rules.ColRules{})
 				})
 
 				Convey("And delete them", func() {

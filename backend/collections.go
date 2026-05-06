@@ -31,6 +31,7 @@ import (
 	"strconv"
 
 	"github.com/wtsi-hgi/backup-plans/db"
+	"github.com/wtsi-hgi/backup-plans/rules"
 )
 
 // Collection is an HTTP endpoint that returns all collections.
@@ -121,6 +122,46 @@ func (s *Server) createCollectionRule(w http.ResponseWriter, r *http.Request) er
 		return err
 	}
 
+	cRules, err := toCollectionRule(cID, rules)
+
+	return s.rootDir.CreateCollectionRules(cID, cRules)
+}
+
+func (s *Server) GetCollectionRules(w http.ResponseWriter, r *http.Request) {}
+
+// UpdateCollectionRule is an HTTP endpoint that updates a rule on a collection, given
+// the collection id. The rule is identified by the match string and, as such, cannot be
+// changed.
+func (s *Server) UpdateCollectionRule(w http.ResponseWriter, r *http.Request) {
+	handle(w, r, s.createCollectionRule)
+}
+
+func (s *Server) updateCollectionRule(w http.ResponseWriter, r *http.Request) error {
+	id := r.FormValue("id")
+	cID, err := strconv.ParseInt(id, 10, 0)
+	if err != nil {
+		return ErrInvalidID
+	}
+
+	rule, err := GetRuleFromRequest(r)
+	if err != nil {
+		return err
+	}
+
+	rule.Match = r.FormValue("match")
+	if rule.Match == "" {
+		return ErrInvalidMatch
+	}
+
+	cRule, err := toCollectionRule(cID, []rules.Rule{rule})
+	if err != nil {
+		return err
+	}
+
+	return s.rootDir.UpdateCollectionRule(cID, cRule[0])
+}
+
+func toCollectionRule(cID int64, rules []rules.Rule) ([]*db.CollectionRule, error) {
 	var collectionRules []*db.CollectionRule
 
 	for _, rule := range rules {
@@ -134,11 +175,10 @@ func (s *Server) createCollectionRule(w http.ResponseWriter, r *http.Request) er
 	}
 
 	if len(collectionRules) == 0 {
-		return ErrNoRule
+		return nil, ErrNoRule
 	}
 
-	return s.rootDir.CreateCollectionRules(cID, collectionRules)
+	return collectionRules, nil
 }
-func (s *Server) GetCollectionRules(w http.ResponseWriter, r *http.Request)   {}
-func (s *Server) UpdateCollectionRule(w http.ResponseWriter, r *http.Request) {}
+
 func (s *Server) DeleteCollectionRule(w http.ResponseWriter, r *http.Request) {}

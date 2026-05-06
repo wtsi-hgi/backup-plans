@@ -325,8 +325,24 @@ func (s *Server) userClaimedDir(dir, user string) error {
 }
 
 func GetRuleDetails(r *http.Request) ([]rules.Rule, error) { //nolint:cyclop,gocyclo,funlen
-	var rule rules.Rule
+	rule, err := GetRuleFromRequest(r)
+	if err != nil {
+		return nil, err
+	}
 
+	ruleList, err := createMatchRules(rule, r.Form["match"])
+	if err != nil {
+		return nil, err
+	} else if len(ruleList) == 0 {
+		rule.Match = "*"
+		ruleList = []rules.Rule{rule}
+	}
+
+	return ruleList, nil
+}
+
+func GetRuleFromRequest(r *http.Request) (rules.Rule, error) {
+	var rule rules.Rule
 	var requireMetadata bool
 
 	switch r.FormValue("action") {
@@ -350,7 +366,7 @@ func GetRuleDetails(r *http.Request) ([]rules.Rule, error) { //nolint:cyclop,goc
 		rule.BackupType = db.BackupManualUnchecked
 		requireMetadata = true
 	default:
-		return nil, ErrInvalidAction
+		return rules.Rule{}, ErrInvalidAction
 	}
 
 	if requireMetadata {
@@ -359,17 +375,7 @@ func GetRuleDetails(r *http.Request) ([]rules.Rule, error) { //nolint:cyclop,goc
 
 	rule.Override = r.FormValue("override") == "true"
 
-	// rule.IsCollection = r.FormValue("iscollection") == "true"
-
-	ruleList, err := createMatchRules(rule, r.Form["match"])
-	if err != nil {
-		return nil, err
-	} else if len(ruleList) == 0 {
-		rule.Match = "*"
-		ruleList = []rules.Rule{rule}
-	}
-
-	return ruleList, nil
+	return rule, nil
 }
 
 func createMatchRules(rule rules.Rule, matches []string) ([]rules.Rule, error) {

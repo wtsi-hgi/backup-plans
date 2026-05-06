@@ -585,6 +585,8 @@ func (r *RootDir) GetCollections() map[int64]*rules.ColRules {
 	return r.rules.GetCollections()
 }
 
+// TODO: I'm sure this spaghetti mess can be simplified
+
 func (r *RootDir) CreateCollection(c db.Collection) error {
 	return updateCollection(r, c, createCollection)
 }
@@ -607,6 +609,14 @@ func (r *RootDir) CreateCollectionRules(cID int64, rules []*db.CollectionRule) e
 
 func createCollectionRule(directoryRules *rules.Database, cID int64, rules ...*db.CollectionRule) error {
 	return directoryRules.CreateCollectionRule(cID, rules...)
+}
+
+func (r *RootDir) UpdateCollectionRule(cID int64, rule *db.CollectionRule) error {
+	return updateCollectionRule(r, cID, rule, updateCollectionRuleForward)
+}
+
+func updateCollectionRuleForward(directoryRules *rules.Database, cID int64, rule *db.CollectionRule) error {
+	return directoryRules.UpdateCollectionRule(cID, rule)
 }
 
 // // AddRules adds the given rules and regenerates the tree from the top path.
@@ -651,6 +661,32 @@ func updateCollectionRules[T any](
 	defer tx.Rollback() //nolint:errcheck
 
 	if err := updateFn(tx, cID, rules...); err != nil {
+		return err
+	}
+
+	// TODO: regen rules for only affected mountpoints
+	// get a list of all dirs with collection applied
+	// get set of mountpoints
+	// regenRules for each
+	// Could then try to make a regenRulesForMountpoint func that does this in one go so faster if possible
+
+	// if err := r.regenRules(r.GetMountPoint(dir), tx, dir); err != nil {
+	// 	return err
+	// }
+
+	return tx.Commit()
+}
+
+func updateCollectionRule[T any](
+	r *RootDir,
+	cID int64,
+	rule T,
+	updateFn func(*rules.Database, int64, T) error,
+) error {
+	tx := r.rules.RuleTransaction()
+	defer tx.Rollback() //nolint:errcheck
+
+	if err := updateFn(tx, cID, rule); err != nil {
 		return err
 	}
 
