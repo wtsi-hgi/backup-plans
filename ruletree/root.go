@@ -619,6 +619,14 @@ func updateCollectionRuleForward(directoryRules *rules.Database, cID int64, rule
 	return directoryRules.UpdateCollectionRule(cID, rule)
 }
 
+func (r *RootDir) DeleteCollectionRules(cID int64, matches []string) error {
+	return updateCollectionRules(r, cID, matches, deleteCollectionRules)
+}
+
+func deleteCollectionRules(directoryRules *rules.Database, cID int64, matches ...string) error {
+	return directoryRules.DeleteCollectionRules(cID, matches...)
+}
+
 // // AddRules adds the given rules and regenerates the tree from the top path.
 // func (r *RootDir) AddRules(dir string, rules []rules.Rule) error {
 // 	// TODO: Seperate rules by collection and non collection and call updateRule for the two different types here?

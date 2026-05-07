@@ -383,22 +383,27 @@ func GetRuleFromRequest(r *http.Request) (rules.Rule, error) {
 }
 
 func createMatchRules(rule rules.Rule, matches []string) ([]rules.Rule, error) {
-	ms := make(map[string]struct{})
+	// ms := make(map[string]struct{})
 
-	for _, match := range matches {
-		if match == "" { //nolint:gocritic,nestif
-			match = "*"
-		} else if strings.Contains(match, "\x00") {
-			return nil, ErrInvalidMatch
-		} else if strings.HasSuffix(match, "/") {
-			match += "*"
-		}
+	// for _, match := range matches {
+	// 	if match == "" { //nolint:gocritic,nestif
+	// 		match = "*"
+	// 	} else if strings.Contains(match, "\x00") {
+	// 		return nil, ErrInvalidMatch
+	// 	} else if strings.HasSuffix(match, "/") {
+	// 		match += "*"
+	// 	}
 
-		ms[match] = struct{}{}
+	// 	ms[match] = struct{}{}
+	// }
+
+	matches, err := ParseMatches(matches)
+	if err != nil {
+		return nil, err
 	}
 
-	ruleList := make([]rules.Rule, len(ms))
-	matches = slices.Collect(maps.Keys(ms))
+	ruleList := make([]rules.Rule, len(matches))
+	// matches = slices.Collect(maps.Keys(ms))
 
 	slices.Sort(matches)
 
@@ -413,6 +418,26 @@ func createMatchRules(rule rules.Rule, matches []string) ([]rules.Rule, error) {
 	}
 
 	return ruleList, nil
+}
+
+func ParseMatches(matches []string) ([]string, error) {
+	ms := make(map[string]struct{})
+
+	for _, match := range matches {
+		if match == "" { //nolint:gocritic,nestif
+			match = "*"
+		} else if strings.Contains(match, "\x00") {
+			return nil, ErrInvalidMatch
+		} else if strings.HasSuffix(match, "/") {
+			match += "*"
+		}
+
+		ms[match] = struct{}{}
+	}
+
+	matches = slices.Collect(maps.Keys(ms))
+
+	return matches, nil
 }
 
 // UpdateRule allows the claimant of a directory to update a rule for that

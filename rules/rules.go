@@ -47,7 +47,7 @@ var (
 	ErrCollectionNotFound  = errors.New("collection not found")
 	ErrInvalidID           = errors.New("invalid collection ID")
 	ErrCollectionInUse     = errors.New("collection currently applied to a directory")
-	ErrRuleNotFound        = errors.New("no collection rule found with that id")
+	ErrRuleNotFound        = errors.New("no matching rule in collection")
 )
 
 type dirRules struct {
@@ -831,6 +831,27 @@ func (d *Database) UpdateCollectionRule(cID int64, rule *db.CollectionRule) erro
 	r.BackupType = rule.BackupType
 	r.Metadata = rule.Metadata
 	r.Override = rule.Override
+
+	return nil
+}
+
+func (d *Database) DeleteCollectionRules(cID int64, matches ...string) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	colRules, exists := d.collections[cID]
+	if !exists {
+		return ErrCollectionNotFound
+	}
+
+	for _, m := range matches {
+		_, exists := colRules.Rules[m]
+		if !exists {
+			return ErrRuleNotFound
+		}
+
+		delete(colRules.Rules, m)
+	}
 
 	return nil
 }

@@ -94,7 +94,7 @@ func addHandlesAndListen(b *backend.Server, listen net.Listener, logout http.Han
 	http.Handle("GET /api/collections/getrules", http.HandlerFunc(b.GetCollectionRules))
 	http.Handle("POST /api/collections/rules/create", http.HandlerFunc(b.CreateCollectionRule))
 	http.Handle("POST /api/collections/rules/update", http.HandlerFunc(b.UpdateCollectionRule))
-	http.Handle("POST /api/collections/rules/delete", http.HandlerFunc(b.DeleteCollectionRule))
+	http.Handle("POST /api/collections/rules/delete", http.HandlerFunc(b.DeleteCollectionRules))
 	http.Handle("GET /", frontend.Index)
 	http.Handle("GET /logout", logout)
 

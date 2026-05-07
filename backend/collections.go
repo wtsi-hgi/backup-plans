@@ -71,13 +71,11 @@ func (s *Server) UpdateCollection(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) updateCollection(w http.ResponseWriter, r *http.Request) error {
-	id := r.FormValue("id")
 	name := r.FormValue("name")
 	description := r.FormValue("description")
-
-	cID, err := strconv.ParseInt(id, 10, 0)
+	cID, err := getIdFromForm(r)
 	if err != nil {
-		return ErrInvalidID
+		return err
 	}
 
 	w.WriteHeader(http.StatusTeapot)
@@ -92,12 +90,11 @@ func (s *Server) DeleteCollection(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) deleteCollection(w http.ResponseWriter, r *http.Request) error {
-	id := r.FormValue("id")
-
-	cID, err := strconv.ParseInt(id, 10, 0)
+	cID, err := getIdFromForm(r)
 	if err != nil {
-		return ErrInvalidID
+		return err
 	}
+
 	// TODO: Should potentially also check the user should be allowed to here
 	return s.rootDir.DeleteCollection(cID)
 }
@@ -111,10 +108,9 @@ func (s *Server) CreateCollectionRule(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) createCollectionRule(w http.ResponseWriter, r *http.Request) error {
-	id := r.FormValue("id")
-	cID, err := strconv.ParseInt(id, 10, 0)
+	cID, err := getIdFromForm(r)
 	if err != nil {
-		return ErrInvalidID
+		return err
 	}
 
 	rules, err := GetRuleDetails(r)
@@ -137,10 +133,9 @@ func (s *Server) UpdateCollectionRule(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) updateCollectionRule(w http.ResponseWriter, r *http.Request) error {
-	id := r.FormValue("id")
-	cID, err := strconv.ParseInt(id, 10, 0)
+	cID, err := getIdFromForm(r)
 	if err != nil {
-		return ErrInvalidID
+		return err
 	}
 
 	rule, err := GetRuleFromRequest(r)
@@ -186,4 +181,37 @@ func toCollectionRule(cID int64, rules []rules.Rule) ([]*db.CollectionRule, erro
 	return collectionRules, nil
 }
 
-func (s *Server) DeleteCollectionRule(w http.ResponseWriter, r *http.Request) {}
+// DeleteCollectionRules is an HTTP endpoint that deletes rule(s) from a collection
+// given the collection's id. The rule(s) are identified via the match string.
+// TODO: should it use collection rule id or should this be private? what do regular rules use? should copy.
+func (s *Server) DeleteCollectionRules(w http.ResponseWriter, r *http.Request) {
+	handle(w, r, s.deleteCollectionRule)
+}
+
+func (s *Server) deleteCollectionRule(w http.ResponseWriter, r *http.Request) error {
+	cID, err := getIdFromForm(r)
+	if err != nil {
+		return err
+	}
+
+	matches, err := ParseMatches(r.Form["match"])
+	if err != nil {
+		return err
+	}
+
+	if len(matches) == 0 {
+		return ErrInvalidMatch
+	}
+
+	return s.rootDir.DeleteCollectionRules(cID, matches)
+}
+
+func getIdFromForm(r *http.Request) (int64, error) {
+	id := r.FormValue("id")
+	cID, err := strconv.ParseInt(id, 10, 0)
+	if err != nil {
+		return 0, ErrInvalidID
+	}
+
+	return cID, nil
+}

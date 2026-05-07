@@ -334,8 +334,15 @@ func TestCollections(t *testing.T) {
 					})
 
 					code, resp = getResponse(
-						s.DeleteCollectionRule,
+						s.DeleteCollectionRules,
 						"/api/collections/rules/delete?id=1&match=*",
+						nil,
+					)
+					checkErrorResponse(t, code, resp, ErrCollectionNotFound)
+
+					code, resp = getResponse(
+						s.DeleteCollectionRules,
+						"/api/collections/rules/delete?id=2&match=*",
 						nil,
 					)
 					checkErrorResponse(t, code, resp, ErrRuleNotFound)
@@ -364,8 +371,8 @@ func TestCollections(t *testing.T) {
 					})
 
 					code, resp = getResponse(
-						s.DeleteCollectionRule,
-						"/api/collections/rules/delete?id=1&match=*.txt",
+						s.DeleteCollectionRules,
+						"/api/collections/rules/delete?id=2&match=*.txt",
 						nil,
 					)
 					checkNoContent(t, code, resp)
