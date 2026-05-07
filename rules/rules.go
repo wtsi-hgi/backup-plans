@@ -379,10 +379,11 @@ func (d *Database) AddRules(path string, rules ...Rule) error { //nolint:gocyclo
 
 func toDBRule(rule Rule) *db.Rule {
 	return &db.Rule{
-		Match:      rule.Match,
-		Metadata:   rule.Metadata,
-		BackupType: rule.BackupType,
-		Override:   rule.Override,
+		Match:        rule.Match,
+		Metadata:     rule.Metadata,
+		BackupType:   rule.BackupType,
+		Override:     rule.Override,
+		IsCollection: rule.IsCollection,
 	}
 }
 

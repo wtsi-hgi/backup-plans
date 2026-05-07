@@ -41,7 +41,7 @@ import (
 // either in here or the rules tests or something
 func TestCollections(t *testing.T) {
 	Convey("With a configured backend", t, func() {
-		var u userHandler
+		u := userHandler(root)
 
 		s := New(newEmptyRoot(t), u.getUser, lconfig.NewConfig(t, nil, nil, nil, 0, nil))
 
@@ -217,14 +217,21 @@ func TestCollections(t *testing.T) {
 						"/api/collections/rules/update?id=1&action=nobackup",
 						nil,
 					)
-					checkNoContent(t, code, resp)
+					checkErrorResponse(t, code, resp, ErrInvalidMatch)
 
 					code, resp = getResponse(
 						s.UpdateCollectionRule,
-						"/api/collections/rules/update?id=1234&action=nobackup",
+						"/api/collections/rules/update?id=1234&action=nobackup&match=*",
 						nil,
 					)
 					checkErrorResponse(t, code, resp, ErrCollectionNotFound)
+
+					code, resp = getResponse(
+						s.UpdateCollectionRule,
+						"/api/collections/rules/update?id=1&action=nobackup&match=*.txt",
+						nil,
+					)
+					checkNoContent(t, code, resp)
 
 					code, resp = getResponse(s.Collections, "/api/collections", nil)
 					So(code, ShouldEqual, http.StatusOK)
@@ -232,10 +239,63 @@ func TestCollections(t *testing.T) {
 					err = json.NewDecoder(strings.NewReader(resp)).Decode(&collections)
 					So(err, ShouldBeNil)
 
-					So(removeTimesFromCollection(t, collections), ShouldResemble, map[int64]*rules.ColRules{})
+					So(removeTimesFromCollection(t, collections), ShouldResemble, map[int64]*rules.ColRules{
+						1: {
+							Collection: &db.Collection{
+								Name:        "Test",
+								Description: "testdescription",
+							},
+							Rules: map[string]*db.CollectionRule{
+								"*.txt": {
+									CollectionID: 1,
+									BackupType:   db.BackupNone,
+									Metadata:     "",
+									Match:        "*.txt",
+									Override:     false,
+								},
+								"*.cram": {
+									CollectionID: 1,
+									BackupType:   db.BackupManualUnchecked,
+									Metadata:     "testmeta",
+									Match:        "*.cram",
+									Override:     false,
+								},
+							},
+						},
+						2: {
+							Collection: &db.Collection{
+								Name:        "Test2",
+								Description: "testdescription",
+							},
+							Rules: map[string]*db.CollectionRule{
+								"*.txt": {
+									CollectionID: 2,
+									BackupType:   db.BackupIBackup,
+									Metadata:     "",
+									Match:        "*.txt",
+									Override:     false,
+								},
+							},
+						},
+					})
 				})
 
 				Convey("And delete them", func() {
+					code, resp = getResponse(
+						s.ClaimDir,
+						"/api/dir/claim?dir=/some/path/MyDir/",
+						nil,
+					)
+					So(code, ShouldEqual, http.StatusOK)
+					So(resp, ShouldEqual, "\""+root+"\"\n")
+
+					code, resp = getResponse(
+						s.CreateRule,
+						"/api/rules/create?dir=/some/path/MyDir/&match=Test&isCollection=true",
+						nil,
+					)
+					checkNoContent(t, code, resp)
+
 					code, resp = getResponse(
 						s.DeleteCollection,
 						"/api/collections/delete?id=1",

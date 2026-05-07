@@ -50,7 +50,7 @@ type Rule struct {
 	Metadata     string
 	Match        string
 	Override     bool
-	isCollection bool
+	IsCollection bool
 
 	Created, Modified int64
 }
@@ -81,7 +81,7 @@ func (r *Rule) DirID() int64 {
 // CollectionName returns the name of the collection this rule belongs to, or ""
 // if it does not belong to a collection.
 func (r *Rule) CollectionName() string {
-	if r.isCollection {
+	if r.IsCollection {
 		return r.Match
 	}
 
@@ -109,7 +109,7 @@ func (d *DB) CreateDirectoryRule(dir *Directory, rules ...*Rule) error { //nolin
 			rule.Metadata,
 			rule.Match,
 			rule.Override,
-			rule.isCollection,
+			rule.IsCollection,
 			rule.Created,
 			rule.Modified,
 		)
@@ -148,7 +148,7 @@ func scanRule(scanner scanner) (*Rule, error) {
 		&rule.Metadata,
 		&rule.Match,
 		&rule.Override,
-		&rule.isCollection,
+		&rule.IsCollection,
 		&rule.Created,
 		&rule.Modified,
 	); err != nil {
@@ -176,7 +176,7 @@ func (d *DB) UpdateRule(rules ...*Rule) error {
 			rule.BackupType,
 			rule.Metadata,
 			rule.Match,
-			rule.isCollection,
+			rule.IsCollection,
 			rule.Modified,
 			rule.id,
 		); err != nil {

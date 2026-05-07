@@ -133,7 +133,7 @@ func (s *Server) GetCollectionRules(w http.ResponseWriter, r *http.Request) {}
 // the collection id. The rule is identified by the match string and, as such, cannot be
 // changed.
 func (s *Server) UpdateCollectionRule(w http.ResponseWriter, r *http.Request) {
-	handle(w, r, s.createCollectionRule)
+	handle(w, r, s.updateCollectionRule)
 }
 
 func (s *Server) updateCollectionRule(w http.ResponseWriter, r *http.Request) error {
@@ -148,6 +148,7 @@ func (s *Server) updateCollectionRule(w http.ResponseWriter, r *http.Request) er
 		return err
 	}
 
+	rule.IsCollection = true
 	rule.Match = r.FormValue("match")
 	if rule.Match == "" {
 		return ErrInvalidMatch
@@ -165,6 +166,10 @@ func toCollectionRule(cID int64, rules []rules.Rule) ([]*db.CollectionRule, erro
 	var collectionRules []*db.CollectionRule
 
 	for _, rule := range rules {
+		if rule.Match == "" {
+			return nil, ErrInvalidMatch
+		}
+
 		collectionRules = append(collectionRules, &db.CollectionRule{
 			CollectionID: cID,
 			BackupType:   rule.BackupType,
