@@ -100,7 +100,7 @@ func New(rdb *db.DB) (*Database, error) {
 	return db, nil
 }
 
-func (d *Database) loadRules() error {
+func (d *Database) loadRules() error { //nolint:funlen
 	dirs := make(map[int64]*dirRules)
 
 	if err := d.rulesDB.ReadDirectories().ForEach(func(dir *db.Directory) error {
@@ -744,11 +744,7 @@ func (d *Database) UpdateCollection(id int64, name, description string) error {
 
 func (d *Database) checkUpdateFields(collection db.Collection, name, description string) (bool, bool, error) {
 	updateName := false
-	updateDesc := false
-
-	if description != "" {
-		updateDesc = true
-	}
+	updateDesc := description != ""
 
 	if name != "" && name != collection.Name {
 		if _, exists := d.colRules[name]; exists {

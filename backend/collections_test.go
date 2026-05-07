@@ -393,49 +393,6 @@ func TestCollections(t *testing.T) {
 					})
 				})
 			})
-
-			// Convey("You can delete collections and collection rules", func() {
-			// 	code, resp = getResponse(s.CreateCollectionRule, "/api/collections/rules/create?match=*.txt&isCollection=true&action=ibackup", nil)
-			// 	checkNoContent(t, code, resp)
-
-			// 	code, resp = getResponse(s.DeleteCollection, "/api/collections/delete?id=1", nil)
-			// 	checkErrorResponse(t, code, resp, ErrCollectionInUse)
-
-			// 	code, resp = getResponse(s.DeleteCollectionRule, "/api/collections/rules/delete?id=1", nil)
-			// 	checkNoContent(t, code, resp)
-
-			// 	code, resp = getResponse(s.DeleteCollection, "/api/collections/delete?id=1", nil)
-			// 	checkNoContent(t, code, resp)
-
-			// 	code, resp = getResponse(s.DeleteCollection, "/api/collections/delete?id=1", nil)
-			// 	checkErrorResponse(t, code, resp, ErrCollectionNotFound)
-			// })
-
-			// Convey("You can add collections to directories", func() {
-			// 	code, resp = getResponse(
-			// 		s.CreateRule,
-			// 		"/api/rules/create?dir=/some/path/MyDir/&match=Test2&isCollection=true",
-			// 		nil,
-			// 	)
-			// 	checkNoContent(t, code, resp)
-
-			// 	code, resp = getResponse(
-			// 		s.CreateRule,
-			// 		"/api/rules/create?dir=/some/path/MyDir/&match=Test2&isCollection=true",
-			// 		nil,
-			// 	)
-			// 	checkErrorResponse(t, code, resp, ErrRuleExists)
-
-			// 	u = root
-
-			// 	code, resp = getResponse(
-			// 		s.Tree,
-			// 		"/api/tree?dir=/some/path/MyDir/",
-			// 		nil,
-			// 	)
-			// 	So(code, ShouldEqual, http.StatusOK)
-			// 	So(resp, ShouldNotBeNil)
-			// })
 		})
 	})
 }
@@ -461,24 +418,6 @@ func removeTimesFromCollection(t *testing.T, colRules map[int64]*rules.ColRules)
 		}
 
 		output[k] = c
-	}
-
-	return output
-}
-
-func removeTimesFromCollectionRules(t *testing.T, rules []db.CollectionRule) []db.CollectionRule {
-	t.Helper()
-
-	output := make([]db.CollectionRule, 0, len(rules))
-
-	for k, r := range rules {
-		So(r.Created, ShouldBeGreaterThan, 0)
-		So(r.Modified, ShouldBeGreaterThan, 0)
-
-		r.Created = 0
-		r.Modified = 0
-
-		output[k] = r
 	}
 
 	return output

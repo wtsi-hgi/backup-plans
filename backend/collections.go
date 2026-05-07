@@ -73,7 +73,8 @@ func (s *Server) UpdateCollection(w http.ResponseWriter, r *http.Request) {
 func (s *Server) updateCollection(w http.ResponseWriter, r *http.Request) error {
 	name := r.FormValue("name")
 	description := r.FormValue("description")
-	cID, err := getIdFromForm(r)
+
+	cID, err := getIDFromForm(r)
 	if err != nil {
 		return err
 	}
@@ -90,16 +91,17 @@ func (s *Server) DeleteCollection(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) deleteCollection(w http.ResponseWriter, r *http.Request) error {
-	cID, err := getIdFromForm(r)
+	cID, err := getIDFromForm(r)
 	if err != nil {
 		return err
 	}
 
 	// TODO: Should potentially also check the user should be allowed to here
+
+	w.Header().Set("Content-type", "application/json")
+
 	return s.rootDir.DeleteCollection(cID)
 }
-
-func (s *Server) RemoveCollectionFromDir(w http.ResponseWriter, r *http.Request) {}
 
 // CreateCollectionRule is an HTTP endpoint that creates a new collection rule
 // and adds it to the given collection (specified via collection name)
@@ -108,7 +110,7 @@ func (s *Server) CreateCollectionRule(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) createCollectionRule(w http.ResponseWriter, r *http.Request) error {
-	cID, err := getIdFromForm(r)
+	cID, err := getIDFromForm(r)
 	if err != nil {
 		return err
 	}
@@ -119,11 +121,16 @@ func (s *Server) createCollectionRule(w http.ResponseWriter, r *http.Request) er
 	}
 
 	cRules, err := toCollectionRule(cID, rules)
+	if err != nil {
+		return err
+	}
+
+	w.Header().Set("Content-type", "application/json")
 
 	return s.rootDir.CreateCollectionRules(cID, cRules)
 }
 
-func (s *Server) GetCollectionRules(w http.ResponseWriter, r *http.Request) {}
+// func (s *Server) GetCollectionRules(w http.ResponseWriter, r *http.Request) {}
 
 // UpdateCollectionRule is an HTTP endpoint that updates a rule on a collection, given
 // the collection id. The rule is identified by the match string and, as such, cannot be
@@ -133,7 +140,7 @@ func (s *Server) UpdateCollectionRule(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) updateCollectionRule(w http.ResponseWriter, r *http.Request) error {
-	cID, err := getIdFromForm(r)
+	cID, err := getIDFromForm(r)
 	if err != nil {
 		return err
 	}
@@ -144,6 +151,7 @@ func (s *Server) updateCollectionRule(w http.ResponseWriter, r *http.Request) er
 	}
 
 	rule.IsCollection = true
+
 	rule.Match = r.FormValue("match")
 	if rule.Match == "" {
 		return ErrInvalidMatch
@@ -153,6 +161,8 @@ func (s *Server) updateCollectionRule(w http.ResponseWriter, r *http.Request) er
 	if err != nil {
 		return err
 	}
+
+	w.Header().Set("Content-type", "application/json")
 
 	return s.rootDir.UpdateCollectionRule(cID, cRule[0])
 }
@@ -189,7 +199,7 @@ func (s *Server) DeleteCollectionRules(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) deleteCollectionRule(w http.ResponseWriter, r *http.Request) error {
-	cID, err := getIdFromForm(r)
+	cID, err := getIDFromForm(r)
 	if err != nil {
 		return err
 	}
@@ -203,11 +213,14 @@ func (s *Server) deleteCollectionRule(w http.ResponseWriter, r *http.Request) er
 		return ErrInvalidMatch
 	}
 
+	w.Header().Set("Content-type", "application/json")
+
 	return s.rootDir.DeleteCollectionRules(cID, matches)
 }
 
-func getIdFromForm(r *http.Request) (int64, error) {
+func getIDFromForm(r *http.Request) (int64, error) {
 	id := r.FormValue("id")
+
 	cID, err := strconv.ParseInt(id, 10, 0)
 	if err != nil {
 		return 0, ErrInvalidID

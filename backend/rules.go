@@ -329,6 +329,7 @@ func GetRuleDetails(r *http.Request) ([]rules.Rule, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	ruleList, err := createMatchRules(rule, r.Form["match"])
 	if err != nil {
 		return nil, err
@@ -340,7 +341,7 @@ func GetRuleDetails(r *http.Request) ([]rules.Rule, error) {
 	return ruleList, nil
 }
 
-func GetRuleFromRequest(r *http.Request) (rules.Rule, error) {
+func GetRuleFromRequest(r *http.Request) (rules.Rule, error) { //nolint:gocyclo,cyclop,funlen
 	var rule rules.Rule
 	var requireMetadata bool
 
@@ -348,6 +349,7 @@ func GetRuleFromRequest(r *http.Request) (rules.Rule, error) {
 
 	if r.FormValue("isCollection") == "true" {
 		rule.IsCollection = true
+
 		return rule, nil
 	}
 
@@ -383,27 +385,12 @@ func GetRuleFromRequest(r *http.Request) (rules.Rule, error) {
 }
 
 func createMatchRules(rule rules.Rule, matches []string) ([]rules.Rule, error) {
-	// ms := make(map[string]struct{})
-
-	// for _, match := range matches {
-	// 	if match == "" { //nolint:gocritic,nestif
-	// 		match = "*"
-	// 	} else if strings.Contains(match, "\x00") {
-	// 		return nil, ErrInvalidMatch
-	// 	} else if strings.HasSuffix(match, "/") {
-	// 		match += "*"
-	// 	}
-
-	// 	ms[match] = struct{}{}
-	// }
-
 	matches, err := ParseMatches(matches)
 	if err != nil {
 		return nil, err
 	}
 
 	ruleList := make([]rules.Rule, len(matches))
-	// matches = slices.Collect(maps.Keys(ms))
 
 	slices.Sort(matches)
 

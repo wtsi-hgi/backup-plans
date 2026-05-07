@@ -246,7 +246,6 @@ func (r *RootDir) Refreeze(path string) error {
 
 // AddRules adds the given rules and regenerates the tree from the top path.
 func (r *RootDir) AddRules(dir string, rules []rules.Rule) error {
-	// TODO: Seperate rules by collection and non collection and call updateRule for the two different types here?
 	return updateRule(r, dir, rules, addRules)
 }
 
@@ -626,16 +625,6 @@ func (r *RootDir) DeleteCollectionRules(cID int64, matches []string) error {
 func deleteCollectionRules(directoryRules *rules.Database, cID int64, matches ...string) error {
 	return directoryRules.DeleteCollectionRules(cID, matches...)
 }
-
-// // AddRules adds the given rules and regenerates the tree from the top path.
-// func (r *RootDir) AddRules(dir string, rules []rules.Rule) error {
-// 	// TODO: Seperate rules by collection and non collection and call updateRule for the two different types here?
-// 	return updateRule(r, dir, rules, addRules)
-// }
-
-// func addRules(directoryRules *rules.Database, dir string, rules []rules.Rule) error {
-// 	return directoryRules.AddRules(dir, rules...)
-// }
 
 func updateCollection[T any](r *RootDir, collection T,
 	updateFn func(*rules.Database, T) error) error {
