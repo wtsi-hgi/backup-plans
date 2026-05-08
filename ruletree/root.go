@@ -28,6 +28,7 @@ package ruletree
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"iter"
 	"maps"
 	"slices"
@@ -306,6 +307,7 @@ func removeRule(directoryRules *rules.Database, dir string, rule string) error {
 }
 
 func (r *RootDir) regenRules(mount string, directoryRules *rules.Database, dirs ...string) error {
+	fmt.Println("Regen rules called for", mount)
 	t := &r.topLevelDir
 	pos := 1
 
@@ -584,118 +586,101 @@ func (r *RootDir) GetCollections() map[int64]*rules.ColRules {
 	return r.rules.GetCollections()
 }
 
-// TODO: I'm sure this spaghetti mess can be simplified
-
-func (r *RootDir) CreateCollection(c db.Collection) error {
-	return updateCollection(r, c, createCollection)
+func (r *RootDir) CreateCollection(name, desc string) error {
+	return withRuleTx(r, func(db *rules.Database) error {
+		return db.CreateCollection(name, desc)
+	})
 }
 
-func createCollection(directoryRules *rules.Database, c db.Collection) error {
-	return directoryRules.CreateCollection(c.Name, c.Description)
-}
+func (r *RootDir) UpdateCollection(id int64, name, desc string) error {
+	return withRuleTx(r, func(db *rules.Database) error {
+		if err := db.UpdateCollection(id, name, desc); err != nil {
+			return err
+		}
 
-func (r *RootDir) UpdateCollection(id int64, name, description string) error {
-	return r.rules.UpdateCollection(id, name, description)
+		return r.regenRulesForCollection(id)
+	})
 }
 
 func (r *RootDir) DeleteCollection(id int64) error {
-	return r.rules.DeleteCollection(id)
+	return withRuleTx(r, func(db *rules.Database) error {
+		if err := db.DeleteCollection(id); err != nil {
+			return err
+		}
+
+		return r.regenRulesForCollection(id)
+	})
 }
 
-func (r *RootDir) CreateCollectionRules(cID int64, rules []*db.CollectionRule) error {
-	return updateCollectionRules(r, cID, rules, createCollectionRule)
+func (r *RootDir) CreateCollectionRules(id int64, toAdd []*db.CollectionRule) error {
+	return withRuleTx(r, func(db *rules.Database) error {
+		if err := db.CreateCollectionRule(id, toAdd...); err != nil {
+			return err
+		}
+
+		return r.regenRulesForCollection(id)
+	})
 }
 
-func createCollectionRule(directoryRules *rules.Database, cID int64, rules ...*db.CollectionRule) error {
-	return directoryRules.CreateCollectionRule(cID, rules...)
+func (r *RootDir) UpdateCollectionRule(id int64, rule *db.CollectionRule) error {
+	return withRuleTx(r, func(db *rules.Database) error {
+		if err := db.UpdateCollectionRules(id, rule); err != nil {
+			return err
+		}
+
+		return r.regenRulesForCollection(id)
+	})
 }
 
-func (r *RootDir) UpdateCollectionRule(cID int64, rule *db.CollectionRule) error {
-	return updateCollectionRule(r, cID, rule, updateCollectionRuleForward)
+func (r *RootDir) DeleteCollectionRules(id int64, matches []string) error {
+	return withRuleTx(r, func(db *rules.Database) error {
+		if err := db.DeleteCollectionRules(id, matches...); err != nil {
+			return err
+		}
+
+		return r.regenRulesForCollection(id)
+	})
 }
 
-func updateCollectionRuleForward(directoryRules *rules.Database, cID int64, rule *db.CollectionRule) error {
-	return directoryRules.UpdateCollectionRule(cID, rule)
+func (r *RootDir) gatherAffectedDirs(cID int64) (map[string]struct{}, error) {
+	colRules, err := r.rules.GetColRules([]int64{cID})
+	if err != nil {
+		return nil, err
+	}
+
+	dirSet := make(map[string]struct{})
+
+	for _, cr := range colRules {
+		for dir := range cr.Dirs {
+			dirSet[dir] = struct{}{}
+		}
+	}
+
+	return dirSet, nil
 }
 
-func (r *RootDir) DeleteCollectionRules(cID int64, matches []string) error {
-	return updateCollectionRules(r, cID, matches, deleteCollectionRules)
-}
-
-func deleteCollectionRules(directoryRules *rules.Database, cID int64, matches ...string) error {
-	return directoryRules.DeleteCollectionRules(cID, matches...)
-}
-
-func updateCollection[T any](r *RootDir, collection T,
-	updateFn func(*rules.Database, T) error) error {
+func withRuleTx(r *RootDir, fn func(*rules.Database) error) error {
 	tx := r.rules.RuleTransaction()
 	defer tx.Rollback() //nolint:errcheck
 
-	if err := updateFn(tx, collection); err != nil {
+	if err := fn(tx); err != nil {
 		return err
 	}
-
-	// TODO: regen rules for only affected mountpoints
-	// get a list of all dirs with collection applied
-	// get set of mountpoints
-	// regenRules for each
-	// Could then try to make a regenRulesForMountpoint func that does this in one go so faster if possible
-
-	// if err := r.regenRules(r.GetMountPoint(dir), tx, dir); err != nil {
-	// 	return err
-	// }
 
 	return tx.Commit()
 }
 
-func updateCollectionRules[T any](
-	r *RootDir,
-	cID int64,
-	rules []T,
-	updateFn func(*rules.Database, int64, ...T) error,
-) error {
-	tx := r.rules.RuleTransaction()
-	defer tx.Rollback() //nolint:errcheck
-
-	if err := updateFn(tx, cID, rules...); err != nil {
+func (r *RootDir) regenRulesForCollection(id int64) error {
+	dirs, err := r.gatherAffectedDirs(id)
+	if err != nil {
 		return err
 	}
 
-	// TODO: regen rules for only affected mountpoints
-	// get a list of all dirs with collection applied
-	// get set of mountpoints
-	// regenRules for each
-	// Could then try to make a regenRulesForMountpoint func that does this in one go so faster if possible
-
-	// if err := r.regenRules(r.GetMountPoint(dir), tx, dir); err != nil {
-	// 	return err
-	// }
-
-	return tx.Commit()
-}
-
-func updateCollectionRule[T any](
-	r *RootDir,
-	cID int64,
-	rule T,
-	updateFn func(*rules.Database, int64, T) error,
-) error {
-	tx := r.rules.RuleTransaction()
-	defer tx.Rollback() //nolint:errcheck
-
-	if err := updateFn(tx, cID, rule); err != nil {
-		return err
+	for dir := range dirs {
+		if err := r.regenRules(r.GetMountPoint(dir), r.rules); err != nil {
+			return err
+		}
 	}
 
-	// TODO: regen rules for only affected mountpoints
-	// get a list of all dirs with collection applied
-	// get set of mountpoints
-	// regenRules for each
-	// Could then try to make a regenRulesForMountpoint func that does this in one go so faster if possible
-
-	// if err := r.regenRules(r.GetMountPoint(dir), tx, dir); err != nil {
-	// 	return err
-	// }
-
-	return tx.Commit()
+	return nil
 }

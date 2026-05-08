@@ -60,7 +60,7 @@ func (s *Server) createCollection(w http.ResponseWriter, r *http.Request) error 
 
 	w.Header().Set("Content-type", "application/json")
 
-	return s.rootDir.CreateCollection(db.Collection{Name: name, Description: description})
+	return s.rootDir.CreateCollection(name, description)
 }
 
 // UpdateCollection is an HTTP endpoint that updates the name and/or description of a collection.

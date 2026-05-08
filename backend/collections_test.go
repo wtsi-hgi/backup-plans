@@ -40,7 +40,7 @@ import (
 // TODO: Check somehow that doing all these things to collections when applied to a dir correctly updates the rule summaries
 // either in here or the rules tests or something
 func TestCollections(t *testing.T) {
-	Convey("With a configured backend", t, func() {
+	Convey("With a configured test backend", t, func() {
 		u := userHandler(root)
 
 		s := New(newEmptyRoot(t), u.getUser, lconfig.NewConfig(t, nil, nil, nil, 0, nil))
@@ -50,15 +50,14 @@ func TestCollections(t *testing.T) {
 		_, err := s.rootDir.AddTree(treeDBPath)
 		So(err, ShouldBeNil)
 
-		Convey("You can create collections and retrieve their data", func() {
-			code, resp := getResponse(s.Collections, "/api/collections", nil)
-			So(code, ShouldEqual, http.StatusOK)
+		summary := getSummaryFromEndpoint(t, s, "/")
 
-			collections := decodeCollections(t, resp)
+		Convey("You can create collections and retrieve their data", func() {
+			collections := getCollectionsFromEndpoint(t, s)
 
 			So(collections, ShouldResemble, map[int64]*rules.ColRules{})
 
-			code, resp = getResponse(s.CreateCollection, "/api/collections/create?name=Test&description=testdescription", nil)
+			code, resp := getResponse(s.CreateCollection, "/api/collections/create?name=Test&description=testdescription", nil)
 			checkNoContent(t, code, resp)
 
 			code, resp = getResponse(s.CreateCollection, "/api/collections/create?name=Test2&description=testdescription", nil)
@@ -70,10 +69,7 @@ func TestCollections(t *testing.T) {
 			code, resp = getResponse(s.CreateCollection, "/api/collections/create?name=&description=testdescription", nil)
 			checkErrorResponse(t, code, resp, ErrNoName)
 
-			code, resp = getResponse(s.Collections, "/api/collections", nil)
-			So(code, ShouldEqual, http.StatusOK)
-
-			collections = decodeCollections(t, resp)
+			collections = getCollectionsFromEndpoint(t, s)
 
 			So(removeTimesFromCollection(t, collections), ShouldResemble, map[int64]*rules.ColRules{
 				1: {
@@ -108,10 +104,7 @@ func TestCollections(t *testing.T) {
 				So(code, ShouldEqual, http.StatusTeapot)
 				So(resp, ShouldEqual, "")
 
-				code, resp = getResponse(s.Collections, "/api/collections", nil)
-				So(code, ShouldEqual, http.StatusOK)
-
-				collections = decodeCollections(t, resp)
+				collections = getCollectionsFromEndpoint(t, s)
 
 				So(removeTimesFromCollection(t, collections), ShouldResemble, map[int64]*rules.ColRules{
 					1: {
@@ -160,10 +153,7 @@ func TestCollections(t *testing.T) {
 				)
 				checkErrorResponse(t, code, resp, ErrRuleExists)
 
-				code, resp = getResponse(s.Collections, "/api/collections", nil)
-				So(code, ShouldEqual, http.StatusOK)
-
-				collections = decodeCollections(t, resp)
+				collections = getCollectionsFromEndpoint(t, s)
 
 				So(removeTimesFromCollection(t, collections), ShouldResemble, map[int64]*rules.ColRules{
 					1: {
@@ -227,10 +217,7 @@ func TestCollections(t *testing.T) {
 					)
 					checkNoContent(t, code, resp)
 
-					code, resp = getResponse(s.Collections, "/api/collections", nil)
-					So(code, ShouldEqual, http.StatusOK)
-
-					collections = decodeCollections(t, resp)
+					collections = getCollectionsFromEndpoint(t, s)
 
 					So(removeTimesFromCollection(t, collections), ShouldResemble, map[int64]*rules.ColRules{
 						1: {
@@ -289,6 +276,9 @@ func TestCollections(t *testing.T) {
 					)
 					checkNoContent(t, code, resp)
 
+					summary2 := getSummaryFromEndpoint(t, s, "/")
+					So(summary2, ShouldNotResemble, summary)
+
 					code, resp = getResponse(
 						s.DeleteCollection,
 						"/api/collections/delete?id=1",
@@ -310,10 +300,7 @@ func TestCollections(t *testing.T) {
 					)
 					checkNoContent(t, code, resp)
 
-					code, resp = getResponse(s.Collections, "/api/collections", nil)
-					So(code, ShouldEqual, http.StatusOK)
-
-					collections = decodeCollections(t, resp)
+					collections = getCollectionsFromEndpoint(t, s)
 
 					So(removeTimesFromCollection(t, collections), ShouldResemble, map[int64]*rules.ColRules{
 						2: {
@@ -347,10 +334,7 @@ func TestCollections(t *testing.T) {
 					)
 					checkErrorResponse(t, code, resp, ErrRuleNotFound)
 
-					code, resp = getResponse(s.Collections, "/api/collections", nil)
-					So(code, ShouldEqual, http.StatusOK)
-
-					collections = decodeCollections(t, resp)
+					collections = getCollectionsFromEndpoint(t, s)
 
 					So(removeTimesFromCollection(t, collections), ShouldResemble, map[int64]*rules.ColRules{
 						2: {
@@ -377,10 +361,7 @@ func TestCollections(t *testing.T) {
 					)
 					checkNoContent(t, code, resp)
 
-					code, resp = getResponse(s.Collections, "/api/collections", nil)
-					So(code, ShouldEqual, http.StatusOK)
-
-					collections = decodeCollections(t, resp)
+					collections = getCollectionsFromEndpoint(t, s)
 
 					So(removeTimesFromCollection(t, collections), ShouldResemble, map[int64]*rules.ColRules{
 						2: {
@@ -395,6 +376,47 @@ func TestCollections(t *testing.T) {
 			})
 		})
 	})
+
+	// Convey("Given a test db, tree and roots", t, func() {
+	// 	testDB, _ := plandb.PopulateExamplePlanDB(t)
+	// 	testTree := plandb.ExampleTree()
+	// 	path := filepath.Join(t.TempDir(), "testdb")
+	// 	file, err := os.Create(path)
+	// 	So(err, ShouldBeNil)
+	// 	err = tree.Serialise(file, testTree)
+	// 	So(err, ShouldBeNil)
+	// 	err = file.Close()
+	// 	So(err, ShouldBeNil)
+
+	// 	roots := []string{
+	// 		"/lustre/scratch123/humgen/a/",
+	// 		"/lustre/scratch123/humgen/a/[bc]/",
+	// 	}
+
+	// 	srv := New(
+	// 		newRoot(t, testDB),
+	// 		func(_ *http.Request) string { return "test" },
+	// 		config.NewConfig(t, nil, nil, roots, 0, nil),
+	// 	)
+
+	// 	_, err = srv.rootDir.AddTree(path)
+	// 	So(err, ShouldBeNil)
+
+	// 	Convey("Summary totals update correctly when collections are applied and changed", func() {
+	// 		expectedSummary := summary{
+	// 			Summaries:             map[string]*ruletree.DirSummary{},
+	// 			Rules:                 map[uint64]rules.Rule{},
+	// 			Directories:           map[string][]uint64{},
+	// 			BackupStatus:          map[string]ibackup.SetBackupActivity{},
+	// 			GroupBackupTypeTotals: map[string]map[int]*SizeCount{},
+	// 		}
+
+	// 		summary := condenseSummary(getSummaryFromEndpoint(t, srv, "/api/report/summary"))
+
+	// 		So(summary, ShouldResemble, expectedSummary)
+
+	// 	})
+	// })
 }
 
 func removeTimesFromCollection(t *testing.T, colRules map[int64]*rules.ColRules) map[int64]*rules.ColRules {
@@ -423,13 +445,38 @@ func removeTimesFromCollection(t *testing.T, colRules map[int64]*rules.ColRules)
 	return output
 }
 
-func decodeCollections(t *testing.T, resp string) map[int64]*rules.ColRules {
+// func condenseSummary(summary summary) summary {
+// 	summary.Directories = make(map[string][]uint64)
+// 	summary.Rules = make(map[uint64]rules.Rule)
+// 	summary.BackupStatus = make(map[string]ibackup.SetBackupActivity)
+
+// 	return summary
+// }
+
+func getCollectionsFromEndpoint(t *testing.T, s *Server) map[int64]*rules.ColRules {
 	t.Helper()
 
+	code, resp := getResponse(s.Collections, "/api/collections", nil)
+	So(code, ShouldEqual, http.StatusOK)
+
 	collections := make(map[int64]*rules.ColRules)
+
 	So(json.NewDecoder(strings.NewReader(resp)).Decode(&collections), ShouldBeNil)
 
 	return collections
+}
+
+func getSummaryFromEndpoint(t *testing.T, s *Server, input string) summary {
+	t.Helper()
+
+	code, resp := getResponse(s.Summary, input, nil)
+	So(code, ShouldEqual, http.StatusOK)
+
+	var summary summary
+
+	So(json.NewDecoder(strings.NewReader(resp)).Decode(&summary), ShouldBeNil)
+
+	return summary
 }
 
 // add tests for applying collections to directories

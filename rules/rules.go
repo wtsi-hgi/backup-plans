@@ -27,6 +27,7 @@ package rules
 
 import (
 	"errors"
+	"fmt"
 	"iter"
 	"slices"
 	"sync"
@@ -60,6 +61,7 @@ type ColRules struct {
 	*db.Collection
 
 	Rules map[string]*db.CollectionRule // match -> colRule
+	Dirs  map[string]struct{}           // path -> n/a
 }
 
 // Database contains all of the claimed directories and their rules, adding
@@ -78,6 +80,7 @@ type Database struct {
 	delayRemove    []*db.Rule
 	collections    map[int64]*ColRules  // collectionId -> ColRules
 	colRules       map[string]*ColRules // collection name -> ColRules
+	dirCols        map[string][]int64   // path -> collection id's
 }
 
 // New takes a database connection and caches the information for fast access.
@@ -91,6 +94,7 @@ func New(rdb *db.DB) (*Database, error) {
 		rules:          make(map[uint64]*db.Rule),
 		collections:    make(map[int64]*ColRules),
 		colRules:       make(map[string]*ColRules),
+		// dirCols:        make(map[string][]int64),
 	}
 
 	if err := db.loadRules(); err != nil {
@@ -117,6 +121,20 @@ func (d *Database) loadRules() error { //nolint:funlen
 		return err
 	}
 
+	if err := d.rulesDB.ReadCollections().ForEach(func(c *db.Collection) error {
+		cr := &ColRules{
+			Collection: c,
+			Rules:      make(map[string]*db.CollectionRule),
+			Dirs:       make(map[string]struct{}),
+		}
+		d.collections[c.ID()] = cr
+		d.colRules[c.Name] = cr
+
+		return nil
+	}); err != nil {
+		return err
+	}
+
 	if err := d.rulesDB.ReadRules().ForEach(func(r *db.Rule) error {
 		dir, ok := dirs[r.DirID()]
 		if !ok {
@@ -126,18 +144,18 @@ func (d *Database) loadRules() error { //nolint:funlen
 		d.rules[uint64(r.ID())] = r //nolint:gosec
 		dir.Rules[r.Match] = r
 
-		return nil
-	}); err != nil {
-		return err
-	}
+		if r.IsCollection {
+			cr := d.colRules[r.Match]
+			// cIDs, exists := d.dirCols[dir.Path]
+			// if !exists {
+			// 	d.dirCols[dir.Path] = []int64{cID}
 
-	if err := d.rulesDB.ReadCollections().ForEach(func(c *db.Collection) error {
-		cr := &ColRules{
-			Collection: c,
-			Rules:      make(map[string]*db.CollectionRule),
+			// 	return nil
+			// }
+
+			// d.dirCols[dir.Path] = append(cIDs, cID)
+			cr.Dirs[dir.Path] = struct{}{}
 		}
-		d.collections[c.ID()] = cr
-		d.colRules[c.Name] = cr
 
 		return nil
 	}); err != nil {
@@ -371,6 +389,11 @@ func (d *Database) AddRules(path string, rules ...Rule) error { //nolint:gocyclo
 		for _, rule := range dbRules {
 			directory.Rules[rule.Match] = rule
 			d.rules[uint64(rule.ID())] = rule //nolint:gosec
+
+			if rule.IsCollection {
+				d.colRules[rule.Match].Dirs[path] = struct{}{}
+				fmt.Println("Added collection rule with match", rule.Match, "to path", path)
+			}
 		}
 	}
 
@@ -665,12 +688,13 @@ func (d *Database) Rollback() error {
 // ToRule converts a db.Rule to a rules.Rule.
 func ToRule(r *db.Rule) Rule {
 	return Rule{
-		ID:          r.ID(),
-		DirectoryID: r.DirID(),
-		BackupType:  r.BackupType,
-		Match:       r.Match,
-		Metadata:    r.Metadata,
-		Override:    r.Override,
+		ID:           r.ID(),
+		DirectoryID:  r.DirID(),
+		BackupType:   r.BackupType,
+		Match:        r.Match,
+		Metadata:     r.Metadata,
+		Override:     r.Override,
+		IsCollection: r.IsCollection,
 	}
 }
 
@@ -810,7 +834,7 @@ func (d *Database) CreateCollectionRule(cID int64, rules ...*db.CollectionRule) 
 	return d.rulesDB.CreateCollectionRule(colRules.Collection, rules...)
 }
 
-func (d *Database) UpdateCollectionRule(cID int64, rule *db.CollectionRule) error {
+func (d *Database) UpdateCollectionRules(cID int64, rules ...*db.CollectionRule) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -819,14 +843,16 @@ func (d *Database) UpdateCollectionRule(cID int64, rule *db.CollectionRule) erro
 		return ErrCollectionNotFound
 	}
 
-	r, exists := colRules.Rules[rule.Match]
-	if !exists {
-		return ErrRuleNotFound
-	}
+	for _, rule := range rules {
+		r, exists := colRules.Rules[rule.Match]
+		if !exists {
+			return ErrRuleNotFound
+		}
 
-	r.BackupType = rule.BackupType
-	r.Metadata = rule.Metadata
-	r.Override = rule.Override
+		r.BackupType = rule.BackupType
+		r.Metadata = rule.Metadata
+		r.Override = rule.Override
+	}
 
 	return nil
 }
@@ -850,4 +876,20 @@ func (d *Database) DeleteCollectionRules(cID int64, matches ...string) error {
 	}
 
 	return nil
+}
+
+func (d *Database) GetColRules(cIDs []int64) ([]*ColRules, error) {
+	var output []*ColRules
+
+	for _, cID := range cIDs {
+		c, exists := d.collections[cID]
+
+		if !exists {
+			return nil, ErrCollectionNotFound
+		}
+
+		output = append(output, c)
+	}
+
+	return output, nil
 }
