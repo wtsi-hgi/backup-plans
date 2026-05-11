@@ -62,67 +62,14 @@ func (c *sizeCount) WriteTo(w io.Writer) (int64, error) {
 	return slw.Count, slw.Err
 }
 
-type fileTree struct {
-	sizeCount
-	children map[string]*fileTree
-	files    map[string]tree.Leaf // size
-}
-
-func newFileTree() *fileTree {
-	return &fileTree{
-		children: make(map[string]*fileTree),
-		files:    make(map[string]tree.Leaf),
-	}
-}
-
-func (c *fileTree) Children() iter.Seq2[string, tree.Node] { //nolint:gocognit
-	return func(yield func(string, tree.Node) bool) {
-		for name, child := range c.children {
-			if !yield(name, child) {
-				return
-			}
-		}
-
-		for name, child := range c.files {
-			if !yield(name, child) {
-				return
-			}
-		}
-	}
-}
-
-func (c *fileTree) AddFile(file string, size uint64) {
-	c.count++
-	c.size += size
-
-	for part := range iiter.PathParts(file[1:]) {
-		g, ok := c.children[part]
-		if !ok {
-			g = newFileTree()
-			c.children[part] = g
-		}
-
-		c = g
-		c.count++
-		c.size += size
-	}
-
-	var buf byteio.MemLittleEndian
-
-	buf.WriteUintX(size)
-
-	c.files[filepath.Base(file)] = tree.Leaf(buf)
-}
-
 type backupTree struct {
 	sizeCount
-	children map[string]*backupTree
-	files    *fileTree
+	children map[string]tree.Node
 }
 
 func newBackupTree() *backupTree {
 	return &backupTree{
-		children: make(map[string]*backupTree),
+		children: make(map[string]tree.Node),
 	}
 }
 
@@ -133,34 +80,30 @@ func (b *backupTree) Children() iter.Seq2[string, tree.Node] {
 				return
 			}
 		}
-
-		if b.files != nil {
-			yield("/", b.files)
-		}
 	}
 }
 
-func (b *backupTree) AddFile(set, file string, size uint64) {
+func (b *backupTree) AddFile(file string, size uint64) {
 	b.count++
 	b.size += size
 
-	for part := range iiter.PathParts(set[1:]) {
+	for part := range iiter.PathParts(file[1:]) {
 		c, ok := b.children[part]
 		if !ok {
 			c = newBackupTree()
 			b.children[part] = c
 		}
 
-		b = c
+		b = c.(*backupTree)
 		b.count++
 		b.size += size
 	}
 
-	if b.files == nil {
-		b.files = newFileTree()
-	}
+	var buf byteio.MemLittleEndian
 
-	b.files.AddFile(file, size)
+	buf.WriteUintX(size)
+
+	b.children[filepath.Base(file)] = tree.Leaf(buf)
 }
 
 func (b *backupTree) AddCollection(a *api.API, collection string, tx transformer.PathTransformer) error {
@@ -185,7 +128,7 @@ func (b *backupTree) AddCollection(a *api.API, collection string, tx transformer
 			return ErrInvalidSet
 		}
 
-		b.AddFile(bf.Local, strings.TrimPrefix(bf.Remote, remotePath), bf.Size)
+		b.AddFile(filepath.Join(bf.Local, strings.TrimPrefix(bf.Remote, remotePath)), bf.Size)
 
 		return nil
 	})
