@@ -53,17 +53,9 @@ type sizeCount struct {
 	size, count uint64
 }
 
-func (c *sizeCount) WriteTo(w io.Writer) (int64, error) {
-	slw := byteio.StickyLittleEndianWriter{Writer: w}
-
-	slw.WriteUintX(c.size)
-	slw.WriteUintX(c.count)
-
-	return slw.Count, slw.Err
-}
-
 type backupTree struct {
 	sizeCount
+	backups  sizeCount
 	children map[string]tree.Node
 }
 
@@ -81,6 +73,20 @@ func (b *backupTree) Children() iter.Seq2[string, tree.Node] {
 			}
 		}
 	}
+}
+
+func (b *backupTree) WriteTo(w io.Writer) (int64, error) {
+	slw := byteio.StickyLittleEndianWriter{Writer: w}
+
+	slw.WriteUintX(b.size)
+	slw.WriteUintX(b.count)
+
+	if b.backups.count > 0 {
+		slw.WriteUintX(b.backups.size)
+		slw.WriteUintX(b.backups.count)
+	}
+
+	return slw.Count, slw.Err
 }
 
 func (b *backupTree) AddFile(file string, size uint64) {
@@ -106,6 +112,21 @@ func (b *backupTree) AddFile(file string, size uint64) {
 	b.children[filepath.Base(file)] = tree.Leaf(buf)
 }
 
+func (b *backupTree) AddLocal(local string, size uint64) {
+	for part := range iiter.PathParts(local[1:]) {
+		c, ok := b.children[part]
+		if !ok {
+			c = newBackupTree()
+			b.children[part] = c
+		}
+
+		b = c.(*backupTree)
+	}
+
+	b.backups.count++
+	b.backups.size += size
+}
+
 func (b *backupTree) AddCollection(a *api.API, collection string, tx transformer.PathTransformer) error {
 	ctx, cFn := context.WithCancel(context.Background())
 
@@ -120,7 +141,9 @@ func (b *backupTree) AddCollection(a *api.API, collection string, tx transformer
 		).With(
 			api.Like(msg.ICAT_COLUMN_COLL_NAME, strings.TrimSuffix(collection, "/")+"/%"),
 			api.Equal(msg.ICAT_COLUMN_META_DATA_ATTR_NAME, "ibackup:fofn:set"),
-		).Execute(ctx), backedupScanner).ForEach(func(bf *backedupFile) error {
+		).Execute(ctx),
+		backedupScanner,
+	).ForEach(func(bf *backedupFile) error {
 		remotePath, err := tx(bf.Local)
 		if err != nil {
 			return fmt.Errorf("error transforming FOFN set path: %w", err)
@@ -129,6 +152,7 @@ func (b *backupTree) AddCollection(a *api.API, collection string, tx transformer
 		}
 
 		b.AddFile(filepath.Join(bf.Local, strings.TrimPrefix(bf.Remote, remotePath)), bf.Size)
+		b.AddLocal(bf.Local, bf.Size)
 
 		return nil
 	})

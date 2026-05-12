@@ -61,7 +61,7 @@ func TestBackups(t *testing.T) {
 							Size: 100,
 						},
 						{
-							Path: "/local/files/A/myOtherFile.txt",
+							Path: "/local/files/A/other/myOtherFile.txt",
 							Size: 200,
 						},
 					},
@@ -77,6 +77,16 @@ func TestBackups(t *testing.T) {
 						{
 							Path: "/local/files/B/dir/bFile.txt",
 							Size: 400,
+						},
+					},
+				},
+				{
+					set: "/local/files/A/other/",
+					tx:  txA,
+					files: []file{
+						{
+							Path: "/local/files/A/other/other.file",
+							Size: 999,
 						},
 					},
 				},
@@ -123,18 +133,19 @@ func TestBackups(t *testing.T) {
 			So(err, ShouldBeNil)
 
 			for path, countSize := range map[string]sizeCount{
-				"":                              {1500, 5},
-				"local/":                        {1500, 5},
-				"local/files/":                  {1500, 5},
-				"local/files/A/":                {300, 2},
-				"local/files/B/":                {700, 2},
-				"local/files/C/":                {500, 1},
-				"local/files/B/dir/":            {400, 1},
-				"local/files/A/myFile.txt":      {100, 0},
-				"local/files/A/myOtherFile.txt": {200, 0},
-				"local/files/B/aFile.txt":       {300, 0},
-				"local/files/B/dir/bFile.txt":   {400, 0},
-				"local/files/C/hello.world":     {500, 0},
+				"":                                    {2499, 6},
+				"local/":                              {2499, 6},
+				"local/files/":                        {2499, 6},
+				"local/files/A/":                      {1299, 3},
+				"local/files/A/other/":                {1199, 2},
+				"local/files/B/":                      {700, 2},
+				"local/files/C/":                      {500, 1},
+				"local/files/B/dir/":                  {400, 1},
+				"local/files/A/myFile.txt":            {100, 0},
+				"local/files/A/other/myOtherFile.txt": {200, 0},
+				"local/files/B/aFile.txt":             {300, 0},
+				"local/files/B/dir/bFile.txt":         {400, 0},
+				"local/files/C/hello.world":           {500, 0},
 			} {
 				l := traverseTree(t, bt, path)
 				SoMsg(path, l, ShouldNotBeNil)
@@ -146,6 +157,28 @@ func TestBackups(t *testing.T) {
 			}
 
 			So(traverseTree(t, bt, "local/files/D/"), ShouldBeNil)
+
+			for path, countSize := range map[string]sizeCount{
+				"":                     {0, 0},
+				"local/":               {0, 0},
+				"local/files/":         {0, 0},
+				"local/files/A/":       {300, 2},
+				"local/files/A/other/": {999, 1},
+				"local/files/B/":       {700, 2},
+				"local/files/C/":       {500, 1},
+				"local/files/B/dir/":   {0, 0},
+			} {
+				l := traverseTree(t, bt, path)
+				SoMsg(path, l, ShouldNotBeNil)
+
+				d := byteio.MemLittleEndian(l.Data())
+
+				d.ReadUintX()
+				d.ReadUintX()
+
+				SoMsg(path+": backup size", d.ReadUintX(), ShouldEqual, countSize.size)
+				SoMsg(path+": backup count", d.ReadUintX(), ShouldEqual, countSize.count)
+			}
 		})
 	})
 }
