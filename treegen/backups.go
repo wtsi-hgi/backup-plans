@@ -57,6 +57,7 @@ type backupTree struct {
 	sizeCount
 	backups  sizeCount
 	children map[string]tree.Node
+	files    tree.Branch
 }
 
 func newBackupTree() *backupTree {
@@ -67,6 +68,12 @@ func newBackupTree() *backupTree {
 
 func (b *backupTree) Children() iter.Seq2[string, tree.Node] {
 	return func(yield func(string, tree.Node) bool) {
+		if len(b.files) > 0 {
+			if !yield("", b.files) {
+				return
+			}
+		}
+
 		for name, child := range b.children {
 			if !yield(name, child) {
 				return
@@ -84,6 +91,8 @@ func (b *backupTree) WriteTo(w io.Writer) (int64, error) {
 	if b.backups.count > 0 {
 		slw.WriteUintX(b.backups.size)
 		slw.WriteUintX(b.backups.count)
+		slw.WriteUint8(0)
+		slw.WriteUint8(0)
 	}
 
 	return slw.Count, slw.Err
@@ -112,7 +121,9 @@ func (b *backupTree) AddFile(file string, size uint64) {
 	b.children[filepath.Base(file)] = tree.Leaf(buf)
 }
 
-func (b *backupTree) AddLocal(local string, size uint64) {
+var emptyLeaf tree.Leaf
+
+func (b *backupTree) AddLocal(local, path string, size uint64) {
 	for part := range iiter.PathParts(local[1:]) {
 		c, ok := b.children[part]
 		if !ok {
@@ -125,6 +136,24 @@ func (b *backupTree) AddLocal(local string, size uint64) {
 
 	b.backups.count++
 	b.backups.size += size
+
+	b.addFileToSet(path)
+}
+
+func (b *backupTree) addFileToSet(path string) {
+	branch := &b.files
+
+	for part := range iiter.PathParts(path[1:]) {
+		nb, _ := branch.Child(part)
+		if nb == nil {
+			nb = new(tree.Branch)
+			branch.Add(part, nb)
+		}
+
+		branch, _ = nb.(*tree.Branch)
+	}
+
+	branch.Add(filepath.Base(path), &emptyLeaf)
 }
 
 func (b *backupTree) AddCollection(a *api.API, collection string, tx transformer.PathTransformer) error {
@@ -151,8 +180,10 @@ func (b *backupTree) AddCollection(a *api.API, collection string, tx transformer
 			return ErrInvalidSet
 		}
 
-		b.AddFile(filepath.Join(bf.Local, strings.TrimPrefix(bf.Remote, remotePath)), bf.Size)
-		b.AddLocal(bf.Local, bf.Size)
+		remoteSuffix := strings.TrimPrefix(bf.Remote, remotePath)
+
+		b.AddFile(filepath.Join(bf.Local, remoteSuffix), bf.Size)
+		b.AddLocal(bf.Local, remoteSuffix, bf.Size)
 
 		return nil
 	})

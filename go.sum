@@ -832,7 +832,7 @@ vimagination.zapto.org/memfs v1.0.0 h1:uOami0c0ZGYiMe7yy2T78xwe39cL4kQXXgrjCqdDN
 vimagination.zapto.org/memfs v1.0.0/go.mod h1:7nxyPwJQ5H79BQrz2j1mPE4Bx0jo8QUsZfD2sZtFACA=
 vimagination.zapto.org/parser v1.2.3 h1:OxtKZw0slZkt8c9ixfUAAWd6t30UwZerxPJJSyG34z0=
 vimagination.zapto.org/parser v1.2.3/go.mod h1:MxM1MZY6A9AeEx6nahIQ6MJaGZqX80n6Vm3zGVqV9FU=
-vimagination.zapto.org/tree v1.4.0 h1:USxmSAXwrSsHVDzyMm6VR7xgsn25LyQxtU2QxJEzmAM=
-vimagination.zapto.org/tree v1.4.0/go.mod h1:vRU3VhE7AW6EPoGh1wIabJ3fFRPLPUmxszxemhgxrYM=
+vimagination.zapto.org/tree v1.4.1 h1:cuyfu7O+k8FQKYVCRJ/nd6KsveqBeRVNm66BF5e5Efw=
+vimagination.zapto.org/tree v1.4.1/go.mod h1:vRU3VhE7AW6EPoGh1wIabJ3fFRPLPUmxszxemhgxrYM=
 vimagination.zapto.org/tsserver v1.2.0 h1:Riit4q37yhSWeaw+7HiB/3gPc8WofKJEJgJ3bijTnFE=
 vimagination.zapto.org/tsserver v1.2.0/go.mod h1:jLmWt6PEHw164wP8WsRY13V/3anJxd47lkfsroXmBaE=

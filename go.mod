@@ -27,7 +27,7 @@ require (
 	vimagination.zapto.org/byteio v1.3.2
 	vimagination.zapto.org/httpbuffer v1.1.4
 	vimagination.zapto.org/httpembed v1.4.1
-	vimagination.zapto.org/tree v1.4.0
+	vimagination.zapto.org/tree v1.4.1
 	vimagination.zapto.org/tsserver v1.2.0
 )
 
