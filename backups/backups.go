@@ -234,9 +234,8 @@ func addFofnsToIBackup(client backupClient, setFofns map[*db.Directory][]server.
 			continue
 		}
 
-		err = client.Backup(setInfo.Path, backupSetName, setInfo.ClaimedBy, fofns,
-			int(setInfo.Frequency), frozen, setInfo.ReviewDate, setInfo.RemoveDate) //nolint:gosec
-		if err != nil {
+		if err = client.Backup(setInfo.Path, backupSetName, setInfo.ClaimedBy, fofns,
+			int(setInfo.Frequency), frozen, setInfo.ReviewDate, setInfo.RemoveDate); err != nil { //nolint:gosec
 			if !errors.Is(err, ibackup.ErrNoUpdate) && !errors.Is(err, ibackup.ErrUnknownClient) {
 				errs = errors.Join(errs, err)
 			}
