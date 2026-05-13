@@ -184,7 +184,8 @@ func collectRuleGroups(root *ruletree.RuleTree, path string, rules ruletree.Rule
 }
 
 func figureOutFOFNs(node tree.Node, sm ruletree.State, path *summary.DirectoryPath,
-	cb func(*summary.DirectoryPath, int64, int64)) {
+	cb func(*summary.DirectoryPath, int64, int64),
+) {
 	for name, child := range node.Children() {
 		state := sm.GetStateString(name)
 		newPath := &summary.DirectoryPath{Parent: path, Name: name}
@@ -236,7 +237,9 @@ func addFofnsToIBackup(client backupClient, setFofns map[*db.Directory][]server.
 		err = client.Backup(setInfo.Path, backupSetName, setInfo.ClaimedBy, fofns,
 			int(setInfo.Frequency), frozen, setInfo.ReviewDate, setInfo.RemoveDate) //nolint:gosec
 		if err != nil {
-			errs = errors.Join(errs, err)
+			if !errors.Is(err, ibackup.ErrNoUpdate) && !errors.Is(err, ibackup.ErrUnknownClient) {
+				errs = errors.Join(errs, err)
+			}
 
 			continue
 		}
