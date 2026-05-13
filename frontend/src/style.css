@@ -23,12 +23,13 @@ body {
 	float: right;
 }
 
-@media (min-width: 700px) {
+@media (min-width: 730px) {
 	#user {
 		position: absolute;
 		top: 0;
 		right: 0;
 		float: none;
+		z-index: 100;
 	}
 }
 
