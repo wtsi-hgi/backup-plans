@@ -165,28 +165,25 @@ func TestBackups(t *testing.T) {
 			So(traverseTree(t, bt, "local/files/D/"), ShouldBeNil)
 
 			for path, countSize := range map[string]sizeCount{
-				"":                     {},
-				"local/":               {},
-				"local/files/":         {},
-				"local/files/A/":       {300, 2},
-				"local/files/A/other/": {999, 1},
-				"local/files/B/":       {700, 2},
-				"local/files/C/":       {500, 1},
-				"local/files/B/dir/":   {},
+				"local/files/A//":       {300, 2},
+				"local/files/A/other//": {999, 1},
+				"local/files/B//":       {700, 2},
+				"local/files/C//":       {500, 1},
 			} {
 				l := traverseTree(t, bt, path)
 				SoMsg(path, l, ShouldNotBeNil)
 
 				d := byteio.MemLittleEndian(l.Data())
 
-				d.ReadUintX()
-				d.ReadUintX()
-
 				SoMsg(path+": backup size", d.ReadUintX(), ShouldEqual, countSize.size)
 				SoMsg(path+": backup count", d.ReadUintX(), ShouldEqual, countSize.count)
 			}
 		})
 	})
+}
+
+type sizeCount struct {
+	size, count uint64
 }
 
 func traverseTree(t *testing.T, m *tree.MemTree, path string) *tree.MemTree {

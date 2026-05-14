@@ -26,7 +26,10 @@
 package iter
 
 import (
+	"cmp"
 	"iter"
+	"maps"
+	"slices"
 )
 
 // IterErr is an extension to the iter package that allows for returning errors.
@@ -88,4 +91,19 @@ func Rows[T any](rows Scanner, fn func(Scanner) (T, error)) *IterErr[T] {
 	}
 
 	return &ie
+}
+
+// SortedMap returns an iterator that produces the map contents ordered by key.
+func SortedMap[K cmp.Ordered, V any](m map[K]V) iter.Seq2[K, V] {
+	return func(yield func(K, V) bool) {
+		keys := slices.Collect(maps.Keys(m))
+
+		slices.Sort(keys)
+
+		for _, key := range keys {
+			if !yield(key, m[key]) {
+				break
+			}
+		}
+	}
 }

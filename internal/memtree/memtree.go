@@ -26,6 +26,7 @@
 package memtree
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 
@@ -80,24 +81,40 @@ func openAndSize(path string) (*os.File, int, error) {
 	return f, int(stat.Size()), nil
 }
 
+// InMemory writes the Node bytes into memory and opens it as a MemTree.
+func InMemory(n tree.Node) (*tree.MemTree, error) {
+	var buf bytes.Buffer
+
+	if err := tree.Serialise(&buf, n); err != nil {
+		return nil, err
+	}
+
+	return tree.OpenMem(buf.Bytes())
+}
+
 // FromTree serialises the given tree to the given path and then calls
 // OpenMemTree.
 func FromTree(n tree.Node, path string) (*tree.MemTree, func(), error) {
+	if err := TreeToFile(n, path); err != nil {
+		return nil, nil, err
+	}
+
+	return Open(path)
+}
+
+// TreeToFile writes the given tree to the stated file path.
+func TreeToFile(n tree.Node, path string) error {
 	f, err := os.Create(path)
 	if err != nil {
-		return nil, nil, err
+		return err
 	}
 
 	if err := tree.Serialise(f, n); err != nil {
 		f.Close()
 		os.Remove(path)
 
-		return nil, nil, err
+		return err
 	}
 
-	if err := f.Close(); err != nil {
-		return nil, nil, err
-	}
-
-	return Open(path)
+	return f.Close()
 }

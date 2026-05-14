@@ -29,18 +29,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
-	"iter"
 	"path"
-	"path/filepath"
 	"strings"
 
 	"github.com/kuleuven/iron"
 	"github.com/kuleuven/iron/api"
 	"github.com/kuleuven/iron/msg"
+	"github.com/wtsi-hgi/backup-plans/internal/backuptree"
 	iiter "github.com/wtsi-hgi/backup-plans/internal/iter"
 	"github.com/wtsi-hgi/ibackup/transformer"
-	"vimagination.zapto.org/byteio"
 	"vimagination.zapto.org/tree"
 )
 
@@ -49,111 +46,12 @@ var (
 	ErrInvalidSet  = errors.New("invalid set for backup")
 )
 
-type sizeCount struct {
-	size, count uint64
-}
-
 type backupTree struct {
-	sizeCount
-	backups  sizeCount
-	children map[string]tree.Node
-	files    tree.Branch
+	*backuptree.BackupTree
 }
 
 func newBackupTree() *backupTree {
-	return &backupTree{
-		children: make(map[string]tree.Node),
-	}
-}
-
-func (b *backupTree) Children() iter.Seq2[string, tree.Node] {
-	return func(yield func(string, tree.Node) bool) {
-		if len(b.files) > 0 {
-			if !yield("", b.files) {
-				return
-			}
-		}
-
-		for name, child := range b.children {
-			if !yield(name, child) {
-				return
-			}
-		}
-	}
-}
-
-func (b *backupTree) WriteTo(w io.Writer) (int64, error) {
-	slw := byteio.StickyLittleEndianWriter{Writer: w}
-
-	slw.WriteUintX(b.size)
-	slw.WriteUintX(b.count)
-
-	if b.backups.count > 0 {
-		slw.WriteUintX(b.backups.size)
-		slw.WriteUintX(b.backups.count)
-		slw.WriteUint8(0)
-		slw.WriteUint8(0)
-	}
-
-	return slw.Count, slw.Err
-}
-
-func (b *backupTree) AddFile(file string, size uint64) {
-	b.count++
-	b.size += size
-
-	for part := range iiter.PathParts(file[1:]) {
-		c, ok := b.children[part]
-		if !ok {
-			c = newBackupTree()
-			b.children[part] = c
-		}
-
-		b = c.(*backupTree)
-		b.count++
-		b.size += size
-	}
-
-	var buf byteio.MemLittleEndian
-
-	buf.WriteUintX(size)
-
-	b.children[filepath.Base(file)] = tree.Leaf(buf)
-}
-
-var emptyLeaf tree.Leaf
-
-func (b *backupTree) AddLocal(local, path string, size uint64) {
-	for part := range iiter.PathParts(local[1:]) {
-		c, ok := b.children[part]
-		if !ok {
-			c = newBackupTree()
-			b.children[part] = c
-		}
-
-		b = c.(*backupTree)
-	}
-
-	b.backups.count++
-	b.backups.size += size
-
-	b.addFileToSet(path)
-}
-
-func (b *backupTree) addFileToSet(path string) {
-	branch := &b.files
-
-	for part := range iiter.PathParts(path[1:]) {
-		nb, _ := branch.Child(part)
-		if nb == nil {
-			nb = new(tree.Branch)
-			branch.Add(part, nb)
-		}
-
-		branch, _ = nb.(*tree.Branch)
-	}
-
-	branch.Add(filepath.Base(path), &emptyLeaf)
+	return &backupTree{backuptree.New()}
 }
 
 func (b *backupTree) AddCollection(a *api.API, collection string, tx transformer.PathTransformer) error {
@@ -182,8 +80,7 @@ func (b *backupTree) AddCollection(a *api.API, collection string, tx transformer
 
 		remoteSuffix := strings.TrimPrefix(bf.Remote, remotePath)
 
-		b.AddFile(filepath.Join(bf.Local, remoteSuffix), bf.Size)
-		b.AddLocal(bf.Local, remoteSuffix, bf.Size)
+		b.AddFileToCollection(bf.Local, remoteSuffix, bf.Size)
 
 		return nil
 	})
