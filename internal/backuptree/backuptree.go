@@ -116,3 +116,20 @@ func (b *BackupTree) addFileToDir(path string, size uint64) {
 
 	b.children[filepath.Base(path)] = tree.Leaf(buf)
 }
+
+// Generate builds a BackupTree from the given map, which should look like:
+//
+// map[collection name: string]map[file path: string]size: uint64
+//
+// There must be no duplications of collection + file path.
+func Generate(collections map[string]map[string]uint64) *BackupTree {
+	bt := New()
+
+	for collection, files := range collections {
+		for path, size := range files {
+			bt.AddFileToCollection(collection, path, size)
+		}
+	}
+
+	return bt
+}

@@ -26,7 +26,7 @@
 package ruletree
 
 import (
-	"bytes"
+	"cmp"
 	"errors"
 	"iter"
 	"maps"
@@ -42,6 +42,11 @@ import (
 	"vimagination.zapto.org/tree"
 )
 
+type dbCloser struct {
+	db     *tree.MemTree
+	closer func()
+}
+
 // RootDir represents the root of a collection of tree databases and rules.
 type RootDir struct {
 	topLevelDir
@@ -50,16 +55,17 @@ type RootDir struct {
 
 	mu        sync.RWMutex
 	wildcards map[string]group.State[int64]
-	closers   map[string]func()
+	trees     map[string]dbCloser
 	claimed   map[string]*DirSummary
 	cached    map[string]*DirSummary
+	backups   *tree.MemTree
 }
 
 // NewRoot create a new RootDir, initialised with the given rules.
 func NewRoot(rules *rules.Database) *RootDir {
 	r := &RootDir{
 		rules:   rules,
-		closers: make(map[string]func()),
+		trees:   make(map[string]dbCloser),
 		claimed: make(map[string]*DirSummary),
 		topLevelDir: topLevelDir{
 			children: make(map[string]summariser),
@@ -260,7 +266,7 @@ func addRule(directoryRules *rules.Database, dir string, rule rules.Rule) error 
 // GetMountPoint will return the mountpoint for the directory given, it will
 // return an empty string if none is found.
 func (r *RootDir) GetMountPoint(dir string) string {
-	for mp := range r.closers {
+	for mp := range r.trees {
 		if strings.HasPrefix(dir, mp) {
 			return mp
 		}
@@ -344,15 +350,13 @@ func (r *RootDir) regenRulesFor(t *topLevelDir, child *ruleOverlay, dirs []strin
 
 	wg.Add(1)
 
-	rd.process(child.lower, child.upper, sm.GetStateString(mount), &wg)
+	rd.process(treeNode{
+		child.lower,
+		cmp.Or(child.upper, &emptyNode),
+		cmp.Or(r.trees[""].db, &emptyNode),
+	}, sm.GetStateString(mount), &wg)
 
-	var buf bytes.Buffer
-
-	if err = tree.Serialise(&buf, &rd); err != nil {
-		return err
-	}
-
-	processed, err := tree.OpenMem(buf.Bytes())
+	processed, err := memtree.InMemory(&rd)
 	if err != nil {
 		return err
 	}
@@ -448,6 +452,66 @@ func (r *RootDir) getSummary(path string) (*DirSummary, error) {
 	return s, nil
 }
 
+type rulesAndWildcards struct {
+	processed *ruleOverlay
+	wcs       group.StateMachine[int64]
+}
+
+func (r *RootDir) SetBackupTree(file string) error {
+	db, closer, err := memtree.Open(file)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			closer()
+		}
+	}()
+
+	defer r.rules.RuleTransaction().Rollback() //nolint:errcheck
+
+	newRoots := make(map[string]rulesAndWildcards)
+
+	for rootPath, tree := range r.trees {
+		r.mu.RLock()
+		processed, wcs, err := r.processRules(tree.db, db, rootPath)
+		r.mu.RUnlock()
+
+		if err != nil {
+			return err
+		}
+
+		newRoots[rootPath] = rulesAndWildcards{processed, wcs}
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	for rootPath, rw := range newRoots {
+		if err = createTopLevelDirs(rw.processed, rootPath, &r.topLevelDir); err != nil {
+			return err
+		}
+
+		r.wildcards[rootPath] = rw.wcs.GetState(nil)
+		r.updateCache(rootPath)
+	}
+
+	r.setTreeCloser("", db, closer)
+
+	r.backups = db
+
+	return nil
+}
+
+func (r *RootDir) setTreeCloser(rootPath string, db *tree.MemTree, closer func()) {
+	if existing, ok := r.trees[rootPath]; ok {
+		existing.closer()
+	}
+
+	r.trees[rootPath] = dbCloser{db, closer}
+}
+
 // AddTree adds a tree database, specified by the given file path, to the
 // RootDir, possibly overriding an existing database if they share the same
 // root.
@@ -471,7 +535,7 @@ func (r *RootDir) AddTree(file string) (string, error) { //nolint:funlen,unparam
 	defer r.rules.RuleTransaction().Rollback() //nolint:errcheck
 
 	r.mu.RLock()
-	processed, wcs, err := r.processRules(treeRoot, rootPath)
+	processed, wcs, err := r.processRules(treeRoot, r.trees[""].db, rootPath)
 	r.mu.RUnlock()
 
 	if err != nil {
@@ -485,13 +549,9 @@ func (r *RootDir) AddTree(file string) (string, error) { //nolint:funlen,unparam
 		return "", err
 	}
 
-	if existing, ok := r.closers[rootPath]; ok {
-		existing()
-	}
-
-	r.closers[rootPath] = closer
 	r.wildcards[rootPath] = wcs.GetState(nil)
 
+	r.setTreeCloser(rootPath, db, closer)
 	r.updateCache(rootPath)
 
 	return rootPath, nil
@@ -521,7 +581,7 @@ func getRoot(db *tree.MemTree) (*tree.MemTree, string, error) {
 	return treeRoot, rootPath, nil
 }
 
-func (r *RootDir) processRules(treeRoot *tree.MemTree, rootPath string) (*ruleOverlay,
+func (r *RootDir) processRules(treeRoot, backups *tree.MemTree, rootPath string) (*ruleOverlay,
 	group.StateMachine[int64], error) {
 	sm, wcs, err := generateStatemachineFor(rootPath, nil, r.rules)
 	if err != nil {
@@ -535,15 +595,13 @@ func (r *RootDir) processRules(treeRoot *tree.MemTree, rootPath string) (*ruleOv
 
 	wg.Add(1)
 
-	rd.process(treeRoot, &emptyNode, sm.GetStateString(rootPath), &wg)
+	rd.process(treeNode{
+		treeRoot,
+		&emptyNode,
+		cmp.Or(backups, &emptyNode),
+	}, sm.GetStateString(rootPath), &wg)
 
-	var buf bytes.Buffer
-
-	if err = tree.Serialise(&buf, &rd); err != nil {
-		return nil, nil, err
-	}
-
-	processed, err := tree.OpenMem(buf.Bytes())
+	processed, err := memtree.InMemory(&rd)
 	if err != nil {
 		return nil, nil, err
 	}

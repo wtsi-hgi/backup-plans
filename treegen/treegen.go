@@ -292,6 +292,8 @@ func writeIDTimes(w *byteio.StickyLittleEndianWriter, idts []IDData) {
 		w.WriteUintX(idt.MTime)
 		w.WriteUintX(idt.Files)
 		w.WriteUintX(idt.Bytes)
+		w.WriteUint8(0)
+		w.WriteUint8(0)
 	}
 }
 

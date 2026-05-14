@@ -27,7 +27,6 @@ package ruletree
 
 import (
 	"maps"
-	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -37,6 +36,7 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/internal/directories"
+	"github.com/wtsi-hgi/backup-plans/internal/memtree"
 	"github.com/wtsi-hgi/backup-plans/internal/plandb"
 	"github.com/wtsi-hgi/backup-plans/internal/testdb"
 	"github.com/wtsi-hgi/backup-plans/rules"
@@ -608,10 +608,7 @@ func createTree(t *testing.T, node tree.Node) string {
 
 	treeDBPath := filepath.Join(t.TempDir(), "tree.db")
 
-	f, err := os.Create(treeDBPath)
-	So(err, ShouldBeNil)
-	So(tree.Serialise(f, node), ShouldBeNil)
-	So(f.Close(), ShouldBeNil)
+	So(memtree.TreeToFile(node, treeDBPath), ShouldBeNil)
 
 	return treeDBPath
 }

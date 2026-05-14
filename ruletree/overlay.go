@@ -72,13 +72,13 @@ func (d *DirSummary) mergeRules(rules []Rule) {
 		}
 
 		for _, user := range rule.Users {
-			d.RuleSummaries[pos].Users.add(user.id, user.MTime, user.Files, user.Size)
+			d.RuleSummaries[pos].Users.add(user.id, user.MTime, user.Files, user.Size, user.BackupFiles, user.BackupSize)
 		}
 
 		setNames(d.RuleSummaries[pos].Users, users.Username)
 
 		for _, group := range rule.Groups {
-			d.RuleSummaries[pos].Groups.add(group.id, group.MTime, group.Files, group.Size)
+			d.RuleSummaries[pos].Groups.add(group.id, group.MTime, group.Files, group.Size, group.BackupFiles, group.BackupSize)
 		}
 
 		setNames(d.RuleSummaries[pos].Groups, users.Group)
@@ -224,11 +224,13 @@ func (r *ruleOverlay) IsDirectory(path string) bool {
 // Stats represents the summarised stats for a particular user or group for a
 // directory.
 type Stats struct {
-	id    uint32
-	Name  string
-	MTime uint64
-	Files uint64
-	Size  uint64
+	id          uint32
+	Name        string
+	MTime       uint64
+	Files       uint64
+	Size        uint64
+	BackupFiles uint64
+	BackupSize  uint64
 }
 
 // ID returns the UID or GID for the summarised stats.
@@ -241,6 +243,8 @@ func (s *Stats) writeTo(sw *byteio.StickyLittleEndianWriter) {
 	sw.WriteUintX(s.MTime)
 	sw.WriteUintX(s.Files)
 	sw.WriteUintX(s.Size)
+	sw.WriteUintX(s.BackupFiles)
+	sw.WriteUintX(s.BackupSize)
 }
 
 func readStats(br *byteio.MemLittleEndian, name func(uint32) string) []Stats {
@@ -248,10 +252,12 @@ func readStats(br *byteio.MemLittleEndian, name func(uint32) string) []Stats {
 
 	for n := range stats {
 		stats[n] = Stats{
-			id:    uint32(br.ReadUintX()), //nolint:gosec
-			MTime: br.ReadUintX(),
-			Files: br.ReadUintX(),
-			Size:  br.ReadUintX(),
+			id:          uint32(br.ReadUintX()), //nolint:gosec
+			MTime:       br.ReadUintX(),
+			Files:       br.ReadUintX(),
+			Size:        br.ReadUintX(),
+			BackupFiles: br.ReadUintX(),
+			BackupSize:  br.ReadUintX(),
 		}
 
 		stats[n].Name = name(stats[n].id)

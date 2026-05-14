@@ -26,7 +26,6 @@
 package ruletree
 
 import (
-	"os"
 	"path/filepath"
 	"slices"
 	"testing"
@@ -35,9 +34,9 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/wtsi-hgi/backup-plans/db"
 	"github.com/wtsi-hgi/backup-plans/internal/directories"
+	"github.com/wtsi-hgi/backup-plans/internal/memtree"
 	"github.com/wtsi-hgi/backup-plans/internal/testdb"
 	"github.com/wtsi-hgi/backup-plans/rules"
-	"vimagination.zapto.org/tree"
 )
 
 func TestRoot(t *testing.T) {
@@ -48,17 +47,14 @@ func TestRoot(t *testing.T) {
 
 		treeDBPathA := filepath.Join(t.TempDir(), "a.db")
 
-		f, err := os.Create(treeDBPathA)
-		So(err, ShouldBeNil)
-		So(tree.Serialise(f, treeDBA), ShouldBeNil)
-		So(f.Close(), ShouldBeNil)
+		So(memtree.TreeToFile(treeDBA, treeDBPathA), ShouldBeNil)
 
 		root := newEmptyRoot(t)
 
-		_, err = root.AddTree(treeDBPathA)
+		_, err := root.AddTree(treeDBPathA)
 		So(err, ShouldBeNil)
 
-		Convey("You can claim, tranfer, and revoke directories", func() {
+		Convey("You can claim, transfer, and revoke directories", func() {
 			So(root.ClaimDirectory("/some/path/MyDir/", "me"), ShouldBeNil)
 
 			claimed := slices.Collect(root.rules.Dirs())
@@ -119,10 +115,7 @@ func TestRoot(t *testing.T) {
 
 			treeDBPathB := filepath.Join(t.TempDir(), "b.db")
 
-			f, err := os.Create(treeDBPathB)
-			So(err, ShouldBeNil)
-			So(tree.Serialise(f, treeDBB), ShouldBeNil)
-			So(f.Close(), ShouldBeNil)
+			So(memtree.TreeToFile(treeDBB, treeDBPathB), ShouldBeNil)
 
 			_, err = root.AddTree(treeDBPathB)
 			So(err, ShouldBeNil)
@@ -180,14 +173,11 @@ func TestClaims(t *testing.T) {
 
 		treeDBPathA := filepath.Join(t.TempDir(), "a.db")
 
-		f, err := os.Create(treeDBPathA)
-		So(err, ShouldBeNil)
-		So(tree.Serialise(f, treeDBA), ShouldBeNil)
-		So(f.Close(), ShouldBeNil)
+		So(memtree.TreeToFile(treeDBA, treeDBPathA), ShouldBeNil)
 
 		root := newEmptyRoot(t)
 
-		_, err = root.AddTree(treeDBPathA)
+		_, err := root.AddTree(treeDBPathA)
 		So(err, ShouldBeNil)
 
 		Convey("You can claim, pass, and revoke directories which updates the claimed caches", func() {
