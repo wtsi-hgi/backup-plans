@@ -214,7 +214,7 @@ class ChildSummary extends Summary {
 
 const groupList = datalist({ "id": "groupList" }),
 	spinner = createSpinner(),
-	base = div({ "id": "report" }, [symbols, groupList, spinner]),
+	base = div({ "id": "report" }, [groupList, spinner]),
 	initFilterSort = (container: HTMLDivElement, children: HTMLFieldSetElement[],
 		[
 			filterProject, filterAll, filterR, filterA, filterG, filterB, showEmpty, sortName, sortWarnSize, sortNoBackupSize, sortBackupSize
@@ -286,7 +286,7 @@ const groupList = datalist({ "id": "groupList" }),
 		const getCSS = (sheet: CSSStyleSheet): string => Array.from(sheet.cssRules, rule => rule instanceof CSSImportRule ? getCSS(rule.styleSheet!) : rule.cssText).reduce((a, b) => a + b, ""),
 			// Ignore first input box when filtering as its a hidden checkbox for expand/collapse table functionality
 			html = `<!DOCTYPE html>
-<html lang="en"><head><title>Backup Report - ${new Date(now).toLocaleString()}</title><style type="text/css">${Array.from(document.styleSheets, getCSS).reduce((a, b) => a + b, "")}</style><script type="module">(document.readyState === "complete" ? Promise.resolve() : new Promise(successFn => window.addEventListener("load", successFn, { "once": true }))).then(() => (${initFilterSort.toString().replace(/\n\t/g, "")})(document.getElementById("report"), Array.from(document.getElementsByTagName("fieldset")).filter(f => f.dataset.name), Array.from(document.getElementsByTagName("input")).slice(1)));</script></head><body>${base.outerHTML}</body></html>`;
+<html lang="en"><head><title>Backup Report - ${new Date(now).toLocaleString()}</title><style type="text/css">${Array.from(document.styleSheets, getCSS).reduce((a, b) => a + b, "")}</style><script type="module">(document.readyState === "complete" ? Promise.resolve() : new Promise(successFn => window.addEventListener("load", successFn, { "once": true }))).then(() => (${initFilterSort.toString().replace(/\n\t/g, "")})(document.getElementById("report"), Array.from(document.getElementsByTagName("fieldset")).filter(f => f.dataset.name), Array.from(document.getElementsByTagName("input")).slice(1)));</script></head><body>${symbols.outerHTML}${base.outerHTML}</body></html>`;
 
 		a({ "href": URL.createObjectURL(new Blob([html], { "type": "text/html;charset=utf-8" })), "download": `backup-report-${new Date(now).toISOString()}.html` }).click();
 	};
