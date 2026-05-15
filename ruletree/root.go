@@ -676,22 +676,22 @@ func (r *RootDir) BackedUpFiles(path string) *iiter.IterErr[string] {
 	lr.ReadUintX()
 
 	if len(lr) == 0 {
-		return &iiter.IterErr[string]{Error: ErrNoBackups}
+		return &iiter.IterErr[string]{Iter: iiter.NoSeq[string], Error: ErrNoBackups}
 	}
 
 	backups, err := tree.OpenMem(lr)
 	if err != nil {
-		return &iiter.IterErr[string]{Error: err}
+		return &iiter.IterErr[string]{Iter: iiter.NoSeq[string], Error: err}
 	}
 
 	return &iiter.IterErr[string]{
-		Iter: walkBackups(backups),
+		Iter: walkBackups(backups, path),
 	}
 }
 
-func walkBackups(n *tree.MemTree) iter.Seq[string] {
+func walkBackups(n *tree.MemTree, path string) iter.Seq[string] {
 	return func(yield func(string) bool) {
-		walkTree(n, []byte{'/'}, yield)
+		walkTree(n, []byte(path), yield)
 	}
 }
 

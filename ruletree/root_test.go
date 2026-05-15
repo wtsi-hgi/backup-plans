@@ -33,6 +33,7 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/wtsi-hgi/backup-plans/db"
+	"github.com/wtsi-hgi/backup-plans/internal/backuptree"
 	"github.com/wtsi-hgi/backup-plans/internal/directories"
 	"github.com/wtsi-hgi/backup-plans/internal/memtree"
 	"github.com/wtsi-hgi/backup-plans/internal/testdb"
@@ -228,6 +229,52 @@ func TestClaims(t *testing.T) {
 
 			So(root.RevokeDirectory("/some/path/Root/"), ShouldBeNil)
 			So(root.cached["/some/path/Root/"].ClaimedBy, ShouldEqual, "")
+		})
+	})
+}
+
+func TestBackups(t *testing.T) {
+	Convey("Given a backup tree", t, func() {
+		root := newEmptyRoot(t)
+		bt := filepath.Join(t.TempDir(), "backups.db")
+
+		So(memtree.TreeToFile(backuptree.Generate(map[string]map[string]uint64{
+			"/some/path/MyDir/": {
+				"/a.txt": 1,
+				"/b.csv": 2,
+			},
+			"/some/path/YourDir/": {
+				"/a.txt":     999,
+				"/dir/b.txt": 1234,
+			},
+		}), bt), ShouldBeNil)
+		So(root.SetBackupTree(bt), ShouldBeNil)
+
+		Convey("You can list the backed-up files for a directory", func() {
+			var paths []string
+			collect := func(path string) error {
+				paths = append(paths, path)
+
+				return nil
+			}
+
+			So(root.BackedUpFiles("/some/path/MyDir/").ForEach(collect), ShouldBeNil)
+			So(paths, ShouldResemble, []string{
+				"/some/path/MyDir/a.txt",
+				"/some/path/MyDir/b.csv",
+			})
+
+			paths = paths[:0]
+
+			So(root.BackedUpFiles("/some/path/YourDir/").ForEach(collect), ShouldBeNil)
+			So(paths, ShouldResemble, []string{
+				"/some/path/YourDir/a.txt",
+				"/some/path/YourDir/dir/b.txt",
+			})
+
+			paths = paths[:0]
+
+			So(root.BackedUpFiles("/some/path/OtherDir/").ForEach(collect), ShouldEqual, ErrNoBackups)
 		})
 	})
 }

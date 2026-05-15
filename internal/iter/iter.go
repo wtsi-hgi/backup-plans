@@ -38,12 +38,13 @@ type IterErr[T any] struct { //nolint:revive
 	Error error
 }
 
-func noSeq[T any](_ func(T) bool) {}
+// NoSeq is an empty iterator.
+func NoSeq[T any](_ func(T) bool) {}
 
 // Error returns an IterErr with the error preset and an empty iterator.
 func Error[T any](err error) *IterErr[T] {
 	return &IterErr[T]{
-		Iter:  noSeq[T],
+		Iter:  NoSeq[T],
 		Error: err,
 	}
 }
