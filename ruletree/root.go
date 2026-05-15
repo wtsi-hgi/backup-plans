@@ -39,6 +39,7 @@ import (
 	"github.com/wtsi-hgi/backup-plans/rules"
 	"github.com/wtsi-hgi/backup-plans/users"
 	"github.com/wtsi-hgi/wrstat-ui/summary/group"
+	"vimagination.zapto.org/byteio"
 	"vimagination.zapto.org/tree"
 )
 
@@ -657,7 +658,61 @@ func (r *RootDir) CacheSummaries(paths ...string) {
 	r.mu.Unlock()
 }
 
+func (r *RootDir) BackedUpFiles(path string) *iiter.IterErr[string] {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	n := cmp.Or(r.trees[""].db, &emptyNode)
+
+	for part := range iiter.PathParts(strings.TrimPrefix(path, "/")) {
+		m, _ := n.Child(part)
+
+		n = cmp.Or(m, &emptyNode)
+	}
+
+	lr := byteio.MemLittleEndian(n.Data())
+
+	lr.ReadUintX()
+	lr.ReadUintX()
+
+	if len(lr) == 0 {
+		return &iiter.IterErr[string]{Error: ErrNoBackups}
+	}
+
+	backups, err := tree.OpenMem(lr)
+	if err != nil {
+		return &iiter.IterErr[string]{Error: err}
+	}
+
+	return &iiter.IterErr[string]{
+		Iter: walkBackups(backups),
+	}
+}
+
+func walkBackups(n *tree.MemTree) iter.Seq[string] {
+	return func(yield func(string) bool) {
+		walkTree(n, []byte{'/'}, yield)
+	}
+}
+
+func walkTree(n *tree.MemTree, path []byte, yield func(string) bool) bool {
+	for child, n := range n.Children() {
+		name := append(path, child...)
+
+		if strings.HasSuffix(child, "/") {
+			if !walkTree(n.(*tree.MemTree), name, yield) {
+				return false
+			}
+		} else if !yield(string(name)) {
+			return false
+		}
+	}
+
+	return true
+}
+
 var (
 	ErrInvalidDatabase = errors.New("tree database should have a single root child")
 	ErrInvalidRoot     = errors.New("invalid root child")
+	ErrNoBackups       = errors.New("no backups for that path")
 )
