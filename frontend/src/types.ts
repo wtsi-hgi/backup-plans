@@ -36,11 +36,6 @@ export type Tree = DirSummary & dirDetails & {
 	CanClaim: boolean;
 };
 
-export type DirectoryRules = {
-	ClaimedBy: string;
-	Rules: Record<string, Rule>;
-};
-
 export type Rule = {
 	BackupType: BackupType;
 	Metadata: string;

@@ -63,7 +63,7 @@ export const setState = (key: string, value: string) => {
 			defaults.set(name, summaryText);
 		}
 
-		const d = details(params, [summary({ "click": () => queueMicrotask(() => setState(name, d.open ? "open" : summaryText)) }, summaryText), children]);
+		const d = details(params, [summary({ "click": () => queueMicrotask(() => setState(name, d.open ? "" : summaryText)) }, summaryText), children]);
 
 		handleState(name, v => d.open = v === summaryText || v === "" && !!open);
 
