@@ -46,6 +46,7 @@ const defaultPort = 8080
 
 // options for this cmd.
 var serverPort uint16
+var backupTree string
 
 // serverCmd represents the server command.
 var serverCmd = &cobra.Command{
@@ -64,8 +65,9 @@ For mysql, say:
 It is recommended to use the environment variable "BACKUP_PLANS_CONNECTION" for this
 to maintain password security.
 
---tree should be generated using the db command.
---listen server port to listen on
+--tree     should be generated using the db command
+--listen   server port to listen on
+--backups  glob to backups tree generated using the backupdb command
 
 --config should be the location of a Yaml config file, which should have the
 following structure:
@@ -172,6 +174,7 @@ The ReportingRoots is a list of paths that will appear on the Top Level Report.
 			getUser,
 			http.HandlerFunc(logout),
 			config,
+			backupTree,
 			args...,
 		)
 	},
@@ -186,6 +189,7 @@ func init() {
 	serverCmd.Flags().StringVarP(&planDB, "plan", "p", os.Getenv("BACKUP_PLANS_CONNECTION"),
 		"sql connection string for your plan database")
 	serverCmd.Flags().StringVarP(&configPath, "config", "c", "", "ibackup config")
+	serverCmd.Flags().StringVarP(&backupTree, "backups", "b", "", "backup tree glob")
 
 	serverCmd.MarkFlagRequired("tree")   //nolint:errcheck
 	serverCmd.MarkFlagRequired("config") //nolint:errcheck
