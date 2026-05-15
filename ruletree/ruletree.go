@@ -151,6 +151,10 @@ func (t *treeNode) Children() iter.Seq2[string, treeNode] {
 			if updateBackup {
 				updateBackup = false
 				backupName, backupNode, backupOK = nextNode(nextBackup)
+
+				if backupName == "" && backupOK {
+					backupName, backupNode, backupOK = nextNode(nextBackup)
+				}
 			}
 
 			if !childOK && !backupOK {
@@ -276,7 +280,7 @@ func (r *ruleProcessor) process(node treeNode, sm State, pwg *sync.WaitGroup) {
 		} else if ruleID < 0 {
 			r.copyUpperOrAddLower(name, -ruleID-1, child)
 		} else {
-			r.addLower(ruleID, child.lowerNode)
+			r.addLower(ruleID, child)
 		}
 	}
 
@@ -354,7 +358,7 @@ func (r *ruleProcessor) mergeChild(child *ruleProcessor) {
 
 func (r *ruleProcessor) copyUpperOrAddLower(name string, wildcard int64, child treeNode) {
 	if !child.HasUpper() {
-		r.addLower(wildcard, child.lowerNode)
+		r.addLower(wildcard, child)
 
 		return
 	}
@@ -399,8 +403,8 @@ func (r *ruleProcessor) addGroupData(gid uint32, ruleID int64, mtime, files, siz
 	r.Rules[pos].Groups.add(gid, mtime, files, size, bFiles, bSize)
 }
 
-func (r *ruleProcessor) addLower(ruleID int64, lowerChild *tree.MemTree) {
-	sr := byteio.MemLittleEndian(lowerChild.Data())
+func (r *ruleProcessor) addLower(ruleID int64, child treeNode) {
+	sr := byteio.MemLittleEndian(child.lowerNode.Data())
 
 	sr.ReadUintX()
 	sr.ReadUintX()
@@ -409,6 +413,17 @@ func (r *ruleProcessor) addLower(ruleID int64, lowerChild *tree.MemTree) {
 
 	readArray(&sr, ruleID, r.addUserData)
 	readArray(&sr, ruleID, r.addGroupData)
+
+	sr = child.backups.Data()
+
+	backupSize := sr.ReadUintX()
+	backupCount := sr.ReadUintX()
+
+	if backupCount > 0 {
+
+		r.addUserData(0, ruleID, 0, 0, 0, backupCount, backupSize)
+		r.addGroupData(0, ruleID, 0, 0, 0, backupCount, backupSize)
+	}
 }
 
 func (r *ruleProcessor) WriteTo(w io.Writer) (int64, error) {

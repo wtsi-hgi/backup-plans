@@ -26,18 +26,20 @@
 package ruletree
 
 import (
+	"cmp"
 	"errors"
 	"strings"
 
 	"github.com/wtsi-hgi/backup-plans/db"
 	iiter "github.com/wtsi-hgi/backup-plans/internal/iter"
 	"github.com/wtsi-hgi/wrstat-ui/summary/group"
+	"vimagination.zapto.org/tree"
 )
 
 var emptyWildcard = make(group.StateMachine[int64], 2).GetState(nil) //nolint:gochecknoglobals,mnd
 
 type summariser interface {
-	Summary(path string, wildcard group.State[int64]) (*DirSummary, error)
+	Summary(path string, wildcard group.State[int64], backups *tree.MemTree) (*DirSummary, error)
 	GetOwner(path string) (uint32, uint32, error)
 	IsDirectory(path string) bool
 	glob(match string) []string
@@ -92,7 +94,7 @@ func (t *topLevelDir) Update() error {
 	t.summary.RuleSummaries = t.summary.RuleSummaries[:0]
 
 	for name, child := range t.children {
-		s, err := child.Summary("", emptyWildcard)
+		s, err := child.Summary("", emptyWildcard, &emptyNode)
 		if err != nil {
 			return err
 		}
@@ -112,7 +114,7 @@ func (t *topLevelDir) Update() error {
 	return nil
 }
 
-func (t *topLevelDir) Summary(path string, wildcard group.State[int64]) (*DirSummary, error) {
+func (t *topLevelDir) Summary(path string, wildcard group.State[int64], backups *tree.MemTree) (*DirSummary, error) {
 	if path == "" {
 		return &t.summary, nil
 	}
@@ -122,7 +124,13 @@ func (t *topLevelDir) Summary(path string, wildcard group.State[int64]) (*DirSum
 		return nil, err
 	}
 
-	return child.Summary(rest, wildcard.GetStateString(name))
+	return child.Summary(rest, wildcard.GetStateString(name), backupNode(backups, name))
+}
+
+func backupNode(backups *tree.MemTree, name string) *tree.MemTree {
+	n, _ := backups.Child(name)
+
+	return cmp.Or(n, &emptyNode)
 }
 
 func (t *topLevelDir) getChild(path string) (summariser, string, string, error) {

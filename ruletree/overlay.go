@@ -100,9 +100,9 @@ type ruleOverlay struct {
 	lower, upper *tree.MemTree
 }
 
-func (r *ruleOverlay) Summary(path string, wildcard group.State[int64]) (*DirSummary, error) {
+func (r *ruleOverlay) Summary(path string, wildcard group.State[int64], backups *tree.MemTree) (*DirSummary, error) {
 	if path == "" {
-		return r.getSummaryWithChildren(wildcard), nil
+		return r.getSummaryWithChildren(wildcard, backups), nil
 	}
 
 	cr, child, rest, err := r.getChild(path)
@@ -110,7 +110,7 @@ func (r *ruleOverlay) Summary(path string, wildcard group.State[int64]) (*DirSum
 		return nil, err
 	}
 
-	return cr.Summary(rest, wildcard.GetStateString(child))
+	return cr.Summary(rest, wildcard.GetStateString(child), backupNode(backups, child))
 }
 
 func (r *ruleOverlay) getChildOverlay(lower *tree.MemTree, child string) *ruleOverlay {
@@ -158,8 +158,8 @@ func (r *ruleOverlay) getOwner() (uint32, uint32) {
 	return uint32(sr.ReadUintX()), uint32(sr.ReadUintX()) //nolint:gosec
 }
 
-func (r *ruleOverlay) getSummaryWithChildren(wildcard group.State[int64]) *DirSummary {
-	ds := r.getSummary(wcIDFromGroup(wildcard))
+func (r *ruleOverlay) getSummaryWithChildren(wildcard group.State[int64], backups *tree.MemTree) *DirSummary {
+	ds := r.getSummary(wcIDFromGroup(wildcard), backups.Data())
 
 	for name, lower := range r.lower.Children() {
 		if !strings.HasSuffix(name, "/") {
@@ -174,7 +174,7 @@ func (r *ruleOverlay) getSummaryWithChildren(wildcard group.State[int64]) *DirSu
 
 		cr := ruleOverlay{lower.(*tree.MemTree), upper} //nolint:errcheck,forcetypeassert
 
-		ds.Children[name] = cr.getSummary(wcIDFromGroup(wildcard.GetStateString(name)))
+		ds.Children[name] = cr.getSummary(wcIDFromGroup(wildcard.GetStateString(name)), backupNode(backups, name).Data())
 	}
 
 	return ds
@@ -188,7 +188,7 @@ func wcIDFromGroup(wildcard group.State[int64]) int64 {
 	return 0
 }
 
-func (r *ruleOverlay) getSummary(wildcard int64) *DirSummary {
+func (r *ruleOverlay) getSummary(wildcard int64, backups []byte) *DirSummary {
 	layer := cmp.Or(r.upper, r.lower)
 	sr := byteio.MemLittleEndian(layer.Data())
 	ds := &DirSummary{
@@ -210,6 +210,16 @@ func (r *ruleOverlay) getSummary(wildcard int64) *DirSummary {
 
 	if len(ds.RuleSummaries) == 1 && ds.RuleSummaries[0].ID == 0 {
 		ds.RuleSummaries[0].ID = uint64(wildcard) //nolint:gosec
+		sr = byteio.MemLittleEndian(backups)
+		backupSize := sr.ReadUintX()
+		backupCount := sr.ReadUintX()
+
+		if backupCount > 0 {
+			ds.RuleSummaries[0].Users.add(0, 0, 0, 0, backupCount, backupSize)
+			ds.RuleSummaries[0].Groups.add(0, 0, 0, 0, backupCount, backupSize)
+			ds.RuleSummaries[0].Users[0].Name = users.Username(0)
+			ds.RuleSummaries[0].Groups[0].Name = users.Group(0)
+		}
 	}
 
 	ds.setLastMod()

@@ -193,11 +193,14 @@ func traverseTree(t *testing.T, m *tree.MemTree, path string) *tree.MemTree {
 
 	for part := range iter.FilePathParts(path) {
 		if part == "/" {
-			part = ""
-		}
+			lr := byteio.MemLittleEndian(m.Data())
 
-		m, err = m.Child(part)
-		if err != nil {
+			lr.ReadUintX()
+			lr.ReadUintX()
+
+			m, err = tree.OpenMem(lr)
+			So(err, ShouldBeNil)
+		} else if m, err = m.Child(part); err != nil {
 			return nil
 		}
 	}

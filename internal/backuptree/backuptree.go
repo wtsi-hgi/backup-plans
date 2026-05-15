@@ -1,6 +1,7 @@
 package backuptree
 
 import (
+	"cmp"
 	"io"
 	"iter"
 	"path/filepath"
@@ -32,6 +33,7 @@ import (
 type BackupTree struct {
 	size, count uint64
 	children    map[string]tree.Node
+	collection  *BackupTree
 }
 
 // New creates a new, empty BackupTree ready to add files to.
@@ -45,6 +47,10 @@ func New() *BackupTree {
 func (b *BackupTree) Children() iter.Seq2[string, tree.Node] {
 	return func(yield func(string, tree.Node) bool) {
 		for name, child := range iiter.SortedMap(b.children) {
+			if name == "" {
+				continue
+			}
+
 			if !yield(name, child) {
 				return
 			}
@@ -59,6 +65,12 @@ func (b *BackupTree) WriteTo(w io.Writer) (int64, error) {
 
 	slw.WriteUintX(b.size)
 	slw.WriteUintX(b.count)
+
+	if collection, ok := b.children[""]; ok {
+		if err := tree.Serialise(&slw, collection); err != nil {
+			return slw.Count, cmp.Or(slw.Err, err)
+		}
+	}
 
 	return slw.Count, slw.Err
 }

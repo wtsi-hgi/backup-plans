@@ -267,6 +267,10 @@ func addRule(directoryRules *rules.Database, dir string, rule rules.Rule) error 
 // return an empty string if none is found.
 func (r *RootDir) GetMountPoint(dir string) string {
 	for mp := range r.trees {
+		if mp == "" {
+			continue
+		}
+
 		if strings.HasPrefix(dir, mp) {
 			return mp
 		}
@@ -353,7 +357,7 @@ func (r *RootDir) regenRulesFor(t *topLevelDir, child *ruleOverlay, dirs []strin
 	rd.process(treeNode{
 		child.lower,
 		cmp.Or(child.upper, &emptyNode),
-		cmp.Or(r.trees[""].db, &emptyNode),
+		getBackupDir(r.trees[""].db, mount),
 	}, sm.GetStateString(mount), &wg)
 
 	processed, err := memtree.InMemory(&rd)
@@ -438,7 +442,11 @@ func (r *RootDir) getSummary(path string) (*DirSummary, error) {
 		wcs = emptyWildcard
 	}
 
-	s, err := r.topLevelDir.Summary(strings.TrimPrefix(path, "/"), wcs.GetStateString("/"))
+	s, err := r.topLevelDir.Summary(
+		strings.TrimPrefix(path, "/"),
+		wcs.GetStateString("/"),
+		cmp.Or(r.trees[""].db, &emptyNode),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -581,6 +589,22 @@ func getRoot(db *tree.MemTree) (*tree.MemTree, string, error) {
 	return treeRoot, rootPath, nil
 }
 
+func getBackupDir(backups *tree.MemTree, dir string) *tree.MemTree {
+	if backups == nil {
+		return &emptyNode
+	}
+
+	for part := range iiter.PathParts(strings.TrimPrefix(dir, "/")) {
+		backups, _ = backups.Child(part)
+
+		if backups == nil {
+			return &emptyNode
+		}
+	}
+
+	return backups
+}
+
 func (r *RootDir) processRules(treeRoot, backups *tree.MemTree, rootPath string) (*ruleOverlay,
 	group.StateMachine[int64], error) {
 	sm, wcs, err := generateStatemachineFor(rootPath, nil, r.rules)
@@ -598,7 +622,7 @@ func (r *RootDir) processRules(treeRoot, backups *tree.MemTree, rootPath string)
 	rd.process(treeNode{
 		treeRoot,
 		&emptyNode,
-		cmp.Or(backups, &emptyNode),
+		getBackupDir(backups, rootPath),
 	}, sm.GetStateString(rootPath), &wg)
 
 	processed, err := memtree.InMemory(&rd)
