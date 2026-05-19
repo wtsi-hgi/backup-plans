@@ -38,13 +38,28 @@ type IterErr[T any] struct { //nolint:revive
 	Error error
 }
 
-// NoSeq is an empty iterator.
-func NoSeq[T any](_ func(T) bool) {}
+// Iter2Err is an extension to the iter package that allows for returning errors.
+type Iter2Err[T, V any] struct { //nolint:revive
+	Iter  iter.Seq2[T, V]
+	Error error
+}
+
+func noSeq[T any](_ func(T) bool) {}
+
+func noSeq2[T, V any](_ func(T, V) bool) {}
 
 // Error returns an IterErr with the error preset and an empty iterator.
 func Error[T any](err error) *IterErr[T] {
 	return &IterErr[T]{
-		Iter:  NoSeq[T],
+		Iter:  noSeq[T],
+		Error: err,
+	}
+}
+
+// Error2 returns an Iter2Err with the error preset and an empty iterator.
+func Error2[T, V any](err error) *Iter2Err[T, V] {
+	return &Iter2Err[T, V]{
+		Iter:  noSeq2[T, V],
 		Error: err,
 	}
 }
@@ -54,6 +69,18 @@ func Error[T any](err error) *IterErr[T] {
 func (i *IterErr[T]) ForEach(fn func(T) error) error {
 	for item := range i.Iter {
 		if err := fn(item); err != nil {
+			return err
+		}
+	}
+
+	return i.Error
+}
+
+// ForEach calls the given callback for each member of the iterator, stopping on
+// and returning the first error encountered.
+func (i *Iter2Err[T, V]) ForEach(fn func(T, V) error) error {
+	for item, val := range i.Iter {
+		if err := fn(item, val); err != nil {
 			return err
 		}
 	}

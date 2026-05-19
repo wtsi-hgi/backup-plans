@@ -264,9 +264,9 @@ func addRule(directoryRules *rules.Database, dir string, rule rules.Rule) error 
 	return directoryRules.AddRules(dir, rule)
 }
 
-// GetMountPoint will return the mountpoint for the directory given, it will
+// getMountPoint will return the mountpoint for the directory given, it will
 // return an empty string if none is found.
-func (r *RootDir) GetMountPoint(dir string) string {
+func (r *RootDir) getMountPoint(dir string) string {
 	for mp := range r.trees {
 		if mp == "" {
 			continue
@@ -295,7 +295,7 @@ func updateRule[T any](r *RootDir, dir string, rule T,
 		return err
 	}
 
-	if err := r.regenRules(r.GetMountPoint(dir), tx, dir); err != nil {
+	if err := r.regenRules(r.getMountPoint(dir), tx, dir); err != nil {
 		return err
 	}
 
@@ -438,7 +438,7 @@ func (r *RootDir) Summary(path string) (*DirSummary, error) {
 }
 
 func (r *RootDir) getSummary(path string) (*DirSummary, error) {
-	wcs, ok := r.wildcards[r.GetMountPoint(path)]
+	wcs, ok := r.wildcards[r.getMountPoint(path)]
 	if !ok {
 		wcs = emptyWildcard
 	}
@@ -536,7 +536,7 @@ func (r *RootDir) AddTree(file string) (string, error) { //nolint:funlen,unparam
 		}
 	}()
 
-	treeRoot, rootPath, err := getRoot(db)
+	treeRoot, rootPath, err := memtree.GetSingleRoot(db)
 	if err != nil {
 		return "", err
 	}
@@ -564,30 +564,6 @@ func (r *RootDir) AddTree(file string) (string, error) { //nolint:funlen,unparam
 	r.updateCache(rootPath)
 
 	return rootPath, nil
-}
-
-func getRoot(db *tree.MemTree) (*tree.MemTree, string, error) {
-	if db.NumChildren() != 1 {
-		return nil, "", ErrInvalidDatabase
-	}
-
-	var (
-		rootPath string
-		treeRoot *tree.MemTree
-	)
-
-	db.Children()(func(path string, node tree.Node) bool {
-		rootPath = strings.Clone(path)
-		treeRoot = node.(*tree.MemTree) //nolint:errcheck,forcetypeassert
-
-		return false
-	})
-
-	if !strings.HasPrefix(rootPath, "/") || !strings.HasSuffix(rootPath, "/") {
-		return nil, "", ErrInvalidRoot
-	}
-
-	return treeRoot, rootPath, nil
 }
 
 func getBackupDir(backups *tree.MemTree, dir string) *tree.MemTree {
@@ -658,7 +634,7 @@ func (r *RootDir) CacheSummaries(paths ...string) {
 	r.mu.Unlock()
 }
 
-func (r *RootDir) BackedUpFiles(path string) *iiter.IterErr[string] {
+func (r *RootDir) BackedUpFiles(path string) *iiter.Iter2Err[string, BackupStats] {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -674,36 +650,51 @@ func (r *RootDir) BackedUpFiles(path string) *iiter.IterErr[string] {
 
 	lr.ReadUintX()
 	lr.ReadUintX()
+	lr.ReadUintX()
+	lr.ReadUintX()
 
 	if len(lr) == 0 {
-		return &iiter.IterErr[string]{Iter: iiter.NoSeq[string], Error: ErrNoBackups}
+		return iiter.Error2[string, BackupStats](ErrNoBackups)
 	}
 
 	backups, err := tree.OpenMem(lr)
 	if err != nil {
-		return &iiter.IterErr[string]{Iter: iiter.NoSeq[string], Error: err}
+		return iiter.Error2[string, BackupStats](err)
 	}
 
-	return &iiter.IterErr[string]{
-		Iter: walkBackups(backups, path),
+	sm, _, err := generateStatemachineFor(path, []string{path}, r.rules)
+	if err != nil {
+		return iiter.Error2[string, BackupStats](err)
+	}
+
+	return &iiter.Iter2Err[string, BackupStats]{
+		Iter: walkBackups(backups, path, sm.GetStateString(path)),
 	}
 }
 
-func walkBackups(n *tree.MemTree, path string) iter.Seq[string] {
-	return func(yield func(string) bool) {
-		walkTree(n, []byte(path), yield)
+type BackupStats struct {
+	RuleID   uint64
+	HasLocal bool
+}
+
+func walkBackups(n *tree.MemTree, path string, sm State) iter.Seq2[string, BackupStats] {
+	return func(yield func(string, BackupStats) bool) {
+		walkTree(n, sm, []byte(path), yield)
 	}
 }
 
-func walkTree(n *tree.MemTree, path []byte, yield func(string) bool) bool {
+func walkTree(n *tree.MemTree, sm State, path []byte, yield func(string, BackupStats) bool) bool {
 	for child, n := range n.Children() {
 		name := append(path, child...)
 
 		if strings.HasSuffix(child, "/") {
-			if !walkTree(n.(*tree.MemTree), name, yield) {
+			if !walkTree(n.(*tree.MemTree), sm.GetStateString(child), name, yield) {
 				return false
 			}
-		} else if !yield(string(name)) {
+		} else if !yield(string(name), BackupStats{
+			RuleID:   uint64(*sm.GetStateString(child).GetGroup()),
+			HasLocal: len(n.(*tree.MemTree).Data()) > 0,
+		}) {
 			return false
 		}
 	}
@@ -711,8 +702,4 @@ func walkTree(n *tree.MemTree, path []byte, yield func(string) bool) bool {
 	return true
 }
 
-var (
-	ErrInvalidDatabase = errors.New("tree database should have a single root child")
-	ErrInvalidRoot     = errors.New("invalid root child")
-	ErrNoBackups       = errors.New("no backups for that path")
-)
+var ErrNoBackups = errors.New("no backups for that path")

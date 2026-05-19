@@ -252,7 +252,7 @@ func TestBackups(t *testing.T) {
 
 		Convey("You can list the backed-up files for a directory", func() {
 			var paths []string
-			collect := func(path string) error {
+			collect := func(path string, _ BackupStats) error {
 				paths = append(paths, path)
 
 				return nil

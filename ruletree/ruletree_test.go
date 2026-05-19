@@ -169,10 +169,10 @@ func TestRuletree(t *testing.T) {
 					ID: uint64(ruleList[2].Rule.ID()), //nolint:gosec
 					Users: RuleStats{
 						{
-							id:          0,
-							Name:        users.Username(0),
-							BackupFiles: 1,
-							BackupSize:  999,
+							id:           0,
+							Name:         users.Username(0),
+							ArchiveFiles: 1,
+							ArchiveSize:  999,
 						},
 						{
 							id:    21,
@@ -184,10 +184,10 @@ func TestRuletree(t *testing.T) {
 					},
 					Groups: RuleStats{
 						{
-							id:          0,
-							Name:        users.Group(0),
-							BackupFiles: 1,
-							BackupSize:  999,
+							id:           0,
+							Name:         users.Group(0),
+							ArchiveFiles: 1,
+							ArchiveSize:  999,
 						},
 						{
 							id:    22,

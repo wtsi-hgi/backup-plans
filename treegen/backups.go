@@ -30,6 +30,7 @@ import (
 	"errors"
 	"fmt"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/kuleuven/iron"
@@ -37,6 +38,7 @@ import (
 	"github.com/kuleuven/iron/msg"
 	"github.com/wtsi-hgi/backup-plans/internal/backuptree"
 	iiter "github.com/wtsi-hgi/backup-plans/internal/iter"
+	"github.com/wtsi-hgi/backup-plans/internal/memtree"
 	"github.com/wtsi-hgi/ibackup/transformer"
 	"vimagination.zapto.org/tree"
 )
@@ -54,7 +56,7 @@ func newBackupTree() *backupTree {
 	return &backupTree{backuptree.New()}
 }
 
-func (b *backupTree) AddCollection(a *api.API, collection string, tx transformer.PathTransformer) error {
+func (b *backupTree) AddCollection(a *api.API, collection string, tx transformer.PathTransformer, fileExists func(string) bool) error {
 	ctx, cFn := context.WithCancel(context.Background())
 
 	defer cFn()
@@ -80,7 +82,7 @@ func (b *backupTree) AddCollection(a *api.API, collection string, tx transformer
 
 		remoteSuffix := strings.TrimPrefix(bf.Remote, remotePath)
 
-		b.AddFileToCollection(bf.Local, remoteSuffix, bf.Size)
+		b.AddFileToCollection(bf.Local, remoteSuffix, bf.Size, fileExists(filepath.Join(bf.Local, remoteSuffix)))
 
 		return nil
 	})
@@ -112,7 +114,7 @@ func backedupScanner(s iiter.Scanner) (*backedupFile, error) {
 	return &b, nil
 }
 
-func BackupTree(env iron.Env, collections map[string]transformer.PathTransformer) (tree.Node, error) {
+func BackupTree(env iron.Env, collections map[string]transformer.PathTransformer, mountTrees ...string) (tree.Node, error) {
 	c, err := iron.New(context.Background(), env, iron.Option{
 		ClientName:    "backup-plans",
 		HandshakeFunc: oldHandshake(env),
@@ -123,14 +125,95 @@ func BackupTree(env iron.Env, collections map[string]transformer.PathTransformer
 
 	defer c.Close()
 
-	return processCollections(c.API, collections)
+	mounts, cfn, err := openMounts(mountTrees)
+	if err != nil {
+		return nil, err
+	}
+
+	defer cfn()
+
+	return processCollections(c.API, collections, mounts)
 }
 
-func processCollections(a *api.API, collections map[string]transformer.PathTransformer) (tree.Node, error) {
+func exists(string) bool   { return true }
+func noMounts(string) bool { return true }
+func noClose()             {}
+
+type mountCheck func(string) bool
+
+func openMounts(mountTree []string) (mc mountCheck, c func(), err error) {
+	if len(mountTree) == 0 {
+		return noMounts, noClose, nil
+	}
+
+	mounts, c, err := makeMounts(mountTree)
+	if err != nil {
+		c()
+
+		return nil, nil, err
+	}
+
+	return mountsFunc(mounts), c, nil
+}
+
+func makeMounts(mountTree []string) (map[string]*tree.MemTree, func(), error) {
+	mounts := make(map[string]*tree.MemTree)
+
+	var closers []func()
+
+	c := func() {
+		for _, closer := range closers {
+			closer()
+		}
+	}
+
+	for _, tree := range mountTree {
+		mt, closer, err := memtree.Open(tree)
+		if err != nil {
+			return nil, c, err
+		}
+
+		closers = append(closers, closer)
+
+		root, mp, err := memtree.GetSingleRoot(mt)
+		if err != nil {
+			return nil, c, err
+		}
+
+		mounts[mp] = root
+	}
+
+	return mounts, c, nil
+}
+
+func mountsFunc(mounts map[string]*tree.MemTree) mountCheck {
+	return func(path string) bool {
+		for mount, node := range mounts {
+			if !strings.HasPrefix(path, mount) {
+				continue
+			}
+
+			var err error
+
+			for part := range iiter.FilePathParts(strings.TrimPrefix(path, mount)) {
+				node, err = node.Child(part)
+				if err != nil {
+					return false
+				}
+			}
+
+			return true
+		}
+
+		return false
+	}
+}
+
+func processCollections(a *api.API, collections map[string]transformer.PathTransformer, mounts mountCheck) (tree.Node, error) {
 	t := newBackupTree()
 
 	for collection, tx := range collections {
-		if err := t.AddCollection(a, collection, tx); err != nil {
+		if err := t.AddCollection(a, collection, tx, mounts); err != nil {
 			return nil, err
 		}
 	}

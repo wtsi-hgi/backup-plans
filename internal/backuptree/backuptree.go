@@ -31,9 +31,10 @@ import (
 // The data for a file is the size of that file, unless it is recorded in a
 // special collection Node, in which case it has no data.
 type BackupTree struct {
-	size, count uint64
-	children    map[string]tree.Node
-	collection  *BackupTree
+	backupSize, backupCount   uint64
+	archiveSize, archiveCount uint64
+	children                  map[string]tree.Node
+	collection                *BackupTree
 }
 
 // New creates a new, empty BackupTree ready to add files to.
@@ -63,8 +64,10 @@ func (b *BackupTree) Children() iter.Seq2[string, tree.Node] {
 func (b *BackupTree) WriteTo(w io.Writer) (int64, error) {
 	slw := byteio.StickyLittleEndianWriter{Writer: w}
 
-	slw.WriteUintX(b.size)
-	slw.WriteUintX(b.count)
+	slw.WriteUintX(b.backupSize)
+	slw.WriteUintX(b.backupCount)
+	slw.WriteUintX(b.archiveSize)
+	slw.WriteUintX(b.archiveCount)
 
 	if collection, ok := b.children[""]; ok {
 		if err := tree.Serialise(&slw, collection); err != nil {
@@ -75,35 +78,50 @@ func (b *BackupTree) WriteTo(w io.Writer) (int64, error) {
 	return slw.Count, slw.Err
 }
 
-var emptyLeaf tree.Leaf
+var (
+	hasLocal = tree.Leaf{1}
+	noLocal  tree.Leaf
+)
 
 // AddFileToCollection adds a file to the directory tree and to the collection
 // specified.
 //
 // The collection should take the form of a local path, and the given path
 // should be the rest of the file path.
-func (b *BackupTree) AddFileToCollection(collection, path string, size uint64) {
-	b = b.navigateTo(collection, size)
+func (b *BackupTree) AddFileToCollection(collection, path string, size uint64, local bool) {
+	b = b.navigateTo(collection, size, local)
 
-	b.addFileToDir(path, size)
+	b.addFileToDir(path, size, local)
 
-	b = b.getChildDir("").navigateTo(path, size)
+	b = b.getChildDir("").navigateTo(path, size, local)
 
-	b.count++
-	b.size += size
+	b.addSize(size, local)
 
-	b.children[filepath.Base(path)] = &emptyLeaf
+	if local {
+		b.children[filepath.Base(path)] = &hasLocal
+	} else {
+		b.children[filepath.Base(path)] = &noLocal
+	}
 }
 
-func (b *BackupTree) navigateTo(path string, size uint64) *BackupTree {
+func (b *BackupTree) navigateTo(path string, size uint64, local bool) *BackupTree {
 	for part := range iiter.PathParts(strings.TrimPrefix(path, "/")) {
-		b.count++
-		b.size += size
+		b.addSize(size, local)
 
 		b = b.getChildDir(part)
 	}
 
 	return b
+}
+
+func (b *BackupTree) addSize(size uint64, local bool) {
+	if local {
+		b.backupCount++
+		b.backupSize += size
+	} else {
+		b.archiveCount++
+		b.archiveSize += size
+	}
 }
 
 func (b *BackupTree) getChildDir(name string) *BackupTree {
@@ -116,15 +134,15 @@ func (b *BackupTree) getChildDir(name string) *BackupTree {
 	return c.(*BackupTree)
 }
 
-func (b *BackupTree) addFileToDir(path string, size uint64) {
-	b = b.navigateTo(path, size)
+func (b *BackupTree) addFileToDir(path string, size uint64, local bool) {
+	b = b.navigateTo(path, size, local)
 
-	b.count++
-	b.size += size
+	b.addSize(size, local)
 
 	var buf byteio.MemLittleEndian
 
 	buf.WriteUintX(size)
+	buf.WriteBool(local)
 
 	b.children[filepath.Base(path)] = tree.Leaf(buf)
 }
@@ -139,7 +157,7 @@ func Generate(collections map[string]map[string]uint64) *BackupTree {
 
 	for collection, files := range collections {
 		for path, size := range files {
-			bt.AddFileToCollection(collection, path, size)
+			bt.AddFileToCollection(collection, path, size, false)
 		}
 	}
 

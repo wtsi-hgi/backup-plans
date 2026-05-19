@@ -27,8 +27,10 @@ package memtree
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	"golang.org/x/sys/unix"
 	"vimagination.zapto.org/tree"
@@ -118,3 +120,36 @@ func TreeToFile(n tree.Node, path string) error {
 
 	return f.Close()
 }
+
+// GetSingle root is intended to get the mountpoint for a tree database which is
+// stored as the first and only child of the root node.
+//
+// Returns the mountpoint node and the mountpoint name.
+func GetSingleRoot(node *tree.MemTree) (*tree.MemTree, string, error) {
+	if node.NumChildren() != 1 {
+		return nil, "", ErrInvalidDatabase
+	}
+
+	var (
+		rootPath string
+		treeRoot *tree.MemTree
+	)
+
+	node.Children()(func(path string, node tree.Node) bool {
+		rootPath = strings.Clone(path)
+		treeRoot = node.(*tree.MemTree) //nolint:errcheck,forcetypeassert
+
+		return false
+	})
+
+	if !strings.HasPrefix(rootPath, "/") || !strings.HasSuffix(rootPath, "/") {
+		return nil, "", ErrInvalidRoot
+	}
+
+	return treeRoot, rootPath, nil
+}
+
+var (
+	ErrInvalidDatabase = errors.New("tree database should have a single root child")
+	ErrInvalidRoot     = errors.New("invalid root child")
+)

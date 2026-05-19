@@ -72,13 +72,13 @@ func (d *DirSummary) mergeRules(rules []Rule) {
 		}
 
 		for _, user := range rule.Users {
-			d.RuleSummaries[pos].Users.add(user.id, user.MTime, user.Files, user.Size, user.BackupFiles, user.BackupSize)
+			d.RuleSummaries[pos].Users.add(user.id, user.MTime, user.Files, user.Size, user.BackupFiles, user.BackupSize, user.ArchiveFiles, user.ArchiveSize)
 		}
 
 		setNames(d.RuleSummaries[pos].Users, users.Username)
 
 		for _, group := range rule.Groups {
-			d.RuleSummaries[pos].Groups.add(group.id, group.MTime, group.Files, group.Size, group.BackupFiles, group.BackupSize)
+			d.RuleSummaries[pos].Groups.add(group.id, group.MTime, group.Files, group.Size, group.BackupFiles, group.BackupSize, group.ArchiveFiles, group.ArchiveSize)
 		}
 
 		setNames(d.RuleSummaries[pos].Groups, users.Group)
@@ -204,8 +204,8 @@ func (r *ruleOverlay) getSummary(wildcard int64, backups []byte) *DirSummary {
 
 	for n := range ds.RuleSummaries {
 		ds.RuleSummaries[n].ID = sr.ReadUintX()
-		ds.RuleSummaries[n].Users = readStats(&sr, users.Username)
-		ds.RuleSummaries[n].Groups = readStats(&sr, users.Group)
+		ds.RuleSummaries[n].Users = readStats(&sr)
+		ds.RuleSummaries[n].Groups = readStats(&sr)
 	}
 
 	if len(ds.RuleSummaries) == 1 && ds.RuleSummaries[0].ID == 0 {
@@ -213,18 +213,39 @@ func (r *ruleOverlay) getSummary(wildcard int64, backups []byte) *DirSummary {
 		sr = byteio.MemLittleEndian(backups)
 		backupSize := sr.ReadUintX()
 		backupCount := sr.ReadUintX()
+		archiveSize := sr.ReadUintX()
+		archiveCount := sr.ReadUintX()
 
-		if backupCount > 0 {
-			ds.RuleSummaries[0].Users.add(0, 0, 0, 0, backupCount, backupSize)
-			ds.RuleSummaries[0].Groups.add(0, 0, 0, 0, backupCount, backupSize)
-			ds.RuleSummaries[0].Users[0].Name = users.Username(0)
-			ds.RuleSummaries[0].Groups[0].Name = users.Group(0)
+		if backupCount > 0 || archiveCount > 0 {
+			ds.RuleSummaries[0].Users.add(ds.uid, 0, 0, 0, backupCount, backupSize, archiveCount, archiveSize)
+			ds.RuleSummaries[0].Groups.add(ds.gid, 0, 0, 0, backupCount, backupSize, archiveCount, archiveSize)
+
+			for n := range ds.RuleSummaries[0].Users {
+				if ds.RuleSummaries[0].Users[n].id == ds.uid {
+					ds.RuleSummaries[0].Users[n].Name = ds.User
+
+					break
+				}
+			}
 		}
 	}
 
+	ds.setNames()
 	ds.setLastMod()
 
 	return ds
+}
+
+func (ds *DirSummary) setNames() {
+	for _, rule := range ds.RuleSummaries {
+		for n := range rule.Users {
+			rule.Users[n].Name = users.Username(rule.Users[n].id)
+		}
+
+		for n := range rule.Groups {
+			rule.Groups[n].Name = users.Group(rule.Groups[n].id)
+		}
+	}
 }
 
 func (r *ruleOverlay) IsDirectory(path string) bool {
@@ -234,13 +255,15 @@ func (r *ruleOverlay) IsDirectory(path string) bool {
 // Stats represents the summarised stats for a particular user or group for a
 // directory.
 type Stats struct {
-	id          uint32
-	Name        string
-	MTime       uint64
-	Files       uint64
-	Size        uint64
-	BackupFiles uint64
-	BackupSize  uint64
+	id           uint32
+	Name         string
+	MTime        uint64
+	Files        uint64
+	Size         uint64
+	BackupFiles  uint64
+	BackupSize   uint64
+	ArchiveFiles uint64
+	ArchiveSize  uint64
 }
 
 // ID returns the UID or GID for the summarised stats.
@@ -255,22 +278,24 @@ func (s *Stats) writeTo(sw *byteio.StickyLittleEndianWriter) {
 	sw.WriteUintX(s.Size)
 	sw.WriteUintX(s.BackupFiles)
 	sw.WriteUintX(s.BackupSize)
+	sw.WriteUintX(s.ArchiveFiles)
+	sw.WriteUintX(s.ArchiveSize)
 }
 
-func readStats(br *byteio.MemLittleEndian, name func(uint32) string) []Stats {
+func readStats(br *byteio.MemLittleEndian) []Stats {
 	stats := make([]Stats, br.ReadUintX())
 
 	for n := range stats {
 		stats[n] = Stats{
-			id:          uint32(br.ReadUintX()), //nolint:gosec
-			MTime:       br.ReadUintX(),
-			Files:       br.ReadUintX(),
-			Size:        br.ReadUintX(),
-			BackupFiles: br.ReadUintX(),
-			BackupSize:  br.ReadUintX(),
+			id:           uint32(br.ReadUintX()), //nolint:gosec
+			MTime:        br.ReadUintX(),
+			Files:        br.ReadUintX(),
+			Size:         br.ReadUintX(),
+			BackupFiles:  br.ReadUintX(),
+			BackupSize:   br.ReadUintX(),
+			ArchiveFiles: br.ReadUintX(),
+			ArchiveSize:  br.ReadUintX(),
 		}
-
-		stats[n].Name = name(stats[n].id)
 	}
 
 	return stats

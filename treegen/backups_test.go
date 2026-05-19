@@ -122,6 +122,8 @@ func TestBackups(t *testing.T) {
 			n, err := processCollections(a, map[string]transformer.PathTransformer{
 				"/remote/backups/collectionA/": txA,
 				"/remote/backups/collectionB/": txB,
+			}, func(path string) bool {
+				return strings.Contains(path, "File")
 			})
 			So(err, ShouldBeNil)
 
@@ -133,19 +135,19 @@ func TestBackups(t *testing.T) {
 			So(err, ShouldBeNil)
 
 			for path, countSize := range map[string]sizeCount{
-				"":                                     {2499, 6},
-				"local/":                               {2499, 6},
-				"local/files/":                         {2499, 6},
-				"local/files/A/":                       {1299, 3},
-				"local/files/A/other/":                 {1199, 2},
-				"local/files/B/":                       {700, 2},
-				"local/files/C/":                       {500, 1},
-				"local/files/B/dir/":                   {400, 1},
-				"local/files/A/myFile.txt":             {100, 0},
-				"local/files/A/other/myOtherFile.txt":  {200, 0},
-				"local/files/B/aFile.txt":              {300, 0},
-				"local/files/B/dir/bFile.txt":          {400, 0},
-				"local/files/C/hello.world":            {500, 0},
+				"":                                     {1000, 4, 1499, 2},
+				"local/":                               {1000, 4, 1499, 2},
+				"local/files/":                         {1000, 4, 1499, 2},
+				"local/files/A/":                       {300, 2, 999, 1},
+				"local/files/A/other/":                 {200, 1, 999, 1},
+				"local/files/B/":                       {700, 2, 0, 0},
+				"local/files/C/":                       {0, 0, 500, 1},
+				"local/files/B/dir/":                   {400, 1, 0, 0},
+				"local/files/A/myFile.txt":             {100, 1, 0, 0},
+				"local/files/A/other/myOtherFile.txt":  {200, 1, 0, 0},
+				"local/files/B/aFile.txt":              {300, 1, 0, 0},
+				"local/files/B/dir/bFile.txt":          {400, 1, 0, 0},
+				"local/files/C/hello.world":            {500, 0, 0, 0},
 				"local/files/A//myFile.txt":            {},
 				"local/files/A//other/myOtherFile.txt": {},
 				"local/files/B//aFile.txt":             {},
@@ -158,32 +160,37 @@ func TestBackups(t *testing.T) {
 
 				d := byteio.MemLittleEndian(l.Data())
 
-				SoMsg(path+": size", d.ReadUintX(), ShouldEqual, countSize.size)
-				SoMsg(path+": count", d.ReadUintX(), ShouldEqual, countSize.count)
+				SoMsg(path+": backup size", d.ReadUintX(), ShouldEqual, countSize.backupSize)
+				SoMsg(path+": backup count", d.ReadUintX(), ShouldEqual, countSize.backupCount)
+				SoMsg(path+": archive size", d.ReadUintX(), ShouldEqual, countSize.archiveSize)
+				SoMsg(path+": archive count", d.ReadUintX(), ShouldEqual, countSize.archiveCount)
 			}
 
 			So(traverseTree(t, bt, "local/files/D/"), ShouldBeNil)
 
 			for path, countSize := range map[string]sizeCount{
-				"local/files/A//":       {300, 2},
-				"local/files/A/other//": {999, 1},
-				"local/files/B//":       {700, 2},
-				"local/files/C//":       {500, 1},
+				"local/files/A//":       {300, 2, 0, 0},
+				"local/files/A/other//": {0, 0, 999, 1},
+				"local/files/B//":       {700, 2, 0, 0},
+				"local/files/C//":       {0, 0, 500, 1},
 			} {
 				l := traverseTree(t, bt, path)
 				SoMsg(path, l, ShouldNotBeNil)
 
 				d := byteio.MemLittleEndian(l.Data())
 
-				SoMsg(path+": backup size", d.ReadUintX(), ShouldEqual, countSize.size)
-				SoMsg(path+": backup count", d.ReadUintX(), ShouldEqual, countSize.count)
+				SoMsg(path+": backup size", d.ReadUintX(), ShouldEqual, countSize.backupSize)
+				SoMsg(path+": backup count", d.ReadUintX(), ShouldEqual, countSize.backupCount)
+				SoMsg(path+": archive size", d.ReadUintX(), ShouldEqual, countSize.archiveSize)
+				SoMsg(path+": archive count", d.ReadUintX(), ShouldEqual, countSize.archiveCount)
 			}
 		})
 	})
 }
 
 type sizeCount struct {
-	size, count uint64
+	backupSize, backupCount   uint64
+	archiveSize, archiveCount uint64
 }
 
 func traverseTree(t *testing.T, m *tree.MemTree, path string) *tree.MemTree {
@@ -195,6 +202,8 @@ func traverseTree(t *testing.T, m *tree.MemTree, path string) *tree.MemTree {
 		if part == "/" {
 			lr := byteio.MemLittleEndian(m.Data())
 
+			lr.ReadUintX()
+			lr.ReadUintX()
 			lr.ReadUintX()
 			lr.ReadUintX()
 
