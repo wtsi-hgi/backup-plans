@@ -31,6 +31,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/kuleuven/iron"
 	"github.com/kuleuven/iron/cmd/iron/cli"
@@ -101,7 +102,15 @@ In addition, the irods environmental file should be specified either wit the
 			return fmt.Errorf("error creating output tree file: %w", err)
 		}
 
-		n, err := treegen.BackupTree(env, collections)
+		var treeDBs []string
+
+		if treeDB != "" {
+			if treeDBs, err = filepath.Glob(treeDB); err != nil {
+				return fmt.Errorf("error determining paths of tree dbs: %w", err)
+			}
+		}
+
+		n, err := treegen.BackupTree(env, collections, treeDBs...)
 		if err != nil {
 			return fmt.Errorf("error gathering backed-up collection data: %w", err)
 		}
@@ -124,6 +133,7 @@ func init() {
 	RootCmd.AddCommand(backupdbCmd)
 
 	backupdbCmd.Flags().StringVarP(&configPath, "config", "c", "", "backup config")
+	backupdbCmd.Flags().StringVarP(&treeDB, "treedbs", "t", "", "glob to tree dbs")
 	backupdbCmd.Flags().StringVarP(&ibackupConfig, "ibackup", "i",
 		os.Getenv(cmd.ConfigKey), "ibackup config")
 	backupdbCmd.Flags().StringVar(&irodsEnv, "irods",
