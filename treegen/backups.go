@@ -125,25 +125,23 @@ func BackupTree(env iron.Env, collections map[string]transformer.PathTransformer
 
 	defer c.Close()
 
-	mounts, cfn, err := openMounts(mountTrees)
+	fileExists, cfn, err := openMounts(mountTrees)
 	if err != nil {
 		return nil, err
 	}
 
 	defer cfn()
 
-	return processCollections(c.API, collections, mounts)
+	return processCollections(c.API, collections, fileExists)
 }
 
-func exists(string) bool   { return true }
 func noMounts(string) bool { return true }
-func noClose()             {}
 
 type mountCheck func(string) bool
 
 func openMounts(mountTree []string) (mc mountCheck, c func(), err error) {
 	if len(mountTree) == 0 {
-		return noMounts, noClose, nil
+		return noMounts, nil, nil
 	}
 
 	mounts, c, err := makeMounts(mountTree)
@@ -187,33 +185,45 @@ func makeMounts(mountTree []string) (map[string]*tree.MemTree, func(), error) {
 }
 
 func mountsFunc(mounts map[string]*tree.MemTree) mountCheck {
-	return func(path string) bool {
-		for mount, node := range mounts {
-			if !strings.HasPrefix(path, mount) {
-				continue
-			}
+	cache := make(map[string]*tree.MemTree)
 
-			var err error
+	return func(p string) bool {
+		dir := path.Dir(p)
 
-			for part := range iiter.FilePathParts(strings.TrimPrefix(path, mount)) {
-				node, err = node.Child(part)
-				if err != nil {
-					return false
+		n, ok := cache[dir]
+		if !ok {
+			for mount, node := range mounts {
+				if !strings.HasPrefix(p, mount) {
+					continue
 				}
-			}
 
-			return true
+				var err error
+
+				for part := range iiter.PathParts(strings.TrimPrefix(p, mount)) {
+					node, err = node.Child(part)
+					if err != nil {
+						return false
+					}
+				}
+
+				cache[dir] = node
+				n = node
+
+				break
+			}
 		}
 
-		return false
+		_, err := n.Child(path.Base(p))
+
+		return err == nil
 	}
 }
 
-func processCollections(a *api.API, collections map[string]transformer.PathTransformer, mounts mountCheck) (tree.Node, error) {
+func processCollections(a *api.API, collections map[string]transformer.PathTransformer, fileExists mountCheck) (tree.Node, error) {
 	t := newBackupTree()
 
 	for collection, tx := range collections {
-		if err := t.AddCollection(a, collection, tx, mounts); err != nil {
+		if err := t.AddCollection(a, collection, tx, fileExists); err != nil {
 			return nil, err
 		}
 	}
