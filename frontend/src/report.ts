@@ -58,24 +58,7 @@ class Summary {
 	}
 
 	table() {
-		const manualSizeCount = this.manualSizeCount(),
-			unmatched = {
-				BackupFiles: 0n,
-				BackupSize: 0n,
-				ArchiveFiles: 0n,
-				ArchiveSize: 0n
-			};
-
-		for (const [n, c] of this.actions.entries()) {
-			if (n === +BackupType.BackupIBackup || !c) {
-				continue;
-			}
-
-			unmatched.BackupFiles += c.BackupFiles;
-			unmatched.BackupSize += c.BackupSize;
-			unmatched.ArchiveFiles += c.ArchiveFiles;
-			unmatched.ArchiveSize += c.ArchiveSize;
-		}
+		const manualSizeCount = this.manualSizeCount();
 
 		return [
 			table({ "class": "summary" }, [
@@ -102,38 +85,7 @@ class Summary {
 						td({ "title": manualSizeCount.size.toLocaleString() }, formatBytes(manualSizeCount.size))
 					])
 				])
-			]),
-			unmatched.ArchiveFiles > 0n || unmatched.BackupFiles > 0n || (this.actions[+BackupType.BackupIBackup]?.BackupFiles ?? 0n) > 0n || (this.actions[+BackupType.BackupIBackup]?.ArchiveFiles ?? 0n) > 0n ? table({ "class": "summary" }, [
-				thead([
-					tr([
-						td({ "rowspan": "2" }),
-						th({ "colspan": "2" }, "Backed-up"),
-						th({ "colspan": "2" }, "Archived")
-					]),
-					tr([
-						th("Matches"),
-						th("No Match"),
-						th("Matches"),
-						th("No Match")
-					]),
-				]),
-				tbody([
-					tr([
-						th("File count"),
-						td(this.actions[+BackupType.BackupIBackup]?.BackupFiles.toLocaleString() ?? "0"),
-						td(unmatched.BackupFiles.toLocaleString()),
-						td(this.actions[+BackupType.BackupIBackup]?.ArchiveFiles.toLocaleString() ?? "0"),
-						td(unmatched.ArchiveFiles.toLocaleString()),
-					]),
-					tr([
-						th("File size"),
-						td({ "title": (this.actions[+BackupType.BackupIBackup]?.BackupSize ?? 0).toLocaleString() }, formatBytes(this.actions[+BackupType.BackupIBackup]?.BackupSize ?? 0)),
-						td({ "title": unmatched.BackupSize.toLocaleString() }, formatBytes(unmatched.BackupSize)),
-						td({ "title": (this.actions[+BackupType.BackupIBackup]?.ArchiveSize ?? 0).toLocaleString() }, formatBytes(this.actions[+BackupType.BackupIBackup]?.ArchiveSize ?? 0)),
-						td({ "title": unmatched.ArchiveSize.toLocaleString() }, formatBytes(unmatched.ArchiveSize)),
-					]),
-				])
-			]) : []
+			])
 		];
 	}
 
@@ -162,6 +114,24 @@ class ParentSummary extends Summary {
 	}
 
 	section() {
+		const unmatched = {
+			BackupFiles: 0n,
+			BackupSize: 0n,
+			ArchiveFiles: 0n,
+			ArchiveSize: 0n
+		};
+
+		for (const [n, c] of this.actions.entries()) {
+			if (n === +BackupType.BackupIBackup || !c) {
+				continue;
+			}
+
+			unmatched.BackupFiles += c.BackupFiles;
+			unmatched.BackupSize += c.BackupSize;
+			unmatched.ArchiveFiles += c.ArchiveFiles;
+			unmatched.ArchiveSize += c.ArchiveSize;
+		}
+
 		return fieldset({
 			"data-status": this.status(),
 			"data-warn-size": (this.actions[+BackupType.BackupWarn]?.size ?? 0) + "",
@@ -208,6 +178,37 @@ class ParentSummary extends Summary {
 					])))
 				] : tr(td({ "colspan": "5" }, "No Backups")))
 			]),
+			unmatched.ArchiveFiles > 0n || unmatched.BackupFiles > 0n || (this.actions[+BackupType.BackupIBackup]?.BackupFiles ?? 0n) > 0n || (this.actions[+BackupType.BackupIBackup]?.ArchiveFiles ?? 0n) > 0n ? table({ "class": "summary" }, [
+				thead([
+					tr([
+						td({ "rowspan": "2" }),
+						th({ "colspan": "2" }, "Backed-up"),
+						th({ "colspan": "2" }, "Archived")
+					]),
+					tr([
+						th("Matches"),
+						th("No Match"),
+						th("Matches"),
+						th("No Match")
+					]),
+				]),
+				tbody([
+					tr([
+						th("File count"),
+						td(this.actions[+BackupType.BackupIBackup]?.BackupFiles.toLocaleString() ?? "0"),
+						td(unmatched.BackupFiles.toLocaleString()),
+						td(this.actions[+BackupType.BackupIBackup]?.ArchiveFiles.toLocaleString() ?? "0"),
+						td(unmatched.ArchiveFiles.toLocaleString()),
+					]),
+					tr([
+						th("File size"),
+						td({ "title": (this.actions[+BackupType.BackupIBackup]?.BackupSize ?? 0).toLocaleString() }, formatBytes(this.actions[+BackupType.BackupIBackup]?.BackupSize ?? 0)),
+						td({ "title": unmatched.BackupSize.toLocaleString() }, formatBytes(unmatched.BackupSize)),
+						td({ "title": (this.actions[+BackupType.BackupIBackup]?.ArchiveSize ?? 0).toLocaleString() }, formatBytes(this.actions[+BackupType.BackupIBackup]?.ArchiveSize ?? 0)),
+						td({ "title": unmatched.ArchiveSize.toLocaleString() }, formatBytes(unmatched.ArchiveSize)),
+					]),
+				])
+			]) : [],
 			this.children.size ? [
 				h2("Rules"),
 				Array.from(this.children.entries()).map(([path, child]) => details([
@@ -246,7 +247,7 @@ class ChildSummary extends Summary {
 	}
 
 	section() {
-		const tables: HTMLElement[][] = [];
+		const tables: Children = [];
 
 		tables.push(this.table());
 
@@ -268,7 +269,7 @@ class ChildSummary extends Summary {
 			])))
 		])
 
-		tables.push([ruleTable]);
+		tables.push(ruleTable);
 
 		return tables;
 	}
