@@ -113,11 +113,11 @@ func (t *treeFile) readBackupDataFrom(lr byteio.MemLittleEndian) {
 	size := lr.ReadUintX()
 
 	if lr.ReadBool() {
-		t.HasArchive = 1
-		t.ArchiveSize = size
-	} else {
 		t.HasBackup = 1
 		t.BackupSize = size
+	} else {
+		t.HasArchive = 1
+		t.ArchiveSize = size
 	}
 }
 
@@ -392,14 +392,14 @@ func readArray(sr *byteio.MemLittleEndian, ruleID int64, fn func(uint32, int64, 
 	for range sr.ReadUintX() {
 		id := uint32(sr.ReadUintX()) //nolint:gosec
 		mtime := sr.ReadUintX()
-		files := sr.ReadUintX()
+		count := sr.ReadUintX()
 		size := sr.ReadUintX()
-		backupFiles := sr.ReadUintX()
+		backupCount := sr.ReadUintX()
 		backupSize := sr.ReadUintX()
-		archiveSize := sr.ReadUintX()
 		archiveCount := sr.ReadUintX()
+		archiveSize := sr.ReadUintX()
 
-		fn(id, ruleID, mtime, files, size, backupFiles, backupSize, archiveCount, archiveSize)
+		fn(id, ruleID, mtime, count, size, backupCount, backupSize, archiveCount, archiveSize)
 	}
 }
 

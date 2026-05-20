@@ -137,9 +137,9 @@ func BackupTree(env iron.Env, collections map[string]transformer.PathTransformer
 
 func noMounts(string) bool { return true }
 
-type mountCheck func(string) bool
+type fileCheck func(string) bool
 
-func openMounts(mountTree []string) (mc mountCheck, c func(), err error) {
+func openMounts(mountTree []string) (mc fileCheck, c func(), err error) {
 	if len(mountTree) == 0 {
 		return noMounts, nil, nil
 	}
@@ -184,7 +184,7 @@ func makeMounts(mountTree []string) (map[string]*tree.MemTree, func(), error) {
 	return mounts, c, nil
 }
 
-func mountsFunc(mounts map[string]*tree.MemTree) mountCheck {
+func mountsFunc(mounts map[string]*tree.MemTree) fileCheck {
 	cache := make(map[string]*tree.MemTree)
 
 	return func(p string) bool {
@@ -219,7 +219,7 @@ func mountsFunc(mounts map[string]*tree.MemTree) mountCheck {
 	}
 }
 
-func processCollections(a *api.API, collections map[string]transformer.PathTransformer, fileExists mountCheck) (tree.Node, error) {
+func processCollections(a *api.API, collections map[string]transformer.PathTransformer, fileExists fileCheck) (tree.Node, error) {
 	t := newBackupTree()
 
 	for collection, tx := range collections {
