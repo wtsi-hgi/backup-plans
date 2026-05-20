@@ -12,6 +12,10 @@ export type Stats = {
 	MTime: number;
 	Files: number;
 	Size: number;
+	BackupFiles: number;
+	BackupSize: number;
+	ArchiveFiles: number;
+	ArchiveSize: number;
 };
 
 export type RuleSummary = {

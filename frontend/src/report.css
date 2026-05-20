@@ -145,6 +145,10 @@ fieldset table.summary {
 	border: 1px solid currentColor;
 }
 
+.summary thead tr:not(:first-child) th {
+	border-top: 0;
+}
+
 table.summary thead th:not(:first-of-type) {
 	border-left: 0;
 }
@@ -161,7 +165,7 @@ table.summary tbody tr:last-child th:first-child {
 	border-bottom-left-radius: 0.5em;
 }
 
-.summary thead th:last-of-type {
+.summary thead tr:first-child th:last-of-type {
 	border-top-right-radius: 0.5em;
 }
 
