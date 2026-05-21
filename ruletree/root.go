@@ -634,41 +634,39 @@ func (r *RootDir) CacheSummaries(paths ...string) {
 	r.mu.Unlock()
 }
 
-func (r *RootDir) BackedUpFiles(path string) *iiter.Iter2Err[string, BackupStats] {
+func (r *RootDir) BackedUpFiles(path string, recursive bool) *iiter.Iter2Err[string, BackupStats] {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	n := cmp.Or(r.trees[""].db, &emptyNode)
-
-	for part := range iiter.PathParts(strings.TrimPrefix(path, "/")) {
-		m, _ := n.Child(part)
-
-		n = cmp.Or(m, &emptyNode)
-	}
-
-	lr := byteio.MemLittleEndian(n.Data())
-
-	lr.ReadUintX()
-	lr.ReadUintX()
-	lr.ReadUintX()
-	lr.ReadUintX()
-
-	if len(lr) == 0 {
-		return iiter.Error2[string, BackupStats](ErrNoBackups)
-	}
-
-	backups, err := tree.OpenMem(lr)
-	if err != nil {
-		return iiter.Error2[string, BackupStats](err)
-	}
+	backups := cmp.Or(r.trees[""].db, &emptyNode)
 
 	sm, _, err := generateStatemachineFor(path, []string{path}, r.rules)
 	if err != nil {
 		return iiter.Error2[string, BackupStats](err)
 	}
 
+	var paths iter.Seq[string]
+
+	if recursive {
+		paths = r.filterDirs(path)
+	} else {
+		paths = slices.Values([]string{path})
+	}
+
 	return &iiter.Iter2Err[string, BackupStats]{
-		Iter: walkBackups(backups, path, sm.GetStateString(path)),
+		Iter: walkBackups(backups, paths, sm.GetStateString(path)),
+	}
+}
+
+func (r *RootDir) filterDirs(prefix string) iter.Seq[string] {
+	return func(yield func(string) bool) {
+		for path := range r.rules.Dirs() {
+			if strings.HasPrefix(path.Path, prefix) {
+				if !yield(path.Path) {
+					return
+				}
+			}
+		}
 	}
 }
 
@@ -677,9 +675,27 @@ type BackupStats struct {
 	HasLocal bool
 }
 
-func walkBackups(n *tree.MemTree, path string, sm State) iter.Seq2[string, BackupStats] {
+func walkBackups(n *tree.MemTree, paths iter.Seq[string], sm State) iter.Seq2[string, BackupStats] {
 	return func(yield func(string, BackupStats) bool) {
-		walkTree(n, sm, []byte(path), yield)
+		for path := range paths {
+			for part := range iiter.PathParts(strings.TrimPrefix(path, "/")) {
+				m, _ := n.Child(part)
+				n = cmp.Or(m, &emptyNode)
+			}
+
+			lr := byteio.MemLittleEndian(n.Data())
+
+			lr.ReadUintX()
+			lr.ReadUintX()
+			lr.ReadUintX()
+			lr.ReadUintX()
+
+			if len(lr) == 0 {
+				continue
+			}
+
+			walkTree(n, sm.GetStateString(path), []byte(path), yield)
+		}
 	}
 }
 

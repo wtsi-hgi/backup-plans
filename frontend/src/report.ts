@@ -182,30 +182,30 @@ class ParentSummary extends Summary {
 				thead([
 					tr([
 						td({ "rowspan": "2" }),
-						th({ "colspan": "2" }, "Backed-up"),
-						th({ "colspan": "2" }, "Archived")
+						th({ "colspan": "2" }, "Matching"),
+						th({ "colspan": "2" }, "No Match")
 					]),
 					tr([
-						th("Matches"),
-						th("No Match"),
-						th("Matches"),
-						th("No Match")
+						th("Backed-up"),
+						th("Archive"),
+						th("Backed-up"),
+						th("Archive")
 					]),
 				]),
 				tbody([
 					tr([
 						th("File count"),
 						td(this.actions[+BackupType.BackupIBackup]?.BackupFiles.toLocaleString() ?? "0"),
-						td(unmatched.BackupFiles.toLocaleString()),
 						td(this.actions[+BackupType.BackupIBackup]?.ArchiveFiles.toLocaleString() ?? "0"),
-						td(unmatched.ArchiveFiles.toLocaleString()),
+						td(unmatched.BackupFiles.toLocaleString()),
+						td(unmatched.ArchiveFiles.toLocaleString())
 					]),
 					tr([
 						th("File size"),
 						td({ "title": (this.actions[+BackupType.BackupIBackup]?.BackupSize ?? 0).toLocaleString() }, formatBytes(this.actions[+BackupType.BackupIBackup]?.BackupSize ?? 0)),
-						td({ "title": unmatched.BackupSize.toLocaleString() }, formatBytes(unmatched.BackupSize)),
 						td({ "title": (this.actions[+BackupType.BackupIBackup]?.ArchiveSize ?? 0).toLocaleString() }, formatBytes(this.actions[+BackupType.BackupIBackup]?.ArchiveSize ?? 0)),
-						td({ "title": unmatched.ArchiveSize.toLocaleString() }, formatBytes(unmatched.ArchiveSize)),
+						td({ "title": unmatched.BackupSize.toLocaleString() }, formatBytes(unmatched.BackupSize)),
+						td({ "title": unmatched.ArchiveSize.toLocaleString() }, formatBytes(unmatched.ArchiveSize))
 					]),
 				])
 			]) : [],

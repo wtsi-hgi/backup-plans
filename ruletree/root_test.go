@@ -258,7 +258,7 @@ func TestBackups(t *testing.T) {
 				return nil
 			}
 
-			So(root.BackedUpFiles("/some/path/MyDir/").ForEach(collect), ShouldBeNil)
+			So(root.BackedUpFiles("/some/path/MyDir/", false).ForEach(collect), ShouldBeNil)
 			So(paths, ShouldResemble, []string{
 				"/some/path/MyDir/a.txt",
 				"/some/path/MyDir/b.csv",
@@ -266,7 +266,7 @@ func TestBackups(t *testing.T) {
 
 			paths = paths[:0]
 
-			So(root.BackedUpFiles("/some/path/YourDir/").ForEach(collect), ShouldBeNil)
+			So(root.BackedUpFiles("/some/path/YourDir/", false).ForEach(collect), ShouldBeNil)
 			So(paths, ShouldResemble, []string{
 				"/some/path/YourDir/a.txt",
 				"/some/path/YourDir/dir/b.txt",
@@ -274,7 +274,8 @@ func TestBackups(t *testing.T) {
 
 			paths = paths[:0]
 
-			So(root.BackedUpFiles("/some/path/OtherDir/").ForEach(collect), ShouldEqual, ErrNoBackups)
+			So(root.BackedUpFiles("/some/path/OtherDir/", false).ForEach(collect), ShouldBeNil)
+			So(paths, ShouldBeEmpty)
 		})
 	})
 }

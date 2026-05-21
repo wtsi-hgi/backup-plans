@@ -26,10 +26,13 @@
 package backend
 
 import (
+	"encoding/csv"
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/wtsi-hgi/backup-plans/db"
@@ -330,4 +333,43 @@ func (s *Server) collectRules(dirSummary *summary, dir string) {
 
 	slices.Sort(ruleIDs)
 	dirSummary.Directories[dir] = ruleIDs
+}
+
+func (s *Server) FileList(w http.ResponseWriter, r *http.Request) {
+	handle(w, r, s.fileList)
+}
+
+func (s *Server) fileList(w http.ResponseWriter, r *http.Request) error {
+	dir, err := getDir(r)
+	if err != nil {
+		return err
+	}
+
+	recursive := r.FormValue("single") == ""
+	matching := r.FormValue("matching") != ""
+	ruleCache := make(map[uint64]bool)
+	csv := csv.NewWriter(w)
+	row := make([]string, 1)
+
+	w.Header().Set("Content-type", "text/csv")
+	w.Header().Set("Content-Disposition", "attachment; filename="+strconv.Quote(filepath.Base(dir)+".csv"))
+
+	return s.rootDir.BackedUpFiles(dir, recursive).ForEach(func(path string, stats ruletree.BackupStats) error {
+		isBackup, ok := ruleCache[stats.RuleID]
+		if !ok {
+			if r := s.rootDir.Rule(stats.RuleID); r != nil {
+				isBackup = r.BackupType == db.BackupIBackup
+			}
+
+			ruleCache[stats.RuleID] = isBackup
+		}
+
+		if isBackup != matching {
+			return nil
+		}
+
+		row[0] = path
+
+		return csv.Write(row)
+	})
 }
