@@ -677,9 +677,11 @@ type BackupStats struct {
 	HasLocal bool
 }
 
-func walkBackups(n *tree.MemTree, paths iter.Seq[string], sm State) iter.Seq2[string, BackupStats] {
+func walkBackups(node *tree.MemTree, paths iter.Seq[string], sm State) iter.Seq2[string, BackupStats] {
 	return func(yield func(string, BackupStats) bool) {
 		for path := range paths {
+			n := node
+
 			for part := range iiter.PathParts(strings.TrimPrefix(path, "/")) {
 				m, _ := n.Child(part)
 				n = cmp.Or(m, &emptyNode)
