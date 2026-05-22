@@ -348,13 +348,17 @@ func (s *Server) fileList(w http.ResponseWriter, r *http.Request) error {
 	recursive := r.FormValue("single") == ""
 	matching := r.FormValue("matching") != ""
 	ruleCache := make(map[uint64]bool)
-	row := make([]string, 1)
+	row := [2]string{"Path", "Local"}
 	csv := csv.NewWriter(w)
 
 	defer csv.Flush()
 
 	w.Header().Set("Content-type", "text/csv")
 	w.Header().Set("Content-Disposition", "attachment; filename="+strconv.Quote(filepath.Base(dir)+".csv"))
+
+	if err := csv.Write(row[:]); err != nil {
+		return err
+	}
 
 	return s.rootDir.BackedUpFiles(dir, recursive).ForEach(func(path string, stats ruletree.BackupStats) error {
 		isBackup, ok := ruleCache[stats.RuleID]
@@ -372,6 +376,12 @@ func (s *Server) fileList(w http.ResponseWriter, r *http.Request) error {
 
 		row[0] = path
 
-		return csv.Write(row)
+		if stats.HasLocal {
+			row[1] = "True"
+		} else {
+			row[1] = "False"
+		}
+
+		return csv.Write(row[:])
 	})
 }
