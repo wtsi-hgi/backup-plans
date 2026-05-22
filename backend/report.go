@@ -348,8 +348,10 @@ func (s *Server) fileList(w http.ResponseWriter, r *http.Request) error {
 	recursive := r.FormValue("single") == ""
 	matching := r.FormValue("matching") != ""
 	ruleCache := make(map[uint64]bool)
-	csv := csv.NewWriter(w)
 	row := make([]string, 1)
+	csv := csv.NewWriter(w)
+
+	defer csv.Flush()
 
 	w.Header().Set("Content-type", "text/csv")
 	w.Header().Set("Content-Disposition", "attachment; filename="+strconv.Quote(filepath.Base(dir)+".csv"))
