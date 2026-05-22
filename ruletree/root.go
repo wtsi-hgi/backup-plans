@@ -656,7 +656,7 @@ func (r *RootDir) BackedUpFiles(path string, recursive bool) *iiter.Iter2Err[str
 	}
 
 	return &iiter.Iter2Err[string, BackupStats]{
-		Iter: walkBackups(backups, slices.Values(paths), sm.GetStateString(path)),
+		Iter: walkBackups(backups, slices.Values(paths), sm),
 	}
 }
 
@@ -708,14 +708,15 @@ var noRule int64
 func walkTree(n *tree.MemTree, sm State, path []byte, yield func(string, BackupStats) bool) bool {
 	for child, n := range n.Children() {
 		name := append(path, child...)
+		mt := n.(*tree.MemTree)
 
 		if strings.HasSuffix(child, "/") {
-			if !walkTree(n.(*tree.MemTree), sm.GetStateString(child), name, yield) {
+			if !walkTree(mt, sm.GetStateString(child), name, yield) {
 				return false
 			}
 		} else if !yield(string(name), BackupStats{
 			RuleID:   uint64(*cmp.Or(sm.GetStateString(child).GetGroup(), &noRule)),
-			HasLocal: len(n.(*tree.MemTree).Data()) > 0,
+			HasLocal: len(mt.Data()) > 0,
 		}) {
 			return false
 		}
