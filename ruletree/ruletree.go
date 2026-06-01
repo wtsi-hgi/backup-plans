@@ -277,13 +277,13 @@ func (r *ruleProcessor) process(node treeNode, sm State, pwg *sync.WaitGroup) {
 	r.UID, r.GID = node.Owner()
 
 	for name, child := range node.Children() {
+		state := sm.GetStateString(name)
+
 		if !strings.HasSuffix(name, "/") {
-			r.processFile(sm, name, child)
+			r.processFile(state, child)
 
 			continue
 		}
-
-		state := sm.GetStateString(name)
 
 		if ruleID := *state.GetGroup(); ruleID == processRules { //nolint:nestif
 			r.processDir(name, state, child, &wg)
@@ -307,7 +307,7 @@ func (r *ruleProcessor) waitForChildren(wg *sync.WaitGroup) {
 	}
 }
 
-func (r *ruleProcessor) processFile(sm State, name string, file treeNode) {
+func (r *ruleProcessor) processFile(sm State, file treeNode) {
 	var t treeFile
 
 	t.readFrom(file.lowerNode.Data())
@@ -315,7 +315,7 @@ func (r *ruleProcessor) processFile(sm State, name string, file treeNode) {
 
 	var ruleID int64
 
-	if rule := sm.GetStateString(name).GetGroup(); rule != nil {
+	if rule := sm.GetGroup(); rule != nil {
 		ruleID = *rule
 	}
 

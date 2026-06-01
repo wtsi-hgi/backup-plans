@@ -139,12 +139,12 @@ func noMounts(string) bool { return true }
 
 type fileCheck func(string) bool
 
-func openMounts(mountTree []string) (mc fileCheck, c func(), err error) {
-	if len(mountTree) == 0 {
+func openMounts(mountTrees []string) (mc fileCheck, c func(), err error) {
+	if len(mountTrees) == 0 {
 		return noMounts, nil, nil
 	}
 
-	mounts, c, err := makeMounts(mountTree)
+	mounts, c, err := makeMounts(mountTrees)
 	if err != nil {
 		c()
 
@@ -184,10 +184,14 @@ func makeMounts(mountTree []string) (map[string]*tree.MemTree, func(), error) {
 	return mounts, c, nil
 }
 
+var noNode tree.MemTree
+
 func mountsFunc(mounts map[string]*tree.MemTree) fileCheck {
 	cache := make(map[string]*tree.MemTree)
 
 	return func(p string) bool {
+		var err error
+
 		dir := path.Dir(p)
 
 		n, ok := cache[dir]
@@ -197,12 +201,12 @@ func mountsFunc(mounts map[string]*tree.MemTree) fileCheck {
 					continue
 				}
 
-				var err error
-
 				for part := range iiter.PathParts(strings.TrimPrefix(p, mount)) {
 					node, err = node.Child(part)
 					if err != nil {
-						return false
+						node = &noNode
+
+						break
 					}
 				}
 
@@ -213,7 +217,7 @@ func mountsFunc(mounts map[string]*tree.MemTree) fileCheck {
 			}
 		}
 
-		_, err := n.Child(path.Base(p))
+		_, err = n.Child(path.Base(p))
 
 		return err == nil
 	}

@@ -698,7 +698,12 @@ func walkBackups(node *tree.MemTree, paths iter.Seq[string], sm State) iter.Seq2
 				continue
 			}
 
-			walkTree(n, sm.GetStateString(path), []byte(path), yield)
+			m, err := tree.OpenMem(lr)
+			if err != nil {
+				continue
+			}
+
+			walkTree(m, sm.GetStateString(path), []byte(path), yield)
 		}
 	}
 }
@@ -706,16 +711,16 @@ func walkBackups(node *tree.MemTree, paths iter.Seq[string], sm State) iter.Seq2
 var noRule int64
 
 func walkTree(n *tree.MemTree, sm State, path []byte, yield func(string, BackupStats) bool) bool {
-	for child, n := range n.Children() {
-		name := append(path, child...)
-		mt := n.(*tree.MemTree)
+	for childName, node := range n.Children() {
+		name := append(path, childName...)
+		mt := node.(*tree.MemTree)
 
-		if strings.HasSuffix(child, "/") {
-			if !walkTree(mt, sm.GetStateString(child), name, yield) {
+		if strings.HasSuffix(childName, "/") {
+			if !walkTree(mt, sm.GetStateString(childName), name, yield) {
 				return false
 			}
 		} else if !yield(string(name), BackupStats{
-			RuleID:   uint64(*cmp.Or(sm.GetStateString(child).GetGroup(), &noRule)),
+			RuleID:   uint64(*cmp.Or(sm.GetStateString(childName).GetGroup(), &noRule)),
 			HasLocal: len(mt.Data()) > 0,
 		}) {
 			return false
