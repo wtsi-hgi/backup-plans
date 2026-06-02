@@ -640,35 +640,18 @@ func (r *RootDir) BackedUpFiles(path string, recursive bool) *iiter.Iter2Err[str
 
 	backups := cmp.Or(r.trees[""].db, &emptyNode)
 
-	sm, _, err := generateStatemachineFor(path, []string{path}, r.rules)
+	sm, _, err := generateStatemachineFor(path, nil, r.rules)
 	if err != nil {
 		return iiter.Error2[string, BackupStats](err)
 	}
 
-	var paths []string
-
-	if recursive {
-		paths = slices.Collect(r.filterDirs(path))
-
-		slices.Sort(paths)
-	} else {
-		paths = []string{path}
+	for part := range iiter.PathParts(strings.TrimPrefix(path, "/")) {
+		m, _ := backups.Child(part)
+		backups = cmp.Or(m, &emptyNode)
 	}
 
 	return &iiter.Iter2Err[string, BackupStats]{
-		Iter: walkBackups(backups, slices.Values(paths), sm),
-	}
-}
-
-func (r *RootDir) filterDirs(prefix string) iter.Seq[string] {
-	return func(yield func(string) bool) {
-		for path := range r.rules.Dirs() {
-			if strings.HasPrefix(path.Path, prefix) {
-				if !yield(path.Path) {
-					return
-				}
-			}
-		}
+		Iter: findSetPaths(backups, []byte(path), sm.GetStateString(path), recursive),
 	}
 }
 
@@ -677,50 +660,72 @@ type BackupStats struct {
 	HasLocal bool
 }
 
-func walkBackups(node *tree.MemTree, paths iter.Seq[string], sm State) iter.Seq2[string, BackupStats] {
+func findSetPaths(node *tree.MemTree, path []byte, sm State, recursive bool) iter.Seq2[string, BackupStats] {
 	return func(yield func(string, BackupStats) bool) {
-		for path := range paths {
-			n := node
+		if !doSetWalk(byteio.MemLittleEndian(node.Data()), path, sm, yield) {
+			return
+		}
 
-			for part := range iiter.PathParts(strings.TrimPrefix(path, "/")) {
-				m, _ := n.Child(part)
-				n = cmp.Or(m, &emptyNode)
-			}
-
-			lr := byteio.MemLittleEndian(n.Data())
-
-			lr.ReadUintX()
-			lr.ReadUintX()
-			lr.ReadUintX()
-			lr.ReadUintX()
-
-			if len(lr) == 0 {
-				continue
-			}
-
-			m, err := tree.OpenMem(lr)
-			if err != nil {
-				continue
-			}
-
-			walkTree(m, sm.GetStateString(path), []byte(path), yield)
+		if recursive {
+			walkBackupsSets(node, path, sm, yield)
 		}
 	}
 }
 
+func walkBackupsSets(node *tree.MemTree, path []byte, sm State, yield func(string, BackupStats) bool) bool {
+	for name, child := range node.Children() {
+		if !strings.HasSuffix(name, "/") {
+			continue
+		}
+
+		mc := child.(*tree.MemTree)
+		nn := append(path, name...)
+		state := sm.GetStateString(name)
+
+		if !doSetWalk(mc.Data(), nn, state, yield) {
+			return false
+		}
+
+		if !walkBackupsSets(mc, nn, state, yield) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func doSetWalk(lr byteio.MemLittleEndian, path []byte, sm State, yield func(string, BackupStats) bool) bool {
+	lr.ReadUintX()
+	lr.ReadUintX()
+	lr.ReadUintX()
+	lr.ReadUintX()
+
+	if len(lr) == 0 {
+		return true
+	}
+
+	m, err := tree.OpenMem(lr)
+	if err != nil {
+		return true
+	}
+
+	return walkSetTree(m, sm, path, yield)
+}
+
 var noRule int64
 
-func walkTree(n *tree.MemTree, sm State, path []byte, yield func(string, BackupStats) bool) bool {
+func walkSetTree(n *tree.MemTree, sm State, path []byte, yield func(string, BackupStats) bool) bool {
 	for childName, node := range n.Children() {
 		name := append(path, childName...)
 		mt := node.(*tree.MemTree)
+		ns := sm.GetStateString(childName)
 
 		if strings.HasSuffix(childName, "/") {
-			if !walkTree(mt, sm.GetStateString(childName), name, yield) {
+			if !walkSetTree(mt, ns, name, yield) {
 				return false
 			}
 		} else if !yield(string(name), BackupStats{
-			RuleID:   uint64(*cmp.Or(sm.GetStateString(childName).GetGroup(), &noRule)),
+			RuleID:   uint64(*cmp.Or(ns.GetGroup(), &noRule)),
 			HasLocal: len(mt.Data()) > 0,
 		}) {
 			return false

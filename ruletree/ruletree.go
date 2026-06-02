@@ -161,10 +161,6 @@ func (t *treeNode) Children() iter.Seq2[string, treeNode] {
 			if updateBackup {
 				updateBackup = false
 				backupName, backupNode, backupOK = nextNode(nextBackup)
-
-				if backupName == "" && backupOK {
-					backupName, backupNode, backupOK = nextNode(nextBackup)
-				}
 			}
 
 			if !childOK && !backupOK {
@@ -174,18 +170,21 @@ func (t *treeNode) Children() iter.Seq2[string, treeNode] {
 			var (
 				tn   = treeNode{&emptyNode, &emptyNode, &emptyNode}
 				name string
+				n    int
 			)
 
-			n := strings.Compare(childName, backupName)
+			if childOK && backupOK {
+				n = strings.Compare(childName, backupName)
+			}
 
-			if childOK && (!backupOK || n != 1) {
+			if childOK && n != 1 {
 				name = childName
 				tn.lowerNode = childNode
 				tn.upperNode = upper
 				updateChild = true
 			}
 
-			if backupOK && (!childOK || n != -1) {
+			if backupOK && n != -1 {
 				name = backupName
 				tn.backups = backupNode
 				updateBackup = true
@@ -319,14 +318,9 @@ func (r *ruleProcessor) processFile(sm State, file treeNode) {
 		ruleID = *rule
 	}
 
-	r.setRule(ruleID, &t)
-}
-
-func (r *ruleProcessor) setRule(ruleID int64, f *treeFile) {
 	pos := r.getRulePos(ruleID)
-
-	r.Rules[pos].Users.add(f.UID, f.MTime, f.HasFile, f.Size, f.HasBackup, f.BackupSize, f.HasArchive, f.ArchiveSize)
-	r.Rules[pos].Groups.add(f.GID, f.MTime, f.HasFile, f.Size, f.HasBackup, f.BackupSize, f.HasArchive, f.ArchiveSize)
+	r.Rules[pos].Users.add(t.UID, t.MTime, t.HasFile, t.Size, t.HasBackup, t.BackupSize, t.HasArchive, t.ArchiveSize)
+	r.Rules[pos].Groups.add(t.GID, t.MTime, t.HasFile, t.Size, t.HasBackup, t.BackupSize, t.HasArchive, t.ArchiveSize)
 }
 
 func (r *ruleProcessor) getRulePos(ruleID int64) int {
@@ -380,15 +374,16 @@ func (r *ruleProcessor) copyUpperOrAddLower(name string, wildcard int64, child t
 
 	for range sr.ReadUintX() {
 		ruleID := sr.ReadUintX()
+		rulePos := r.getRulePos(int64(ruleID))
 
-		readArray(&sr, int64(ruleID), r.addUserData)  //nolint:gosec
-		readArray(&sr, int64(ruleID), r.addGroupData) //nolint:gosec
+		readArray(&sr, rulePos, r.addUserData)  //nolint:gosec
+		readArray(&sr, rulePos, r.addGroupData) //nolint:gosec
 	}
 
 	r.children = append(r.children, namedNode{name: name, Node: child.upperNode})
 }
 
-func readArray(sr *byteio.MemLittleEndian, ruleID int64, fn func(uint32, int64, uint64, uint64, uint64, uint64, uint64, uint64, uint64)) {
+func readArray(sr *byteio.MemLittleEndian, rulePos int, fn func(uint32, int, uint64, uint64, uint64, uint64, uint64, uint64, uint64)) {
 	for range sr.ReadUintX() {
 		id := uint32(sr.ReadUintX()) //nolint:gosec
 		mtime := sr.ReadUintX()
@@ -399,20 +394,16 @@ func readArray(sr *byteio.MemLittleEndian, ruleID int64, fn func(uint32, int64, 
 		archiveCount := sr.ReadUintX()
 		archiveSize := sr.ReadUintX()
 
-		fn(id, ruleID, mtime, count, size, backupCount, backupSize, archiveCount, archiveSize)
+		fn(id, rulePos, mtime, count, size, backupCount, backupSize, archiveCount, archiveSize)
 	}
 }
 
-func (r *ruleProcessor) addUserData(uid uint32, ruleID int64, mtime, files, size, bFiles, bSize, aFiles, aSize uint64) {
-	pos := r.getRulePos(ruleID)
-
-	r.Rules[pos].Users.add(uid, mtime, files, size, bFiles, bSize, aFiles, aSize)
+func (r *ruleProcessor) addUserData(uid uint32, rulePos int, mtime, files, size, bFiles, bSize, aFiles, aSize uint64) {
+	r.Rules[rulePos].Users.add(uid, mtime, files, size, bFiles, bSize, aFiles, aSize)
 }
 
-func (r *ruleProcessor) addGroupData(gid uint32, ruleID int64, mtime, files, size, bFiles, bSize, aFiles, aSize uint64) {
-	pos := r.getRulePos(ruleID)
-
-	r.Rules[pos].Groups.add(gid, mtime, files, size, bFiles, bSize, aFiles, aSize)
+func (r *ruleProcessor) addGroupData(gid uint32, rulePos int, mtime, files, size, bFiles, bSize, aFiles, aSize uint64) {
+	r.Rules[rulePos].Groups.add(gid, mtime, files, size, bFiles, bSize, aFiles, aSize)
 }
 
 func (r *ruleProcessor) addLower(ruleID int64, child treeNode) {
@@ -423,8 +414,10 @@ func (r *ruleProcessor) addLower(ruleID int64, child treeNode) {
 	sr.ReadUint8()
 	sr.ReadUint8()
 
-	readArray(&sr, ruleID, r.addUserData)
-	readArray(&sr, ruleID, r.addGroupData)
+	rulePos := r.getRulePos(ruleID)
+
+	readArray(&sr, rulePos, r.addUserData)
+	readArray(&sr, rulePos, r.addGroupData)
 
 	sr = child.backups.Data()
 
@@ -437,8 +430,8 @@ func (r *ruleProcessor) addLower(ruleID int64, child treeNode) {
 	archiveSize := sr.ReadUintX()
 	archiveCount := sr.ReadUintX()
 
-	r.addUserData(uid, ruleID, 0, 0, 0, backupCount, backupSize, archiveCount, archiveSize)
-	r.addGroupData(gid, ruleID, 0, 0, 0, backupCount, backupSize, archiveCount, archiveSize)
+	r.addUserData(uid, rulePos, 0, 0, 0, backupCount, backupSize, archiveCount, archiveSize)
+	r.addGroupData(gid, rulePos, 0, 0, 0, backupCount, backupSize, archiveCount, archiveSize)
 }
 
 func (r *ruleProcessor) WriteTo(w io.Writer) (int64, error) {

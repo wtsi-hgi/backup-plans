@@ -97,11 +97,13 @@ func (b *BackupTree) AddFileToCollection(collection, path string, size uint64, l
 
 	b.addSize(size, local)
 
+	leaf := &noLocal
+
 	if local {
-		b.children[filepath.Base(path)] = &hasLocal
-	} else {
-		b.children[filepath.Base(path)] = &noLocal
+		leaf = &hasLocal
 	}
+
+	b.children[filepath.Base(path)] = leaf
 }
 
 func (b *BackupTree) navigateTo(path string, size uint64, local bool) *BackupTree {
@@ -142,7 +144,10 @@ func (b *BackupTree) addFileToDir(path string, size uint64, local bool) {
 	var buf byteio.MemLittleEndian
 
 	buf.WriteUintX(size)
-	buf.WriteBool(local)
+
+	if local {
+		buf.WriteBool(local)
+	}
 
 	b.children[filepath.Base(path)] = tree.Leaf(buf)
 }
