@@ -176,7 +176,7 @@ func isDirectory(path string, getChild func(string) (summariser, string, string,
 }
 
 func createTopLevelDirs(treeRoot *ruleOverlay, rootPath string, p *topLevelDir) error { //nolint:gocognit
-	for part := range iiter.PathParts(rootPath[1 : len(rootPath)-1]) {
+	for part := range iiter.PathParts(strings.TrimPrefix(rootPath[:len(rootPath)-1], "/")) {
 		np, ok := p.children[part]
 		if !ok {
 			np = newTopLevelDir(p)
@@ -186,16 +186,13 @@ func createTopLevelDirs(treeRoot *ruleOverlay, rootPath string, p *topLevelDir) 
 			}
 		}
 
-		dir, ok := np.(*topLevelDir)
+		p, ok = np.(*topLevelDir)
 		if !ok {
 			return ErrDeepTree
 		}
-
-		p = dir
 	}
 
 	name := rootPath[strings.LastIndexByte(rootPath[:len(rootPath)-1], '/')+1:]
-
 	if existing, ok := p.children[name]; ok {
 		if _, ok = existing.(*ruleOverlay); !ok {
 			return ErrDeepTree

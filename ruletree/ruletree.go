@@ -414,15 +414,23 @@ func (r *ruleProcessor) addLower(ruleID int64, child treeNode) {
 	sr.ReadUint8()
 	sr.ReadUint8()
 
-	rulePos := r.getRulePos(ruleID)
+	rulePos := -1
 
-	readArray(&sr, rulePos, r.addUserData)
-	readArray(&sr, rulePos, r.addGroupData)
+	if len(sr) > 0 {
+		rulePos = r.getRulePos(ruleID)
+
+		readArray(&sr, rulePos, r.addUserData)
+		readArray(&sr, rulePos, r.addGroupData)
+	}
 
 	sr = child.backups.Data()
 
 	if len(sr) == 0 {
 		return
+	}
+
+	if rulePos == -1 {
+		rulePos = r.getRulePos(ruleID)
 	}
 
 	backupSize := sr.ReadUintX()
