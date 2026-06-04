@@ -37,7 +37,7 @@ const createStuff = (backupType: BackupType, md: string, setText: string, closeF
 		metadataInput
 	] as const;
 },
-	getHelpIcon = (str: string) => span({ "class": "tooltip", "data-tooltip": str }, svg(use({ "href": "#helpIcon" }))),
+	getHelpIcon = (str: string) => span({ "data-tooltip": str }, svg(use({ "href": "#helpIcon" }))),
 	verifyMetadata = (dir: string, backupType: string, metadata: string) => {
 		if (!BackupType.from(backupType).isManual()) {
 			return Promise.resolve(true);

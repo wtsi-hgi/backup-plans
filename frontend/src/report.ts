@@ -184,14 +184,40 @@ class ParentSummary extends Summary {
 				thead([
 					tr([
 						td({ "rowspan": "2" }),
-						th({ "colspan": "2" }, "Matching"),
-						th({ "colspan": "2" }, "No Match")
+						th({ "colspan": "2" }, [
+							"Matching",
+							span({ "data-tooltip": "Files that are automatically backed-up and are matched by current rules." }, svg(use({ "href": "#helpIcon" }))),
+							button({ "click": () => a({ "href": "api/report/files?matching=1&dir=" + this.path }).click() }, svg([
+								title("Download TSV"),
+								use({ "href": "#downloadFile" })
+							]))
+						]),
+						th({ "colspan": "2" }, [
+							"No Match",
+							span({ "data-tooltip": "Files that are automatically backed-up but not matched by current rules." }, svg(use({ "href": "#helpIcon" }))),
+							button({ "click": () => a({ "href": "api/report/files?dir=" + this.path }).click() }, svg([
+								title("Download TSV"),
+								use({ "href": "#downloadFile" })
+							]))
+						])
 					]),
 					tr([
-						th("Backed-up"),
-						th("Archive"),
-						th("Backed-up"),
-						th("Archive")
+						th([
+							"Backed-up",
+							span({ "data-tooltip": "Files that are automatically backed-up and still exist locally." }, svg(use({ "href": "#helpIcon" }))),
+						]),
+						th([
+							"Archive",
+							span({ "data-tooltip": "Files that are automatically backed-up and do not exist locally." }, svg(use({ "href": "#helpIcon" }))),
+						]),
+						th([
+							"Backed-up",
+							span({ "data-tooltip": "Files that are automatically backed-up and still exist locally." }, svg(use({ "href": "#helpIcon" }))),
+						]),
+						th([
+							"Archive",
+							span({ "data-tooltip": "Files that are automatically backed-up and do not exist locally." }, svg(use({ "href": "#helpIcon" }))),
+						]),
 					]),
 				]),
 				tbody([

@@ -94,6 +94,25 @@ fieldset table.summary {
 	width: calc(100vw - 11em - 2px) !important;
 }
 
+.summary th>[data-tooltip] svg {
+	width: 0.9em;
+	height: 0.9em;
+	margin-left: 0.5em;
+}
+
+.summary th>button {
+	margin-left: 0.5em;
+	background: none !important;
+	border: 0;
+	color: var(--colour);
+	padding: 0;
+}
+
+.summary th>button>svg {
+	width: 1em;
+	height: 1.25em;
+}
+
 .summary-container {
 	overflow: hidden;
 	overflow-y: auto;
