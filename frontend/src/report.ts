@@ -183,7 +183,7 @@ class ParentSummary extends Summary {
 			unmatched.ArchiveFiles > 0n || unmatched.BackupFiles > 0n || (this.actions[+BackupType.BackupIBackup]?.BackupFiles ?? 0n) > 0n || (this.actions[+BackupType.BackupIBackup]?.ArchiveFiles ?? 0n) > 0n ? table({ "class": "summary" }, [
 				thead([
 					tr([
-						td({ "rowspan": "2" }),
+						td(),
 						th({ "colspan": "2" }, [
 							"Matching",
 							span({ "data-tooltip": "Files that are automatically backed-up and are matched by current rules." }, svg(use({ "href": "#helpIcon" }))),
@@ -200,39 +200,27 @@ class ParentSummary extends Summary {
 								use({ "href": "#downloadFile" })
 							]))
 						])
-					]),
-					tr([
-						th([
-							"Backed-up",
-							span({ "data-tooltip": "Files that are automatically backed-up and still exist locally." }, svg(use({ "href": "#helpIcon" }))),
-						]),
-						th([
-							"Archive",
-							span({ "data-tooltip": "Files that are automatically backed-up and do not exist locally." }, svg(use({ "href": "#helpIcon" }))),
-						]),
-						th([
-							"Backed-up",
-							span({ "data-tooltip": "Files that are automatically backed-up and still exist locally." }, svg(use({ "href": "#helpIcon" }))),
-						]),
-						th([
-							"Archive",
-							span({ "data-tooltip": "Files that are automatically backed-up and do not exist locally." }, svg(use({ "href": "#helpIcon" }))),
-						]),
-					]),
+					])
 				]),
 				tbody([
 					tr([
-						th("File count"),
+						th([
+							"Backed-up",
+							span({ "data-tooltip": "Files that are automatically backed-up and still exist locally." }, svg(use({ "href": "#helpIcon" }))),
+						]),
 						td(this.actions[+BackupType.BackupIBackup]?.BackupFiles.toLocaleString() ?? "0"),
-						td(this.actions[+BackupType.BackupIBackup]?.ArchiveFiles.toLocaleString() ?? "0"),
+						td({ "title": (this.actions[+BackupType.BackupIBackup]?.BackupSize ?? 0).toLocaleString() }, formatBytes(this.actions[+BackupType.BackupIBackup]?.BackupSize ?? 0)),
 						td(unmatched.BackupFiles.toLocaleString()),
-						td(unmatched.ArchiveFiles.toLocaleString())
+						td({ "title": unmatched.BackupSize.toLocaleString() }, formatBytes(unmatched.BackupSize))
 					]),
 					tr([
-						th("File size"),
-						td({ "title": (this.actions[+BackupType.BackupIBackup]?.BackupSize ?? 0).toLocaleString() }, formatBytes(this.actions[+BackupType.BackupIBackup]?.BackupSize ?? 0)),
+						th([
+							"Archive",
+							span({ "data-tooltip": "Files that are automatically backed-up and do not exist locally." }, svg(use({ "href": "#helpIcon" }))),
+						]),
+						td(this.actions[+BackupType.BackupIBackup]?.ArchiveFiles.toLocaleString() ?? "0"),
 						td({ "title": (this.actions[+BackupType.BackupIBackup]?.ArchiveSize ?? 0).toLocaleString() }, formatBytes(this.actions[+BackupType.BackupIBackup]?.ArchiveSize ?? 0)),
-						td({ "title": unmatched.BackupSize.toLocaleString() }, formatBytes(unmatched.BackupSize)),
+						td(unmatched.ArchiveFiles.toLocaleString()),
 						td({ "title": unmatched.ArchiveSize.toLocaleString() }, formatBytes(unmatched.ArchiveSize))
 					]),
 				])
