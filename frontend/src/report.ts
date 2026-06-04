@@ -121,8 +121,10 @@ class ParentSummary extends Summary {
 			ArchiveSize: 0n
 		};
 
-		for (const [n, c] of this.actions.entries()) {
-			if (n === +BackupType.BackupIBackup || !c) {
+		for (const n of BackupType.all) {
+			const c = this.actions[+n];
+
+			if (n === BackupType.BackupIBackup || !c) {
 				continue;
 			}
 
