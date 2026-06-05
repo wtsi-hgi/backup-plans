@@ -193,8 +193,8 @@ class ParentSummary extends Summary {
 							]))
 						]),
 						th({ "colspan": "2" }, [
-							"No Match",
-							span({ "data-tooltip": "Files that are automatically backed-up but not matched by current rules." }, svg(use({ "href": "#helpIcon" }))),
+							"Unmatched",
+							span({ "data-tooltip": "Files that are automatically backed-up but are not matched by current rules." }, svg(use({ "href": "#helpIcon" }))),
 							button({ "click": () => a({ "href": "api/report/files?dir=" + this.path }).click() }, svg([
 								title("Download TSV"),
 								use({ "href": "#downloadFile" })
@@ -215,7 +215,7 @@ class ParentSummary extends Summary {
 					]),
 					tr([
 						th([
-							"Archive",
+							"Archived",
 							span({ "data-tooltip": "Files that are automatically backed-up and do not exist locally." }, svg(use({ "href": "#helpIcon" }))),
 						]),
 						td(this.actions[+BackupType.BackupIBackup]?.ArchiveFiles.toLocaleString() ?? "0"),
