@@ -280,7 +280,7 @@ input[type="checkbox"] {
 }
 
 #treeOptions[open] {
-	width: 160px;
+	width: 200px;
 }
 
 #treeOptions:not([open]) {
