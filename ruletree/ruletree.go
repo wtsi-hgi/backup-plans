@@ -131,6 +131,65 @@ func (t *treeNode) Owner() (uint32, uint32) {
 	return uint32(sr.ReadUintX()), uint32(sr.ReadUintX()) //nolint:gosec
 }
 
+type multiIter struct {
+	t                            *treeNode
+	nextChild, nextBackup        func() (string, tree.Node, bool)
+	childName, backupName        string
+	childNode, backupNode, upper *tree.MemTree
+	childOK, backupOK            bool
+	updateChild, updateBackup    bool
+}
+
+func (m *multiIter) Next() bool {
+	if !m.childOK && !m.backupOK {
+		return false
+	}
+
+	if m.updateChild {
+		m.updateChild = false
+		m.childName, m.childNode, m.childOK = nextNode(m.nextChild)
+
+		if m.childOK {
+			u, _ := m.t.upperNode.Child(m.childName) //nolint:errcheck
+			m.upper = cmp.Or(u, &emptyNode)
+		}
+	}
+
+	if m.updateBackup {
+		m.updateBackup = false
+		m.backupName, m.backupNode, m.backupOK = nextNode(m.nextBackup)
+	}
+
+	return m.childOK || m.backupOK
+}
+
+func (m *multiIter) buildTreeNode() (string, treeNode) {
+	var (
+		tn   = treeNode{&emptyNode, &emptyNode, &emptyNode}
+		name string
+		n    int
+	)
+
+	if m.childOK && m.backupOK {
+		n = strings.Compare(m.childName, m.backupName)
+	}
+
+	if m.childOK && n != 1 {
+		name = m.childName
+		tn.lowerNode = m.childNode
+		tn.upperNode = m.upper
+		m.updateChild = true
+	}
+
+	if m.backupOK && n != -1 {
+		name = m.backupName
+		tn.backups = m.backupNode
+		m.updateBackup = true
+	}
+
+	return name, tn
+}
+
 func (t *treeNode) Children() iter.Seq2[string, treeNode] {
 	return func(yield func(string, treeNode) bool) {
 		nextChild, childStop := iter.Pull2(t.lowerNode.Children())
@@ -139,58 +198,15 @@ func (t *treeNode) Children() iter.Seq2[string, treeNode] {
 		defer backupStop()
 		defer childStop()
 
-		var (
-			childName, backupName        string
-			childNode, backupNode, upper *tree.MemTree
-		)
+		mi := multiIter{
+			t:         t,
+			nextChild: nextChild, nextBackup: nextBackup,
+			childOK: true, backupOK: true,
+			updateChild: true, updateBackup: true,
+		}
 
-		childOK, backupOK := true, true
-		updateChild, updateBackup := true, true
-
-		for childOK || backupOK {
-			if updateChild {
-				updateChild = false
-				childName, childNode, childOK = nextNode(nextChild)
-
-				if childOK {
-					u, _ := t.upperNode.Child(childName)
-					upper = cmp.Or(u, &emptyNode)
-				}
-			}
-
-			if updateBackup {
-				updateBackup = false
-				backupName, backupNode, backupOK = nextNode(nextBackup)
-			}
-
-			if !childOK && !backupOK {
-				break
-			}
-
-			var (
-				tn   = treeNode{&emptyNode, &emptyNode, &emptyNode}
-				name string
-				n    int
-			)
-
-			if childOK && backupOK {
-				n = strings.Compare(childName, backupName)
-			}
-
-			if childOK && n != 1 {
-				name = childName
-				tn.lowerNode = childNode
-				tn.upperNode = upper
-				updateChild = true
-			}
-
-			if backupOK && n != -1 {
-				name = backupName
-				tn.backups = backupNode
-				updateBackup = true
-			}
-
-			if !yield(name, tn) {
+		for mi.Next() {
+			if !yield(mi.buildTreeNode()) {
 				break
 			}
 		}
@@ -201,7 +217,7 @@ func nextNode(next func() (string, tree.Node, bool)) (string, *tree.MemTree, boo
 	name, node, ok := next()
 
 	if ok {
-		return name, node.(*tree.MemTree), ok
+		return name, node.(*tree.MemTree), ok //nolint:errcheck,forcetypeassert
 	}
 
 	return "", nil, false
@@ -351,11 +367,13 @@ func (r *ruleProcessor) mergeChild(child *ruleProcessor) {
 		pos := r.getRulePos(int64(rule.ID)) //nolint:gosec
 
 		for _, user := range rule.Users {
-			r.Rules[pos].Users.add(user.id, user.MTime, user.Files, user.Size, user.BackupFiles, user.BackupSize, user.ArchiveFiles, user.ArchiveSize)
+			r.Rules[pos].Users.add(user.id, user.MTime, user.Files, user.Size,
+				user.BackupFiles, user.BackupSize, user.ArchiveFiles, user.ArchiveSize)
 		}
 
 		for _, group := range rule.Groups {
-			r.Rules[pos].Groups.add(group.id, group.MTime, group.Files, group.Size, group.BackupFiles, group.BackupSize, group.ArchiveFiles, group.ArchiveSize)
+			r.Rules[pos].Groups.add(group.id, group.MTime, group.Files, group.Size,
+				group.BackupFiles, group.BackupSize, group.ArchiveFiles, group.ArchiveSize)
 		}
 	}
 }
@@ -374,16 +392,17 @@ func (r *ruleProcessor) copyUpperOrAddLower(name string, wildcard int64, child t
 
 	for range sr.ReadUintX() {
 		ruleID := sr.ReadUintX()
-		rulePos := r.getRulePos(int64(ruleID))
+		rulePos := r.getRulePos(int64(ruleID)) //nolint:gosec
 
-		readArray(&sr, rulePos, r.addUserData)  //nolint:gosec
-		readArray(&sr, rulePos, r.addGroupData) //nolint:gosec
+		readArray(&sr, rulePos, r.addUserData)
+		readArray(&sr, rulePos, r.addGroupData)
 	}
 
 	r.children = append(r.children, namedNode{name: name, Node: child.upperNode})
 }
 
-func readArray(sr *byteio.MemLittleEndian, rulePos int, fn func(uint32, int, uint64, uint64, uint64, uint64, uint64, uint64, uint64)) {
+func readArray(sr *byteio.MemLittleEndian, rulePos int,
+	fn func(uint32, int, uint64, uint64, uint64, uint64, uint64, uint64, uint64)) {
 	for range sr.ReadUintX() {
 		id := uint32(sr.ReadUintX()) //nolint:gosec
 		mtime := sr.ReadUintX()
@@ -406,11 +425,11 @@ func (r *ruleProcessor) addGroupData(gid uint32, rulePos int, mtime, files, size
 	r.Rules[rulePos].Groups.add(gid, mtime, files, size, bFiles, bSize, aFiles, aSize)
 }
 
-func (r *ruleProcessor) addLower(ruleID int64, child treeNode) {
+func (r *ruleProcessor) addLower(ruleID int64, child treeNode) { //nolint:funlen
 	sr := byteio.MemLittleEndian(child.lowerNode.Data())
 
-	uid := uint32(sr.ReadUintX())
-	gid := uint32(sr.ReadUintX())
+	uid := uint32(sr.ReadUintX()) //nolint:gosec
+	gid := uint32(sr.ReadUintX()) //nolint:gosec
 	sr.ReadUint8()
 	sr.ReadUint8()
 

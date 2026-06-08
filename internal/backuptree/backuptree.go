@@ -34,7 +34,6 @@ type BackupTree struct {
 	backupSize, backupCount   uint64
 	archiveSize, archiveCount uint64
 	children                  map[string]tree.Node
-	collection                *BackupTree
 }
 
 // New creates a new, empty BackupTree ready to add files to.
@@ -79,8 +78,8 @@ func (b *BackupTree) WriteTo(w io.Writer) (int64, error) {
 }
 
 var (
-	hasLocal = tree.Leaf{1}
-	noLocal  tree.Leaf
+	hasLocal = tree.Leaf{1} //nolint:gochecknoglobals
+	noLocal  tree.Leaf      //nolint:gochecknoglobals
 )
 
 // AddFileToCollection adds a file to the directory tree and to the collection
@@ -133,7 +132,7 @@ func (b *BackupTree) getChildDir(name string) *BackupTree {
 		b.children[name] = c
 	}
 
-	return c.(*BackupTree)
+	return c.(*BackupTree) //nolint:errcheck,forcetypeassert
 }
 
 func (b *BackupTree) addFileToDir(path string, size uint64, local bool) {

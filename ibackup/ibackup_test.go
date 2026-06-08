@@ -547,9 +547,10 @@ func (fc *fofnClientWrapper) TriggerDiscovery(setID string, forceRemovals bool) 
 }
 
 func (fc *fofnClientWrapper) GetSets(user string) ([]*set.Set, error) {
-	var sets []*set.Set
+	userSets := fc.sets[user]
+	sets := make([]*set.Set, 0, len(userSets))
 
-	for _, setName := range fc.sets[user] {
+	for _, setName := range userSets {
 		got, err := fc.GetSetByName(user, setName)
 		if err != nil {
 			continue

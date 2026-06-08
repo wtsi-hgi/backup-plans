@@ -324,7 +324,7 @@ func (s *Server) collectRuleMetadata(ds *ruletree.DirSummary, dirSummary *summar
 }
 
 func (s *Server) collectRules(dirSummary *summary, dir string) {
-	ruleIDs := make([]uint64, 0) //nolint:prealloc
+	ruleIDs := make([]uint64, 0)
 
 	for r := range s.rootDir.DirRules(dir) {
 		ruleIDs = append(ruleIDs, uint64(r.ID)) //nolint:gosec
@@ -347,14 +347,19 @@ func (s *Server) fileList(w http.ResponseWriter, r *http.Request) error {
 
 	recursive := r.FormValue("single") == ""
 	matching := r.FormValue("matching") != ""
-	ruleCache := make(map[uint64]bool)
-	row := [2]string{"Path", "Local"}
 	csv := csv.NewWriter(w)
 
 	defer csv.Flush()
 
 	w.Header().Set("Content-type", "text/csv")
 	w.Header().Set("Content-Disposition", "attachment; filename="+strconv.Quote(filepath.Base(dir)+".csv"))
+
+	return s.writeCSV(csv, dir, matching, recursive)
+}
+
+func (s *Server) writeCSV(csv *csv.Writer, dir string, matching, recursive bool) error { //nolint:gocognit,funlen
+	ruleCache := make(map[uint64]bool)
+	row := [2]string{"Path", "Local"}
 
 	if err := csv.Write(row[:]); err != nil {
 		return err

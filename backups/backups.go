@@ -211,12 +211,12 @@ func figureOutFOFNs(node tree.Node, sm ruletree.State, path *summary.DirectoryPa
 }
 
 func readMTime(child tree.Node) int64 {
-	lr := byteio.MemLittleEndian(child.(*tree.MemTree).Data())
+	lr := byteio.MemLittleEndian(child.(*tree.MemTree).Data()) //nolint:errcheck,forcetypeassert
 
 	lr.ReadUintX()
 	lr.ReadUintX()
 
-	return int64(lr.ReadUintX())
+	return int64(lr.ReadUintX()) //nolint:gosec
 }
 
 type backupClient interface {

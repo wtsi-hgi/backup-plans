@@ -72,16 +72,39 @@ func (d *DirSummary) mergeRules(rules []Rule) {
 		}
 
 		for _, user := range rule.Users {
-			d.RuleSummaries[pos].Users.add(user.id, user.MTime, user.Files, user.Size, user.BackupFiles, user.BackupSize, user.ArchiveFiles, user.ArchiveSize)
+			d.RuleSummaries[pos].Users.add(user.id, user.MTime, user.Files, user.Size,
+				user.BackupFiles, user.BackupSize, user.ArchiveFiles, user.ArchiveSize)
 		}
 
 		setNames(d.RuleSummaries[pos].Users, users.Username)
 
 		for _, group := range rule.Groups {
-			d.RuleSummaries[pos].Groups.add(group.id, group.MTime, group.Files, group.Size, group.BackupFiles, group.BackupSize, group.ArchiveFiles, group.ArchiveSize)
+			d.RuleSummaries[pos].Groups.add(group.id, group.MTime, group.Files, group.Size,
+				group.BackupFiles, group.BackupSize, group.ArchiveFiles, group.ArchiveSize)
 		}
 
 		setNames(d.RuleSummaries[pos].Groups, users.Group)
+	}
+}
+
+func (d *DirSummary) addBackups(backups []byte) {
+	sr := byteio.MemLittleEndian(backups)
+	backupSize := sr.ReadUintX()
+	backupCount := sr.ReadUintX()
+	archiveSize := sr.ReadUintX()
+	archiveCount := sr.ReadUintX()
+
+	if backupCount > 0 || archiveCount > 0 {
+		d.RuleSummaries[0].Users.add(d.uid, 0, 0, 0, backupCount, backupSize, archiveCount, archiveSize)
+		d.RuleSummaries[0].Groups.add(d.gid, 0, 0, 0, backupCount, backupSize, archiveCount, archiveSize)
+
+		for n := range d.RuleSummaries[0].Users {
+			if d.RuleSummaries[0].Users[n].id == d.uid {
+				d.RuleSummaries[0].Users[n].Name = d.User
+
+				break
+			}
+		}
 	}
 }
 
@@ -210,24 +233,7 @@ func (r *ruleOverlay) getSummary(wildcard int64, backups []byte) *DirSummary {
 
 	if len(ds.RuleSummaries) == 1 && ds.RuleSummaries[0].ID == 0 {
 		ds.RuleSummaries[0].ID = uint64(wildcard) //nolint:gosec
-		sr = byteio.MemLittleEndian(backups)
-		backupSize := sr.ReadUintX()
-		backupCount := sr.ReadUintX()
-		archiveSize := sr.ReadUintX()
-		archiveCount := sr.ReadUintX()
-
-		if backupCount > 0 || archiveCount > 0 {
-			ds.RuleSummaries[0].Users.add(ds.uid, 0, 0, 0, backupCount, backupSize, archiveCount, archiveSize)
-			ds.RuleSummaries[0].Groups.add(ds.gid, 0, 0, 0, backupCount, backupSize, archiveCount, archiveSize)
-
-			for n := range ds.RuleSummaries[0].Users {
-				if ds.RuleSummaries[0].Users[n].id == ds.uid {
-					ds.RuleSummaries[0].Users[n].Name = ds.User
-
-					break
-				}
-			}
-		}
+		ds.addBackups(backups)
 	}
 
 	ds.setNames()
@@ -236,8 +242,8 @@ func (r *ruleOverlay) getSummary(wildcard int64, backups []byte) *DirSummary {
 	return ds
 }
 
-func (ds *DirSummary) setNames() {
-	for _, rule := range ds.RuleSummaries {
+func (d *DirSummary) setNames() {
+	for _, rule := range d.RuleSummaries {
 		for n := range rule.Users {
 			rule.Users[n].Name = users.Username(rule.Users[n].id)
 		}

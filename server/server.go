@@ -94,7 +94,7 @@ func addHandlesAndListen(b *backend.Server, listen net.Listener, logout http.Han
 	return http.Serve(listen, nil) //nolint:gosec
 }
 
-func loadTrees(backupTreeGlob string, initialTrees []string, b *ruletree.RootDir) error {
+func loadTrees(backupTreeGlob string, initialTrees []string, b *ruletree.RootDir) error { //nolint:funlen
 	currentBackupTree, err := loadBackupTree(b, "", backupTreeGlob)
 	if err != nil {
 		return err
@@ -187,7 +187,8 @@ func getTreePaths(path string) ([]string, error) {
 
 // timerLoop will, given a path to a directory, check for and load all new trees
 // in the directory.
-func timerLoop(path string, b *ruletree.RootDir, currentBackupTree, backupTreeGlob string, treePaths []string) {
+func timerLoop(path string, b *ruletree.RootDir, currentBackupTree, backupTreeGlob string, //nolint:gocognit
+	treePaths []string) {
 	for {
 		time.Sleep(dbCheckTime)
 

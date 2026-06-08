@@ -56,7 +56,8 @@ func newBackupTree() *backupTree {
 	return &backupTree{backuptree.New()}
 }
 
-func (b *backupTree) AddCollection(a *api.API, collection string, tx transformer.PathTransformer, fileExists func(string) bool) error {
+func (b *backupTree) AddCollection(a *api.API, collection string,
+	tx transformer.PathTransformer, fileExists func(string) bool) error {
 	ctx, cFn := context.WithCancel(context.Background())
 
 	defer cFn()
@@ -114,7 +115,8 @@ func backedupScanner(s iiter.Scanner) (*backedupFile, error) {
 	return &b, nil
 }
 
-func BackupTree(env iron.Env, collections map[string]transformer.PathTransformer, mountTrees ...string) (tree.Node, error) {
+func BackupTree(env iron.Env, collections map[string]transformer.PathTransformer,
+	mountTrees ...string) (tree.Node, error) {
 	c, err := iron.New(context.Background(), env, iron.Option{
 		ClientName:    "backup-plans",
 		HandshakeFunc: oldHandshake(env),
@@ -157,7 +159,7 @@ func openMounts(mountTrees []string) (mc fileCheck, c func(), err error) {
 func makeMounts(mountTree []string) (map[string]*tree.MemTree, func(), error) {
 	mounts := make(map[string]*tree.MemTree)
 
-	var closers []func()
+	closers := make([]func(), 0, len(mountTree))
 
 	c := func() {
 		for _, closer := range closers {
@@ -184,9 +186,9 @@ func makeMounts(mountTree []string) (map[string]*tree.MemTree, func(), error) {
 	return mounts, c, nil
 }
 
-var noNode tree.MemTree
+var noNode tree.MemTree //nolint:gochecknoglobals
 
-func mountsFunc(mounts map[string]*tree.MemTree) fileCheck {
+func mountsFunc(mounts map[string]*tree.MemTree) fileCheck { //nolint:gocognit,funlen
 	cache := make(map[string]*tree.MemTree)
 
 	return func(p string) bool {
@@ -195,7 +197,7 @@ func mountsFunc(mounts map[string]*tree.MemTree) fileCheck {
 		dir := path.Dir(p)
 
 		n, ok := cache[dir]
-		if !ok {
+		if !ok { //nolint:nestif
 			for mount, node := range mounts {
 				if !strings.HasPrefix(p, mount) {
 					continue
@@ -211,7 +213,7 @@ func mountsFunc(mounts map[string]*tree.MemTree) fileCheck {
 				}
 
 				cache[dir] = node
-				n = node
+				n = node //nolint:staticcheck
 
 				break
 			}
@@ -223,7 +225,8 @@ func mountsFunc(mounts map[string]*tree.MemTree) fileCheck {
 	}
 }
 
-func processCollections(a *api.API, collections map[string]transformer.PathTransformer, fileExists fileCheck) (tree.Node, error) {
+func processCollections(a *api.API, collections map[string]transformer.PathTransformer,
+	fileExists fileCheck) (tree.Node, error) {
 	t := newBackupTree()
 
 	for collection, tx := range collections {

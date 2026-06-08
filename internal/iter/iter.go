@@ -39,7 +39,7 @@ type IterErr[T any] struct { //nolint:revive
 }
 
 // Iter2Err is an extension to the iter package that allows for returning errors.
-type Iter2Err[T, V any] struct { //nolint:revive
+type Iter2Err[T, V any] struct {
 	Iter  iter.Seq2[T, V]
 	Error error
 }

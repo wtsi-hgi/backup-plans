@@ -480,6 +480,26 @@ func (r *RootDir) SetBackupTree(file string) error {
 
 	defer r.rules.RuleTransaction().Rollback() //nolint:errcheck
 
+	newRoots, err := r.buildNewRoots(db)
+	if err != nil {
+		return err
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if err := r.regenRoots(newRoots); err != nil {
+		return err
+	}
+
+	r.setTreeCloser("", db, closer)
+
+	r.backups = db
+
+	return nil
+}
+
+func (r *RootDir) buildNewRoots(db *tree.MemTree) (map[string]rulesAndWildcards, error) {
 	newRoots := make(map[string]rulesAndWildcards)
 
 	for rootPath, tree := range r.trees {
@@ -488,27 +508,24 @@ func (r *RootDir) SetBackupTree(file string) error {
 		r.mu.RUnlock()
 
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		newRoots[rootPath] = rulesAndWildcards{processed, wcs}
 	}
 
-	r.mu.Lock()
-	defer r.mu.Unlock()
+	return newRoots, nil
+}
 
+func (r *RootDir) regenRoots(newRoots map[string]rulesAndWildcards) error {
 	for rootPath, rw := range newRoots {
-		if err = createTopLevelDirs(rw.processed, rootPath, &r.topLevelDir); err != nil {
+		if err := createTopLevelDirs(rw.processed, rootPath, &r.topLevelDir); err != nil {
 			return err
 		}
 
 		r.wildcards[rootPath] = rw.wcs.GetState(nil)
 		r.updateCache(rootPath)
 	}
-
-	r.setTreeCloser("", db, closer)
-
-	r.backups = db
 
 	return nil
 }
@@ -572,7 +589,7 @@ func getBackupDir(backups *tree.MemTree, dir string) *tree.MemTree {
 	}
 
 	for part := range iiter.PathParts(strings.TrimPrefix(dir, "/")) {
-		backups, _ = backups.Child(part)
+		backups, _ = backups.Child(part) //nolint:errcheck
 
 		if backups == nil {
 			return &emptyNode
@@ -646,7 +663,7 @@ func (r *RootDir) BackedUpFiles(path string, recursive bool) *iiter.Iter2Err[str
 	}
 
 	for part := range iiter.PathParts(strings.TrimPrefix(path, "/")) {
-		m, _ := backups.Child(part)
+		m, _ := backups.Child(part) //nolint:errcheck
 		backups = cmp.Or(m, &emptyNode)
 	}
 
@@ -678,8 +695,9 @@ func walkBackupsSets(node *tree.MemTree, path []byte, sm State, yield func(strin
 			continue
 		}
 
-		mc := child.(*tree.MemTree)
-		nn := append(path, name...)
+		mc := child.(*tree.MemTree) //nolint:errcheck,forcetypeassert
+
+		nn := append(path, name...) //nolint:gocritic
 		state := sm.GetStateString(name)
 
 		if !doSetWalk(mc.Data(), nn, state, yield) {
@@ -712,20 +730,20 @@ func doSetWalk(lr byteio.MemLittleEndian, path []byte, sm State, yield func(stri
 	return walkSetTree(m, sm, path, yield)
 }
 
-var noRule int64
+var noRule int64 //nolint:gochecknoglobals
 
 func walkSetTree(n *tree.MemTree, sm State, path []byte, yield func(string, BackupStats) bool) bool {
 	for childName, node := range n.Children() {
-		name := append(path, childName...)
-		mt := node.(*tree.MemTree)
+		name := append(path, childName...) //nolint:gocritic
+		mt := node.(*tree.MemTree)         //nolint:errcheck,forcetypeassert
 		ns := sm.GetStateString(childName)
 
-		if strings.HasSuffix(childName, "/") {
+		if strings.HasSuffix(childName, "/") { //nolint:nestif
 			if !walkSetTree(mt, ns, name, yield) {
 				return false
 			}
 		} else if !yield(string(name), BackupStats{
-			RuleID:   uint64(*cmp.Or(ns.GetGroup(), &noRule)),
+			RuleID:   uint64(*cmp.Or(ns.GetGroup(), &noRule)), //nolint:gosec
 			HasLocal: len(mt.Data()) > 0,
 		}) {
 			return false

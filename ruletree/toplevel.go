@@ -128,7 +128,7 @@ func (t *topLevelDir) Summary(path string, wildcard group.State[int64], backups 
 }
 
 func backupNode(backups *tree.MemTree, name string) *tree.MemTree {
-	n, _ := backups.Child(name)
+	n, _ := backups.Child(name) //nolint:errcheck
 
 	return cmp.Or(n, &emptyNode)
 }
