@@ -243,6 +243,9 @@ func TestBackups(t *testing.T) {
 				"/a.txt": 1,
 				"/b.csv": 2,
 			},
+			"/some/path/MyDir/more/": {
+				"/another.txt": 5,
+			},
 			"/some/path/YourDir/": {
 				"/a.txt":     999,
 				"/dir/b.txt": 1234,
@@ -276,6 +279,31 @@ func TestBackups(t *testing.T) {
 
 			So(root.BackedUpFiles("/some/path/OtherDir/", false).ForEach(collect), ShouldBeNil)
 			So(paths, ShouldBeEmpty)
+		})
+
+		Convey("You can list the files in a backup set", func() {
+			var files []string
+
+			collectFiles := func(name string, _ BackupStats) error {
+				files = append(files, name)
+
+				return nil
+			}
+
+			So(root.BackedUpFiles("/some/path/MyDir/", false).ForEach(collectFiles), ShouldBeNil)
+			So(files, ShouldResemble, []string{
+				"/some/path/MyDir/a.txt",
+				"/some/path/MyDir/b.csv",
+			})
+
+			files = files[:0]
+
+			So(root.BackedUpFiles("/some/path/MyDir/", true).ForEach(collectFiles), ShouldBeNil)
+			So(files, ShouldResemble, []string{
+				"/some/path/MyDir/a.txt",
+				"/some/path/MyDir/b.csv",
+				"/some/path/MyDir/more/another.txt",
+			})
 		})
 	})
 }
