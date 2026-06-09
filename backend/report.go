@@ -324,7 +324,7 @@ func (s *Server) collectRuleMetadata(ds *ruletree.DirSummary, dirSummary *summar
 }
 
 func (s *Server) collectRules(dirSummary *summary, dir string) {
-	ruleIDs := make([]uint64, 0)
+	ruleIDs := make([]uint64, 0) //nolint:prealloc
 
 	for r := range s.rootDir.DirRules(dir) {
 		ruleIDs = append(ruleIDs, uint64(r.ID)) //nolint:gosec

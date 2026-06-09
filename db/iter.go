@@ -32,7 +32,6 @@ type scanner = iter.Scanner
 type IterErr[T any] = iter.IterErr[T]
 
 func iterRows[T any](d *DBRO, scanner func(scanner) (T, error), query string, args ...any) *IterErr[T] {
-
 	rows, err := d.db.Query(query, args...) //nolint:noctx
 	if err != nil {
 		return iter.Error[T](err)
