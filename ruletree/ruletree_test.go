@@ -277,10 +277,6 @@ func TestRuletree(t *testing.T) {
 			So(s, ShouldResemble, expectedSummaries["/some/path/MyDir/"])
 		})
 
-		if true {
-			return
-		}
-
 		Convey("You can add and remove rules with basic wildcard matches", func() {
 			root := newRoot(t, tdb)
 

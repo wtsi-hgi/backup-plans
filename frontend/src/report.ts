@@ -98,7 +98,6 @@ class ParentSummary extends Summary {
 	children = new Map<string, ChildSummary>();
 	group: string;
 
-
 	constructor(path: string, group: string, backupStatus?: SetBackupActivity) {
 		super(path, backupStatus);
 

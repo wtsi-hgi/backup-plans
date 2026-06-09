@@ -271,7 +271,7 @@ func ibackupTests(t *testing.T, createClient func() (ibackupClient, func(*set.Se
 		Convey("You can create backup sets", func() {
 			sets, err := client.GetSets(u.Username)
 			So(err, ShouldBeNil)
-			So(sets, ShouldBeNil)
+			So(sets, ShouldBeEmpty)
 
 			setName := "mySet"
 
@@ -280,7 +280,7 @@ func ibackupTests(t *testing.T, createClient func() (ibackupClient, func(*set.Se
 
 			sets, err = client.GetSets(u.Username)
 			So(err, ShouldBeNil)
-			So(sets, ShouldBeNil)
+			So(sets, ShouldBeEmpty)
 
 			before := time.Now()
 

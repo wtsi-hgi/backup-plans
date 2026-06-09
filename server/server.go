@@ -102,6 +102,8 @@ func loadTrees(backupTreeGlob string, initialTrees []string, b *ruletree.RootDir
 
 	if len(initialTrees) != 1 {
 		loadDBs(b, initialTrees)
+
+		return nil
 	} else if len(initialTrees) == 0 {
 		return ErrNoTrees
 	}

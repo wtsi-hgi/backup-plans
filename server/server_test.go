@@ -85,6 +85,7 @@ func TestSeverDBUpdate(t *testing.T) {
 					func(*http.Request) string { return u.Username },
 					http.NotFoundHandler(),
 					cfg,
+					"",
 					tmp,
 				)
 			}()

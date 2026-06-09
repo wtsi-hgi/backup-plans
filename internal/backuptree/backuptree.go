@@ -1,3 +1,28 @@
+/*******************************************************************************
+ * Copyright (c) 2026 Genome Research Ltd.
+ *
+ * Author: Michael Woolnough <mw31@sanger.ac.uk>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included
+ * in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ ******************************************************************************/
+
 package backuptree
 
 import (
@@ -23,13 +48,14 @@ import (
 //	  *BackupTree.
 //
 // The special collection is similar to a normal directory, except it only
-// contains files that belong to that collection. All file nodes have no data.
+// contains files that belong to that collection. File nodes have data set to
+// 0x1 if the file exists locally, empty otherwise.
 //
 // The data for a directory is the total size of the files held within and a
-// count of the number of files.
+// count of the number of files. For set directories, the special collection
+// node is written as a Tree, appended to the Node data.
 //
-// The data for a file is the size of that file, unless it is recorded in a
-// special collection Node, in which case it has no data.
+// The data for a file in the normal tree is the size of that file.
 type BackupTree struct {
 	backupSize, backupCount   uint64
 	archiveSize, archiveCount uint64
