@@ -659,7 +659,7 @@ func (r *RootDir) CacheSummaries(paths ...string) {
 // BackedUpFiles returns an iterator that yields all of the backed-up files for
 // the given claimed directory.
 //
-// If the recursive flag is set to true, it will yeild for all claimed
+// If the recursive flag is set to true, it will yield for all claimed
 // directories with the given path prefix.
 func (r *RootDir) BackedUpFiles(path string, recursive bool) *iiter.Iter2Err[string, BackupStats] {
 	r.mu.RLock()
