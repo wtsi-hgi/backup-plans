@@ -121,7 +121,7 @@ func TreeToFile(n tree.Node, path string) error {
 	return f.Close()
 }
 
-// GetSingle root is intended to get the mountpoint for a tree database which is
+// GetSingleRoot is intended to get the mountpoint for a tree database which is
 // stored as the first and only child of the root node.
 //
 // Returns the mountpoint node and the mountpoint name.
