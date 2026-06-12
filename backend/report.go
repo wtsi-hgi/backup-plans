@@ -368,7 +368,7 @@ func (s *Server) fileList(w http.ResponseWriter, r *http.Request) error {
 
 func (s *Server) writeCSV(csv *csv.Writer, dir string, matching, recursive bool) error { //nolint:gocognit,funlen
 	ruleCache := make(map[uint64]bool)
-	row := [2]string{"Path", "Local"}
+	row := [3]string{"Local Path", "Remote Path", "Exists Locally"}
 
 	if err := csv.Write(row[:]); err != nil {
 		return err
@@ -389,6 +389,7 @@ func (s *Server) writeCSV(csv *csv.Writer, dir string, matching, recursive bool)
 		}
 
 		row[0] = path
+		row[1] = stats.RemotePath
 
 		if stats.HasLocal {
 			row[1] = "True"

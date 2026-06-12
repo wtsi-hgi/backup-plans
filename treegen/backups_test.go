@@ -206,6 +206,7 @@ func traverseTree(t *testing.T, m *tree.MemTree, path string) *tree.MemTree {
 			lr.ReadUintX()
 			lr.ReadUintX()
 			lr.ReadUintX()
+			lr.ReadStringX()
 
 			m, err = tree.OpenMem(lr)
 			So(err, ShouldBeNil)

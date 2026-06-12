@@ -4,12 +4,13 @@ import { amendNode } from "./lib/dom.js";
 import { a, br, button, datalist, details, div, fieldset, h1, h2, input, label, legend, li, option, span, summary, table, tbody, td, th, thead, tr, ul } from "./lib/html.js";
 import { svg, title, use } from "./lib/svg.js";
 import { action, formatBytes, longAgo, longAgoStr, secondsInWeek, setAndReturn, splitLongPath, stringSort, createSpinner } from "./lib/utils.js";
-import { getReportSummary } from "./rpc.js";
+import BackupTable from "./backups.js";
 import { BackupType, MainProgrammes, ibackupStatusColumns } from "./consts.js";
 import { render } from "./disktree.js";
 import { load } from './load.js';
 import graph from "./graph.js";
 import ODS from './odf.js';
+import { getReportSummary } from "./rpc.js";
 import { inputState } from "./state.js";
 import { symbols } from './symbols.js';
 import { boms, owners, userGroups } from './userGroups.js';
@@ -179,51 +180,17 @@ class ParentSummary extends Summary {
 					])))
 				] : tr(td({ "colspan": "5" }, "No Backups")))
 			]),
-			unmatched.ArchiveFiles > 0n || unmatched.BackupFiles > 0n || (this.actions[+BackupType.BackupIBackup]?.BackupFiles ?? 0n) > 0n || (this.actions[+BackupType.BackupIBackup]?.ArchiveFiles ?? 0n) > 0n ? table({ "class": "summary" }, [
-				thead([
-					tr([
-						td(),
-						th({ "colspan": "2" }, [
-							"Matching",
-							span({ "data-tooltip": "Files that are automatically backed-up and are matched by current rules." }, svg(use({ "href": "#helpIcon" }))),
-							button({ "click": () => a({ "href": "api/report/files?matching=1&dir=" + this.path }).click() }, svg([
-								title("Download TSV"),
-								use({ "href": "#downloadFile" })
-							]))
-						]),
-						th({ "colspan": "2" }, [
-							"Unmatched",
-							span({ "data-tooltip": "Files that are automatically backed-up but are not matched by current rules." }, svg(use({ "href": "#helpIcon" }))),
-							button({ "click": () => a({ "href": "api/report/files?dir=" + this.path }).click() }, svg([
-								title("Download TSV"),
-								use({ "href": "#downloadFile" })
-							]))
-						])
-					])
-				]),
-				tbody([
-					tr([
-						th([
-							"Backed-up",
-							span({ "data-tooltip": "Files that are automatically backed-up and still exist locally." }, svg(use({ "href": "#helpIcon" }))),
-						]),
-						td(this.actions[+BackupType.BackupIBackup]?.BackupFiles.toLocaleString() ?? "0"),
-						td({ "title": (this.actions[+BackupType.BackupIBackup]?.BackupSize ?? 0).toLocaleString() }, formatBytes(this.actions[+BackupType.BackupIBackup]?.BackupSize ?? 0)),
-						td(unmatched.BackupFiles.toLocaleString()),
-						td({ "title": unmatched.BackupSize.toLocaleString() }, formatBytes(unmatched.BackupSize))
-					]),
-					tr([
-						th([
-							"Archived",
-							span({ "data-tooltip": "Files that are automatically backed-up and do not exist locally." }, svg(use({ "href": "#helpIcon" }))),
-						]),
-						td(this.actions[+BackupType.BackupIBackup]?.ArchiveFiles.toLocaleString() ?? "0"),
-						td({ "title": (this.actions[+BackupType.BackupIBackup]?.ArchiveSize ?? 0).toLocaleString() }, formatBytes(this.actions[+BackupType.BackupIBackup]?.ArchiveSize ?? 0)),
-						td(unmatched.ArchiveFiles.toLocaleString()),
-						td({ "title": unmatched.ArchiveSize.toLocaleString() }, formatBytes(unmatched.ArchiveSize))
-					]),
-				])
-			]) : [],
+			unmatched.ArchiveFiles > 0n || unmatched.BackupFiles > 0n || (this.actions[+BackupType.BackupIBackup]?.BackupFiles ?? 0n) > 0n || (this.actions[+BackupType.BackupIBackup]?.ArchiveFiles ?? 0n) > 0n ? BackupTable(
+				this.path,
+				this.actions[+BackupType.BackupIBackup]?.BackupSize ?? 0n,
+				this.actions[+BackupType.BackupIBackup]?.ArchiveFiles ?? 0n,
+				this.actions[+BackupType.BackupIBackup]?.ArchiveSize ?? 0n,
+				this.actions[+BackupType.BackupIBackup]?.ArchiveFiles ?? 0n,
+				unmatched.BackupSize,
+				unmatched.BackupFiles,
+				unmatched.ArchiveSize,
+				unmatched.ArchiveFiles
+			)[0] : [],
 			this.children.size ? [
 				h2("Rules"),
 				Array.from(this.children.entries()).map(([path, child]) => details([

@@ -52,13 +52,15 @@ import (
 // 0x1 if the file exists locally, empty otherwise.
 //
 // The data for a directory is the total size of the files held within and a
-// count of the number of files. For set directories, the special collection
-// node is written as a Tree, appended to the Node data.
+// count of the number of files. For set directories, the remote collection
+// follws the counts and the the special collection node is written as a Tree,
+// appended to the Node data.
 //
 // The data for a file in the normal tree is the size of that file.
 type BackupTree struct {
 	backupSize, backupCount   uint64
 	archiveSize, archiveCount uint64
+	remoteCollection          string
 	children                  map[string]tree.Node
 }
 
@@ -95,6 +97,8 @@ func (b *BackupTree) WriteTo(w io.Writer) (int64, error) {
 	slw.WriteUintX(b.archiveCount)
 
 	if collection, ok := b.children[""]; ok {
+		slw.WriteStringX(b.remoteCollection)
+
 		if err := tree.Serialise(&slw, collection); err != nil {
 			return slw.Count, cmp.Or(slw.Err, err)
 		}
@@ -113,10 +117,12 @@ var (
 //
 // The collection should take the form of a local path, and the given path
 // should be the rest of the file path.
-func (b *BackupTree) AddFileToCollection(collection, path string, size uint64, local bool) {
+func (b *BackupTree) AddFileToCollection(collection, remote, path string, size uint64, local bool) {
 	b = b.navigateTo(collection, size, local)
 
 	b.addFileToDir(path, size, local)
+
+	b.remoteCollection = remote
 
 	b = b.getChildDir("").navigateTo(path, size, local)
 
@@ -187,7 +193,7 @@ func Generate(collections map[string]map[string]uint64) *BackupTree {
 
 	for collection, files := range collections {
 		for path, size := range files {
-			bt.AddFileToCollection(collection, path, size, false)
+			bt.AddFileToCollection(collection, collection, path, size, false)
 		}
 	}
 

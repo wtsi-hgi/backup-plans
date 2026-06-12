@@ -6,6 +6,7 @@ import { confirm, formatBytes } from "./lib/utils.js";
 import { claimDir, passDirClaim, revokeDirClaim, user } from "./rpc.js";
 import { BackupType } from './consts.js';
 import { load, registerLoader } from "./load.js";
+import BackupTable from "./backups.js";
 import { updateClaimStats } from "./claimstats.js";
 
 const claimedByCell = td(),
@@ -19,51 +20,18 @@ const claimedByCell = td(),
 	nobackupSize = td(),
 	backupSize = td(),
 	manualBackupSize = td(),
-	matchingBackupSize = td(),
-	matchingBackupCount = td(),
-	matchingArchiveSize = td(),
-	matchingArchiveCount = td(),
-	unmatchedBackupSize = td(),
-	unmatchedBackupCount = td(),
-	unmatchedArchiveSize = td(),
-	unmatchedArchiveCount = td(),
-	backupTable = table({ "class": "summary" }, [
-		thead([
-			tr([
-				td(),
-				th({ "colspan": "2" }, [
-					"Matching",
-					span({ "data-tooltip": "Files that are automatically backed-up and are matched by current rules." }, svg(use({ "href": "#helpIcon" })))
-				]),
-				th({ "colspan": "2" }, [
-					"Unmatched",
-					span({ "data-tooltip": "Files that are automatically backed-up but are not matched by current rules." }, svg(use({ "href": "#helpIcon" })))
-				])
-			])
-		]),
-		tbody([
-			tr([
-				th([
-					"Backed-up",
-					span({ "data-tooltip": "Files that are automatically backed-up and still exist locally." }, svg(use({ "href": "#helpIcon" }))),
-				]),
-				matchingBackupCount,
-				matchingBackupSize,
-				unmatchedBackupCount,
-				unmatchedBackupSize
-			]),
-			tr([
-				th([
-					"Archived",
-					span({ "data-tooltip": "Files that are automatically backed-up and do not exist locally." }, svg(use({ "href": "#helpIcon" }))),
-				]),
-				matchingArchiveCount,
-				matchingArchiveSize,
-				unmatchedArchiveCount,
-				unmatchedArchiveSize
-			]),
-		])
-	]),
+	[
+		backupTable,
+		matchingBackupSize,
+		matchingBackupCount,
+		matchingArchiveSize,
+		matchingArchiveCount,
+		unmatchedBackupSize,
+		unmatchedBackupCount,
+		unmatchedArchiveSize,
+		unmatchedArchiveCount,
+		setDownloadPath
+	] = BackupTable("", 0n, 0n, 0n, 0n, 0n, 0n, 0n, 0n),
 	summaryTable = [
 		table({ "class": "summary" }, [
 			thead(tr([claimedByCell, th("Total"), th("Unplanned"), th("No Backup"), th("Backup"), th("Manual Backup")])),
@@ -150,6 +118,7 @@ registerLoader((path: string, data: DirectoryWithChildren) => {
 	setSummary({ count: data.actions[+BackupType.BackupIBackup]?.archiveCount ?? 0n, size: data.actions[+BackupType.BackupIBackup]?.archiveSize ?? 0n }, matchingArchiveCount, matchingArchiveSize);
 	setSummary({ count: data.archiveCount - (data.actions[+BackupType.BackupIBackup]?.archiveCount ?? 0n), size: data.archiveSize - (data.actions[+BackupType.BackupIBackup]?.archiveSize ?? 0n) }, unmatchedArchiveCount, unmatchedArchiveSize);
 
+	setDownloadPath(path);
 	backupTable.classList.toggle("hidden", [
 		data.actions[+BackupType.BackupIBackup]?.backupCount ?? 0n,
 		data.backupCount,

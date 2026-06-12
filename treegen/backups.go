@@ -83,7 +83,7 @@ func (b *backupTree) AddCollection(a *api.API, collection string,
 
 		remoteSuffix := strings.TrimPrefix(bf.Remote, remotePath)
 
-		b.AddFileToCollection(bf.Local, remoteSuffix, bf.Size, fileExists(filepath.Join(bf.Local, remoteSuffix)))
+		b.AddFileToCollection(bf.Local, remotePath, remoteSuffix, bf.Size, fileExists(filepath.Join(bf.Local, remoteSuffix)))
 
 		return nil
 	})

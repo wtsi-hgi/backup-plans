@@ -26,6 +26,7 @@
 package ruletree
 
 import (
+	"bytes"
 	"cmp"
 	"errors"
 	"iter"
@@ -683,8 +684,9 @@ func (r *RootDir) BackedUpFiles(path string, recursive bool) *iiter.Iter2Err[str
 }
 
 type BackupStats struct {
-	RuleID   uint64
-	HasLocal bool
+	RuleID     uint64
+	HasLocal   bool
+	RemotePath string
 }
 
 func findSetPaths(node *tree.MemTree, path []byte, sm State, recursive bool) iter.Seq2[string, BackupStats] {
@@ -727,6 +729,7 @@ func doSetWalk(lr byteio.MemLittleEndian, path []byte, sm State, yield func(stri
 	lr.ReadUintX()
 	lr.ReadUintX()
 	lr.ReadUintX()
+	remote := bytes.Clone(lr.ReadBytesX())
 
 	if len(lr) == 0 {
 		return true
@@ -737,24 +740,26 @@ func doSetWalk(lr byteio.MemLittleEndian, path []byte, sm State, yield func(stri
 		return true
 	}
 
-	return walkSetTree(m, sm, path, yield)
+	return walkSetTree(m, sm, path, remote, yield)
 }
 
 var noRule int64 //nolint:gochecknoglobals
 
-func walkSetTree(n *tree.MemTree, sm State, path []byte, yield func(string, BackupStats) bool) bool {
+func walkSetTree(n *tree.MemTree, sm State, path, remote []byte, yield func(string, BackupStats) bool) bool {
 	for childName, node := range n.Children() {
 		name := append(path, childName...) //nolint:gocritic
-		mt := node.(*tree.MemTree)         //nolint:errcheck,forcetypeassert
+		remoteName := append(remote, childName...)
+		mt := node.(*tree.MemTree) //nolint:errcheck,forcetypeassert
 		ns := sm.GetStateString(childName)
 
 		if strings.HasSuffix(childName, "/") { //nolint:nestif
-			if !walkSetTree(mt, ns, name, yield) {
+			if !walkSetTree(mt, ns, name, remoteName, yield) {
 				return false
 			}
 		} else if !yield(string(name), BackupStats{
-			RuleID:   uint64(*cmp.Or(ns.GetGroup(), &noRule)), //nolint:gosec
-			HasLocal: len(mt.Data()) > 0,
+			RuleID:     uint64(*cmp.Or(ns.GetGroup(), &noRule)), //nolint:gosec
+			HasLocal:   len(mt.Data()) > 0,
+			RemotePath: string(remoteName),
 		}) {
 			return false
 		}
