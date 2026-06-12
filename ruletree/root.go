@@ -729,7 +729,7 @@ func doSetWalk(lr byteio.MemLittleEndian, path []byte, sm State, yield func(stri
 	lr.ReadUintX()
 	lr.ReadUintX()
 	lr.ReadUintX()
-	remote := bytes.Clone(lr.ReadBytesX())
+	remote := lr.ReadBytesX()
 
 	if len(lr) == 0 {
 		return true
@@ -740,16 +740,16 @@ func doSetWalk(lr byteio.MemLittleEndian, path []byte, sm State, yield func(stri
 		return true
 	}
 
-	return walkSetTree(m, sm, path, remote, yield)
+	return walkSetTree(m, sm, path, bytes.Clone(remote), yield)
 }
 
 var noRule int64 //nolint:gochecknoglobals
 
 func walkSetTree(n *tree.MemTree, sm State, path, remote []byte, yield func(string, BackupStats) bool) bool {
 	for childName, node := range n.Children() {
-		name := append(path, childName...) //nolint:gocritic
-		remoteName := append(remote, childName...)
-		mt := node.(*tree.MemTree) //nolint:errcheck,forcetypeassert
+		name := append(path, childName...)         //nolint:gocritic
+		remoteName := append(remote, childName...) //nolint:gocritic
+		mt := node.(*tree.MemTree)                 //nolint:errcheck,forcetypeassert
 		ns := sm.GetStateString(childName)
 
 		if strings.HasSuffix(childName, "/") { //nolint:nestif

@@ -22,14 +22,14 @@ const claimedByCell = td(),
 	manualBackupSize = td(),
 	[
 		backupTable,
-		matchingBackupSize,
 		matchingBackupCount,
-		matchingArchiveSize,
+		matchingBackupSize,
 		matchingArchiveCount,
-		unmatchedBackupSize,
+		matchingArchiveSize,
 		unmatchedBackupCount,
-		unmatchedArchiveSize,
+		unmatchedBackupSize,
 		unmatchedArchiveCount,
+		unmatchedArchiveSize,
 		setDownloadPath
 	] = BackupTable("", 0n, 0n, 0n, 0n, 0n, 0n, 0n, 0n),
 	summaryTable = [

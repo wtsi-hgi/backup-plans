@@ -182,14 +182,14 @@ class ParentSummary extends Summary {
 			]),
 			unmatched.ArchiveFiles > 0n || unmatched.BackupFiles > 0n || (this.actions[+BackupType.BackupIBackup]?.BackupFiles ?? 0n) > 0n || (this.actions[+BackupType.BackupIBackup]?.ArchiveFiles ?? 0n) > 0n ? BackupTable(
 				this.path,
+				this.actions[+BackupType.BackupIBackup]?.BackupFiles ?? 0n,
 				this.actions[+BackupType.BackupIBackup]?.BackupSize ?? 0n,
 				this.actions[+BackupType.BackupIBackup]?.ArchiveFiles ?? 0n,
 				this.actions[+BackupType.BackupIBackup]?.ArchiveSize ?? 0n,
-				this.actions[+BackupType.BackupIBackup]?.ArchiveFiles ?? 0n,
-				unmatched.BackupSize,
 				unmatched.BackupFiles,
-				unmatched.ArchiveSize,
-				unmatched.ArchiveFiles
+				unmatched.BackupSize,
+				unmatched.ArchiveFiles,
+				unmatched.ArchiveSize
 			)[0] : [],
 			this.children.size ? [
 				h2("Rules"),

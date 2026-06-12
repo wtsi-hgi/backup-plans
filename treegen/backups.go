@@ -64,10 +64,8 @@ func (b *backupTree) AddCollection(a *api.API, collection string,
 
 	return iiter.Rows(
 		a.Query(
-			msg.ICAT_COLUMN_COLL_NAME,
-			msg.ICAT_COLUMN_DATA_NAME,
-			msg.ICAT_COLUMN_META_DATA_ATTR_VALUE,
-			msg.ICAT_COLUMN_DATA_SIZE,
+			msg.ICAT_COLUMN_COLL_NAME, msg.ICAT_COLUMN_DATA_NAME,
+			msg.ICAT_COLUMN_META_DATA_ATTR_VALUE, msg.ICAT_COLUMN_DATA_SIZE,
 		).With(
 			api.Like(msg.ICAT_COLUMN_COLL_NAME, strings.TrimSuffix(collection, "/")+"/%"),
 			api.Equal(msg.ICAT_COLUMN_META_DATA_ATTR_NAME, "ibackup:fofn:set"),
@@ -83,7 +81,8 @@ func (b *backupTree) AddCollection(a *api.API, collection string,
 
 		remoteSuffix := strings.TrimPrefix(bf.Remote, remotePath)
 
-		b.AddFileToCollection(bf.Local, remotePath, remoteSuffix, bf.Size, fileExists(filepath.Join(bf.Local, remoteSuffix)))
+		b.AddFileToCollection(bf.Local, remotePath+"/", remoteSuffix, bf.Size,
+			fileExists(filepath.Join(bf.Local, remoteSuffix)))
 
 		return nil
 	})

@@ -53,7 +53,7 @@ import (
 //
 // The data for a directory is the total size of the files held within and a
 // count of the number of files. For set directories, the remote collection
-// follws the counts and the the special collection node is written as a Tree,
+// follows the counts and the special collection node is written as a Tree,
 // appended to the Node data.
 //
 // The data for a file in the normal tree is the size of that file.

@@ -1,25 +1,25 @@
-import { a, button, span, table, tbody, td, th, thead, tr } from "./lib/html"
-import { svg, title, use } from "./lib/svg";
-import { formatBytes } from "./lib/utils";
+import { a, button, span, table, tbody, td, th, thead, tr } from "./lib/html.js"
+import { svg, title, use } from "./lib/svg.js";
+import { formatBytes } from "./lib/utils.js";
 
 export default (
 	path: string,
-	matchingBackupSize: bigint,
 	matchingBackupCount: bigint,
-	matchingArchiveSize: bigint,
+	matchingBackupSize: bigint,
 	matchingArchiveCount: bigint,
-	unmatchingBackupSize: bigint,
+	matchingArchiveSize: bigint,
 	unmatchingBackupCount: bigint,
-	unmatchingArchiveSize: bigint,
-	unmatchingArchiveCount: bigint) => {
+	unmatchingBackupSize: bigint,
+	unmatchingArchiveCount: bigint,
+	unmatchingArchiveSize: bigint) => {
 	const matchingBackupCountTD = td(matchingBackupCount.toLocaleString()),
 		matchingBackupSizeTD = td({ "title": matchingBackupSize.toLocaleString() }, formatBytes(matchingBackupSize)),
-		matchingArchiveCountTD = td(matchingArchiveSize.toLocaleString()),
-		matchingArchiveSizeTD = td({ "title": matchingArchiveCount.toLocaleString() }, formatBytes(matchingArchiveCount)),
-		unmatchedBackupCountTD = td(unmatchingBackupSize.toLocaleString()),
-		unmatchedBackupSizeTD = td({ "title": unmatchingBackupCount.toLocaleString() }, formatBytes(unmatchingBackupCount)),
-		unmatchedArchiveCountTD = td(unmatchingArchiveSize.toLocaleString()),
-		unmatchedArchiveSizeTD = td({ "title": unmatchingArchiveCount.toLocaleString() }, formatBytes(unmatchingArchiveCount));
+		matchingArchiveCountTD = td(matchingArchiveCount.toLocaleString()),
+		matchingArchiveSizeTD = td({ "title": matchingArchiveSize.toLocaleString() }, formatBytes(matchingArchiveSize)),
+		unmatchedBackupCountTD = td(unmatchingBackupCount.toLocaleString()),
+		unmatchedBackupSizeTD = td({ "title": unmatchingBackupSize.toLocaleString() }, formatBytes(unmatchingBackupSize)),
+		unmatchedArchiveCountTD = td(unmatchingArchiveCount.toLocaleString()),
+		unmatchedArchiveSizeTD = td({ "title": unmatchingArchiveSize.toLocaleString() }, formatBytes(unmatchingArchiveSize));
 
 	return [
 		table({ "class": "summary" }, [
