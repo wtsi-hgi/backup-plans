@@ -59,7 +59,7 @@ func TestStateMachine(t *testing.T) {
 				Process, NoRules, Copy bool
 			}{
 				{Path: "/", Process: true},
-				{Path: "/some/non/path/", NoRules: true, Process: true},
+				{Path: "/some/non/path/", NoRules: true},
 				{Path: "/some/path/", Process: true},
 				{Path: "/some/path/MyDir/", Process: true},
 				{Path: "/some/path/YourDir/", Dir: "/some/path/YourDir/", Match: "*"},
@@ -67,7 +67,7 @@ func TestStateMachine(t *testing.T) {
 				{Path: "/some/path/AnotherDir/a.txt", Dir: "/some/path/AnotherDir/", Match: "a*"},
 				{Path: "/some/path/AnotherDir/a/", Dir: "/some/path/AnotherDir/", Match: "a*"},
 				{Path: "/some/path/AnotherDir/a/b.txt", Dir: "/some/path/AnotherDir/", Match: "a*"},
-				{Path: "/some/path/AnotherDir/b/", NoRules: true, Process: true},
+				{Path: "/some/path/AnotherDir/b/", NoRules: true},
 				{Path: "/some/path/AnotherDir/b/a.txt", NoRules: true},
 				{Path: "/some/path/AnotherDir/c/a.txt", Dir: "/some/path/AnotherDir/", Match: "c*.txt"},
 				{Path: "/some/path/AnotherDir/c/", Process: true},

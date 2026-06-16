@@ -676,9 +676,11 @@ func addNoRuleRules(rules Rules, path string, dirState dirState, wildcard int64)
 		process = wildcard
 	}
 
-	rules = addRuleToList(rules, path, process)
+	if dirState&RulesChanged != 0 {
+		rules = addRuleToList(rules, path+"*/", process)
+	}
 
-	return addRuleToList(rules, path+"*/", process)
+	return addRuleToList(rules, path, process)
 }
 
 func addSimpleWildcardRules(rules Rules, path string, dirState dirState,

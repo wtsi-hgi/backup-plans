@@ -561,7 +561,7 @@ func TestRuletree(t *testing.T) {
 			So(ruleIDCount(t, root, "/path/dir/a/this/"), ShouldResemble, map[uint64]uint64{0: 1})
 		})
 
-		Convey("Child directory without rules are correctly re-calculated when a parent directory has a rule removed",
+		Convey("Ruleless child directories are correctly recalculated when a parent directory rule is removed",
 			func() {
 				root := newRoot(t, tdb)
 
