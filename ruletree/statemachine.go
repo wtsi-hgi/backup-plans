@@ -640,7 +640,7 @@ func buildDirRules(mount string, paths []string,
 
 func getRuleState(rules map[string]rules.Rule) ruleState { //nolint:gocognit
 	if len(rules) == 0 {
-		return 0
+		return noRules
 	}
 
 	var rs ruleState
@@ -674,6 +674,10 @@ func addNoRuleRules(rules Rules, path string, dirState dirState, wildcard int64)
 
 	if dirState&RulesChanged != 0 && dirState&HasChildWithRules == 0 && dirState&ParentRulesChanged == 0 {
 		process = wildcard
+	}
+
+	if dirState&RulesChanged != 0 {
+		rules = addRuleToList(rules, path+"*/", process)
 	}
 
 	return addRuleToList(rules, path, process)

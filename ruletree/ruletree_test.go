@@ -560,6 +560,32 @@ func TestRuletree(t *testing.T) {
 			So(ruleIDCount(t, root, "/path/dir/a/"), ShouldResemble, map[uint64]uint64{0: 1, r2: 1})
 			So(ruleIDCount(t, root, "/path/dir/a/this/"), ShouldResemble, map[uint64]uint64{0: 1})
 		})
+
+		Convey("Ruleless child directories are correctly recalculated when a parent directory rule is removed",
+			func() {
+				root := newRoot(t, tdb)
+
+				treeDB := buildTreeDB(t, []string{
+					"/path/temp/base/c/a.txt",
+					"/path/temp/base/b/c.txt",
+				})
+
+				treeDBPath := createTree(t, treeDB)
+				_, err := root.AddTree(treeDBPath)
+				So(err, ShouldBeNil)
+
+				So(ruleIDCount(t, root, "/path/temp/base/"), ShouldResemble, map[uint64]uint64{0: 2})
+				So(ruleIDCount(t, root, "/path/temp/base/b/"), ShouldResemble, map[uint64]uint64{0: 1})
+
+				r1 := createRule(t, tdb, root, "/path/temp/base/", "*.txt")
+				r2 := createRule(t, tdb, root, "/path/temp/base/", "b/*.txt")
+				So(ruleIDCount(t, root, "/path/temp/base/"), ShouldResemble, map[uint64]uint64{r1: 1, r2: 1})
+				So(ruleIDCount(t, root, "/path/temp/base/b/"), ShouldResemble, map[uint64]uint64{r2: 1})
+
+				RemoveRule(t, tdb, root, "/path/temp/base/", "*.txt")
+				So(ruleIDCount(t, root, "/path/temp/base/"), ShouldResemble, map[uint64]uint64{0: 1, r2: 1})
+				So(ruleIDCount(t, root, "/path/temp/base/b/"), ShouldResemble, map[uint64]uint64{r2: 1})
+			})
 	})
 }
 
