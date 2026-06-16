@@ -39,7 +39,12 @@ import (
 
 type ruleStats struct {
 	rules.Rule
-	SizeCount
+	Count        uint64 `json:"count"`
+	Size         uint64 `json:"size"`
+	BackupFiles  uint64 `json:"backupCount"`
+	BackupSize   uint64 `json:"backupSize"`
+	ArchiveFiles uint64 `json:"archiveCount"`
+	ArchiveSize  uint64 `json:"archiveSize"`
 }
 
 // DirStats holds information about a claimed directory and its rules.
@@ -213,18 +218,28 @@ func (s *Server) generateRuleStats(path string, dirSummary *ruletree.DirSummary)
 }
 
 func (s *Server) generateStatsForRule(r ruletree.Rule, rule rules.Rule) ruleStats {
-	var totalSize, totalCount uint64
+	var (
+		totalSize, totalCount     uint64
+		backupSize, backupCount   uint64
+		archiveSize, archiveCount uint64
+	)
 
 	for _, stat := range r.Users {
 		totalSize += stat.Size
 		totalCount += stat.Files
+		backupSize += stat.BackupSize
+		backupCount += stat.BackupFiles
+		archiveSize += stat.ArchiveSize
+		archiveCount += stat.ArchiveFiles
 	}
 
 	return ruleStats{
-		Rule: rule,
-		SizeCount: SizeCount{
-			Size:  totalSize,
-			Count: totalCount,
-		},
+		Rule:         rule,
+		Size:         totalSize,
+		Count:        totalCount,
+		BackupFiles:  backupCount,
+		BackupSize:   backupSize,
+		ArchiveFiles: archiveCount,
+		ArchiveSize:  archiveSize,
 	}
 }

@@ -11,7 +11,8 @@ export default (
 	unmatchingBackupCount: bigint,
 	unmatchingBackupSize: bigint,
 	unmatchingArchiveCount: bigint,
-	unmatchingArchiveSize: bigint) => {
+	unmatchingArchiveSize: bigint,
+	single = false) => {
 	const matchingBackupCountTD = td(matchingBackupCount.toLocaleString()),
 		matchingBackupSizeTD = td({ "title": matchingBackupSize.toLocaleString() }, formatBytes(matchingBackupSize)),
 		matchingArchiveCountTD = td(matchingArchiveCount.toLocaleString()),
@@ -29,7 +30,7 @@ export default (
 					th({ "colspan": "2" }, [
 						"Matching",
 						span({ "data-tooltip": "Files that were automatically backed-up and are matched by current rules." }, svg(use({ "href": "#helpIcon" }))),
-						button({ "click": () => a({ "href": "api/report/files?matching=1&dir=" + path }).click() }, svg([
+						button({ "click": () => a({ "href": "api/report/files?matching=1&dir=" + path + (single ? "single=1" : "") }).click() }, svg([
 							title("Download TSV"),
 							use({ "href": "#downloadFile" })
 						]))
@@ -37,7 +38,7 @@ export default (
 					th({ "colspan": "2" }, [
 						"Unmatched",
 						span({ "data-tooltip": "Files that were automatically backed-up but are not matched by current rules." }, svg(use({ "href": "#helpIcon" }))),
-						button({ "click": () => a({ "href": "api/report/files?dir=" + path }).click() }, svg([
+						button({ "click": () => a({ "href": "api/report/files?dir=" + path + (single ? "single=1" : "") }).click() }, svg([
 							title("Download TSV"),
 							use({ "href": "#downloadFile" })
 						]))

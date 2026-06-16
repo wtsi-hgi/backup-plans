@@ -88,24 +88,18 @@ func TestClaimStats(t *testing.T) {
 					},
 					RuleStats: []ruleStats{
 						{
-							SizeCount: SizeCount{
-								Size:  14,
-								Count: 2,
-							},
+							Size:  14,
+							Count: 2,
 						},
 						{
-							Rule: rules.ToRule(ruleList[0]),
-							SizeCount: SizeCount{
-								Size:  17,
-								Count: 2,
-							},
+							Rule:  rules.ToRule(ruleList[0]),
+							Size:  17,
+							Count: 2,
 						},
 						{
-							Rule: rules.ToRule(ruleList[1]),
-							SizeCount: SizeCount{
-								Size:  8,
-								Count: 1,
-							},
+							Rule:  rules.ToRule(ruleList[1]),
+							Size:  8,
+							Count: 1,
 						},
 					},
 					LastMod: 98767,
@@ -137,24 +131,18 @@ func TestClaimStats(t *testing.T) {
 					},
 					RuleStats: []ruleStats{
 						{
-							SizeCount: SizeCount{
-								Size:  14,
-								Count: 2,
-							},
+							Size:  14,
+							Count: 2,
 						},
 						{
-							Rule: rules.ToRule(ruleList[0]),
-							SizeCount: SizeCount{
-								Size:  17,
-								Count: 2,
-							},
+							Rule:  rules.ToRule(ruleList[0]),
+							Size:  17,
+							Count: 2,
 						},
 						{
-							Rule: rules.ToRule(ruleList[1]),
-							SizeCount: SizeCount{
-								Size:  8,
-								Count: 1,
-							},
+							Rule:  rules.ToRule(ruleList[1]),
+							Size:  8,
+							Count: 1,
 						},
 					},
 					LastMod: 98767,
@@ -171,11 +159,9 @@ func TestClaimStats(t *testing.T) {
 					},
 					RuleStats: []ruleStats{
 						{
-							Rule: rules.ToRule(ruleList[2]),
-							SizeCount: SizeCount{
-								Size:  6,
-								Count: 1,
-							},
+							Rule:  rules.ToRule(ruleList[2]),
+							Size:  6,
+							Count: 1,
 						},
 					},
 					LastMod: 12346,
