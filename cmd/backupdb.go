@@ -102,6 +102,12 @@ In addition, the irods environmental file should be specified either wit the
 			return fmt.Errorf("error creating output tree file: %w", err)
 		}
 
+		defer func() {
+			if errr := f.Close(); err == nil {
+				err = errr
+			}
+		}()
+
 		var treeDBs []string
 
 		if treeDB != "" {
@@ -125,7 +131,7 @@ In addition, the irods environmental file should be specified either wit the
 			return fmt.Errorf("error flushing tree db: %w", err)
 		}
 
-		return f.Close()
+		return nil
 	},
 }
 

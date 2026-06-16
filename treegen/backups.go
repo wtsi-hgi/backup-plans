@@ -142,7 +142,7 @@ type fileCheck func(string) bool
 
 func openMounts(mountTrees []string) (mc fileCheck, c func(), err error) {
 	if len(mountTrees) == 0 {
-		return noMounts, nil, nil
+		return noMounts, func() {}, nil
 	}
 
 	mounts, c, err := makeMounts(mountTrees)
@@ -216,6 +216,10 @@ func mountsFunc(mounts map[string]*tree.MemTree) fileCheck { //nolint:gocognit,f
 
 				break
 			}
+		}
+
+		if n == nil {
+			return false
 		}
 
 		_, err = n.Child(path.Base(p))
