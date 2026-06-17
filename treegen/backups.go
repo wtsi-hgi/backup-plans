@@ -56,6 +56,14 @@ func newBackupTree() *backupTree {
 	return &backupTree{backuptree.New()}
 }
 
+// AddCollection searches iRODS for files backed up by Backup Plans with the
+// given remove collection.
+//
+// The transformer is used to reverse engineer the local path from metadata on
+// the files.
+//
+// The fileExists function should be a function that takes a local path and
+// returns true if the file exists locally.
 func (b *backupTree) AddCollection(a *api.API, collection string,
 	tx transformer.PathTransformer, fileExists func(string) bool) error {
 	ctx, cFn := context.WithCancel(context.Background())
@@ -114,6 +122,36 @@ func backedupScanner(s iiter.Scanner) (*backedupFile, error) {
 	return &b, nil
 }
 
+// BackupTree generates a tree of files that have been backed up via Backup
+// Plans.
+//
+// Requires iRODS environment details and a map of remote collections to their
+// corresponding local transformer.
+//
+// For local path discovery, also takes treedbs of the local system (as given to
+// the server subcommand).
+//
+// The tree returned contains the reverse-engineered local paths of the backup
+// up filed.
+//
+// Each file node contains the size and a boolean that indicates whether or not
+// the file exists locally.
+//
+// The data for a directory nodes contain the following information:
+//
+//	Total Size of Backed Up Files
+//	Total Count of Backed Up Files
+//	Total Size of Archived Files
+//	Total Count of Archived Files
+//
+// A claimed directory, in addition, contains the following data:
+//
+//	Remove Collection Path
+//	Collection Tree
+//
+// The collection tree is a treedb containing only the files that exist for that
+// claimed directory. The data for a file node is a `1` if the file exists
+// locally, and no data if it does not.
 func BackupTree(env iron.Env, collections map[string]transformer.PathTransformer,
 	mountTrees ...string) (tree.Node, error) {
 	c, err := iron.New(context.Background(), env, iron.Option{

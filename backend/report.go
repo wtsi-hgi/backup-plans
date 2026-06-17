@@ -336,14 +336,14 @@ func (s *Server) collectRules(dirSummary *summary, dir string) {
 }
 
 // FileList generates a CSV of files currently in the backup. By default it
-// returns all backed-up files under the specified directory that don't match
+// returns all backed up files under the specified directory that don't match
 // current rules.
 //
 // If the 'matching' argument is not empty, it will returns files that match
 // current rules.
 //
 // If the `single` argument is not empty, it will only return files that were
-// backed-up for the specified directory.
+// backed up for the specified directory.
 func (s *Server) FileList(w http.ResponseWriter, r *http.Request) {
 	handle(w, r, s.fileList)
 }

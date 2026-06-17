@@ -159,7 +159,7 @@ class ParentSummary extends Summary {
 			])),
 			ul([
 				this.backupStatus ? li("Requester: " + this.backupStatus.Requester) : [],
-				this.actions[+BackupType.BackupIBackup]?.mtime ? li("Last Activity in Backed-up Set: " + longAgo(this.actions[+BackupType.BackupIBackup]?.mtime ?? 0)) : [],
+				this.actions[+BackupType.BackupIBackup]?.mtime ? li("Last Activity in Backed up Set: " + longAgo(this.actions[+BackupType.BackupIBackup]?.mtime ?? 0)) : [],
 				li("Last Activity: " + (this.latestMTime ? longAgo(this.latestMTime) : "--none--"))
 			]),
 			this.table(),

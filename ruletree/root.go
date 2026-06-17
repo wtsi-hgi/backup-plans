@@ -657,7 +657,7 @@ func (r *RootDir) CacheSummaries(paths ...string) {
 	r.mu.Unlock()
 }
 
-// BackedUpFiles returns an iterator that yields all of the backed-up files for
+// BackedUpFiles returns an iterator that yields all of the backed up files for
 // the given claimed directory.
 //
 // If the recursive flag is set to true, it will yield for all claimed

@@ -1,7 +1,9 @@
 /*******************************************************************************
- * Copyright (c) 2026 Genome Research Ltd.
+ * Copyright (c) 2025 Genome Research Ltd.
  *
- * Author: Michael Woolnough <mw31@sanger.ac.uk>
+ * Authors:
+ *	- Sky Haines <sh55@sanger.ac.uk>
+ *  - Michael Woolnough <mw31@sanger.ac.uk>
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -30,9 +32,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
+	"github.com/klauspost/pgzip"
 	"github.com/kuleuven/iron"
 	"github.com/kuleuven/iron/cmd/iron/cli"
 	"github.com/spf13/cobra"
@@ -40,8 +45,66 @@ import (
 	"github.com/wtsi-hgi/backup-plans/treegen"
 	"github.com/wtsi-hgi/ibackup/cmd"
 	"github.com/wtsi-hgi/ibackup/transformer"
+	"github.com/wtsi-hgi/wrstat-ui/stats"
+	"github.com/wtsi-hgi/wrstat-ui/summary"
 	"vimagination.zapto.org/tree"
 )
+
+var ErrArgs = errors.New("requires path to stats.gz file and output tree location")
+
+// treeDBLocalCmd represents the db command.
+var treeDBLocalCmd = &cobra.Command{
+	Use:   "local <stats.gz> <tree.db>",
+	Short: "Create tree database using summarise",
+	Long: `Create tree database using summarise.
+
+Provide the path to a wrstat stats.gz file and the path to your desired tree
+database file.
+`,
+	RunE: func(_ *cobra.Command, args []string) error {
+		if len(args) != 2 { //nolint:mnd
+			return ErrArgs
+		}
+
+		sf, err := os.Open(args[0])
+		if err != nil {
+			return fmt.Errorf("error opening stats file: %w", err)
+		}
+
+		defer sf.Close()
+
+		var r io.Reader
+
+		if strings.HasSuffix(args[0], ".gz") {
+			if r, err = pgzip.NewReader(sf); err != nil {
+				return fmt.Errorf("error decompressing stats file: %w", err)
+			}
+		} else {
+			r = sf
+		}
+
+		s := summary.NewSummariser(stats.NewStatsParser(r))
+
+		f, err := os.Create(args[1])
+		if err != nil {
+			return fmt.Errorf("error creating output tree file: %w", err)
+		}
+
+		b := bufio.NewWriter(f)
+
+		s.AddDirectoryOperation(treegen.NewTree(b))
+
+		if err := s.Summarise(); err != nil {
+			return fmt.Errorf("error creating tree db: %w", err)
+		}
+
+		if err := b.Flush(); err != nil {
+			return fmt.Errorf("error flushing tree db: %w", err)
+		}
+
+		return f.Close()
+	},
+}
 
 var (
 	ibackupConfig, irodsEnv string
@@ -49,13 +112,13 @@ var (
 	ErrMissingOutput = errors.New("missing backuptree db output file")
 )
 
-// backupdbCmd represents the backupdb command.
-var backupdbCmd = &cobra.Command{
-	Use:   "backupdb <backuptree.db>",
-	Short: "Create tree database from files backed-up in iRODS via iBackup.",
-	Long: `Create tree database from files backed-up in iRODS via iBackup FOFN server.
+// treeDBRemoteCmd represents the backupdb command.
+var treeDBRemoteCmd = &cobra.Command{
+	Use:   "remote <backuptree.db>",
+	Short: "Create tree database from files backed up to iRODs via iBackup.",
+	Long: `Create tree database from files backed up in iRODS via iBackup FOFN server.
 
-Provide the path to the output location for the tree of backed-up
+Provide the path to the output location for the tree of backed up
 files/collections.
 
 --config should be the location of a Yaml config file, which should have the
@@ -69,7 +132,7 @@ With the transformers corresponding either to prefix transformers or to those
 specified in the ibackup config file, the location of which should be specified
 with either the --ibackup flag or the IBACKUP_CONFIG env var.
 
-In addition, the irods environmental file should be specified either wit the
+In addition, the irods environmental file should be specified either with the
 --irods flag or the IRODS_ENVIRONMENT_FILE env var.
 `,
 	RunE: func(_ *cobra.Command, args []string) error {
@@ -118,7 +181,7 @@ In addition, the irods environmental file should be specified either wit the
 
 		n, err := treegen.BackupTree(env, collections, treeDBs...)
 		if err != nil {
-			return fmt.Errorf("error gathering backed-up collection data: %w", err)
+			return fmt.Errorf("error gathering backed up collection data: %w", err)
 		}
 
 		b := bufio.NewWriter(f)
@@ -133,19 +196,6 @@ In addition, the irods environmental file should be specified either wit the
 
 		return nil
 	},
-}
-
-func init() {
-	RootCmd.AddCommand(backupdbCmd)
-
-	backupdbCmd.Flags().StringVarP(&configPath, "config", "c", "", "backup config")
-	backupdbCmd.Flags().StringVarP(&treeDB, "treedbs", "t", "", "glob to tree dbs")
-	backupdbCmd.Flags().StringVarP(&ibackupConfig, "ibackup", "i",
-		os.Getenv(cmd.ConfigKey), "ibackup config")
-	backupdbCmd.Flags().StringVar(&irodsEnv, "irods",
-		os.Getenv("IRODS_ENVIRONMENT_FILE"), "irods environment file")
-
-	backupdbCmd.MarkFlagRequired("config") //nolint:errcheck
 }
 
 func getCollectionTransformers(config *config.Config) (map[string]transformer.PathTransformer, error) {
@@ -167,4 +217,25 @@ func parseIRODSEnvFile(path string) (iron.Env, error) {
 	env, _, err := cli.FileLoader(path)(context.Background(), "")
 
 	return env, err
+}
+
+func init() {
+	treeDBCmd := &cobra.Command{
+		Use:   "treedb [local|remote]",
+		Short: "Create tree databases for either local or remote data",
+	}
+
+	treeDBCmd.AddCommand(treeDBLocalCmd)
+	treeDBCmd.AddCommand(treeDBRemoteCmd)
+
+	treeDBRemoteCmd.Flags().StringVarP(&configPath, "config", "c", "", "backup config")
+	treeDBRemoteCmd.Flags().StringVarP(&treeDB, "treedbs", "t", "", "glob to tree dbs")
+	treeDBRemoteCmd.Flags().StringVarP(&ibackupConfig, "ibackup", "i",
+		os.Getenv(cmd.ConfigKey), "ibackup config")
+	treeDBRemoteCmd.Flags().StringVar(&irodsEnv, "irods",
+		os.Getenv("IRODS_ENVIRONMENT_FILE"), "irods environment file")
+
+	treeDBRemoteCmd.MarkFlagRequired("config") //nolint:errcheck
+
+	RootCmd.AddCommand(treeDBCmd)
 }

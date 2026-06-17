@@ -29,7 +29,7 @@ export default (
 					td(),
 					th({ "colspan": "2" }, [
 						"Matching",
-						span({ "data-tooltip": "Files that were automatically backed-up and are matched by current rules." }, svg(use({ "href": "#helpIcon" }))),
+						span({ "data-tooltip": "Files that were automatically backed up and are matched by current rules." }, svg(use({ "href": "#helpIcon" }))),
 						button({ "click": () => a({ "href": "api/report/files?matching=1&dir=" + encodeURIComponent(path) + (single ? "&single=1" : "") }).click() }, svg([
 							title("Download TSV"),
 							use({ "href": "#downloadFile" })
@@ -37,7 +37,7 @@ export default (
 					]),
 					th({ "colspan": "2" }, [
 						"Unmatched",
-						span({ "data-tooltip": "Files that were automatically backed-up but are not matched by current rules." }, svg(use({ "href": "#helpIcon" }))),
+						span({ "data-tooltip": "Files that were automatically backed up but are not matched by current rules." }, svg(use({ "href": "#helpIcon" }))),
 						button({ "click": () => a({ "href": "api/report/files?dir=" + encodeURIComponent(path) + (single ? "&single=1" : "") }).click() }, svg([
 							title("Download TSV"),
 							use({ "href": "#downloadFile" })
@@ -48,8 +48,8 @@ export default (
 			tbody([
 				tr([
 					th([
-						"Backed-up",
-						span({ "data-tooltip": "Files that were automatically backed-up and still exist locally." }, svg(use({ "href": "#helpIcon" }))),
+						"Backed Up",
+						span({ "data-tooltip": "Files that were automatically backed up and still exist locally." }, svg(use({ "href": "#helpIcon" }))),
 					]),
 					matchingBackupCountTD,
 					matchingBackupSizeTD,
@@ -59,7 +59,7 @@ export default (
 				tr([
 					th([
 						"Archived",
-						span({ "data-tooltip": "Files that were automatically backed-up and do not exist locally." }, svg(use({ "href": "#helpIcon" }))),
+						span({ "data-tooltip": "Files that were automatically backed up and do not exist locally." }, svg(use({ "href": "#helpIcon" }))),
 					]),
 					matchingArchiveCountTD,
 					matchingArchiveSizeTD,

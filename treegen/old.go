@@ -40,6 +40,9 @@ import (
 	"github.com/kuleuven/iron/msg"
 )
 
+// oldWrapper is a bridge between the go-irodsclient package (which supports the
+// 4.2.7 iRODS server) and the iron package, which has a cleaner and easier API
+// for interacting with iRODS.
 type oldWrapper struct {
 	*connection.IRODSConnection
 }
