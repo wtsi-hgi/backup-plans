@@ -16,7 +16,7 @@
 	echo -n "<script type=\"module\">";
 	jspacker -i "/$(grep "<script" index.html | sed -e 's/.*src="\([^"]*\)".*/\1/')" -n | if command -v terser > /dev/null; then terser -m  --module --compress pure_getters,passes=3 --ecma 2020 | tr -d '\n'; else tr -d '\n\t'; fi;
 	echo -n "</script>";
-	tail -n2 index.html | tr -d '\n	';
+	tail -n12 index.html | tr -d '\n	';
 ) > "index.html";
 
 declare size="$(stat -c %s index.html)";

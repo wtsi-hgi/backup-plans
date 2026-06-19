@@ -1,4 +1,4 @@
-import type { ChildDirectory, Directory, DirectoryWithChildren, DirSummary, Rule, RuleSummary, SizeCountTime, Stats, Tree } from './types.js';
+import type { ChildDirectory, Directory, DirectoryWithChildren, DirSummary, Rule, RuleSummary, SizeCountAllTime, SizeCountTime, Stats, Tree } from './types.js';
 import { getTree } from "./rpc.js";
 import { BackupType } from "./consts.js";
 
@@ -23,28 +23,40 @@ const all = function* (rs: RuleSummary) {
 			}
 		}
 	},
-	addCountSizeTime = (s: SizeCountTime, size: bigint, count: bigint, time: number) => {
-		s.size += size;
-		s.count += count;
-		s.mtime = Math.max(s.mtime, time);
+	addCountSizeTime = (s: SizeCountAllTime, stats: Stats) => {
+		s.size += BigInt(stats.Size);
+		s.count += BigInt(stats.Files);
+		s.mtime = Math.max(s.mtime, stats.MTime);
+		s.backupSize += BigInt(stats.BackupSize);
+		s.backupCount += BigInt(stats.BackupFiles);
+		s.archiveSize += BigInt(stats.ArchiveSize);
+		s.archiveCount += BigInt(stats.ArchiveFiles);
 	},
 	summarise = (tree: DirSummary, d: Directory, rules: RulesWithDirs, filter: (rs: RuleSummary) => Generator<Stats>) => {
 		for (const rs of tree.RuleSummaries) {
 			const rule = Object.assign(rules[rs.ID], {
 				"count": 0n,
 				"size": 0n,
-				"mtime": 0
+				"mtime": 0,
+				"backupSize": 0n,
+				"backupCount": 0n,
+				"archiveSize": 0n,
+				"archiveCount": 0n
 			}),
 				action = (d.actions[+rule.BackupType] ??= {
 					"count": 0n,
 					"size": 0n,
-					"mtime": 0
+					"mtime": 0,
+					"backupSize": 0n,
+					"backupCount": 0n,
+					"archiveSize": 0n,
+					"archiveCount": 0n
 				});
 
 			for (const stats of filter(rs)) {
-				addCountSizeTime(d, BigInt(stats.Size), BigInt(stats.Files), stats.MTime);
-				addCountSizeTime(rule, BigInt(stats.Size), BigInt(stats.Files), stats.MTime);
-				addCountSizeTime(action, BigInt(stats.Size), BigInt(stats.Files), stats.MTime);
+				addCountSizeTime(d, stats);
+				addCountSizeTime(rule, stats);
+				addCountSizeTime(action, stats);
 			}
 
 			(d.rules[rule.dir] ??= []).push(rule);
@@ -94,7 +106,11 @@ export default (path: string) => getTree(path)
 			"Melt": data.Melt ?? 0,
 			"ReviewDate": data.ReviewDate,
 			"RemoveDate": data.RemoveDate,
-			"ruleSummaries": data.RuleSummaries
+			"ruleSummaries": data.RuleSummaries,
+			"backupSize": 0n,
+			"backupCount": 0n,
+			"archiveSize": 0n,
+			"archiveCount": 0n
 		},
 			rules = Object.entries(data.Rules)
 				.map(([dir, rules]) => Object.entries(rules).map(([id, rule]) => Object.assign(rule, { id, dir })))
@@ -120,7 +136,11 @@ export default (path: string) => getTree(path)
 				"groups": Array.from(child.RuleSummaries.map(rs => rs.Groups).map(g => g.map(g => g.Name)).flat().reduce((s, u) => (s.add(u), s), new Set<string>()).keys()).sort(),
 				"rules": {},
 				"ruleSummaries": child.RuleSummaries,
-				"unauthorised": data.Unauthorised.includes(name)
+				"unauthorised": data.Unauthorised.includes(name),
+				"backupSize": 0n,
+				"backupCount": 0n,
+				"archiveSize": 0n,
+				"archiveCount": 0n
 			}
 
 			summarise(child, e, rules, filterFn);
@@ -135,7 +155,11 @@ export default (path: string) => getTree(path)
 				d.rules[path].push(Object.assign(rule, {
 					"count": 0n,
 					"size": 0n,
-					"mtime": 0
+					"mtime": 0,
+					"backupSize": 0n,
+					"backupCount": 0n,
+					"archiveSize": 0n,
+					"archiveCount": 0n
 				}));
 			}
 		}

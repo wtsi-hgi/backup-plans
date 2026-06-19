@@ -66,6 +66,7 @@ type yamlConfig struct {
 	AdminGroup           uint32
 	ReloadTime           uint64
 	MainProgrammes       []string
+	Collections          map[string]string
 }
 
 // Config represents a parsed configuration file which can be automatically
@@ -105,18 +106,20 @@ type Config struct {
 //	        }
 //	    }
 //
-//		wrstat {
-//			jwtbasename, servertokenbasename, serverurl, username string
-//			oktamode bool
-//		}
+//	    wrstat {
+//	        jwtbasename, servertokenbasename, serverurl, username string
+//	        oktamode bool
+//	    }
 //
-//		wrstatcacheduration: uint64
+//	    wrstatcacheduration: uint64
 //	    IBackupCacheDuration uint64
 //	    BOMFile              string
 //	    OwnersFile           string
 //	    ReportingRoots       []string
 //	    AdminGroup           uint32
 //	    ReloadTime           uint64
+//	    MainProgrammes       []string
+//	    Collections          map[string]string
 //	}
 //
 // The key of the Servers map is the server name, as used in the PathToServer
@@ -136,6 +139,9 @@ type Config struct {
 // BOM:
 //
 //	GroupName,BOMName
+//
+// Collection is a map of iRODS Collection paths to the local transformer
+// string.
 func Parse(path string) (*Config, error) {
 	c := &Config{
 		path:                path,
@@ -416,4 +422,11 @@ func (c *Config) GetMainProgrammes() []string {
 	}
 
 	return c.yamlConfig.MainProgrammes
+}
+
+func (c *Config) GetCollections() map[string]string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	return c.yamlConfig.Collections
 }

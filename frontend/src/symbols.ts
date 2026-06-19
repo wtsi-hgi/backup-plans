@@ -91,6 +91,19 @@ export const symbols = svg({ "style": `width: 0; height: 0` }, [
 			"stroke-linecap": "round",
 		})
 	]),
+	symbol({ "id": "downloadFile", "viewBox": "0 0 16 24" }, [
+		path({
+			"d": "M15,6 h-3 s-2,0 -2,-2 v-3 l5,5 v15 s0,2 -2,2 h-10 s-2,0 -2,-2 v-18 s0,-2 2,-2 h7",
+			"style": "stroke: currentColor; fill: var(--fill, none)",
+			"stroke-linejoin": "round",
+		}),
+		path({
+			"d": "M8,8 v10 l3,-3 h-6 l3,3",
+			"style": "stroke: currentColor; fill: currentColor",
+			"stroke-linejoin": "round",
+			"stroke-linecap": "round",
+		})
+	]),
 	symbol({ "id": "copy", "viewBox": "0 0 34 37" }, path({ "d": "M14,6 h-13 v30 h21 v-22 z v8 h8 M12,6 v-5 h13 l8,8 v22 h-11 m11,-22 h-8 v-8 M6,20 h11 m-11,5 h11 m-11,5 h11", "stroke": "currentColor", "fill": "none" })),
 	symbol(
 		{
@@ -98,9 +111,9 @@ export const symbols = svg({ "style": `width: 0; height: 0` }, [
 			"viewBox": "0 0 84 84"
 		},
 		[
-			circle({ "r": "38", "cx": "42", "cy": "42", "fill": "none", "stroke": "#000", "stroke-width": "6" }),
-			path({ "d": "M27,33 v-2 a1,1 0,0,1 30,0 c0,10 -15,10 -15,20 v7", "stroke": "#000", "fill": "none", "stroke-width": "10" }),
-			rect({ "x": "37", "y": "60", "width": "10", "height": "10", "fill": "#000", "stroke-width": "2" })
+			circle({ "r": "38", "cx": "42", "cy": "42", "fill": "none", "style": "stroke: currentColor", "stroke-width": "6" }),
+			path({ "d": "M27,33 v-2 a1,1 0,0,1 30,0 c0,10 -15,10 -15,20 v7", "style": "stroke: currentColor", "fill": "none", "stroke-width": "10" }),
+			rect({ "x": "37", "y": "60", "width": "10", "height": "10", "style": "stroke: currentColor", "stroke-width": "2" })
 		]),
 	symbol({ "id": "tickIcon", viewBox: "0 0 16 10" },
 		path({

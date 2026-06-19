@@ -28,7 +28,6 @@ package backend
 import (
 	"encoding/json"
 	"net/http"
-	"os"
 	"os/user"
 	"path/filepath"
 	"sort"
@@ -37,8 +36,8 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/wtsi-hgi/backup-plans/internal/config"
+	"github.com/wtsi-hgi/backup-plans/internal/memtree"
 	"github.com/wtsi-hgi/backup-plans/internal/plandb"
-	"vimagination.zapto.org/tree"
 )
 
 func TestUserGroups(t *testing.T) {
@@ -49,15 +48,12 @@ func TestUserGroups(t *testing.T) {
 		tr := plandb.ExampleTree()
 
 		treeFile := filepath.Join(t.TempDir(), "tree.db")
-		f, err := os.Create(treeFile)
-		So(err, ShouldBeNil)
 
-		So(tree.Serialise(f, tr), ShouldBeNil)
-		So(f.Close(), ShouldBeNil)
+		So(memtree.TreeToFile(tr, treeFile), ShouldBeNil)
 
 		s := New(newRoot(t, testDB), u.getUser, config.NewConfig(t, nil, nil, nil, 0, nil))
 
-		_, err = s.rootDir.AddTree(treeFile)
+		_, err := s.rootDir.AddTree(treeFile)
 		So(err, ShouldBeNil)
 
 		Convey("You can call getUserGroups to retrieve a collection of user, BOM and group information", func() {

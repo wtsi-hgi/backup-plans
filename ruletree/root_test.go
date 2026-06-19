@@ -26,7 +26,6 @@
 package ruletree
 
 import (
-	"os"
 	"path/filepath"
 	"slices"
 	"testing"
@@ -34,10 +33,11 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/wtsi-hgi/backup-plans/db"
+	"github.com/wtsi-hgi/backup-plans/internal/backuptree"
 	"github.com/wtsi-hgi/backup-plans/internal/directories"
+	"github.com/wtsi-hgi/backup-plans/internal/memtree"
 	"github.com/wtsi-hgi/backup-plans/internal/testdb"
 	"github.com/wtsi-hgi/backup-plans/rules"
-	"vimagination.zapto.org/tree"
 )
 
 func TestRoot(t *testing.T) {
@@ -48,17 +48,14 @@ func TestRoot(t *testing.T) {
 
 		treeDBPathA := filepath.Join(t.TempDir(), "a.db")
 
-		f, err := os.Create(treeDBPathA)
-		So(err, ShouldBeNil)
-		So(tree.Serialise(f, treeDBA), ShouldBeNil)
-		So(f.Close(), ShouldBeNil)
+		So(memtree.TreeToFile(treeDBA, treeDBPathA), ShouldBeNil)
 
 		root := newEmptyRoot(t)
 
-		_, err = root.AddTree(treeDBPathA)
+		_, err := root.AddTree(treeDBPathA)
 		So(err, ShouldBeNil)
 
-		Convey("You can claim, tranfer, and revoke directories", func() {
+		Convey("You can claim, transfer, and revoke directories", func() {
 			So(root.ClaimDirectory("/some/path/MyDir/", "me"), ShouldBeNil)
 
 			claimed := slices.Collect(root.rules.Dirs())
@@ -119,10 +116,7 @@ func TestRoot(t *testing.T) {
 
 			treeDBPathB := filepath.Join(t.TempDir(), "b.db")
 
-			f, err := os.Create(treeDBPathB)
-			So(err, ShouldBeNil)
-			So(tree.Serialise(f, treeDBB), ShouldBeNil)
-			So(f.Close(), ShouldBeNil)
+			So(memtree.TreeToFile(treeDBB, treeDBPathB), ShouldBeNil)
 
 			_, err = root.AddTree(treeDBPathB)
 			So(err, ShouldBeNil)
@@ -180,14 +174,11 @@ func TestClaims(t *testing.T) {
 
 		treeDBPathA := filepath.Join(t.TempDir(), "a.db")
 
-		f, err := os.Create(treeDBPathA)
-		So(err, ShouldBeNil)
-		So(tree.Serialise(f, treeDBA), ShouldBeNil)
-		So(f.Close(), ShouldBeNil)
+		So(memtree.TreeToFile(treeDBA, treeDBPathA), ShouldBeNil)
 
 		root := newEmptyRoot(t)
 
-		_, err = root.AddTree(treeDBPathA)
+		_, err := root.AddTree(treeDBPathA)
 		So(err, ShouldBeNil)
 
 		Convey("You can claim, pass, and revoke directories which updates the claimed caches", func() {
@@ -238,6 +229,82 @@ func TestClaims(t *testing.T) {
 
 			So(root.RevokeDirectory("/some/path/Root/"), ShouldBeNil)
 			So(root.cached["/some/path/Root/"].ClaimedBy, ShouldEqual, "")
+		})
+	})
+}
+
+func TestBackups(t *testing.T) {
+	Convey("Given a backup tree", t, func() {
+		root := newEmptyRoot(t)
+		bt := filepath.Join(t.TempDir(), "backups.db")
+
+		So(memtree.TreeToFile(backuptree.Generate(map[string]map[string]uint64{
+			"/some/path/MyDir/": {
+				"/a.txt": 1,
+				"/b.csv": 2,
+			},
+			"/some/path/MyDir/more/": {
+				"/another.txt": 5,
+			},
+			"/some/path/YourDir/": {
+				"/a.txt":     999,
+				"/dir/b.txt": 1234,
+			},
+		}), bt), ShouldBeNil)
+		So(root.SetBackupTree(bt), ShouldBeNil)
+
+		Convey("You can list the backed up files for a directory", func() {
+			var paths []string
+
+			collect := func(path string, _ BackupStats) error {
+				paths = append(paths, path)
+
+				return nil
+			}
+
+			So(root.BackedUpFiles("/some/path/MyDir/", false).ForEach(collect), ShouldBeNil)
+			So(paths, ShouldResemble, []string{
+				"/some/path/MyDir/a.txt",
+				"/some/path/MyDir/b.csv",
+			})
+
+			paths = paths[:0]
+
+			So(root.BackedUpFiles("/some/path/YourDir/", false).ForEach(collect), ShouldBeNil)
+			So(paths, ShouldResemble, []string{
+				"/some/path/YourDir/a.txt",
+				"/some/path/YourDir/dir/b.txt",
+			})
+
+			paths = paths[:0]
+
+			So(root.BackedUpFiles("/some/path/OtherDir/", false).ForEach(collect), ShouldBeNil)
+			So(paths, ShouldBeEmpty)
+		})
+
+		Convey("You can list the files in a backup set", func() {
+			var files []string
+
+			collectFiles := func(name string, _ BackupStats) error {
+				files = append(files, name)
+
+				return nil
+			}
+
+			So(root.BackedUpFiles("/some/path/MyDir/", false).ForEach(collectFiles), ShouldBeNil)
+			So(files, ShouldResemble, []string{
+				"/some/path/MyDir/a.txt",
+				"/some/path/MyDir/b.csv",
+			})
+
+			files = files[:0]
+
+			So(root.BackedUpFiles("/some/path/MyDir/", true).ForEach(collectFiles), ShouldBeNil)
+			So(files, ShouldResemble, []string{
+				"/some/path/MyDir/a.txt",
+				"/some/path/MyDir/b.csv",
+				"/some/path/MyDir/more/another.txt",
+			})
 		})
 	})
 }

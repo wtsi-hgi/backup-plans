@@ -41,11 +41,11 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/wtsi-hgi/backup-plans/internal/config"
 	"github.com/wtsi-hgi/backup-plans/internal/directories"
+	"github.com/wtsi-hgi/backup-plans/internal/memtree"
 	"github.com/wtsi-hgi/backup-plans/internal/testdb"
 	"github.com/wtsi-hgi/backup-plans/rules"
 	"github.com/wtsi-hgi/backup-plans/ruletree"
 	"github.com/wtsi-hgi/backup-plans/users"
-	"vimagination.zapto.org/tree"
 )
 
 func TestSeverDBUpdate(t *testing.T) {
@@ -85,6 +85,7 @@ func TestSeverDBUpdate(t *testing.T) {
 					func(*http.Request) string { return u.Username },
 					http.NotFoundHandler(),
 					cfg,
+					"",
 					tmp,
 				)
 			}()
@@ -148,8 +149,5 @@ func writeDB(t *testing.T, root *directories.Root, base, path string) {
 
 	db := filepath.Join(base, path, "tree.db")
 
-	f, err := os.Create(db)
-	So(err, ShouldBeNil)
-	So(tree.Serialise(f, root), ShouldBeNil)
-	So(f.Close(), ShouldBeNil)
+	So(memtree.TreeToFile(root, db), ShouldBeNil)
 }

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"maps"
 	"net/http"
-	"os"
 	"os/user"
 	"path/filepath"
 	"slices"
@@ -17,13 +16,13 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/wtsi-hgi/backup-plans/ibackup"
 	"github.com/wtsi-hgi/backup-plans/internal/config"
+	"github.com/wtsi-hgi/backup-plans/internal/memtree"
 	"github.com/wtsi-hgi/backup-plans/internal/plandb"
 	"github.com/wtsi-hgi/backup-plans/rules"
 	"github.com/wtsi-hgi/backup-plans/ruletree"
 	"github.com/wtsi-hgi/backup-plans/users"
 	"github.com/wtsi-hgi/ibackup/server"
 	"github.com/wtsi-hgi/ibackup/set"
-	"vimagination.zapto.org/tree"
 )
 
 const (
@@ -36,12 +35,8 @@ func TestReport(t *testing.T) {
 		testDB, _ := plandb.PopulateBigExamplePlanDB(t)
 		testTree := plandb.ExampleTreeBig()
 		path := filepath.Join(t.TempDir(), "testdb")
-		file, err := os.Create(path)
-		So(err, ShouldBeNil)
-		err = tree.Serialise(file, testTree)
-		So(err, ShouldBeNil)
-		err = file.Close()
-		So(err, ShouldBeNil)
+
+		So(memtree.TreeToFile(testTree, path), ShouldBeNil)
 
 		firstUser, err := user.LookupId("1")
 		So(err, ShouldBeNil)

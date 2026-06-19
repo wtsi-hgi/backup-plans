@@ -72,16 +72,39 @@ func (d *DirSummary) mergeRules(rules []Rule) {
 		}
 
 		for _, user := range rule.Users {
-			d.RuleSummaries[pos].Users.add(user.id, user.MTime, user.Files, user.Size)
+			d.RuleSummaries[pos].Users.add(user.id, user.MTime, user.Files, user.Size,
+				user.BackupFiles, user.BackupSize, user.ArchiveFiles, user.ArchiveSize)
 		}
 
 		setNames(d.RuleSummaries[pos].Users, users.Username)
 
 		for _, group := range rule.Groups {
-			d.RuleSummaries[pos].Groups.add(group.id, group.MTime, group.Files, group.Size)
+			d.RuleSummaries[pos].Groups.add(group.id, group.MTime, group.Files, group.Size,
+				group.BackupFiles, group.BackupSize, group.ArchiveFiles, group.ArchiveSize)
 		}
 
 		setNames(d.RuleSummaries[pos].Groups, users.Group)
+	}
+}
+
+func (d *DirSummary) addBackups(backups []byte) {
+	sr := byteio.MemLittleEndian(backups)
+	backupSize := sr.ReadUintX()
+	backupCount := sr.ReadUintX()
+	archiveSize := sr.ReadUintX()
+	archiveCount := sr.ReadUintX()
+
+	if backupCount > 0 || archiveCount > 0 {
+		d.RuleSummaries[0].Users.add(d.uid, 0, 0, 0, backupCount, backupSize, archiveCount, archiveSize)
+		d.RuleSummaries[0].Groups.add(d.gid, 0, 0, 0, backupCount, backupSize, archiveCount, archiveSize)
+
+		for n := range d.RuleSummaries[0].Users {
+			if d.RuleSummaries[0].Users[n].id == d.uid {
+				d.RuleSummaries[0].Users[n].Name = d.User
+
+				break
+			}
+		}
 	}
 }
 
@@ -100,9 +123,9 @@ type ruleOverlay struct {
 	lower, upper *tree.MemTree
 }
 
-func (r *ruleOverlay) Summary(path string, wildcard group.State[int64]) (*DirSummary, error) {
+func (r *ruleOverlay) Summary(path string, wildcard group.State[int64], backups *tree.MemTree) (*DirSummary, error) {
 	if path == "" {
-		return r.getSummaryWithChildren(wildcard), nil
+		return r.getSummaryWithChildren(wildcard, backups), nil
 	}
 
 	cr, child, rest, err := r.getChild(path)
@@ -110,7 +133,7 @@ func (r *ruleOverlay) Summary(path string, wildcard group.State[int64]) (*DirSum
 		return nil, err
 	}
 
-	return cr.Summary(rest, wildcard.GetStateString(child))
+	return cr.Summary(rest, wildcard.GetStateString(child), backupNode(backups, child))
 }
 
 func (r *ruleOverlay) getChildOverlay(lower *tree.MemTree, child string) *ruleOverlay {
@@ -158,8 +181,8 @@ func (r *ruleOverlay) getOwner() (uint32, uint32) {
 	return uint32(sr.ReadUintX()), uint32(sr.ReadUintX()) //nolint:gosec
 }
 
-func (r *ruleOverlay) getSummaryWithChildren(wildcard group.State[int64]) *DirSummary {
-	ds := r.getSummary(wcIDFromGroup(wildcard))
+func (r *ruleOverlay) getSummaryWithChildren(wildcard group.State[int64], backups *tree.MemTree) *DirSummary {
+	ds := r.getSummary(wcIDFromGroup(wildcard), backups.Data())
 
 	for name, lower := range r.lower.Children() {
 		if !strings.HasSuffix(name, "/") {
@@ -174,7 +197,7 @@ func (r *ruleOverlay) getSummaryWithChildren(wildcard group.State[int64]) *DirSu
 
 		cr := ruleOverlay{lower.(*tree.MemTree), upper} //nolint:errcheck,forcetypeassert
 
-		ds.Children[name] = cr.getSummary(wcIDFromGroup(wildcard.GetStateString(name)))
+		ds.Children[name] = cr.getSummary(wcIDFromGroup(wildcard.GetStateString(name)), backupNode(backups, name).Data())
 	}
 
 	return ds
@@ -188,7 +211,7 @@ func wcIDFromGroup(wildcard group.State[int64]) int64 {
 	return 0
 }
 
-func (r *ruleOverlay) getSummary(wildcard int64) *DirSummary {
+func (r *ruleOverlay) getSummary(wildcard int64, backups []byte) *DirSummary {
 	layer := cmp.Or(r.upper, r.lower)
 	sr := byteio.MemLittleEndian(layer.Data())
 	ds := &DirSummary{
@@ -204,17 +227,31 @@ func (r *ruleOverlay) getSummary(wildcard int64) *DirSummary {
 
 	for n := range ds.RuleSummaries {
 		ds.RuleSummaries[n].ID = sr.ReadUintX()
-		ds.RuleSummaries[n].Users = readStats(&sr, users.Username)
-		ds.RuleSummaries[n].Groups = readStats(&sr, users.Group)
+		ds.RuleSummaries[n].Users = readStats(&sr)
+		ds.RuleSummaries[n].Groups = readStats(&sr)
 	}
 
 	if len(ds.RuleSummaries) == 1 && ds.RuleSummaries[0].ID == 0 {
 		ds.RuleSummaries[0].ID = uint64(wildcard) //nolint:gosec
+		ds.addBackups(backups)
 	}
 
+	ds.setNames()
 	ds.setLastMod()
 
 	return ds
+}
+
+func (d *DirSummary) setNames() {
+	for _, rule := range d.RuleSummaries {
+		for n := range rule.Users {
+			rule.Users[n].Name = users.Username(rule.Users[n].id)
+		}
+
+		for n := range rule.Groups {
+			rule.Groups[n].Name = users.Group(rule.Groups[n].id)
+		}
+	}
 }
 
 func (r *ruleOverlay) IsDirectory(path string) bool {
@@ -224,11 +261,15 @@ func (r *ruleOverlay) IsDirectory(path string) bool {
 // Stats represents the summarised stats for a particular user or group for a
 // directory.
 type Stats struct {
-	id    uint32
-	Name  string
-	MTime uint64
-	Files uint64
-	Size  uint64
+	id           uint32
+	Name         string
+	MTime        uint64
+	Files        uint64
+	Size         uint64
+	BackupFiles  uint64
+	BackupSize   uint64
+	ArchiveFiles uint64
+	ArchiveSize  uint64
 }
 
 // ID returns the UID or GID for the summarised stats.
@@ -241,20 +282,26 @@ func (s *Stats) writeTo(sw *byteio.StickyLittleEndianWriter) {
 	sw.WriteUintX(s.MTime)
 	sw.WriteUintX(s.Files)
 	sw.WriteUintX(s.Size)
+	sw.WriteUintX(s.BackupFiles)
+	sw.WriteUintX(s.BackupSize)
+	sw.WriteUintX(s.ArchiveFiles)
+	sw.WriteUintX(s.ArchiveSize)
 }
 
-func readStats(br *byteio.MemLittleEndian, name func(uint32) string) []Stats {
+func readStats(br *byteio.MemLittleEndian) []Stats {
 	stats := make([]Stats, br.ReadUintX())
 
 	for n := range stats {
 		stats[n] = Stats{
-			id:    uint32(br.ReadUintX()), //nolint:gosec
-			MTime: br.ReadUintX(),
-			Files: br.ReadUintX(),
-			Size:  br.ReadUintX(),
+			id:           uint32(br.ReadUintX()), //nolint:gosec
+			MTime:        br.ReadUintX(),
+			Files:        br.ReadUintX(),
+			Size:         br.ReadUintX(),
+			BackupFiles:  br.ReadUintX(),
+			BackupSize:   br.ReadUintX(),
+			ArchiveFiles: br.ReadUintX(),
+			ArchiveSize:  br.ReadUintX(),
 		}
-
-		stats[n].Name = name(stats[n].id)
 	}
 
 	return stats

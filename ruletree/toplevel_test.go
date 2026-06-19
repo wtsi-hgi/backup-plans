@@ -25,14 +25,13 @@
 package ruletree
 
 import (
-	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/wtsi-hgi/backup-plans/internal/directories"
-	"vimagination.zapto.org/tree"
+	"github.com/wtsi-hgi/backup-plans/internal/memtree"
 )
 
 func TestTopLevel(t *testing.T) {
@@ -46,14 +45,11 @@ func TestTopLevel(t *testing.T) {
 
 		treeDBPathA := filepath.Join(t.TempDir(), "a.db")
 
-		f, err := os.Create(treeDBPathA)
-		So(err, ShouldBeNil)
-		So(tree.Serialise(f, treeDBA), ShouldBeNil)
-		So(f.Close(), ShouldBeNil)
+		So(memtree.TreeToFile(treeDBA, treeDBPathA), ShouldBeNil)
 
 		root := newEmptyRoot(t)
 
-		_, err = root.AddTree(treeDBPathA)
+		_, err := root.AddTree(treeDBPathA)
 		So(err, ShouldBeNil)
 
 		Convey("You can check if given children are directories", func() {

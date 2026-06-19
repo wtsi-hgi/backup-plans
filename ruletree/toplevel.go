@@ -26,18 +26,20 @@
 package ruletree
 
 import (
+	"cmp"
 	"errors"
-	"iter"
 	"strings"
 
 	"github.com/wtsi-hgi/backup-plans/db"
+	iiter "github.com/wtsi-hgi/backup-plans/internal/iter"
 	"github.com/wtsi-hgi/wrstat-ui/summary/group"
+	"vimagination.zapto.org/tree"
 )
 
 var emptyWildcard = make(group.StateMachine[int64], 2).GetState(nil) //nolint:gochecknoglobals,mnd
 
 type summariser interface {
-	Summary(path string, wildcard group.State[int64]) (*DirSummary, error)
+	Summary(path string, wildcard group.State[int64], backups *tree.MemTree) (*DirSummary, error)
 	GetOwner(path string) (uint32, uint32, error)
 	IsDirectory(path string) bool
 	glob(match string) []string
@@ -92,7 +94,7 @@ func (t *topLevelDir) Update() error {
 	t.summary.RuleSummaries = t.summary.RuleSummaries[:0]
 
 	for name, child := range t.children {
-		s, err := child.Summary("", emptyWildcard)
+		s, err := child.Summary("", emptyWildcard, &emptyNode)
 		if err != nil {
 			return err
 		}
@@ -112,7 +114,7 @@ func (t *topLevelDir) Update() error {
 	return nil
 }
 
-func (t *topLevelDir) Summary(path string, wildcard group.State[int64]) (*DirSummary, error) {
+func (t *topLevelDir) Summary(path string, wildcard group.State[int64], backups *tree.MemTree) (*DirSummary, error) {
 	if path == "" {
 		return &t.summary, nil
 	}
@@ -122,7 +124,13 @@ func (t *topLevelDir) Summary(path string, wildcard group.State[int64]) (*DirSum
 		return nil, err
 	}
 
-	return child.Summary(rest, wildcard.GetStateString(name))
+	return child.Summary(rest, wildcard.GetStateString(name), backupNode(backups, name))
+}
+
+func backupNode(backups *tree.MemTree, name string) *tree.MemTree {
+	n, _ := backups.Child(name) //nolint:errcheck
+
+	return cmp.Or(n, &emptyNode)
 }
 
 func (t *topLevelDir) getChild(path string) (summariser, string, string, error) {
@@ -168,7 +176,7 @@ func isDirectory(path string, getChild func(string) (summariser, string, string,
 }
 
 func createTopLevelDirs(treeRoot *ruleOverlay, rootPath string, p *topLevelDir) error { //nolint:gocognit
-	for part := range pathParts(rootPath[1 : len(rootPath)-1]) {
+	for part := range iiter.PathParts(strings.TrimPrefix(rootPath[:len(rootPath)-1], "/")) {
 		np, ok := p.children[part]
 		if !ok {
 			np = newTopLevelDir(p)
@@ -178,16 +186,13 @@ func createTopLevelDirs(treeRoot *ruleOverlay, rootPath string, p *topLevelDir) 
 			}
 		}
 
-		dir, ok := np.(*topLevelDir)
+		p, ok = np.(*topLevelDir)
 		if !ok {
 			return ErrDeepTree
 		}
-
-		p = dir
 	}
 
 	name := rootPath[strings.LastIndexByte(rootPath[:len(rootPath)-1], '/')+1:]
-
 	if existing, ok := p.children[name]; ok {
 		if _, ok = existing.(*ruleOverlay); !ok {
 			return ErrDeepTree
@@ -195,23 +200,6 @@ func createTopLevelDirs(treeRoot *ruleOverlay, rootPath string, p *topLevelDir) 
 	}
 
 	return p.setChild(name, treeRoot)
-}
-
-func pathParts(path string) iter.Seq[string] {
-	return func(yield func(string) bool) {
-		for {
-			pos := strings.IndexByte(path, '/')
-			if pos == -1 {
-				return
-			}
-
-			if !yield(path[:pos+1]) {
-				break
-			}
-
-			path = path[pos+1:]
-		}
-	}
 }
 
 var (

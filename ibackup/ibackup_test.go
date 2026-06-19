@@ -271,7 +271,7 @@ func ibackupTests(t *testing.T, createClient func() (ibackupClient, func(*set.Se
 		Convey("You can create backup sets", func() {
 			sets, err := client.GetSets(u.Username)
 			So(err, ShouldBeNil)
-			So(sets, ShouldBeNil)
+			So(sets, ShouldBeEmpty)
 
 			setName := "mySet"
 
@@ -280,7 +280,7 @@ func ibackupTests(t *testing.T, createClient func() (ibackupClient, func(*set.Se
 
 			sets, err = client.GetSets(u.Username)
 			So(err, ShouldBeNil)
-			So(sets, ShouldBeNil)
+			So(sets, ShouldBeEmpty)
 
 			before := time.Now()
 
@@ -547,9 +547,10 @@ func (fc *fofnClientWrapper) TriggerDiscovery(setID string, forceRemovals bool) 
 }
 
 func (fc *fofnClientWrapper) GetSets(user string) ([]*set.Set, error) {
-	var sets []*set.Set
+	userSets := fc.sets[user]
+	sets := make([]*set.Set, 0, len(userSets))
 
-	for _, setName := range fc.sets[user] {
+	for _, setName := range userSets {
 		got, err := fc.GetSetByName(user, setName)
 		if err != nil {
 			continue

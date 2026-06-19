@@ -280,7 +280,7 @@ input[type="checkbox"] {
 }
 
 #treeOptions[open] {
-	width: 160px;
+	width: 200px;
 }
 
 #treeOptions:not([open]) {
@@ -460,9 +460,5 @@ use {
 		--graph-unplanned: #f08080;
 		--graph-nobackup: #fec89a;
 		--graph-backup: #76c893;
-	}
-
-	#addEdit .tooltip svg {
-		filter: invert(1);
 	}
 }

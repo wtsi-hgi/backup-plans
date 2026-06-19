@@ -4,18 +4,26 @@ import { amendNode } from "./lib/dom.js";
 import { a, br, button, datalist, details, div, fieldset, h1, h2, input, label, legend, li, option, span, summary, table, tbody, td, th, thead, tr, ul } from "./lib/html.js";
 import { svg, title, use } from "./lib/svg.js";
 import { action, formatBytes, longAgo, longAgoStr, secondsInWeek, setAndReturn, splitLongPath, stringSort, createSpinner } from "./lib/utils.js";
-import { getReportSummary } from "./rpc.js";
+import BackupTable from "./backups.js";
 import { BackupType, MainProgrammes, ibackupStatusColumns } from "./consts.js";
 import { render } from "./disktree.js";
 import { load } from './load.js';
 import graph from "./graph.js";
 import ODS from './odf.js';
+import { getReportSummary } from "./rpc.js";
 import { inputState } from "./state.js";
 import { symbols } from './symbols.js';
 import { boms, owners, userGroups } from './userGroups.js';
 
+type BackupSizes = SizeCountTime & {
+	BackupFiles: bigint;
+	BackupSize: bigint;
+	ArchiveFiles: bigint;
+	ArchiveSize: bigint;
+}
+
 class Summary {
-	actions: SizeCountTime[] = [];
+	actions: BackupSizes[] = [];
 	path: string;
 	latestMTime = 0;
 	count = 0n;
@@ -28,11 +36,15 @@ class Summary {
 	}
 
 	add(action: BackupType, rule: Stats) {
-		const sct = this.actions[+action] ??= { size: 0n, count: 0n, mtime: 0 };
+		const sct = this.actions[+action] ??= { size: 0n, count: 0n, mtime: 0, BackupFiles: 0n, BackupSize: 0n, ArchiveFiles: 0n, ArchiveSize: 0n };
 
 		sct.count += BigInt(rule.Files);
 		sct.size += BigInt(rule.Size);
 		sct.mtime = Math.max(sct.mtime, rule.MTime);
+		sct.BackupFiles += BigInt(rule.BackupFiles);
+		sct.BackupSize += BigInt(rule.BackupSize);
+		sct.ArchiveFiles += BigInt(rule.ArchiveFiles);
+		sct.ArchiveSize += BigInt(rule.ArchiveSize);
 
 		this.latestMTime = Math.max(this.latestMTime, rule.MTime);
 		this.count += BigInt(rule.Files);
@@ -49,31 +61,33 @@ class Summary {
 	table() {
 		const manualSizeCount = this.manualSizeCount();
 
-		return table({ "class": "summary" }, [
-			thead(tr([
-				td(),
-				th("Unplanned"),
-				th("No Backup"),
-				th("Backup"),
-				th("Manual Backup")
-			])),
-			tbody([
-				tr([
-					th("File count"),
-					td(this.actions[+BackupType.BackupWarn]?.count.toLocaleString() ?? "0"),
-					td(this.actions[+BackupType.BackupNone]?.count.toLocaleString() ?? "0"),
-					td(this.actions[+BackupType.BackupIBackup]?.count.toLocaleString() ?? "0"),
-					td(manualSizeCount.count.toLocaleString())
-				]),
-				tr([
-					th("File size"),
-					td({ "title": (this.actions[+BackupType.BackupWarn]?.size ?? 0).toLocaleString() }, formatBytes(this.actions[+BackupType.BackupWarn]?.size ?? 0)),
-					td({ "title": (this.actions[+BackupType.BackupNone]?.size ?? 0).toLocaleString() }, formatBytes(this.actions[+BackupType.BackupNone]?.size ?? 0)),
-					td({ "title": (this.actions[+BackupType.BackupIBackup]?.size ?? 0).toLocaleString() }, formatBytes(this.actions[+BackupType.BackupIBackup]?.size ?? 0)),
-					td({ "title": manualSizeCount.size.toLocaleString() }, formatBytes(manualSizeCount.size))
+		return [
+			table({ "class": "summary" }, [
+				thead(tr([
+					td(),
+					th("Unplanned"),
+					th("No Backup"),
+					th("Backup"),
+					th("Manual Backup")
+				])),
+				tbody([
+					tr([
+						th("File count"),
+						td(this.actions[+BackupType.BackupWarn]?.count.toLocaleString() ?? "0"),
+						td(this.actions[+BackupType.BackupNone]?.count.toLocaleString() ?? "0"),
+						td(this.actions[+BackupType.BackupIBackup]?.count.toLocaleString() ?? "0"),
+						td(manualSizeCount.count.toLocaleString())
+					]),
+					tr([
+						th("File size"),
+						td({ "title": (this.actions[+BackupType.BackupWarn]?.size ?? 0).toLocaleString() }, formatBytes(this.actions[+BackupType.BackupWarn]?.size ?? 0)),
+						td({ "title": (this.actions[+BackupType.BackupNone]?.size ?? 0).toLocaleString() }, formatBytes(this.actions[+BackupType.BackupNone]?.size ?? 0)),
+						td({ "title": (this.actions[+BackupType.BackupIBackup]?.size ?? 0).toLocaleString() }, formatBytes(this.actions[+BackupType.BackupIBackup]?.size ?? 0)),
+						td({ "title": manualSizeCount.size.toLocaleString() }, formatBytes(manualSizeCount.size))
+					])
 				])
 			])
-		])
+		];
 	}
 
 	manualSizeCount() {
@@ -100,6 +114,26 @@ class ParentSummary extends Summary {
 	}
 
 	section() {
+		const unmatched = {
+			BackupFiles: 0n,
+			BackupSize: 0n,
+			ArchiveFiles: 0n,
+			ArchiveSize: 0n
+		};
+
+		for (const n of BackupType.all) {
+			const c = this.actions[+n];
+
+			if (n === BackupType.BackupIBackup || !c) {
+				continue;
+			}
+
+			unmatched.BackupFiles += c.BackupFiles;
+			unmatched.BackupSize += c.BackupSize;
+			unmatched.ArchiveFiles += c.ArchiveFiles;
+			unmatched.ArchiveSize += c.ArchiveSize;
+		}
+
 		return fieldset({
 			"data-status": this.status(),
 			"data-warn-size": (this.actions[+BackupType.BackupWarn]?.size ?? 0) + "",
@@ -125,7 +159,7 @@ class ParentSummary extends Summary {
 			])),
 			ul([
 				this.backupStatus ? li("Requester: " + this.backupStatus.Requester) : [],
-				this.actions[+BackupType.BackupIBackup]?.mtime ? li("Last Activity in Backed-up Set: " + longAgo(this.actions[+BackupType.BackupIBackup]?.mtime ?? 0)) : [],
+				this.actions[+BackupType.BackupIBackup]?.mtime ? li("Last Activity in Backed up Set: " + longAgo(this.actions[+BackupType.BackupIBackup]?.mtime ?? 0)) : [],
 				li("Last Activity: " + (this.latestMTime ? longAgo(this.latestMTime) : "--none--"))
 			]),
 			this.table(),
@@ -146,6 +180,17 @@ class ParentSummary extends Summary {
 					])))
 				] : tr(td({ "colspan": "5" }, "No Backups")))
 			]),
+			unmatched.ArchiveFiles > 0n || unmatched.BackupFiles > 0n || (this.actions[+BackupType.BackupIBackup]?.BackupFiles ?? 0n) > 0n || (this.actions[+BackupType.BackupIBackup]?.ArchiveFiles ?? 0n) > 0n ? BackupTable(
+				this.path,
+				this.actions[+BackupType.BackupIBackup]?.BackupFiles ?? 0n,
+				this.actions[+BackupType.BackupIBackup]?.BackupSize ?? 0n,
+				this.actions[+BackupType.BackupIBackup]?.ArchiveFiles ?? 0n,
+				this.actions[+BackupType.BackupIBackup]?.ArchiveSize ?? 0n,
+				unmatched.BackupFiles,
+				unmatched.BackupSize,
+				unmatched.ArchiveFiles,
+				unmatched.ArchiveSize
+			)[0] : [],
 			this.children.size ? [
 				h2("Rules"),
 				Array.from(this.children.entries()).map(([path, child]) => details([
@@ -153,7 +198,7 @@ class ParentSummary extends Summary {
 					child.section()
 				]))
 			] : []
-		])
+		]);
 	}
 
 	status() {
@@ -163,7 +208,7 @@ class ParentSummary extends Summary {
 			lastBackupActivity = Math.max(now - backupTime),
 			dt = lastBackupActivity - lastActivity;
 
-		return ((this.actions[+BackupType.BackupNone]?.count ?? 0n) !== this.count) ? dt < secondsInWeek ? "g" : dt < secondsInWeek * 3 ? "a" : "r" : "b"
+		return ((this.actions[+BackupType.BackupNone]?.count ?? 0n) !== this.count) ? dt < secondsInWeek ? "g" : dt < secondsInWeek * 3 ? "a" : "r" : "b";
 	}
 }
 
@@ -184,7 +229,7 @@ class ChildSummary extends Summary {
 	}
 
 	section() {
-		const tables: HTMLElement[] = [];
+		const tables: Children = [];
 
 		tables.push(this.table());
 

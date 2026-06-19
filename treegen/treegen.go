@@ -171,13 +171,13 @@ func (n *treeNode) Add(info *summary.FileInfo) error { //nolint:gocognit,gocyclo
 			return err
 		}
 	} else if info.Path == n.path {
-		if err := n.sendChild(info.Name, &File{info.UID, info.GID, info.MTime, info.Size}); err != nil {
+		if err := n.sendChild(info.Name, &File{info.UID, info.GID, info.MTime, info.ApparentSize}); err != nil {
 			return err
 		}
 	}
 
 	if !info.IsDir() {
-		n.Directory.Add(info.UID, info.GID, info.MTime, info.Size)
+		n.Directory.Add(info.UID, info.GID, info.MTime, info.ApparentSize)
 	}
 
 	return nil
@@ -292,6 +292,7 @@ func writeIDTimes(w *byteio.StickyLittleEndianWriter, idts []IDData) {
 		w.WriteUintX(idt.MTime)
 		w.WriteUintX(idt.Files)
 		w.WriteUintX(idt.Bytes)
+		w.WriteUint32(0)
 	}
 }
 

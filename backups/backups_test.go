@@ -124,11 +124,7 @@ func exampleTree() tree.Node { //nolint:ireturn,nolintlint
 	directories.AddFile(&dirRoot.Directory, "lustre/scratch123/humgen/b/5.txt", 2, 1, 6, 12346)
 	directories.AddFile(&dirRoot.Directory, "lustre/scratch123/humgen/b/c/6.txt", 2, 1, 6, 12346)
 
-	var treeDB bytes.Buffer
-
-	So(tree.Serialise(&treeDB, dirRoot), ShouldBeNil)
-
-	tr, err := tree.OpenMem(treeDB.Bytes())
+	tr, err := memtree.InMemory(dirRoot)
 	So(err, ShouldBeNil)
 
 	return tr

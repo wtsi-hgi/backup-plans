@@ -32,6 +32,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"slices"
 	"time"
 
@@ -48,22 +49,21 @@ var ErrNoTrees = errors.New("no tree dbs specified")
 
 // Start creates and start a new server after loading the trees given.
 func Start(listen string, d *ruletree.RootDir, getUser func(*http.Request) string,
-	logout http.Handler, config *config.Config, initialTrees ...string) error {
+	logout http.Handler, config *config.Config, backupTree string, initialTrees ...string) error {
 	l, err := net.Listen("tcp", listen) //nolint:noctx
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
 	}
 	defer l.Close()
 
-	return start(l, d, getUser, logout, config, initialTrees...)
+	return start(l, d, getUser, logout, config, backupTree, initialTrees...)
 }
 
 func start(listen net.Listener, d *ruletree.RootDir, getUser func(*http.Request) string,
-	logout http.Handler, config *config.Config, initialTrees ...string) error {
+	logout http.Handler, config *config.Config, backupTree string, initialTrees ...string) error {
 	b := backend.New(d, getUser, config)
 
-	err := loadTrees(initialTrees, d)
-	if err != nil {
+	if err := loadTrees(backupTree, initialTrees, d); err != nil {
 		return err
 	}
 
@@ -80,6 +80,7 @@ func addHandlesAndListen(b *backend.Server, listen net.Listener, logout http.Han
 	http.Handle("POST /api/rules/update", http.HandlerFunc(b.UpdateRule))
 	http.Handle("POST /api/rules/remove", http.HandlerFunc(b.RemoveRule))
 	http.Handle("GET /api/report/summary", http.HandlerFunc(b.Summary))
+	http.Handle("GET /api/report/files", http.HandlerFunc(b.FileList))
 	http.Handle("GET /api/setExists", http.HandlerFunc(b.SetExists))
 	http.Handle("POST /api/dir/setdetails", http.HandlerFunc(b.SetDirDetails))
 	http.Handle("GET /api/usergroups", http.HandlerFunc(b.UserGroups))
@@ -93,9 +94,16 @@ func addHandlesAndListen(b *backend.Server, listen net.Listener, logout http.Han
 	return http.Serve(listen, nil) //nolint:gosec
 }
 
-func loadTrees(initialTrees []string, b *ruletree.RootDir) error {
+func loadTrees(backupTreeGlob string, initialTrees []string, b *ruletree.RootDir) error { //nolint:funlen
+	currentBackupTree, err := loadBackupTree(b, "", backupTreeGlob)
+	if err != nil {
+		return err
+	}
+
 	if len(initialTrees) != 1 {
 		loadDBs(b, initialTrees)
+
+		return nil
 	} else if len(initialTrees) == 0 {
 		return ErrNoTrees
 	}
@@ -120,9 +128,32 @@ func loadTrees(initialTrees []string, b *ruletree.RootDir) error {
 
 	loadDBs(b, treePaths)
 
-	go timerLoop(path, b, treePaths)
+	go timerLoop(path, b, currentBackupTree, backupTreeGlob, treePaths)
 
 	return nil
+}
+
+func loadBackupTree(b *ruletree.RootDir, oldTree, backupTree string) (string, error) {
+	matches, err := filepath.Glob(backupTree)
+	if err != nil {
+		return "", err
+	}
+
+	if len(matches) == 0 {
+		return "", nil
+	}
+
+	slices.Sort(matches)
+
+	newTree := matches[len(matches)-1]
+
+	if newTree == oldTree {
+		return oldTree, nil
+	}
+
+	slog.Info("Loading Backup Tree", "db", newTree)
+
+	return newTree, b.SetBackupTree(newTree)
 }
 
 func loadDBs(b *ruletree.RootDir, trees []string) {
@@ -158,7 +189,8 @@ func getTreePaths(path string) ([]string, error) {
 
 // timerLoop will, given a path to a directory, check for and load all new trees
 // in the directory.
-func timerLoop(path string, b *ruletree.RootDir, treePaths []string) {
+func timerLoop(path string, b *ruletree.RootDir, currentBackupTree, backupTreeGlob string, //nolint:gocognit
+	treePaths []string) {
 	for {
 		time.Sleep(dbCheckTime)
 
@@ -177,6 +209,13 @@ func timerLoop(path string, b *ruletree.RootDir, treePaths []string) {
 			loadDB(b, path)
 
 			treePaths = append(treePaths, path)
+		}
+
+		currentBackupTree, err = loadBackupTree(b, currentBackupTree, backupTreeGlob)
+		if err != nil {
+			slog.Error("Error loading backup tree", "Error", err)
+
+			continue
 		}
 	}
 }

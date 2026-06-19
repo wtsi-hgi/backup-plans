@@ -26,10 +26,13 @@
 package backend
 
 import (
+	"encoding/csv"
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/wtsi-hgi/backup-plans/db"
@@ -330,4 +333,70 @@ func (s *Server) collectRules(dirSummary *summary, dir string) {
 
 	slices.Sort(ruleIDs)
 	dirSummary.Directories[dir] = ruleIDs
+}
+
+// FileList generates a CSV of files currently in the backup. By default it
+// returns all backed up files under the specified directory that don't match
+// current rules.
+//
+// If the 'matching' argument is not empty, it will return files that match
+// current rules.
+//
+// If the `single` argument is not empty, it will only return files that were
+// backed up for the specified directory.
+func (s *Server) FileList(w http.ResponseWriter, r *http.Request) {
+	handle(w, r, s.fileList)
+}
+
+func (s *Server) fileList(w http.ResponseWriter, r *http.Request) error {
+	dir, err := getDir(r)
+	if err != nil {
+		return err
+	}
+
+	recursive := r.FormValue("single") == ""
+	matching := r.FormValue("matching") != ""
+	csv := csv.NewWriter(w)
+
+	defer csv.Flush()
+
+	w.Header().Set("Content-type", "text/csv")
+	w.Header().Set("Content-Disposition", "attachment; filename="+strconv.Quote(filepath.Base(dir)+".csv"))
+
+	return s.writeCSV(csv, dir, matching, recursive)
+}
+
+func (s *Server) writeCSV(csv *csv.Writer, dir string, matching, recursive bool) error { //nolint:gocognit,funlen
+	ruleCache := make(map[uint64]bool)
+	row := [3]string{"Remote Path", "Exists Locally", "Local Path"}
+
+	if err := csv.Write(row[:]); err != nil {
+		return err
+	}
+
+	return s.rootDir.BackedUpFiles(dir, recursive).ForEach(func(path string, stats ruletree.BackupStats) error {
+		isBackup, ok := ruleCache[stats.RuleID]
+		if !ok {
+			if r := s.rootDir.Rule(stats.RuleID); r != nil {
+				isBackup = r.BackupType == db.BackupIBackup
+			}
+
+			ruleCache[stats.RuleID] = isBackup
+		}
+
+		if isBackup != matching {
+			return nil
+		}
+
+		row[2] = path
+		row[0] = stats.RemotePath
+
+		if stats.HasLocal {
+			row[1] = "True"
+		} else {
+			row[1] = "False"
+		}
+
+		return csv.Write(row[:])
+	})
 }

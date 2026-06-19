@@ -38,6 +38,7 @@ import (
 	"github.com/wtsi-hgi/ibackup/server"
 	"github.com/wtsi-hgi/wrstat-ui/summary"
 	"github.com/wtsi-hgi/wrstat-ui/summary/group"
+	"vimagination.zapto.org/byteio"
 	"vimagination.zapto.org/tree"
 )
 
@@ -210,7 +211,12 @@ func figureOutFOFNs(node tree.Node, sm ruletree.State, path *summary.DirectoryPa
 }
 
 func readMTime(child tree.Node) int64 {
-	return int64(ruletree.ReadFileStats(child.(*tree.MemTree)).MTime) //nolint:gosec,errcheck,forcetypeassert
+	lr := byteio.MemLittleEndian(child.(*tree.MemTree).Data()) //nolint:errcheck,forcetypeassert
+
+	lr.ReadUintX()
+	lr.ReadUintX()
+
+	return int64(lr.ReadUintX()) //nolint:gosec
 }
 
 type backupClient interface {

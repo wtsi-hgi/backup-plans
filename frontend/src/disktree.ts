@@ -240,6 +240,8 @@ const phi = (1 + Math.sqrt(5)) / 2,
 		(dir: Directory) => Number(dir.actions[+BackupType.BackupIBackup]?.count ?? 0),
 		(dir: Directory) => Number(dir.actions[+BackupType.BackupNone]?.size ?? 0),
 		(dir: Directory) => Number(dir.actions[+BackupType.BackupNone]?.count ?? 0),
+		(dir: Directory) => Number(dir.backupSize + dir.archiveSize - (dir.actions[+BackupType.BackupIBackup]?.backupSize ?? 0n) - (dir.actions[+BackupType.BackupIBackup]?.archiveSize ?? 0n)),
+		(dir: Directory) => Number(dir.backupCount + dir.archiveCount - (dir.actions[+BackupType.BackupIBackup]?.backupCount ?? 0n) - (dir.actions[+BackupType.BackupIBackup]?.archiveCount ?? 0n)),
 		(dir: Directory) => Number(dir.size),
 		(dir: Directory) => Number(dir.count)
 	],
@@ -276,8 +278,10 @@ const phi = (1 + Math.sqrt(5)) / 2,
 				option({ "value": "3" }, "Backup Files"),
 				option({ "value": "4" }, "No Backup Size"),
 				option({ "value": "5" }, "No Backup Files"),
-				option({ "value": "6" }, "Total Size"),
-				option({ "value": "7" }, "Total Files"),
+				option({ "value": "6" }, "Unmatched Backup Size"),
+				option({ "value": "7" }, "Unmatched Backup Files"),
+				option({ "value": "8" }, "Total Size"),
+				option({ "value": "9" }, "Total Files")
 			])
 		])
 	]),

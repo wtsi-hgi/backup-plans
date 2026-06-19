@@ -12,6 +12,10 @@ export type Stats = {
 	MTime: number;
 	Files: number;
 	Size: number;
+	BackupFiles: number;
+	BackupSize: number;
+	ArchiveFiles: number;
+	ArchiveSize: number;
 };
 
 export type RuleSummary = {
@@ -58,6 +62,13 @@ export type SizeCount = {
 
 export type SizeCountTime = SizeCount & {
 	mtime: number;
+}
+
+export type SizeCountAllTime = SizeCountTime & {
+	backupSize: bigint;
+	backupCount: bigint;
+	archiveSize: bigint;
+	archiveCount: bigint;
 };
 
 export type SizeCountStats = SizeCount & {
@@ -67,8 +78,8 @@ export type SizeCountStats = SizeCount & {
 
 export type RuleStats = Rule & SizeCountTime;
 
-export type Directory = SizeCountTime & {
-	actions: SizeCountTime[];
+export type Directory = SizeCountAllTime & {
+	actions: SizeCountAllTime[];
 	users: string[];
 	groups: string[];
 	rules: Record<string, RuleStats[]>;
@@ -120,7 +131,7 @@ export type UserGroups = {
 	BOM: Record<string, string[]>;
 }
 
-export type RuleInfo = Rule & SizeCount;
+export type RuleInfo = Rule & SizeCountAllTime;
 
 export type DirStats = {
 	Path: string;

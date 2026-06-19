@@ -1,11 +1,12 @@
-import type { DirectoryWithChildren, SizeCountTime } from "./types.js";
+import type { DirectoryWithChildren, SizeCount, SizeCountTime } from "./types.js";
 import { clearNode } from "./lib/dom.js";
-import { br, button, dialog, input, label, table, tbody, td, th, thead, tr, div } from "./lib/html.js";
+import { br, button, dialog, input, label, table, tbody, td, th, thead, tr, div, span } from "./lib/html.js";
 import { svg, title, use } from "./lib/svg.js";
 import { confirm, formatBytes } from "./lib/utils.js";
 import { claimDir, passDirClaim, revokeDirClaim, user } from "./rpc.js";
 import { BackupType } from './consts.js';
 import { load, registerLoader } from "./load.js";
+import BackupTable from "./backups.js";
 import { updateClaimStats } from "./claimstats.js";
 
 const claimedByCell = td(),
@@ -19,14 +20,29 @@ const claimedByCell = td(),
 	nobackupSize = td(),
 	backupSize = td(),
 	manualBackupSize = td(),
-	summaryTable = table({ "class": "summary" }, [
-		thead(tr([claimedByCell, th("Total"), th("Unplanned"), th("No Backup"), th("Backup"), th("Manual Backup")])),
-		tbody([
-			tr([th("File count"), totalCount, warnCount, nobackupCount, backupCount, manualBackupCount]),
-			tr([th("File size"), totalSize, warnSize, nobackupSize, backupSize, manualBackupSize])
-		])
-	]),
-	setSummary = (action: SizeCountTime, count: Element, size: Element) => {
+	[
+		backupTable,
+		matchingBackupCount,
+		matchingBackupSize,
+		matchingArchiveCount,
+		matchingArchiveSize,
+		unmatchedBackupCount,
+		unmatchedBackupSize,
+		unmatchedArchiveCount,
+		unmatchedArchiveSize,
+		setDownloadPath
+	] = BackupTable("", 0n, 0n, 0n, 0n, 0n, 0n, 0n, 0n),
+	summaryTable = [
+		table({ "class": "summary" }, [
+			thead(tr([claimedByCell, th("Total"), th("Unplanned"), th("No Backup"), th("Backup"), th("Manual Backup")])),
+			tbody([
+				tr([th("File count"), totalCount, warnCount, nobackupCount, backupCount, manualBackupCount]),
+				tr([th("File size"), totalSize, warnSize, nobackupSize, backupSize, manualBackupSize])
+			])
+		]),
+		backupTable
+	],
+	setSummary = (action: SizeCount, count: Element, size: Element) => {
 		clearNode(count, action?.count?.toLocaleString() ?? "0");
 		clearNode(size, { "title": (action?.size ?? 0).toLocaleString() }, formatBytes(action?.size ?? 0));
 	};
@@ -85,7 +101,7 @@ registerLoader((path: string, data: DirectoryWithChildren) => {
 			])) : []]
 		: data.canClaim ? button({ "click": () => claimDir(path).then(() => { load(path); updateClaimStats() }) }, "Claim") : []);
 
-	const manualActions: SizeCountTime = { count: 0n, size: 0n, mtime: 0 };
+	const manualActions: SizeCountTime = { count: 0n, size: 0n, mtime: 0, };
 
 	BackupType.manual.forEach(backup => {
 		manualActions.count += data.actions[+backup]?.count ?? 0n;
@@ -97,4 +113,16 @@ registerLoader((path: string, data: DirectoryWithChildren) => {
 	setSummary(data.actions[+BackupType.BackupNone], nobackupCount, nobackupSize);
 	setSummary(data.actions[+BackupType.BackupIBackup], backupCount, backupSize);
 	setSummary(manualActions, manualBackupCount, manualBackupSize);
+	setSummary({ count: data.actions[+BackupType.BackupIBackup]?.backupCount ?? 0n, size: data.actions[+BackupType.BackupIBackup]?.backupSize ?? 0n }, matchingBackupCount, matchingBackupSize);
+	setSummary({ count: data.backupCount - (data.actions[+BackupType.BackupIBackup]?.backupCount ?? 0n), size: data.backupSize - (data.actions[+BackupType.BackupIBackup]?.backupSize ?? 0n) }, unmatchedBackupCount, unmatchedBackupSize);
+	setSummary({ count: data.actions[+BackupType.BackupIBackup]?.archiveCount ?? 0n, size: data.actions[+BackupType.BackupIBackup]?.archiveSize ?? 0n }, matchingArchiveCount, matchingArchiveSize);
+	setSummary({ count: data.archiveCount - (data.actions[+BackupType.BackupIBackup]?.archiveCount ?? 0n), size: data.archiveSize - (data.actions[+BackupType.BackupIBackup]?.archiveSize ?? 0n) }, unmatchedArchiveCount, unmatchedArchiveSize);
+
+	setDownloadPath(path);
+	backupTable.classList.toggle("hidden", [
+		data.actions[+BackupType.BackupIBackup]?.backupCount ?? 0n,
+		data.backupCount,
+		data.actions[+BackupType.BackupIBackup]?.archiveCount,
+		data.archiveCount
+	].every(v => !v))
 });

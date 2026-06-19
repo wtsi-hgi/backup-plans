@@ -27,7 +27,6 @@ package ruletree
 
 import (
 	"maps"
-	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -36,7 +35,9 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/wtsi-hgi/backup-plans/db"
+	"github.com/wtsi-hgi/backup-plans/internal/backuptree"
 	"github.com/wtsi-hgi/backup-plans/internal/directories"
+	"github.com/wtsi-hgi/backup-plans/internal/memtree"
 	"github.com/wtsi-hgi/backup-plans/internal/plandb"
 	"github.com/wtsi-hgi/backup-plans/internal/testdb"
 	"github.com/wtsi-hgi/backup-plans/rules"
@@ -67,6 +68,18 @@ func TestRuletree(t *testing.T) {
 			})
 
 			root := newRoot(t, tdb)
+			bt := filepath.Join(t.TempDir(), "backups.db")
+
+			So(memtree.TreeToFile(backuptree.Generate(map[string]map[string]uint64{
+				"/some/path/MyDir/": {
+					"/a.txt": 1,
+					"/b.csv": 2,
+				},
+				"/some/path/YourDir/": {
+					"/a.txt": 999,
+				},
+			}), bt), ShouldBeNil)
+			So(root.SetBackupTree(bt), ShouldBeNil)
 
 			_, err := root.AddTree(treeDBPathA)
 			So(err, ShouldBeNil)
@@ -106,20 +119,24 @@ func TestRuletree(t *testing.T) {
 					ID: uint64(ruleList[0].Rule.ID()), //nolint:gosec
 					Users: RuleStats{
 						{
-							id:    1,
-							Name:  users.Username(1),
-							MTime: 6,
-							Files: 1,
-							Size:  5,
+							id:           1,
+							Name:         users.Username(1),
+							MTime:        6,
+							Files:        1,
+							Size:         5,
+							ArchiveFiles: 1,
+							ArchiveSize:  2,
 						},
 					},
 					Groups: RuleStats{
 						{
-							id:    2,
-							Name:  users.Group(2),
-							MTime: 6,
-							Files: 1,
-							Size:  5,
+							id:           2,
+							Name:         users.Group(2),
+							MTime:        6,
+							Files:        1,
+							Size:         5,
+							ArchiveFiles: 1,
+							ArchiveSize:  2,
 						},
 					},
 				},
@@ -127,26 +144,36 @@ func TestRuletree(t *testing.T) {
 					ID: uint64(ruleList[1].Rule.ID()), //nolint:gosec
 					Users: RuleStats{
 						{
-							id:    1,
-							Name:  users.Username(1),
-							MTime: 4,
-							Files: 1,
-							Size:  3,
+							id:           1,
+							Name:         users.Username(1),
+							MTime:        4,
+							Files:        1,
+							Size:         3,
+							ArchiveFiles: 1,
+							ArchiveSize:  1,
 						},
 					},
 					Groups: RuleStats{
 						{
-							id:    2,
-							Name:  users.Group(2),
-							MTime: 4,
-							Files: 1,
-							Size:  3,
+							id:           2,
+							Name:         users.Group(2),
+							MTime:        4,
+							Files:        1,
+							Size:         3,
+							ArchiveFiles: 1,
+							ArchiveSize:  1,
 						},
 					},
 				},
 				{
 					ID: uint64(ruleList[2].Rule.ID()), //nolint:gosec
 					Users: RuleStats{
+						{
+							id:           0,
+							Name:         users.Username(0),
+							ArchiveFiles: 1,
+							ArchiveSize:  999,
+						},
 						{
 							id:    21,
 							Name:  users.Username(21),
@@ -156,6 +183,12 @@ func TestRuletree(t *testing.T) {
 						},
 					},
 					Groups: RuleStats{
+						{
+							id:           0,
+							Name:         users.Group(0),
+							ArchiveFiles: 1,
+							ArchiveSize:  999,
+						},
 						{
 							id:    22,
 							Name:  users.Group(22),
@@ -195,34 +228,34 @@ func TestRuletree(t *testing.T) {
 						"MyDir/": {
 							RuleSummaries: []Rule{ruleExpectations[1], ruleExpectations[2]},
 							Children:      map[string]*DirSummary{},
-							User:          "root",
-							Group:         "root",
+							User:          users.Username(0),
+							Group:         users.Group(0),
 							LastMod:       6,
 						},
 						"YourDir/": {
 							RuleSummaries: []Rule{ruleExpectations[3]},
 							Children:      map[string]*DirSummary{},
-							User:          "root",
-							Group:         "root",
+							User:          users.Username(0),
+							Group:         users.Group(0),
 							LastMod:       16,
 						},
 						"OtherDir/": {
 							RuleSummaries: []Rule{ruleExpectations[0]},
 							Children:      map[string]*DirSummary{},
-							User:          "root",
-							Group:         "root",
+							User:          users.Username(0),
+							Group:         users.Group(0),
 							LastMod:       36,
 						},
 					},
-					User:    "root",
-					Group:   "root",
+					User:    users.Username(0),
+					Group:   users.Group(0),
 					LastMod: 36,
 				},
 				"/some/path/MyDir/": {
 					RuleSummaries: []Rule{ruleExpectations[1], ruleExpectations[2]},
 					Children:      map[string]*DirSummary{},
-					User:          "root",
-					Group:         "root",
+					User:          users.Username(0),
+					Group:         users.Group(0),
 					LastMod:       6,
 				},
 			}
@@ -608,10 +641,7 @@ func createTree(t *testing.T, node tree.Node) string {
 
 	treeDBPath := filepath.Join(t.TempDir(), "tree.db")
 
-	f, err := os.Create(treeDBPath)
-	So(err, ShouldBeNil)
-	So(tree.Serialise(f, node), ShouldBeNil)
-	So(f.Close(), ShouldBeNil)
+	So(memtree.TreeToFile(node, treeDBPath), ShouldBeNil)
 
 	return treeDBPath
 }

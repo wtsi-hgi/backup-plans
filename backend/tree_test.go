@@ -67,10 +67,13 @@ func TestTree(t *testing.T) {
 			)
 			So(code, ShouldEqual, http.StatusOK)
 			So(resp, ShouldEqual, "{\"User\":\""+user.Username+"\",\"Group\":\"root\",\"RuleSummaries\":[{\"ID\":0,\"Users\":["+
-				"{\"Name\":\"root\",\"MTime\":4,\"Files\":1,\"Size\":3},"+
-				"{\"Name\":\""+user.Username+"\",\"MTime\":6,\"Files\":1,\"Size\":5}],"+
+				"{\"Name\":\"root\",\"MTime\":4,\"Files\":1,\"Size\":3,"+
+				"\"BackupFiles\":0,\"BackupSize\":0,\"ArchiveFiles\":0,\"ArchiveSize\":0},"+
+				"{\"Name\":\""+user.Username+"\",\"MTime\":6,\"Files\":1,\"Size\":5,"+
+				"\"BackupFiles\":0,\"BackupSize\":0,\"ArchiveFiles\":0,\"ArchiveSize\":0}],"+
 				"\"Groups\":["+
-				"{\"Name\":\""+users.Group(2)+"\",\"MTime\":6,\"Files\":2,\"Size\":8}]}"+
+				"{\"Name\":\""+users.Group(2)+"\",\"MTime\":6,\"Files\":2,\"Size\":8,"+
+				"\"BackupFiles\":0,\"BackupSize\":0,\"ArchiveFiles\":0,\"ArchiveSize\":0}]}"+
 				"],\"Children\":{\"ChildToClaim/\":{\"User\":\""+user.Username+"\",\"Group\":\"root\","+
 				"\"ClaimedBy\":\"\",\"RuleSummaries\":[],\"Children\":{},\"LastMod\":0},"+
 				"\"ChildToNotClaim/\":{\"User\":\""+user.Username+"\",\"Group\":\"root\","+
@@ -103,13 +106,17 @@ func TestTree(t *testing.T) {
 			resp = re.ReplaceAllString(resp, "0")
 
 			So(resp, ShouldEqual, "{\"User\":\""+user.Username+"\",\"Group\":\"root\",\"RuleSummaries\":[{\"ID\":0,\"Users\":["+
-				"{\"Name\":\""+user.Username+"\",\"MTime\":6,\"Files\":1,\"Size\":5}"+
+				"{\"Name\":\""+user.Username+"\",\"MTime\":6,\"Files\":1,\"Size\":5,\"BackupFiles\":0,"+
+				"\"BackupSize\":0,\"ArchiveFiles\":0,\"ArchiveSize\":0}"+
 				"],\"Groups\":["+
-				"{\"Name\":\""+users.Username(2)+"\",\"MTime\":6,\"Files\":1,\"Size\":5}]},"+
+				"{\"Name\":\""+users.Username(2)+"\",\"MTime\":6,\"Files\":1,\"Size\":5,\"BackupFiles\":0,"+
+				"\"BackupSize\":0,\"ArchiveFiles\":0,\"ArchiveSize\":0}]},"+
 				"{\"ID\":1,\"Users\":["+
-				"{\"Name\":\"root\",\"MTime\":4,\"Files\":1,\"Size\":3}"+
+				"{\"Name\":\"root\",\"MTime\":4,\"Files\":1,\"Size\":3,\"BackupFiles\":0,\"BackupSize\":0,"+
+				"\"ArchiveFiles\":0,\"ArchiveSize\":0}"+
 				"],\"Groups\":["+
-				"{\"Name\":\""+users.Group(2)+"\",\"MTime\":4,\"Files\":1,\"Size\":3}]}"+
+				"{\"Name\":\""+users.Group(2)+"\",\"MTime\":4,\"Files\":1,\"Size\":3,\"BackupFiles\":0,"+
+				"\"BackupSize\":0,\"ArchiveFiles\":0,\"ArchiveSize\":0}]}"+
 				"],\"Children\":{\"ChildToClaim/\":{\"User\":\""+user.Username+"\",\"Group\":\"root\","+
 				"\"ClaimedBy\":\"\",\"RuleSummaries\":[],\"Children\":{},\"LastMod\":0},"+
 				"\"ChildToNotClaim/\":{\"User\":\""+user.Username+"\",\"Group\":\"root\","+

@@ -40,12 +40,12 @@ import (
 	"github.com/wtsi-hgi/backup-plans/config"
 	lconfig "github.com/wtsi-hgi/backup-plans/internal/config"
 	"github.com/wtsi-hgi/backup-plans/internal/directories"
+	"github.com/wtsi-hgi/backup-plans/internal/memtree"
 	"github.com/wtsi-hgi/backup-plans/internal/plandb"
 	"github.com/wtsi-hgi/backup-plans/internal/testirods"
 	"github.com/wtsi-hgi/backup-plans/users"
 	"github.com/wtsi-hgi/ibackup/fofn"
 	"github.com/wtsi-hgi/ibackup/set"
-	"vimagination.zapto.org/tree"
 )
 
 type userHandler string
@@ -348,7 +348,7 @@ func TestRules(t *testing.T) {
 						nil,
 					)
 					So(code, ShouldEqual, http.StatusOK)
-					So(resp, ShouldStartWith, `{"User":"`+currUser.Username+`","Group":"root","RuleSummaries":[{"ID":1,"Users":[{"Name":"`+currUser.Username+`","MTime":36,"Files":1,"Size":35}],"Groups":[{"Name":"`+secondGroup.Name+`","MTime":36,"Files":1,"Size":35}]}],"Children":{},"LastMod":36,"ClaimedBy":"root","Rules":{"/some/path/ChildDir/Child/":{"1":{"ID":1,"DirectoryID":1,"BackupType":`+strconv.Itoa(n)+`,"Metadata":"","Match":"*","Override":false`) //nolint:lll
+					So(resp, ShouldStartWith, `{"User":"`+currUser.Username+`","Group":"root","RuleSummaries":[{"ID":1,"Users":[{"Name":"`+currUser.Username+`","MTime":36,"Files":1,"Size":35,"BackupFiles":0,"BackupSize":0,"ArchiveFiles":0,"ArchiveSize":0}],"Groups":[{"Name":"`+secondGroup.Name+`","MTime":36,"Files":1,"Size":35,"BackupFiles":0,"BackupSize":0,"ArchiveFiles":0,"ArchiveSize":0}]}],"Children":{},"LastMod":36,"ClaimedBy":"root","Rules":{"/some/path/ChildDir/Child/":{"1":{"ID":1,"DirectoryID":1,"BackupType":`+strconv.Itoa(n)+`,"Metadata":"","Match":"*","Override":false`) //nolint:lll
 				})
 			}
 		})
@@ -368,11 +368,8 @@ func TestMelt(t *testing.T) {
 			tr := plandb.ExampleTree()
 
 			treeFile := filepath.Join(t.TempDir(), "tree.db")
-			f, err := os.Create(treeFile)
-			So(err, ShouldBeNil)
 
-			So(tree.Serialise(f, tr), ShouldBeNil)
-			So(f.Close(), ShouldBeNil)
+			So(memtree.TreeToFile(tr, treeFile), ShouldBeNil)
 
 			cfg := filepath.Join(t.TempDir(), "config.yaml")
 			fofnDir := t.TempDir()
@@ -467,10 +464,7 @@ func createTestTree(t *testing.T) string {
 
 	treeDBPath := filepath.Join(t.TempDir(), "a.db")
 
-	f, err := os.Create(treeDBPath)
-	So(err, ShouldBeNil)
-	So(tree.Serialise(f, treeDB), ShouldBeNil)
-	So(f.Close(), ShouldBeNil)
+	So(memtree.TreeToFile(treeDB, treeDBPath), ShouldBeNil)
 
 	return treeDBPath
 }

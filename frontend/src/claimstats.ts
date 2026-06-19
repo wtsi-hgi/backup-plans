@@ -1,13 +1,14 @@
+import type { SetBackupActivity, DirStats, RuleInfo } from "./types.js";
+import { amendNode, clearNode } from "./lib/dom.js";
 import { div, h2, p, button, table, thead, tbody, th, td, tr, fieldset, legend, input, datalist, option } from "./lib/html.js";
-import { getClaimStats, user } from "./rpc.js";
+import { svg, use } from './lib/svg.js';
 import { formatBytes, longAgoStr, createSpinner } from "./lib/utils.js";
+import BackupTable from "./backups.js";
 import { BackupType, ibackupStatusColumns } from "./consts.js";
 import { load } from './load.js';
-import { amendNode, clearNode } from "./lib/dom.js";
-import { users, groups, bomSet } from './userGroups.js';
-import type { SetBackupActivity, DirStats, RuleInfo } from "./types.js";
-import { svg, use } from './lib/svg.js';
+import { getClaimStats, user } from "./rpc.js";
 import { setState } from "./state.js";
+import { users, groups, bomSet } from './userGroups.js';
 
 const base = div({ "class": "main-container" });
 const container = div();
@@ -61,7 +62,7 @@ function prepareData(dirStats: DirStats) {
     const iBackupSba = Object.values(dirStats.BackupStatus).find(sba => sba.Name.startsWith("plan::"));
 
     if (iBackupSba !== undefined) {
-        backupMap.set(iBackupSba!.Name, iBackupSba!)
+        backupMap.set(iBackupSba!.Name, iBackupSba!);
     }
 
     for (const rule of dirStats.RuleStats) {
@@ -71,12 +72,12 @@ function prepareData(dirStats: DirStats) {
         }
 
         const backuptype = BackupType.from(rule.BackupType);
-        let backupName = "-"
+        let backupName = "-";
 
         if (BackupType.manual.includes(backuptype)) {
             backupName = rule.Metadata
         } else if (backuptype === BackupType.BackupIBackup) {
-            backupName = iBackupSba!.Name
+            backupName = iBackupSba!.Name;
         }
 
         makeRow(rowMap, backupMap, rule, backupName)
@@ -117,12 +118,12 @@ function makeRow(rowMap: Map<string, Map<string, row>>, backupMap: Map<string, S
             backup: btype,
             name: backupName,
             sba: backupMap.get(backupName)!,
-        })
+        });
 
-        return
+        return;
     }
 
-    const row = rMap!.get(backupName)!
+    const row = rMap!.get(backupName)!;
     row.matches.push(rule.Match);
     row.size += BigInt(rule.size);
     row.count += BigInt(rule.count);
@@ -167,7 +168,7 @@ function getStatusTd(lastMod: number, row: row) {
                 }, sba.Failures > 0 ? svg(use({ "href": "#crossIcon" })) : svg(use({ "href": "#tickIcon" }))
                 )
             ]
-    ]
+    ];
 }
 
 function buildTableRow(dirStats: DirStats, row: row) {
@@ -184,7 +185,7 @@ function buildTableRow(dirStats: DirStats, row: row) {
         td(row.backup),
         td(row.name),
         getStatusTd(dirStats.LastMod, row)
-    ])
+    ]);
 }
 
 function createClaimStatsSection() {
@@ -193,11 +194,36 @@ function createClaimStatsSection() {
     page.appendChild(spinner);
 
     getClaimStats(filter.user, filter.groupbom).then(claimstats => {
-        page.replaceChildren(...claimstats.length > 0 ? claimstats.map((dirStats) => {
+        page.replaceChildren(...claimstats.length > 0 ? claimstats.map(dirStats => {
             if (!users.has(dirStats.ClaimedBy)) {
                 users.add(dirStats.ClaimedBy);
                 userList.append(option({ "label": "User: " + dirStats.ClaimedBy }, dirStats.ClaimedBy));
             };
+
+            const backups = dirStats.RuleStats.reduce((o, e) => {
+                if (+e.BackupType === +BackupType.BackupIBackup) {
+                    o.MatchedBackupFiles += BigInt(e.backupCount);
+                    o.MatchedBackupSize += BigInt(e.backupSize);
+                    o.MatchedArchiveFiles += BigInt(e.archiveCount);
+                    o.MatchedArchiveSize += BigInt(e.archiveSize);
+                } else {
+                    o.UnmatchedBackupFiles += BigInt(e.backupCount);
+                    o.UnmatchedBackupSize += BigInt(e.backupSize);
+                    o.UnmatchedArchiveFiles += BigInt(e.archiveCount);
+                    o.UnmatchedArchiveSize += BigInt(e.archiveSize);
+                }
+
+                return o;
+            }, {
+                MatchedBackupFiles: 0n,
+                MatchedBackupSize: 0n,
+                MatchedArchiveFiles: 0n,
+                MatchedArchiveSize: 0n,
+                UnmatchedBackupFiles: 0n,
+                UnmatchedBackupSize: 0n,
+                UnmatchedArchiveFiles: 0n,
+                UnmatchedArchiveSize: 0n
+            });
 
             return fieldset({ "class": "userclaims", "data-user": dirStats.ClaimedBy, "data-group": dirStats.Group }, [
                 legend({ "class": "claimstats-legend" }, [h2({
@@ -207,7 +233,7 @@ function createClaimStatsSection() {
                     }).catch((e: Error) => {
                         alert("Error: " + e.message);
                     })
-                }, dirStats.Path),]),
+                }, dirStats.Path)]),
                 div([
                     div({ "class": "claiminfo" }, [
                         (filter.groupbom !== "" && filter.user === "") ? p("Claimed by: " + dirStats.ClaimedBy) : []
@@ -228,14 +254,28 @@ function createClaimStatsSection() {
                             ]) : tr(td({ "colspan": "7" }, "No rules matching files added to this directory."))
                         ])
                     ]),
+                    backups.MatchedArchiveFiles || backups.MatchedBackupFiles || backups.UnmatchedArchiveFiles || backups.UnmatchedBackupFiles ?
+                        BackupTable(
+                            dirStats.Path,
+                            backups.MatchedBackupFiles,
+                            backups.MatchedBackupSize,
+                            backups.MatchedArchiveFiles,
+                            backups.MatchedArchiveSize,
+                            backups.UnmatchedBackupFiles,
+                            backups.UnmatchedBackupSize,
+                            backups.UnmatchedArchiveFiles,
+                            backups.UnmatchedArchiveSize,
+                            true
+                        )[0]
+                        : []
                 ])
             ])
         }) : [h2("No claimed directories.")]);
     }).catch((e: Error) => {
         alert("Error: " + e.message);
-    })
+    });
 
-    return page
+    return page;
 };
 
 const userList = datalist({ "id": "claimstatsUsers" });
@@ -249,7 +289,7 @@ function filterClaimStats() {
     if (filter.user !== "" || filter.groupbom !== "") {
         setState("csUser", filter.user);
         setState("csGroupBom", filter.groupbom);
-        updateClaimStats()
+        updateClaimStats();
     } else {
         alert("Please enter a user and/or group to filter by.");
     }
@@ -281,5 +321,6 @@ function createFilterSection() {
     ]);
 }
 
-initialiseClaimStats()
-export default base
+initialiseClaimStats();
+
+export default base;

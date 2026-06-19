@@ -63,7 +63,7 @@ func (r *Rule) writeTo(sw *byteio.StickyLittleEndianWriter) {
 // RuleStats represents the stats for a list of users or groups.
 type RuleStats []Stats
 
-func (r *RuleStats) add(id uint32, mtime, count, size uint64) {
+func (r *RuleStats) add(id uint32, mtime, count, size, bcount, bsize, acount, asize uint64) {
 	newStats := Stats{
 		id: id,
 	}
@@ -78,28 +78,153 @@ func (r *RuleStats) add(id uint32, mtime, count, size uint64) {
 	(*r)[pos].MTime = max((*r)[pos].MTime, mtime)
 	(*r)[pos].Files += count
 	(*r)[pos].Size += size
+	(*r)[pos].BackupFiles += bcount
+	(*r)[pos].BackupSize += bsize
+	(*r)[pos].ArchiveFiles += acount
+	(*r)[pos].ArchiveSize += asize
 }
 
-type File struct {
-	UID, GID uint32
-	MTime    uint64
-	Size     uint64
+type treeFile struct {
+	HasFile, HasBackup, HasArchive uint64
+	UID, GID                       uint32
+	MTime                          uint64
+	Size                           uint64
+	BackupSize                     uint64
+	ArchiveSize                    uint64
 }
 
-// ReadFileStats reads the data for a file.
-func ReadFileStats(f *tree.MemTree) File {
-	var file File
+func (t *treeFile) readFrom(lr byteio.MemLittleEndian) {
+	if len(lr) == 0 {
+		return
+	}
 
-	file.readFrom(byteio.MemLittleEndian(f.Data()))
-
-	return file
+	t.HasFile = 1
+	t.UID = uint32(lr.ReadUintX()) //nolint:gosec
+	t.GID = uint32(lr.ReadUintX()) //nolint:gosec
+	t.MTime = lr.ReadUintX()
+	t.Size = lr.ReadUintX()
 }
 
-func (f *File) readFrom(lr byteio.MemLittleEndian) {
-	f.UID = uint32(lr.ReadUintX()) //nolint:gosec
-	f.GID = uint32(lr.ReadUintX()) //nolint:gosec
-	f.MTime = lr.ReadUintX()
-	f.Size = lr.ReadUintX()
+func (t *treeFile) readBackupDataFrom(lr byteio.MemLittleEndian) {
+	if len(lr) == 0 {
+		return
+	}
+
+	size := lr.ReadUintX()
+
+	if lr.ReadBool() {
+		t.HasBackup = 1
+		t.BackupSize = size
+	} else {
+		t.HasArchive = 1
+		t.ArchiveSize = size
+	}
+}
+
+type treeNode struct {
+	lowerNode, upperNode, backups *tree.MemTree
+}
+
+func (t *treeNode) Owner() (uint32, uint32) {
+	sr := byteio.MemLittleEndian(t.lowerNode.Data())
+
+	return uint32(sr.ReadUintX()), uint32(sr.ReadUintX()) //nolint:gosec
+}
+
+type multiIter struct {
+	t                            *treeNode
+	nextChild, nextBackup        func() (string, tree.Node, bool)
+	childName, backupName        string
+	childNode, backupNode, upper *tree.MemTree
+	childOK, backupOK            bool
+	updateChild, updateBackup    bool
+}
+
+func (m *multiIter) Next() bool {
+	if !m.childOK && !m.backupOK {
+		return false
+	}
+
+	if m.updateChild {
+		m.updateChild = false
+		m.childName, m.childNode, m.childOK = nextNode(m.nextChild)
+
+		if m.childOK {
+			u, _ := m.t.upperNode.Child(m.childName) //nolint:errcheck
+			m.upper = cmp.Or(u, &emptyNode)
+		}
+	}
+
+	if m.updateBackup {
+		m.updateBackup = false
+		m.backupName, m.backupNode, m.backupOK = nextNode(m.nextBackup)
+	}
+
+	return m.childOK || m.backupOK
+}
+
+func (m *multiIter) buildTreeNode() (string, treeNode) {
+	var (
+		tn   = treeNode{&emptyNode, &emptyNode, &emptyNode}
+		name string
+		n    int
+	)
+
+	if m.childOK && m.backupOK {
+		n = strings.Compare(m.childName, m.backupName)
+	}
+
+	if m.childOK && n != 1 {
+		name = m.childName
+		tn.lowerNode = m.childNode
+		tn.upperNode = m.upper
+		m.updateChild = true
+	}
+
+	if m.backupOK && n != -1 {
+		name = m.backupName
+		tn.backups = m.backupNode
+		m.updateBackup = true
+	}
+
+	return name, tn
+}
+
+func (t *treeNode) Children() iter.Seq2[string, treeNode] {
+	return func(yield func(string, treeNode) bool) {
+		nextChild, childStop := iter.Pull2(t.lowerNode.Children())
+		nextBackup, backupStop := iter.Pull2(t.backups.Children())
+
+		defer backupStop()
+		defer childStop()
+
+		mi := multiIter{
+			t:         t,
+			nextChild: nextChild, nextBackup: nextBackup,
+			childOK: true, backupOK: true,
+			updateChild: true, updateBackup: true,
+		}
+
+		for mi.Next() {
+			if !yield(mi.buildTreeNode()) {
+				break
+			}
+		}
+	}
+}
+
+func nextNode(next func() (string, tree.Node, bool)) (string, *tree.MemTree, bool) {
+	name, node, ok := next()
+
+	if ok {
+		return name, node.(*tree.MemTree), ok //nolint:errcheck,forcetypeassert
+	}
+
+	return "", nil, false
+}
+
+func (t *treeNode) HasUpper() bool {
+	return t.upperNode != &emptyNode
 }
 
 // ruleProcessor does the actual processing of the rules on a tree DB.
@@ -159,34 +284,28 @@ type ruleProcessor struct {
 	children []namedNode
 }
 
-func (r *ruleProcessor) process(lowerNode, upperNode *tree.MemTree, sm State, pwg *sync.WaitGroup) {
+func (r *ruleProcessor) process(node treeNode, sm State, pwg *sync.WaitGroup) {
 	defer pwg.Done()
 
 	var wg sync.WaitGroup
 
-	sr := byteio.MemLittleEndian(lowerNode.Data())
+	r.UID, r.GID = node.Owner()
 
-	r.UID = uint32(sr.ReadUintX()) //nolint:gosec
-	r.GID = uint32(sr.ReadUintX()) //nolint:gosec
-
-	for name, child := range lowerNode.Children() {
-		lowerChild := child.(*tree.MemTree) //nolint:errcheck,forcetypeassert
+	for name, child := range node.Children() {
+		state := sm.GetStateString(name)
 
 		if !strings.HasSuffix(name, "/") {
-			r.processFile(sm, name, lowerChild.Data())
+			r.processFile(state, child)
 
 			continue
 		}
 
-		upperChild, _ := upperNode.Child(name) //nolint:errcheck
-		state := sm.GetStateString(name)
-
 		if ruleID := *state.GetGroup(); ruleID == processRules { //nolint:nestif
-			r.processDir(name, state, lowerChild, upperChild, &wg)
+			r.processDir(name, state, child, &wg)
 		} else if ruleID < 0 {
-			r.copyUpperOrAddLower(name, -ruleID-1, lowerChild, upperChild)
+			r.copyUpperOrAddLower(name, -ruleID-1, child)
 		} else {
-			r.addLower(ruleID, lowerChild)
+			r.addLower(ruleID, child)
 		}
 	}
 
@@ -203,25 +322,21 @@ func (r *ruleProcessor) waitForChildren(wg *sync.WaitGroup) {
 	}
 }
 
-func (r *ruleProcessor) processFile(sm State, name string, data []byte) {
-	var f File
+func (r *ruleProcessor) processFile(sm State, file treeNode) {
+	var t treeFile
 
-	f.readFrom(data)
+	t.readFrom(file.lowerNode.Data())
+	t.readBackupDataFrom(file.backups.Data())
 
 	var ruleID int64
 
-	if rule := sm.GetStateString(name).GetGroup(); rule != nil {
+	if rule := sm.GetGroup(); rule != nil {
 		ruleID = *rule
 	}
 
-	r.setRule(ruleID, &f)
-}
-
-func (r *ruleProcessor) setRule(ruleID int64, f *File) {
 	pos := r.getRulePos(ruleID)
-
-	r.Rules[pos].Users.add(f.UID, f.MTime, 1, f.Size)
-	r.Rules[pos].Groups.add(f.GID, f.MTime, 1, f.Size)
+	r.Rules[pos].Users.add(t.UID, t.MTime, t.HasFile, t.Size, t.HasBackup, t.BackupSize, t.HasArchive, t.ArchiveSize)
+	r.Rules[pos].Groups.add(t.GID, t.MTime, t.HasFile, t.Size, t.HasBackup, t.BackupSize, t.HasArchive, t.ArchiveSize)
 }
 
 func (r *ruleProcessor) getRulePos(ruleID int64) int {
@@ -237,16 +352,14 @@ func (r *ruleProcessor) getRulePos(ruleID int64) int {
 	return pos
 }
 
-func (r *ruleProcessor) processDir(name string, state State,
-	lowerChild, upperChild *tree.MemTree, wg *sync.WaitGroup,
-) {
+func (r *ruleProcessor) processDir(name string, state State, child treeNode, wg *sync.WaitGroup) {
 	c := &ruleProcessor{}
 
 	r.children = append(r.children, namedNode{name: name, Node: c})
 
 	wg.Add(1)
 
-	go c.process(lowerChild, cmp.Or(upperChild, &emptyNode), state, wg)
+	go c.process(child, state, wg)
 }
 
 func (r *ruleProcessor) mergeChild(child *ruleProcessor) {
@@ -254,72 +367,98 @@ func (r *ruleProcessor) mergeChild(child *ruleProcessor) {
 		pos := r.getRulePos(int64(rule.ID)) //nolint:gosec
 
 		for _, user := range rule.Users {
-			r.Rules[pos].Users.add(user.id, user.MTime, user.Files, user.Size)
+			r.Rules[pos].Users.add(user.id, user.MTime, user.Files, user.Size,
+				user.BackupFiles, user.BackupSize, user.ArchiveFiles, user.ArchiveSize)
 		}
 
 		for _, group := range rule.Groups {
-			r.Rules[pos].Groups.add(group.id, group.MTime, group.Files, group.Size)
+			r.Rules[pos].Groups.add(group.id, group.MTime, group.Files, group.Size,
+				group.BackupFiles, group.BackupSize, group.ArchiveFiles, group.ArchiveSize)
 		}
 	}
 }
 
-func (r *ruleProcessor) copyUpperOrAddLower(name string, wildcard int64,
-	lowerChild, upperChild *tree.MemTree,
-) {
-	if upperChild == nil {
-		r.addLower(wildcard, lowerChild)
+func (r *ruleProcessor) copyUpperOrAddLower(name string, wildcard int64, child treeNode) {
+	if !child.HasUpper() {
+		r.addLower(wildcard, child)
 
 		return
 	}
 
-	sr := byteio.MemLittleEndian(upperChild.Data())
+	sr := byteio.MemLittleEndian(child.upperNode.Data())
 
 	sr.ReadUintX()
 	sr.ReadUintX()
 
 	for range sr.ReadUintX() {
 		ruleID := sr.ReadUintX()
+		rulePos := r.getRulePos(int64(ruleID)) //nolint:gosec
 
-		readArray(&sr, int64(ruleID), r.addUserData)  //nolint:gosec
-		readArray(&sr, int64(ruleID), r.addGroupData) //nolint:gosec
+		readArray(&sr, rulePos, r.addUserData)
+		readArray(&sr, rulePos, r.addGroupData)
 	}
 
-	r.children = append(r.children, namedNode{name: name, Node: upperChild})
+	r.children = append(r.children, namedNode{name: name, Node: child.upperNode})
 }
 
-func readArray(sr *byteio.MemLittleEndian, ruleID int64, fn func(uint32, int64, uint64, uint64, uint64)) {
+func readArray(sr *byteio.MemLittleEndian, rulePos int,
+	fn func(uint32, int, uint64, uint64, uint64, uint64, uint64, uint64, uint64)) {
 	for range sr.ReadUintX() {
 		id := uint32(sr.ReadUintX()) //nolint:gosec
 		mtime := sr.ReadUintX()
-		files := sr.ReadUintX()
+		count := sr.ReadUintX()
 		size := sr.ReadUintX()
+		backupCount := sr.ReadUintX()
+		backupSize := sr.ReadUintX()
+		archiveCount := sr.ReadUintX()
+		archiveSize := sr.ReadUintX()
 
-		fn(id, ruleID, mtime, files, size)
+		fn(id, rulePos, mtime, count, size, backupCount, backupSize, archiveCount, archiveSize)
 	}
 }
 
-func (r *ruleProcessor) addUserData(uid uint32, ruleID int64, mtime, files, size uint64) {
-	pos := r.getRulePos(ruleID)
-
-	r.Rules[pos].Users.add(uid, mtime, files, size)
+func (r *ruleProcessor) addUserData(uid uint32, rulePos int, mtime, files, size, bFiles, bSize, aFiles, aSize uint64) {
+	r.Rules[rulePos].Users.add(uid, mtime, files, size, bFiles, bSize, aFiles, aSize)
 }
 
-func (r *ruleProcessor) addGroupData(gid uint32, ruleID int64, mtime, files, size uint64) {
-	pos := r.getRulePos(ruleID)
-
-	r.Rules[pos].Groups.add(gid, mtime, files, size)
+func (r *ruleProcessor) addGroupData(gid uint32, rulePos int, mtime, files, size, bFiles, bSize, aFiles, aSize uint64) {
+	r.Rules[rulePos].Groups.add(gid, mtime, files, size, bFiles, bSize, aFiles, aSize)
 }
 
-func (r *ruleProcessor) addLower(ruleID int64, lowerChild *tree.MemTree) {
-	sr := byteio.MemLittleEndian(lowerChild.Data())
+func (r *ruleProcessor) addLower(ruleID int64, child treeNode) { //nolint:funlen
+	sr := byteio.MemLittleEndian(child.lowerNode.Data())
 
-	sr.ReadUintX()
-	sr.ReadUintX()
+	uid := uint32(sr.ReadUintX()) //nolint:gosec
+	gid := uint32(sr.ReadUintX()) //nolint:gosec
 	sr.ReadUint8()
 	sr.ReadUint8()
 
-	readArray(&sr, ruleID, r.addUserData)
-	readArray(&sr, ruleID, r.addGroupData)
+	rulePos := -1
+
+	if len(sr) > 0 {
+		rulePos = r.getRulePos(ruleID)
+
+		readArray(&sr, rulePos, r.addUserData)
+		readArray(&sr, rulePos, r.addGroupData)
+	}
+
+	sr = child.backups.Data()
+
+	if len(sr) == 0 {
+		return
+	}
+
+	if rulePos == -1 {
+		rulePos = r.getRulePos(ruleID)
+	}
+
+	backupSize := sr.ReadUintX()
+	backupCount := sr.ReadUintX()
+	archiveSize := sr.ReadUintX()
+	archiveCount := sr.ReadUintX()
+
+	r.addUserData(uid, rulePos, 0, 0, 0, backupCount, backupSize, archiveCount, archiveSize)
+	r.addGroupData(gid, rulePos, 0, 0, 0, backupCount, backupSize, archiveCount, archiveSize)
 }
 
 func (r *ruleProcessor) WriteTo(w io.Writer) (int64, error) {

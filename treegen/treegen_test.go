@@ -169,6 +169,7 @@ func readArray(lr *byteio.StickyLittleEndianReader) []treegen.IDData {
 		idts[n].MTime = lr.ReadUintX()
 		idts[n].Files = lr.ReadUintX()
 		idts[n].Bytes = lr.ReadUintX()
+		lr.ReadUint32()
 	}
 
 	return idts
