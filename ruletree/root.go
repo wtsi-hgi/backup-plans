@@ -517,7 +517,6 @@ func (r *RootDir) buildNewRoots(db *tree.MemTree) (map[string]rulesAndWildcards,
 		}
 
 		processed, wcs, err := r.processRules(tree.db, db, rootPath)
-
 		if err != nil {
 			return nil, err
 		}
