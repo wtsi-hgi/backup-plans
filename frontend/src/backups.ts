@@ -31,7 +31,7 @@ export default (
 						"Matching",
 						span({ "data-tooltip": "Files that were automatically backed up and are matched by current rules." }, svg(use({ "href": "#helpIcon" }))),
 						button({ "click": () => a({ "href": "api/report/files?matching=1&dir=" + encodeURIComponent(path) + (single ? "&single=1" : "") }).click() }, svg([
-							title("Download TSV"),
+							title("Download CSV"),
 							use({ "href": "#downloadFile" })
 						]))
 					]),
@@ -39,7 +39,7 @@ export default (
 						"Unmatched",
 						span({ "data-tooltip": "Files that were automatically backed up but are not matched by current rules." }, svg(use({ "href": "#helpIcon" }))),
 						button({ "click": () => a({ "href": "api/report/files?dir=" + encodeURIComponent(path) + (single ? "&single=1" : "") }).click() }, svg([
-							title("Download TSV"),
+							title("Download CSV"),
 							use({ "href": "#downloadFile" })
 						]))
 					])

@@ -508,10 +508,15 @@ func (r *RootDir) SetBackupTree(file string) error {
 func (r *RootDir) buildNewRoots(db *tree.MemTree) (map[string]rulesAndWildcards, error) {
 	newRoots := make(map[string]rulesAndWildcards)
 
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
 	for rootPath, tree := range r.trees {
-		r.mu.RLock()
+		if rootPath == "" {
+			continue
+		}
+
 		processed, wcs, err := r.processRules(tree.db, db, rootPath)
-		r.mu.RUnlock()
 
 		if err != nil {
 			return nil, err

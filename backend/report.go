@@ -339,7 +339,7 @@ func (s *Server) collectRules(dirSummary *summary, dir string) {
 // returns all backed up files under the specified directory that don't match
 // current rules.
 //
-// If the 'matching' argument is not empty, it will returns files that match
+// If the 'matching' argument is not empty, it will return files that match
 // current rules.
 //
 // If the `single` argument is not empty, it will only return files that were

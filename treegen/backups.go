@@ -57,7 +57,7 @@ func newBackupTree() *backupTree {
 }
 
 // AddCollection searches iRODS for files backed up by Backup Plans with the
-// given remove collection.
+// given remote collection.
 //
 // The transformer is used to reverse engineer the local path from metadata on
 // the files.
@@ -132,7 +132,7 @@ func backedupScanner(s iiter.Scanner) (*backedupFile, error) {
 // the server subcommand).
 //
 // The tree returned contains the reverse-engineered local paths of the backup
-// up filed.
+// up files.
 //
 // Each file node contains the size and a boolean that indicates whether or not
 // the file exists locally.
@@ -146,7 +146,7 @@ func backedupScanner(s iiter.Scanner) (*backedupFile, error) {
 //
 // A claimed directory, in addition, contains the following data:
 //
-//	Remove Collection Path
+//	Remote Collection Path
 //	Collection Tree
 //
 // The collection tree is a treedb containing only the files that exist for that
