@@ -505,7 +505,7 @@ func (r *RootDir) SetBackupTree(file string) error {
 	return nil
 }
 
-func (r *RootDir) buildNewRoots(db *tree.MemTree) (map[string]rulesAndWildcards, error) {
+func (r *RootDir) buildNewRoots(backupDB *tree.MemTree) (map[string]rulesAndWildcards, error) {
 	newRoots := make(map[string]rulesAndWildcards)
 
 	r.mu.RLock()
@@ -516,7 +516,9 @@ func (r *RootDir) buildNewRoots(db *tree.MemTree) (map[string]rulesAndWildcards,
 			continue
 		}
 
-		processed, wcs, err := r.processRules(tree.db, db, rootPath)
+		root, _ := tree.db.Child(rootPath) //nolint:errcheck
+
+		processed, wcs, err := r.processRules(root, backupDB, rootPath)
 		if err != nil {
 			return nil, err
 		}
@@ -609,7 +611,7 @@ func getBackupDir(backups *tree.MemTree, dir string) *tree.MemTree {
 	return backups
 }
 
-func (r *RootDir) processRules(treeRoot, backups *tree.MemTree, rootPath string) (*ruleOverlay,
+func (r *RootDir) processRules(treeRoot, backupDB *tree.MemTree, rootPath string) (*ruleOverlay,
 	group.StateMachine[int64], error) {
 	sm, wcs, err := generateStatemachineFor(rootPath, nil, r.rules)
 	if err != nil {
@@ -626,7 +628,7 @@ func (r *RootDir) processRules(treeRoot, backups *tree.MemTree, rootPath string)
 	rd.process(treeNode{
 		treeRoot,
 		&emptyNode,
-		getBackupDir(backups, rootPath),
+		getBackupDir(backupDB, rootPath),
 	}, sm.GetStateString(rootPath), &wg)
 
 	processed, err := memtree.InMemory(&rd)

@@ -162,6 +162,67 @@ func TestRoot(t *testing.T) {
 				So(newRoot.claimed, ShouldResemble, expectation)
 			})
 		})
+
+		Convey("Adding a backup DB after loading tree DBs correctly processes rules", func() {
+			So(root.ClaimDirectory("/some/path/MyDir/", "me"), ShouldBeNil)
+
+			expected := map[string]*DirSummary{
+				"/some/path/MyDir/": {
+					User:      "root",
+					Group:     "root",
+					ClaimedBy: "me",
+					RuleSummaries: []Rule{
+						{
+							Users: RuleStats{
+								{
+									Name:  "root",
+									MTime: 6,
+									Files: 2,
+									Size:  8,
+								},
+							},
+							Groups: RuleStats{
+								{
+									Name:  "root",
+									MTime: 6,
+									Files: 2,
+									Size:  8,
+								},
+							},
+						},
+					},
+					Children: map[string]*DirSummary{},
+					LastMod:  6,
+				},
+			}
+
+			So(root.claimed, ShouldResemble, expected)
+
+			bt := filepath.Join(t.TempDir(), "backups.db")
+
+			So(memtree.TreeToFile(backuptree.Generate(map[string]map[string]uint64{
+				"/some/path/MyDir/": {
+					"/a.txt": 1,
+					"/b.csv": 2,
+				},
+				"/some/path/MyDir/more/": {
+					"/another.txt": 5,
+				},
+				"/some/path/YourDir/": {
+					"/a.txt":     999,
+					"/dir/b.txt": 1234,
+				},
+			}), bt), ShouldBeNil)
+			So(root.SetBackupTree(bt), ShouldBeNil)
+
+			rules := expected["/some/path/MyDir/"].RuleSummaries[0]
+			rules.Users[0].ArchiveFiles = 3
+			rules.Users[0].ArchiveSize = 8
+			rules.Groups[0].ArchiveFiles = 3
+			rules.Groups[0].ArchiveSize = 8
+
+			So(root.claimed, ShouldResemble, expected)
+		})
 	})
 }
 
