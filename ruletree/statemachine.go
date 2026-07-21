@@ -392,6 +392,10 @@ func (r *RuleTree) resolveSlashes() { //nolint:gocognit,gocyclo,funlen
 
 		newMatch := match[slash+1:]
 
+		if changed {
+			curr.Dir |= RulesChanged
+		}
+
 		if _, ok := curr.Rules[newMatch]; !ok {
 			curr.Rules[newMatch] = rule
 		}
@@ -684,8 +688,7 @@ func addNoRuleRules(rules Rules, path string, dirState dirState, wildcard int64)
 	return addRuleToList(rules, path, process)
 }
 
-func addSimpleWildcardRules(rules Rules, path string, dirState dirState,
-	wildcard int64) Rules {
+func addSimpleWildcardRules(rules Rules, path string, dirState dirState, wildcard int64) Rules {
 	if dirState&RulesChanged != 0 { //nolint:nestif
 		if dirState&HasChildWithRules != 0 {
 			return addRuleToList(addRuleToList(rules, path, processRules), path+"*/", wildcard)
@@ -699,8 +702,7 @@ func addSimpleWildcardRules(rules Rules, path string, dirState dirState,
 	return addRuleToList(rules, path, -wildcard-1)
 }
 
-func addSimpleRules(rules Rules, path string, dirState dirState,
-	wildcard int64) Rules {
+func addSimpleRules(rules Rules, path string, dirState dirState, wildcard int64) Rules {
 	if dirState&RulesChanged != 0 {
 		return addRuleToList(addRuleToList(rules, path, processRules), path+"*/", wildcard)
 	} else if dirState&HasChildWithChangedRules != 0 {
