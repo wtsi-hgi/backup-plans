@@ -636,22 +636,27 @@ func TestRuletree(t *testing.T) {
 
 			So(ruleIDCount(t, root, "/path/temp/base/"), ShouldResemble, map[uint64]uint64{0: 4})
 			So(ruleIDCount(t, root, "/path/temp/base/b/"), ShouldResemble, map[uint64]uint64{0: 2})
+			So(ruleIDCount(t, root, "/path/temp/base/c/"), ShouldResemble, map[uint64]uint64{0: 1})
+			So(ruleIDCount(t, root, "/path/temp/base/b/e/"), ShouldResemble, map[uint64]uint64{0: 1})
 
 			r1 := createRule(t, tdb, root, "/path/temp/base/", "c/*")
 			So(ruleIDCount(t, root, "/path/temp/base/"), ShouldResemble, map[uint64]uint64{r1: 1, 0: 3})
 			So(ruleIDCount(t, root, "/path/temp/base/c/"), ShouldResemble, map[uint64]uint64{r1: 1})
 			So(ruleIDCount(t, root, "/path/temp/base/b/"), ShouldResemble, map[uint64]uint64{0: 2})
+			So(ruleIDCount(t, root, "/path/temp/base/b/e/"), ShouldResemble, map[uint64]uint64{0: 1})
 
 			r2 := createRule(t, tdb, root, "/path/temp/base/", "b/*")
 			So(ruleIDCount(t, root, "/path/temp/base/"), ShouldResemble, map[uint64]uint64{r1: 1, r2: 2, 0: 1})
 			So(ruleIDCount(t, root, "/path/temp/base/c/"), ShouldResemble, map[uint64]uint64{r1: 1})
 			So(ruleIDCount(t, root, "/path/temp/base/b/"), ShouldResemble, map[uint64]uint64{r2: 2})
+			So(ruleIDCount(t, root, "/path/temp/base/b/e/"), ShouldResemble, map[uint64]uint64{r2: 1})
 
 			RemoveRule(t, tdb, root, "/path/temp/base/", "c/*")
 
 			So(ruleIDCount(t, root, "/path/temp/base/"), ShouldResemble, map[uint64]uint64{r2: 2, 0: 2})
 			So(ruleIDCount(t, root, "/path/temp/base/c/"), ShouldResemble, map[uint64]uint64{0: 1})
 			So(ruleIDCount(t, root, "/path/temp/base/b/"), ShouldResemble, map[uint64]uint64{r2: 2})
+			So(ruleIDCount(t, root, "/path/temp/base/b/e/"), ShouldResemble, map[uint64]uint64{r2: 1})
 		})
 	})
 }
