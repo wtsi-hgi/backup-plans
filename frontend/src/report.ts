@@ -176,7 +176,7 @@ class ParentSummary extends Summary {
 						td(splitLongPath(path)),
 						td(backup.Requester),
 						td(splitLongPath(backup.Name)),
-						getStatus(this.latestMTime, backup)
+						getStatus(this.children.get(path)?.latestMTime ?? 0, backup)
 					])))
 				] : tr(td({ "colspan": "5" }, "No Backups")))
 			]),
