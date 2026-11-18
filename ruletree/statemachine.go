@@ -353,14 +353,12 @@ func (r *RuleTree) recurseResolveSlashes() {
 	r.resolveSlashes()
 }
 
-func (r *RuleTree) resolveSlashes() { //nolint:gocognit,gocyclo,funlen
+func (r *RuleTree) resolveSlashes() { //nolint:gocognit,gocyclo,funlen,cyclop
 	changed := r.Dir&RulesChanged != 0
 
 	for match, rule := range r.Rules {
-		preWildcard, _, _ := strings.Cut(match, "*")
-		slash := strings.LastIndexByte(preWildcard, '/')
-
-		if slash < 0 {
+		slash := strings.LastIndexByte(match, '*') - 1
+		if slash <= 0 || match[slash] != '/' {
 			continue
 		}
 
@@ -397,6 +395,7 @@ func (r *RuleTree) resolveSlashes() { //nolint:gocognit,gocyclo,funlen
 		}
 
 		if _, ok := curr.Rules[newMatch]; !ok {
+			rule.Match = newMatch
 			curr.Rules[newMatch] = rule
 		}
 	}
@@ -668,6 +667,12 @@ func getRuleState(rules map[string]rules.Rule) ruleState { //nolint:gocognit
 }
 
 func addRuleToList(rules Rules, path string, rule int64) Rules {
+	for _, r := range rules {
+		if string(r.Path) == path {
+			return rules
+		}
+	}
+
 	return append(rules, group.PathGroup[int64]{
 		Path:  []byte(path),
 		Group: &rule,
