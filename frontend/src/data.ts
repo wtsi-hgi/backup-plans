@@ -34,7 +34,7 @@ const all = function* (rs: RuleSummary) {
 	},
 	summarise = (tree: DirSummary, d: Directory, rules: RulesWithDirs, filter: (rs: RuleSummary) => Generator<Stats>) => {
 		for (const rs of tree.RuleSummaries) {
-			const rule = Object.assign(rules[rs.ID], {
+			const rule = Object.assign(rules[rs.ID] ?? {}, {
 				"count": 0n,
 				"size": 0n,
 				"mtime": 0,
