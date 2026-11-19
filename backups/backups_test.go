@@ -404,8 +404,8 @@ func TestRulesAreCorrectlyApplied(t *testing.T) {
 		So(ibackupClient, ShouldNotBeNil)
 
 		userA := "userA"
-		reviewDate := time.Now().Add(24 * time.Hour).UTC().Truncate(1 * time.Second).Unix() //nolint:mnd
-		removeDate := time.Now().Add(48 * time.Hour).UTC().Truncate(1 * time.Second).Unix() //nolint:mnd
+		reviewDate := time.Now().Add(24 * time.Hour).UTC().Truncate(1 * time.Second).Unix()
+		removeDate := time.Now().Add(48 * time.Hour).UTC().Truncate(1 * time.Second).Unix()
 
 		dirA := &db.Directory{
 			Path:       "/path/temp/base/",
