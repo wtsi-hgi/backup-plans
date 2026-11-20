@@ -357,8 +357,8 @@ func (r *RuleTree) resolveSlashes() { //nolint:gocognit,gocyclo,funlen,cyclop
 	changed := r.Dir&RulesChanged != 0
 
 	for match, rule := range r.Rules {
-		slash := strings.LastIndexByte(match, '*') - 1
-		if slash <= 0 || match[slash] != '/' {
+		slash := strings.LastIndexByte(match, '/')
+		if slash <= 0 || slash+1 >= len(match) {
 			continue
 		}
 
