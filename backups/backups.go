@@ -28,6 +28,7 @@ package backups
 
 import (
 	"errors"
+	"slices"
 	"strings"
 	"time"
 
@@ -77,7 +78,7 @@ func Backup(planDB *db.DB, treeNode *tree.MemTree, client *ibackup.MultiClient) 
 
 	rules := root.BuildRules()
 
-	rules[0] = collectRuleGroups(root, "/", rules[0])
+	rules = slices.Insert(rules, 0, collectRuleGroups(root, "/", nil))
 
 	sm, err := ruletree.BuildMultiStateMachine(rules)
 	if err != nil {
