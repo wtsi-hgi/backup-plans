@@ -28,6 +28,7 @@ package backups
 
 import (
 	"errors"
+	"slices"
 	"strings"
 	"time"
 
@@ -77,7 +78,7 @@ func Backup(planDB *db.DB, treeNode *tree.MemTree, client *ibackup.MultiClient) 
 
 	rules := root.BuildRules()
 
-	rules[0] = collectRuleGroups(root, "/", rules[0])
+	rules = slices.Insert(rules, 0, collectRuleGroups(root, "/", nil))
 
 	sm, err := ruletree.BuildMultiStateMachine(rules)
 	if err != nil {
@@ -165,16 +166,10 @@ func collectRuleGroups(root *ruletree.RuleTree, path string, rules ruletree.Rule
 		return rules
 	}
 
-	rules = append(rules, group.PathGroup[int64]{
-		Path:  []byte(path),
-		Group: &hasBackups,
-	})
+	rules = appendGroup(rules, path)
 
 	if root.HasBackup {
-		rules = append(rules, group.PathGroup[int64]{
-			Path:  []byte(path + "*/"),
-			Group: &hasBackups,
-		})
+		rules = appendGroup(rules, path+"*/")
 	}
 
 	for name, rt := range root.Iter() {
@@ -182,6 +177,19 @@ func collectRuleGroups(root *ruletree.RuleTree, path string, rules ruletree.Rule
 	}
 
 	return rules
+}
+
+func appendGroup(rules ruletree.Rules, path string) ruletree.Rules {
+	if slices.ContainsFunc(rules, func(i group.PathGroup[int64]) bool {
+		return string(i.Path) == path
+	}) {
+		return rules
+	}
+
+	return append(rules, group.PathGroup[int64]{
+		Path:  []byte(path),
+		Group: &hasBackups,
+	})
 }
 
 func figureOutFOFNs(node tree.Node, sm ruletree.State, path *summary.DirectoryPath,

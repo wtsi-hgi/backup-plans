@@ -353,14 +353,12 @@ func (r *RuleTree) recurseResolveSlashes() {
 	r.resolveSlashes()
 }
 
-func (r *RuleTree) resolveSlashes() { //nolint:gocognit,gocyclo,funlen
+func (r *RuleTree) resolveSlashes() { //nolint:gocognit,gocyclo,funlen,cyclop
 	changed := r.Dir&RulesChanged != 0
 
 	for match, rule := range r.Rules {
-		preWildcard, _, _ := strings.Cut(match, "*")
-		slash := strings.LastIndexByte(preWildcard, '/')
-
-		if slash < 0 {
+		slash := strings.LastIndexByte(match, '/')
+		if slash <= 0 || slash+1 >= len(match) {
 			continue
 		}
 
@@ -397,6 +395,7 @@ func (r *RuleTree) resolveSlashes() { //nolint:gocognit,gocyclo,funlen
 		}
 
 		if _, ok := curr.Rules[newMatch]; !ok {
+			rule.Match = newMatch
 			curr.Rules[newMatch] = rule
 		}
 	}
@@ -448,7 +447,7 @@ var star = []byte{'*'} //nolint:gochecknoglobals
 func (r *RuleTree) BuildRules() []Rules {
 	const maxScore = 1 << 24
 
-	rules, _ := r.buildRules("/", []Rules{nil}, 1)
+	rules, _ := r.buildRules("/", []Rules{nil}, 1, 0)
 	prules := []Rules{rules[0]}
 	score := maxScore + 1
 
@@ -485,23 +484,23 @@ func factorial(n int) int {
 	return r
 }
 
-func (r *RuleTree) buildRules(path string, rules []Rules, depth int) ([]Rules, bool) {
+func (r *RuleTree) buildRules(path string, rules []Rules, depth, numWildcards int) ([]Rules, bool) {
 	var childHasVeryComplex bool
 
-	rules, childHasVeryComplex = r.buildChildRules(path, rules, depth+1)
-	hasVeryComplex := childHasVeryComplex || r.hasComplexRules()
+	rules, childHasVeryComplex = r.buildChildRules(path, rules, depth+1, numWildcards)
+	hasVeryComplex := childHasVeryComplex || r.hasComplexRules(numWildcards)
 	rules = r.processRules(path, rules, hasVeryComplex, depth)
 
 	return rules, hasVeryComplex
 }
 
-func (r *RuleTree) buildChildRules(path string, rules []Rules, depth int) ([]Rules, bool) {
+func (r *RuleTree) buildChildRules(path string, rules []Rules, depth, numWildcards int) ([]Rules, bool) {
 	var childHasVeryComplex bool
 
 	for part, child := range r.children {
 		var complexChild bool
 
-		rules, complexChild = child.buildRules(path+part, rules, depth)
+		rules, complexChild = child.buildRules(path+part, rules, depth, numWildcards+strings.Count(part, "*"))
 		if complexChild {
 			childHasVeryComplex = true
 		}
@@ -510,9 +509,9 @@ func (r *RuleTree) buildChildRules(path string, rules []Rules, depth int) ([]Rul
 	return rules, childHasVeryComplex
 }
 
-func (r *RuleTree) hasComplexRules() bool {
+func (r *RuleTree) hasComplexRules(numWildcards int) bool {
 	for match := range r.Rules {
-		if strings.Count(match, "*") > maxWildcardsForSimple {
+		if numWildcards+strings.Count(match, "*") > maxWildcardsForSimple {
 			return true
 		}
 	}
@@ -668,6 +667,12 @@ func getRuleState(rules map[string]rules.Rule) ruleState { //nolint:gocognit
 }
 
 func addRuleToList(rules Rules, path string, rule int64) Rules {
+	for _, r := range rules {
+		if string(r.Path) == path {
+			return rules
+		}
+	}
+
 	return append(rules, group.PathGroup[int64]{
 		Path:  []byte(path),
 		Group: &rule,
