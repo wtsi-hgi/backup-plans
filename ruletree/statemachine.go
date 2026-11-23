@@ -135,17 +135,17 @@ const (
 )
 
 func generateStatemachineFor(mount string, paths []string,
-	directoryRules *rules.Database) (State, group.StateMachine[int64], error) {
+	directoryRules *rules.Database) (State, State, error) {
 	rules, wildcards := buildDirRules(mount, paths, directoryRules)
 
 	sm, err := BuildMultiStateMachine(rules)
 	if err != nil {
-		return State{}, nil, err
+		return State{}, State{}, err
 	}
 
-	wcs, err := group.NewStatemachine(wildcards)
+	wcs, err := BuildMultiStateMachine(wildcards)
 	if err != nil {
-		return State{}, nil, err
+		return State{}, State{}, err
 	}
 
 	return sm, wcs, nil
@@ -614,7 +614,7 @@ func (r *RuleTree) addRuleStates(path string, rules []Rules, wildcard int64) []R
 var basicWildcard = []rules.Rule{{Match: "*"}} //nolint:gochecknoglobals
 
 func buildDirRules(mount string, paths []string,
-	directoryRules *rules.Database) ([]Rules, Rules) {
+	directoryRules *rules.Database) ([]Rules, []Rules) {
 	dirs := slices.Collect(directoryRules.Dirs())
 
 	slices.SortFunc(dirs, func(a, b rules.Directory) int {
@@ -796,24 +796,20 @@ func addComplexWithWildcardRules(rules []Rules, path string, dirState dirState,
 	return addComplexChildRules(rules, path, ruleState, wildcard, rs)
 }
 
-func buildWildcards(d *RuleTree, path string, rules Rules) Rules { //nolint:gocyclo
+func buildWildcards(d *RuleTree, path string, rules []Rules) []Rules { //nolint:gocyclo
+	for part, child := range d.children {
+		rules = buildWildcards(child, path+part, rules)
+	}
+
 	for match, rule := range d.Rules {
 		id := rule.ID
 
 		if match == "*" && id != 0 {
-			rules = append(rules,
-				group.PathGroup[int64]{Path: []byte(path), Group: &id},
-				group.PathGroup[int64]{Path: []byte(path + "*/"), Group: &id},
-			)
+			rules = addRuleToList(rules, path, id)
+			rules = addRuleToList(rules, path+"*/", id)
 		} else if rule.Override && !strings.HasPrefix(rule.Match, "*") && strings.HasSuffix(rule.Match, "/*") {
-			rules = append(rules,
-				group.PathGroup[int64]{Path: []byte(path + "*/" + strings.TrimSuffix(rule.Match, "*")), Group: &id},
-			)
+			rules = addRuleToList(rules, path+"*/"+strings.TrimSuffix(rule.Match, "*"), id)
 		}
-	}
-
-	for part, child := range d.children {
-		rules = buildWildcards(child, path+part, rules)
 	}
 
 	return rules
