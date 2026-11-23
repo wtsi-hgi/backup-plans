@@ -436,6 +436,8 @@ func (r *RuleTree) Iter() iter.Seq2[string, *RuleTree] {
 
 var star = []byte{'*'} //nolint:gochecknoglobals
 
+const maxScore = 1 << 24
+
 // BuildRules generates a slice of Rule sets from the current RuleTree.
 //
 // The sets are split based on a scoring mechanism that intends to stop the
@@ -445,8 +447,6 @@ var star = []byte{'*'} //nolint:gochecknoglobals
 // The returned slice of Rules should be given to BuildMultiStateMachine to
 // build the combined statemachine.
 func (r *RuleTree) BuildRules() []Rules {
-	const maxScore = 1 << 24
-
 	rules, _ := r.buildRules("/", []Rules{nil}, 1, 0)
 	prules := []Rules{rules[0]}
 	score := maxScore + 1
@@ -531,7 +531,10 @@ func (r *RuleTree) processRules(path string, rules []Rules, hasVeryComplex bool,
 	}
 
 	for match, rule := range orderRulesByPrecedence(r.Rules) {
-		rules[idx] = addRuleToList(rules[idx], path+match, rule.ID)
+		rules[idx] = append(rules[idx], group.PathGroup[int64]{
+			Path:  []byte(path + match),
+			Group: &rule.ID,
+		})
 	}
 
 	return rules
@@ -580,7 +583,7 @@ func matchPrecedence(a, b string) int { //nolint:gocognit,gocyclo
 	return bPos - aPos
 }
 
-func (r *RuleTree) addRuleStates(path string, rules Rules, wildcard int64) Rules { //nolint:gocyclo
+func (r *RuleTree) addRuleStates(path string, rules []Rules, wildcard int64) []Rules { //nolint:gocyclo
 	if wc, ok := r.Rules["*"]; ok {
 		wildcard = wc.ID
 	}
@@ -637,7 +640,7 @@ func buildDirRules(mount string, paths []string,
 	root.Canon()
 
 	rules := root.BuildRules()
-	rules[0] = root.addRuleStates("/", rules[0], 0)
+	rules = slices.Insert(rules, 0, root.addRuleStates("/", nil, 0)...)
 
 	return rules, buildWildcards(root, "/", nil)
 }
@@ -666,20 +669,41 @@ func getRuleState(rules map[string]rules.Rule) ruleState { //nolint:gocognit
 	return rs
 }
 
-func addRuleToList(rules Rules, path string, rule int64) Rules {
-	for _, r := range rules {
+func addRuleToList(rules []Rules, path string, ruleID int64) []Rules {
+	rule := group.PathGroup[int64]{
+		Path:  []byte(path),
+		Group: &ruleID,
+	}
+
+	if len(rules) == 0 {
+		return []Rules{{rule}}
+	}
+
+	for _, r := range rules[len(rules)-1] {
 		if string(r.Path) == path {
 			return rules
 		}
 	}
 
-	return append(rules, group.PathGroup[int64]{
-		Path:  []byte(path),
-		Group: &rule,
-	})
+	score := 1
+
+	for _, r := range rules[len(rules)-1] {
+		starScore := factorial(bytes.Count(r.Path, star))
+		if nScore := score * starScore; nScore > maxScore {
+			rules = append(rules, nil)
+
+			break
+		} else {
+			score = nScore
+		}
+	}
+
+	rules[len(rules)-1] = append(rules[len(rules)-1], rule)
+
+	return rules
 }
 
-func addNoRuleRules(rules Rules, path string, dirState dirState, wildcard int64) Rules {
+func addNoRuleRules(rules []Rules, path string, dirState dirState, wildcard int64) []Rules {
 	process := processRules
 
 	if dirState&RulesChanged != 0 && dirState&HasChildWithRules == 0 && dirState&ParentRulesChanged == 0 {
@@ -693,7 +717,7 @@ func addNoRuleRules(rules Rules, path string, dirState dirState, wildcard int64)
 	return addRuleToList(rules, path, process)
 }
 
-func addSimpleWildcardRules(rules Rules, path string, dirState dirState, wildcard int64) Rules {
+func addSimpleWildcardRules(rules []Rules, path string, dirState dirState, wildcard int64) []Rules {
 	if dirState&RulesChanged != 0 { //nolint:nestif
 		if dirState&HasChildWithRules != 0 {
 			return addRuleToList(addRuleToList(rules, path, processRules), path+"*/", wildcard)
@@ -707,7 +731,7 @@ func addSimpleWildcardRules(rules Rules, path string, dirState dirState, wildcar
 	return addRuleToList(rules, path, -wildcard-1)
 }
 
-func addSimpleRules(rules Rules, path string, dirState dirState, wildcard int64) Rules {
+func addSimpleRules(rules []Rules, path string, dirState dirState, wildcard int64) []Rules {
 	if dirState&RulesChanged != 0 {
 		return addRuleToList(addRuleToList(rules, path, processRules), path+"*/", wildcard)
 	} else if dirState&HasChildWithChangedRules != 0 {
@@ -717,8 +741,8 @@ func addSimpleRules(rules Rules, path string, dirState dirState, wildcard int64)
 	return addRuleToList(rules, path, -wildcard-1)
 }
 
-func addComplexRules(rules Rules, path string, dirState dirState,
-	ruleState ruleState, wildcard int64, rs map[string]rules.Rule) Rules {
+func addComplexRules(rules []Rules, path string, dirState dirState,
+	ruleState ruleState, wildcard int64, rs map[string]rules.Rule) []Rules {
 	rules = addRuleToList(rules, path, processRules)
 
 	if dirState&RulesChanged == 0 && dirState&ParentRulesChanged == 0 {
@@ -728,8 +752,8 @@ func addComplexRules(rules Rules, path string, dirState dirState,
 	return addComplexChildRules(rules, path, ruleState, wildcard, rs)
 }
 
-func addComplexChildRules(rules Rules, path string, ruleState ruleState, //nolint:gocognit,gocyclo
-	wildcard int64, rs map[string]rules.Rule) Rules {
+func addComplexChildRules(rules []Rules, path string, ruleState ruleState, //nolint:gocognit,gocyclo
+	wildcard int64, rs map[string]rules.Rule) []Rules {
 	if ruleState&ComplexWildcardWithSuffix != 0 {
 		return addRuleToList(rules, path+"*/", processRules)
 	} else if ruleState&SimpleWildcard != 0 {
@@ -757,8 +781,8 @@ func addComplexChildRules(rules Rules, path string, ruleState ruleState, //nolin
 	return rules
 }
 
-func addComplexWithWildcardRules(rules Rules, path string, dirState dirState,
-	ruleState ruleState, wildcard int64, rs map[string]rules.Rule) Rules {
+func addComplexWithWildcardRules(rules []Rules, path string, dirState dirState,
+	ruleState ruleState, wildcard int64, rs map[string]rules.Rule) []Rules {
 	if dirState&RulesChanged == 0 {
 		if dirState&HasChildWithChangedRules != 0 {
 			return addRuleToList(addRuleToList(rules, path, processRules), path+"*/", -wildcard-1)
