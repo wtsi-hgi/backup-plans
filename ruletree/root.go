@@ -438,7 +438,7 @@ func (r *RootDir) Summary(path string) (*DirSummary, error) {
 }
 
 func (r *RootDir) getSummary(path string) (*DirSummary, error) {
-	wcs, _ := r.wildcards[r.getMountPoint(path)]
+	wcs := r.wildcards[r.getMountPoint(path)]
 
 	s, err := r.topLevelDir.Summary(
 		strings.TrimPrefix(path, "/"),

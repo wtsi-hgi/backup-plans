@@ -670,10 +670,7 @@ func getRuleState(rules map[string]rules.Rule) ruleState { //nolint:gocognit
 }
 
 func addRuleToList(rules []Rules, path string, ruleID int64) []Rules {
-	rule := group.PathGroup[int64]{
-		Path:  []byte(path),
-		Group: &ruleID,
-	}
+	rule := group.PathGroup[int64]{Path: []byte(path), Group: &ruleID}
 
 	if len(rules) == 0 {
 		return []Rules{{rule}}
@@ -689,13 +686,15 @@ func addRuleToList(rules []Rules, path string, ruleID int64) []Rules {
 
 	for _, r := range rules[len(rules)-1] {
 		starScore := factorial(bytes.Count(r.Path, star))
-		if nScore := score * starScore; nScore > maxScore {
+
+		nScore := score * starScore
+		if nScore > maxScore {
 			rules = append(rules, nil)
 
 			break
-		} else {
-			score = nScore
 		}
+
+		score = nScore
 	}
 
 	rules[len(rules)-1] = append(rules[len(rules)-1], rule)
