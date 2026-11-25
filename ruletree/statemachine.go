@@ -688,13 +688,13 @@ func addRuleToList(rules []Rules, path string, ruleID int64) []Rules {
 		starScore := factorial(bytes.Count(r.Path, star))
 
 		nScore := score * starScore
+		score = nScore
+
 		if nScore > maxScore {
 			rules = append(rules, nil)
 
 			break
 		}
-
-		score = nScore
 	}
 
 	rules[len(rules)-1] = append(rules[len(rules)-1], rule)

@@ -370,7 +370,7 @@ func (r *RootDir) regenRulesFor(t *topLevelDir, child *ruleOverlay, dirs []strin
 	defer r.mu.Unlock()
 
 	child.upper = processed
-	r.wildcards[mount] = wcs.GetStateString("")
+	r.wildcards[mount] = wcs
 
 	if err = t.setChild(name, child); err != nil {
 		return err
@@ -531,7 +531,7 @@ func (r *RootDir) regenRoots(newRoots map[string]rulesAndWildcards) error {
 			return err
 		}
 
-		r.wildcards[rootPath] = rw.wcs.GetStateString("")
+		r.wildcards[rootPath] = rw.wcs
 		r.updateCache(rootPath)
 	}
 
@@ -583,7 +583,7 @@ func (r *RootDir) AddTree(file string) (string, error) { //nolint:funlen,unparam
 		return "", err
 	}
 
-	r.wildcards[rootPath] = wcs.GetStateString("")
+	r.wildcards[rootPath] = wcs
 
 	r.setTreeCloser(rootPath, db, closer)
 	r.updateCache(rootPath)
