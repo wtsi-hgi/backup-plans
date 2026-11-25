@@ -658,6 +658,25 @@ func TestRuletree(t *testing.T) {
 			So(ruleIDCount(t, root, "/path/temp/base/b/"), ShouldResemble, map[uint64]uint64{r2: 2})
 			So(ruleIDCount(t, root, "/path/temp/base/b/e/"), ShouldResemble, map[uint64]uint64{r2: 1})
 		})
+
+		Convey("Complex child rules should correctly override parent wildcard rules", func() {
+			root := newRoot(t, tdb)
+
+			treeDB := buildTreeDB(t, []string{
+				"/path/temp/base/deep/deeper/backup/a.txt",
+				"/path/temp/base/deep/other/b.txt",
+			})
+
+			treeDBPath := createTree(t, treeDB)
+			_, err := root.AddTree(treeDBPath)
+			So(err, ShouldBeNil)
+
+			r1 := createRule(t, tdb, root, "/path/temp/base/", "*")
+			r2 := createRule(t, tdb, root, "/path/temp/base/deep/", "*/backup/*")
+			So(ruleIDCount(t, root, "/path/temp/base/"), ShouldResemble, map[uint64]uint64{r1: 1, r2: 1})
+			So(ruleIDCount(t, root, "/path/temp/base/deep/deeper/"), ShouldResemble, map[uint64]uint64{r2: 1})
+			So(ruleIDCount(t, root, "/path/temp/base/deep/deeper/backup/"), ShouldResemble, map[uint64]uint64{r2: 1})
+		})
 	})
 }
 

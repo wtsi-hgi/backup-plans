@@ -6,6 +6,7 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/wtsi-hgi/backup-plans/db"
+	"github.com/wtsi-hgi/backup-plans/internal/iter"
 	"github.com/wtsi-hgi/backup-plans/internal/testdb"
 )
 
@@ -14,26 +15,6 @@ func TestStateMachine(t *testing.T) {
 		tdb := testdb.CreateTestDatabase(t)
 
 		createDirRules(t, tdb, map[string][]*db.Rule{
-			"/some/path/MyDir/": {
-				{Match: "*"},
-				{Match: "*.txt"},
-			},
-			"/some/path/YourDir/": {
-				{Match: "*"},
-			},
-			"/some/path/AnotherDir/": {
-				{Match: "a*"},
-				{Match: "c*.txt"},
-			},
-			"/slash/check/": {
-				{Match: "with/slash"},
-			},
-			"/slash/check/override/": {
-				{Match: "child/slash"},
-			},
-			"/slash/check/override/child/": {
-				{Match: "slash"},
-			},
 			"/parent/override/": {
 				{Match: "bad/*", Override: true},
 			},
@@ -45,6 +26,26 @@ func TestStateMachine(t *testing.T) {
 			},
 			"/parent/override/some/child/": {
 				{Match: "bad/*"},
+			},
+			"/slash/check/": {
+				{Match: "with/slash"},
+			},
+			"/slash/check/override/": {
+				{Match: "child/slash"},
+			},
+			"/slash/check/override/child/": {
+				{Match: "slash"},
+			},
+			"/some/path/AnotherDir/": {
+				{Match: "a*"},
+				{Match: "c*.txt"},
+			},
+			"/some/path/MyDir/": {
+				{Match: "*"},
+				{Match: "*.txt"},
+			},
+			"/some/path/YourDir/": {
+				{Match: "*"},
 			},
 		})
 
@@ -110,7 +111,7 @@ func createDirRules(t *testing.T, tdb *db.DB, rules map[string][]*db.Rule) []Dir
 
 	var dirRules []DirRule
 
-	for dir, rs := range rules {
+	for dir, rs := range iter.SortedMap(rules) {
 		directory := getDir(t, tdb, dir)
 
 		if directory == nil {

@@ -382,3 +382,74 @@ func (f frozenTest) Backup(path, _, _ string, _ []server.PathMTime,
 
 	return nil
 }
+
+func TestRulesAreCorrectlyApplied(t *testing.T) {
+	Convey("Given a simple ruleset and tree, confirm that the rules are correctly applied", t, func() {
+		fofnDir := t.TempDir()
+
+		ibackupClient, err := ibackup.New(ibackup.Config{
+			Servers: map[string]ibackup.ServerDetails{
+				"server": {
+					FOFNDir: fofnDir,
+				},
+			},
+			PathToServer: map[string]ibackup.ServerTransformer{
+				"^/path/": {
+					ServerName:  "server",
+					Transformer: "prefix=/path/:/remote/",
+				},
+			},
+		})
+		So(err, ShouldBeNil)
+		So(ibackupClient, ShouldNotBeNil)
+
+		userA := "userA"
+		reviewDate := time.Now().Add(24 * time.Hour).UTC().Truncate(1 * time.Second).Unix()
+		removeDate := time.Now().Add(48 * time.Hour).UTC().Truncate(1 * time.Second).Unix()
+
+		dirA := &db.Directory{
+			Path:       "/path/temp/base/",
+			ClaimedBy:  userA,
+			Frequency:  7,
+			ReviewDate: reviewDate,
+			RemoveDate: removeDate,
+		}
+		dirB := &db.Directory{
+			Path:       "/path/temp/base/deep/",
+			ClaimedBy:  userA,
+			Frequency:  7,
+			ReviewDate: reviewDate,
+			RemoveDate: removeDate,
+		}
+		ruleA := &db.Rule{
+			BackupType: db.BackupNone,
+			Match:      "*",
+		}
+		ruleB := &db.Rule{
+			BackupType: db.BackupIBackup,
+			Match:      "*/backup/*",
+		}
+
+		testDB, _ := plandb.CreateTestDatabase(t)
+		So(testDB.CreateDirectory(dirA), ShouldBeNil)
+		So(testDB.CreateDirectory(dirB), ShouldBeNil)
+		So(testDB.CreateDirectoryRule(dirA, ruleA), ShouldBeNil)
+		So(testDB.CreateDirectoryRule(dirB, ruleB), ShouldBeNil)
+
+		dirRoot := directories.NewRoot("/", 12345)
+		directories.AddFile(&dirRoot.Directory, "path/temp/base/deep/deeper/backup/a.txt", 1, 1, 9, 98766)
+		directories.AddFile(&dirRoot.Directory, "path/temp/base/deep/other/b.txt", 1, 1, 9, 98766)
+
+		tr, dFn, err := memtree.FromTree(dirRoot, filepath.Join(t.TempDir(), "tree"))
+		So(err, ShouldBeNil)
+
+		Reset(dFn)
+
+		setInfos, err := Backup(testDB, tr, ibackupClient)
+		So(err, ShouldBeNil)
+
+		So(len(setInfos), ShouldEqual, 1)
+		So(setInfos[0].BackupSetName, ShouldEqual, "plan::/path/temp/base/deep/")
+		So(setInfos[0].FileCount, ShouldEqual, 1)
+	})
+}
